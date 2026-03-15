@@ -1,0 +1,29 @@
+# Python
+.venv
+venv
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
+
+# Node / Frontend
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist
+build
+
+# VCS / OS junk
+.git
+.gitignore
+.gitattributes
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*.yml

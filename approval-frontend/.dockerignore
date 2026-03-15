@@ -1,0 +1,23 @@
+# Node / Frontend
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+.yarn
+.yarnrc*
+dist
+build
+.next
+out
+
+# OS / VCS
+.DS_Store
+Thumbs.db
+.git
+.gitignore
+.gitattributes
+
+# Docker / Compose
+Dockerfile*
+docker-compose*.yml

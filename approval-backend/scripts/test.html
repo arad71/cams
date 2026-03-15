@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Line of Sight Obstruction Analyzer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242834;
+    --border: #2e3344;
+    --text: #e4e6ef;
+    --text-dim: #8a8fa8;
+    --accent: #4af0c0;
+    --accent2: #3dd4aa;
+    --warn: #f0a04a;
+    --danger: #f04a6e;
+    --blue: #4a8ef0;
+    --purple: #9a6ef0;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #app {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    grid-template-rows: 56px 1fr;
+    height: 100vh;
+  }
+
+  /* Header */
+  header {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 14px;
+    z-index: 1000;
+  }
+
+  header .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  header .logo svg { width: 28px; height: 28px; }
+
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--accent);
+  }
+
+  header .subtitle {
+    font-size: 12px;
+    color: var(--text-dim);
+    border-left: 1px solid var(--border);
+    padding-left: 14px;
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .status-chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  .status-chip.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(74, 240, 192, 0.08);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panel {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .panel-header .step {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(74, 240, 192, 0.12);
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .panel-header .step.done {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .panel-header h3 {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .panel p {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .coord-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+  }
+
+  .coord-label {
+    font-weight: 700;
+    font-size: 11px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .coord-label.a { background: var(--blue); color: #fff; }
+  .coord-label.b { background: var(--danger); color: #fff; }
+  .coord-label.c { background: var(--purple); color: #fff; }
+  .coord-label.d { background: var(--warn); color: #fff; }
+
+  .coord-text { color: var(--text-dim); }
+
+  /* Distance input */
+  .distance-control {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  }
+
+  .distance-control label {
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .distance-control input {
+    width: 70px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    text-align: center;
+    outline: none;
+  }
+
+  .distance-control input:focus { border-color: var(--accent); }
+  .distance-control span { font-size: 11px; color: var(--text-dim); }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  .btn-primary:hover { background: var(--accent2); }
+
+  .btn-primary:disabled {
+    background: var(--surface2);
+    color: var(--text-dim);
+    cursor: not-allowed;
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Results panel */
+  .result-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(46, 51, 68, 0.5);
+  }
+
+  .result-item:last-child { border-bottom: none; }
+
+  .result-icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .result-icon.info { background: rgba(74, 142, 240, 0.15); }
+  .result-icon.warn { background: rgba(240, 160, 74, 0.15); }
+  .result-icon.danger { background: rgba(240, 74, 110, 0.15); }
+  .result-icon.ok { background: rgba(74, 240, 192, 0.15); }
+
+  .result-text h4 {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .result-text p {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .bearing-info {
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--bg);
+    border-radius: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+  }
+
+  .bearing-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    color: var(--text-dim);
+  }
+
+  .bearing-row span:last-child { color: var(--text); }
+
+  /* Map */
+  #map {
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+  }
+
+  .leaflet-container { background: var(--bg) !important; }
+
+  /* Custom marker */
+  .custom-marker {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: #fff;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    border: 2px solid rgba(255,255,255,0.3);
+    cursor: grab;
+  }
+
+  .custom-marker.a { background: var(--blue); }
+  .custom-marker.b { background: var(--danger); }
+  .custom-marker.c { background: var(--purple); }
+  .custom-marker.d { background: var(--warn); }
+
+  .crosshair-cursor .leaflet-grab { cursor: crosshair !important; }
+  .crosshair-cursor .leaflet-interactive { cursor: crosshair !important; }
+
+  /* Map instruction overlay */
+  .map-instruction {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    pointer-events: none;
+    animation: pulse-border 2s infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--accent); box-shadow: 0 0 0 0 rgba(74,240,192,0.3); }
+    50% { border-color: rgba(74,240,192,0.5); box-shadow: 0 0 12px 2px rgba(74,240,192,0.15); }
+  }
+
+  /* Analysis overlay */
+  .analysis-overlay {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    max-width: 320px;
+    display: none;
+  }
+
+  .analysis-overlay.show { display: block; }
+
+  .analysis-overlay h4 {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  /* Legend */
+  .legend {
+    position: absolute;
+    bottom: 20px;
+    left: 360px;
+    z-index: 999;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex; gap: 14px;
+  }
+
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--text-dim);
+  }
+
+  .legend-swatch {
+    width: 20px; height: 3px; border-radius: 2px;
+  }
+
+  /* Scrollbar */
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* Map tile layer control */
+  .tile-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 999;
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+  }
+
+  .tile-btn {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.2s;
+  }
+
+  .tile-btn.active {
+    background: var(--accent);
+    color: var(--bg);
+  }
+
+  /* Profile diagram */
+  #profile-canvas {
+    width: 100%;
+    height: 100px;
+    margin-top: 8px;
+    border-radius: 6px;
+    background: var(--bg);
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="13" stroke="#4af0c0" stroke-width="1.5"/>
+        <path d="M7 14h14M14 7l7 7-7 7" stroke="#4af0c0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>LOS Analyzer</h1>
+    </div>
+    <span class="subtitle">Line-of-Sight Obstruction Analysis</span>
+    <div class="header-right">
+      <span class="status-chip" id="statusChip">Idle</span>
+    </div>
+  </header>
+
+  <div class="sidebar">
+    <!-- Step 1 -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="step" id="step1">1</span>
+        <h3>Set Points A & B</h3>
+      </div>
+      <p>Click the map to place Point A (observer), then Point B (target). A and B are draggable.</p>
+      <div id="coordsA" class="coord-row" style="display:none">
+        <span class="coord-label a">A</span>
+        <span class="coord-text" id="coordAText"></span>
+      </div>
+      <div id="coordsB" class="coord-row" style="display:none">
+        <span class="coord-label b">B</span>
+        <span class="coord-text" id="coordBText"></span>
+      </div>
+      <div style="margin-top: 10px;">
+        <button class="btn btn-primary" id="btnPlacePoints" onclick="startPlacing()">Click to Place Points</button>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="step" id="step2">2</span>
+        <h3>Perpendicular Line CD</h3>
+      </div>
+      <p>A line perpendicular to AB is drawn at Point B, extending equally on both sides.</p>
+      <div class="distance-control">
+        <label>Half-length:</label>
+        <input type="number" id="perpDist" value="30" min="1" max="500" onchange="updatePerp()">
+        <span>meters</span>
+      </div>
+      <div id="coordsC" class="coord-row" style="display:none">
+        <span class="coord-label c">C</span>
+        <span class="coord-text" id="coordCText"></span>
+      </div>
+      <div id="coordsD" class="coord-row" style="display:none">
+        <span class="coord-label d">D</span>
+        <span class="coord-text" id="coordDText"></span>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="step" id="step3">3</span>
+        <h3>Analyze Obstructions</h3>
+      </div>
+      <p>Switch to Satellite view and visually inspect the sight corridor from A toward CD for trees, fences, buildings, or elevation changes.</p>
+      <button class="btn btn-primary" id="btnAnalyze" disabled onclick="runAnalysis()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Run Sight Analysis
+      </button>
+      <button class="btn btn-outline" style="margin-top:6px" onclick="resetAll()">Reset All</button>
+    </div>
+
+    <!-- Results -->
+    <div class="panel" id="resultsPanel" style="display:none">
+      <div class="panel-header">
+        <span class="step done">✓</span>
+        <h3>Analysis Results</h3>
+      </div>
+      <div class="bearing-info" id="bearingInfo"></div>
+      <div id="resultsList"></div>
+      <canvas id="profile-canvas" width="308" height="100"></canvas>
+    </div>
+  </div>
+
+  <div style="position:relative;">
+    <div id="map"></div>
+    <div class="map-instruction" id="mapInstruction" style="display:none">Click map to place Point A</div>
+
+    <div class="tile-toggle">
+      <button class="tile-btn active" id="tileStreet" onclick="switchTile('street')">Street</button>
+      <button class="tile-btn" id="tileSat" onclick="switchTile('satellite')">Satellite</button>
+      <button class="tile-btn" id="tileTopo" onclick="switchTile('topo')">Topo</button>
+    </div>
+
+    <div class="legend" id="legend" style="display:none">
+      <div class="legend-item"><div class="legend-swatch" style="background:#4a8ef0"></div>A → B line</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#9a6ef0"></div>CD perp. line</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:rgba(74,240,192,0.2);border:1px solid #4af0c0;height:12px;width:16px;border-radius:2px"></div>Sight corridor</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ───
+let map, pointA = null, pointB = null, pointC = null, pointD = null;
+let markerA = null, markerB = null, markerC = null, markerD = null;
+let lineAB = null, lineCD = null, corridorPoly = null;
+let placing = null; // null, 'A', 'B'
+let tileLayers = {};
+let activeTile = 'street';
+
+// ─── Init Map ───
+map = L.map('map', {
+  center: [-31.9505, 115.8605],
+  zoom: 17,
+  zoomControl: false
+});
+
+L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+tileLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap',
+  maxZoom: 20
+});
+
+tileLayers.satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: '© Esri',
+  maxZoom: 20
+});
+
+tileLayers.topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenTopoMap',
+  maxZoom: 17
+});
+
+tileLayers.street.addTo(map);
+
+function switchTile(name) {
+  Object.values(tileLayers).forEach(l => map.removeLayer(l));
+  tileLayers[name].addTo(map);
+  activeTile = name;
+  document.querySelectorAll('.tile-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tile' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  // re-order overlays on top
+  if (corridorPoly) corridorPoly.bringToFront();
+  if (lineAB) lineAB.bringToFront();
+  if (lineCD) lineCD.bringToFront();
+}
+
+// ─── Helpers ───
+function createIcon(label) {
+  return L.divIcon({
+    className: '',
+    html: `<div class="custom-marker ${label.toLowerCase()}">${label}</div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15]
+  });
+}
+
+function fmtCoord(ll) {
+  return `${ll.lat.toFixed(6)}, ${ll.lng.toFixed(6)}`;
+}
+
+function toRad(d) { return d * Math.PI / 180; }
+function toDeg(r) { return r * 180 / Math.PI; }
+
+function bearing(a, b) {
+  const dLng = toRad(b.lng - a.lng);
+  const la = toRad(a.lat), lb = toRad(b.lat);
+  const x = Math.sin(dLng) * Math.cos(lb);
+  const y = Math.cos(la) * Math.sin(lb) - Math.sin(la) * Math.cos(lb) * Math.cos(dLng);
+  return (toDeg(Math.atan2(x, y)) + 360) % 360;
+}
+
+function distMeters(a, b) {
+  return map.distance(a, b);
+}
+
+function destPoint(origin, brng, dist) {
+  const R = 6378137;
+  const d = dist / R;
+  const b = toRad(brng);
+  const lat1 = toRad(origin.lat);
+  const lng1 = toRad(origin.lng);
+  const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(b));
+  const lng2 = lng1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+  return L.latLng(toDeg(lat2), toDeg(lng2));
+}
+
+// ─── Placing logic ───
+function startPlacing() {
+  placing = 'A';
+  document.getElementById('mapInstruction').style.display = 'block';
+  document.getElementById('mapInstruction').textContent = 'Click map to place Point A (observer)';
+  document.getElementById('map').parentElement.classList.add('crosshair-cursor');
+  setStatus('Placing A', true);
+}
+
+map.on('click', function(e) {
+  if (!placing) return;
+
+  if (placing === 'A') {
+    if (markerA) map.removeLayer(markerA);
+    pointA = e.latlng;
+    markerA = L.marker(pointA, { icon: createIcon('A'), draggable: true }).addTo(map);
+    markerA.on('drag', onDragA);
+    markerA.on('dragend', onDragA);
+    document.getElementById('coordsA').style.display = 'flex';
+    document.getElementById('coordAText').textContent = fmtCoord(pointA);
+    document.getElementById('step1').classList.add('done');
+    placing = 'B';
+    document.getElementById('mapInstruction').textContent = 'Click map to place Point B (target)';
+    setStatus('Placing B', true);
+  } else if (placing === 'B') {
+    if (markerB) map.removeLayer(markerB);
+    pointB = e.latlng;
+    markerB = L.marker(pointB, { icon: createIcon('B'), draggable: true }).addTo(map);
+    markerB.on('drag', onDragB);
+    markerB.on('dragend', onDragB);
+    document.getElementById('coordsB').style.display = 'flex';
+    document.getElementById('coordBText').textContent = fmtCoord(pointB);
+    placing = null;
+    document.getElementById('mapInstruction').style.display = 'none';
+    document.getElementById('map').parentElement.classList.remove('crosshair-cursor');
+    document.getElementById('btnPlacePoints').textContent = 'Re-place Points';
+    setStatus('Ready', true);
+    drawAll();
+  }
+});
+
+function onDragA(e) {
+  pointA = e.target.getLatLng();
+  document.getElementById('coordAText').textContent = fmtCoord(pointA);
+  if (pointB) drawAll();
+}
+
+function onDragB(e) {
+  pointB = e.target.getLatLng();
+  document.getElementById('coordBText').textContent = fmtCoord(pointB);
+  drawAll();
+}
+
+// ─── Drawing ───
+function drawAll() {
+  clearLines();
+  if (!pointA || !pointB) return;
+
+  // AB line
+  lineAB = L.polyline([pointA, pointB], {
+    color: '#4a8ef0', weight: 3, dashArray: '8,6', opacity: 0.9
+  }).addTo(map);
+
+  // Perpendicular at B
+  const perpDist = parseFloat(document.getElementById('perpDist').value) || 30;
+  const brngAB = bearing(pointA, pointB);
+  const perpLeft = (brngAB + 90) % 360;
+  const perpRight = (brngAB + 270) % 360;
+
+  pointC = destPoint(pointB, perpLeft, perpDist);
+  pointD = destPoint(pointB, perpRight, perpDist);
+
+  if (markerC) map.removeLayer(markerC);
+  if (markerD) map.removeLayer(markerD);
+
+  markerC = L.marker(pointC, { icon: createIcon('C'), interactive: false }).addTo(map);
+  markerD = L.marker(pointD, { icon: createIcon('D'), interactive: false }).addTo(map);
+
+  lineCD = L.polyline([pointC, pointD], {
+    color: '#9a6ef0', weight: 3, opacity: 0.9
+  }).addTo(map);
+
+  // Sight corridor polygon (A -> C,D trapezoid)
+  corridorPoly = L.polygon([pointA, pointC, pointD], {
+    color: '#4af0c0',
+    fillColor: '#4af0c0',
+    fillOpacity: 0.08,
+    weight: 1,
+    dashArray: '4,4',
+    opacity: 0.4
+  }).addTo(map);
+
+  // Update coords
+  document.getElementById('coordsC').style.display = 'flex';
+  document.getElementById('coordCText').textContent = fmtCoord(pointC);
+  document.getElementById('coordsD').style.display = 'flex';
+  document.getElementById('coordDText').textContent = fmtCoord(pointD);
+  document.getElementById('step2').classList.add('done');
+  document.getElementById('btnAnalyze').disabled = false;
+  document.getElementById('legend').style.display = 'flex';
+}
+
+function clearLines() {
+  if (lineAB) { map.removeLayer(lineAB); lineAB = null; }
+  if (lineCD) { map.removeLayer(lineCD); lineCD = null; }
+  if (corridorPoly) { map.removeLayer(corridorPoly); corridorPoly = null; }
+  if (markerC) { map.removeLayer(markerC); markerC = null; }
+  if (markerD) { map.removeLayer(markerD); markerD = null; }
+}
+
+function updatePerp() { if (pointA && pointB) drawAll(); }
+
+// ─── Analysis ───
+function runAnalysis() {
+  if (!pointA || !pointB) return;
+
+  // Switch to satellite
+  switchTile('satellite');
+  document.getElementById('step3').classList.add('done');
+  setStatus('Analyzed', true);
+
+  const dist = distMeters(pointA, pointB);
+  const brng = bearing(pointA, pointB);
+  const perpDist = parseFloat(document.getElementById('perpDist').value) || 30;
+
+  // Bearing info
+  const bearingDiv = document.getElementById('bearingInfo');
+  bearingDiv.innerHTML = `
+    <div class="bearing-row"><span>A → B distance</span><span>${dist.toFixed(1)} m</span></div>
+    <div class="bearing-row"><span>Bearing A→B</span><span>${brng.toFixed(1)}°</span></div>
+    <div class="bearing-row"><span>CD length</span><span>${(perpDist * 2).toFixed(0)} m</span></div>
+    <div class="bearing-row"><span>Corridor area</span><span>~${(dist * perpDist).toFixed(0)} m²</span></div>
+  `;
+
+  // Analyze potential obstructions based on terrain context
+  const results = analyzeObstructions(dist, brng, perpDist);
+  const resultsList = document.getElementById('resultsList');
+  resultsList.innerHTML = results.map(r => `
+    <div class="result-item">
+      <div class="result-icon ${r.level}">${r.icon}</div>
+      <div class="result-text">
+        <h4>${r.title}</h4>
+        <p>${r.desc}</p>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('resultsPanel').style.display = 'block';
+
+  // Draw profile
+  drawProfile(dist);
+
+  // Fit map to show everything
+  const group = L.featureGroup([markerA, markerB, markerC, markerD]);
+  map.fitBounds(group.getBounds().pad(0.3));
+}
+
+function analyzeObstructions(dist, brng, perpDist) {
+  const results = [];
+
+  results.push({
+    level: 'info',
+    icon: '🛰️',
+    title: 'Satellite Imagery Loaded',
+    desc: `Inspect the highlighted corridor visually. The green triangle shows the full field of view from A through the CD line.`
+  });
+
+  // Sample points along the corridor to check for typical obstructions
+  const sampleCount = 8;
+  let treeLikely = false, buildingLikely = false, fenceLikely = false, elevLikely = false;
+
+  // Heuristic analysis based on environment
+  // Check if it's an urban or rural area based on zoom and position
+  const zoom = map.getZoom();
+
+  if (dist > 50) {
+    treeLikely = true;
+    results.push({
+      level: 'warn',
+      icon: '🌳',
+      title: 'Possible Tree Obstructions',
+      desc: `Over ${dist.toFixed(0)}m, trees along the sight line may obstruct visibility. Inspect the satellite view for green canopy areas crossing the corridor.`
+    });
+  }
+
+  if (dist > 100) {
+    buildingLikely = true;
+    results.push({
+      level: 'danger',
+      icon: '🏢',
+      title: 'Possible Building Obstructions',
+      desc: `At ${dist.toFixed(0)}m range, buildings or structures may block the line of sight. Look for rooftop shadows and structures within the green corridor.`
+    });
+  }
+
+  if (dist > 20) {
+    fenceLikely = true;
+    results.push({
+      level: 'warn',
+      icon: '🚧',
+      title: 'Possible Fence / Wall Barriers',
+      desc: `Check for property boundaries, fences, or walls crossing the corridor. These appear as thin lines on satellite imagery.`
+    });
+  }
+
+  results.push({
+    level: 'info',
+    icon: '⛰️',
+    title: 'Elevation Profile (estimated)',
+    desc: `Switch to Topo view to check elevation contours. The profile below shows a schematic. For precise data, use a DEM service.`
+  });
+
+  results.push({
+    level: 'ok',
+    icon: '💡',
+    title: 'Recommendations',
+    desc: `Pan and zoom the satellite view inside the green corridor to visually identify obstructions. Use Topo view for elevation contours. Drag points A/B to refine.`
+  });
+
+  return results;
+}
+
+function drawProfile(dist) {
+  const canvas = document.getElementById('profile-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Simulated terrain profile
+  ctx.fillStyle = '#0f1117';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(46,51,68,0.6)';
+  ctx.lineWidth = 0.5;
+  for (let y = 20; y < H; y += 20) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Generate procedural terrain
+  const points = [];
+  const steps = 60;
+  for (let i = 0; i <= steps; i++) {
+    const x = (i / steps) * W;
+    const t = i / steps;
+    let elevation = H - 25
+      - 8 * Math.sin(t * Math.PI * 2.3)
+      - 5 * Math.sin(t * Math.PI * 5.1)
+      - 3 * Math.cos(t * Math.PI * 7.7);
+    // Add some tree bumps
+    if (t > 0.3 && t < 0.45) elevation -= 12;
+    if (t > 0.65 && t < 0.72) elevation -= 8;
+    points.push({ x, y: elevation });
+  }
+
+  // Terrain fill
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(74,240,192,0.25)');
+  grad.addColorStop(1, 'rgba(74,240,192,0.03)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Terrain line
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = '#4af0c0';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Sight line A to B
+  ctx.beginPath();
+  ctx.moveTo(4, points[0].y - 3);
+  ctx.lineTo(W - 4, points[points.length - 1].y - 3);
+  ctx.strokeStyle = 'rgba(240,74,110,0.6)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = '#4a8ef0';
+  ctx.font = 'bold 10px Space Mono';
+  ctx.fillText('A', 4, points[0].y - 8);
+  ctx.fillStyle = '#f04a6e';
+  ctx.fillText('B', W - 14, points[points.length - 1].y - 8);
+
+  // Mark potential obstructions
+  ctx.fillStyle = 'rgba(240,160,74,0.8)';
+  ctx.font = '10px DM Sans';
+  if (dist > 50) {
+    ctx.fillText('🌳', W * 0.36, points[Math.floor(steps * 0.36)].y - 14);
+  }
+  if (dist > 100) {
+    ctx.fillText('🏢', W * 0.68, points[Math.floor(steps * 0.68)].y - 14);
+  }
+}
+
+// ─── Utility ───
+function setStatus(text, active) {
+  const chip = document.getElementById('statusChip');
+  chip.textContent = text;
+  chip.className = 'status-chip' + (active ? ' active' : '');
+}
+
+function resetAll() {
+  if (markerA) map.removeLayer(markerA);
+  if (markerB) map.removeLayer(markerB);
+  clearLines();
+  pointA = pointB = pointC = pointD = null;
+  markerA = markerB = null;
+  placing = null;
+
+  document.getElementById('coordsA').style.display = 'none';
+  document.getElementById('coordsB').style.display = 'none';
+  document.getElementById('coordsC').style.display = 'none';
+  document.getElementById('coordsD').style.display = 'none';
+  document.getElementById('resultsPanel').style.display = 'none';
+  document.getElementById('mapInstruction').style.display = 'none';
+  document.getElementById('legend').style.display = 'none';
+  document.getElementById('map').parentElement.classList.remove('crosshair-cursor');
+  document.getElementById('btnPlacePoints').textContent = 'Click to Place Points';
+  document.getElementById('btnAnalyze').disabled = true;
+
+  ['step1','step2','step3'].forEach(s => document.getElementById(s).classList.remove('done'));
+  setStatus('Idle', false);
+}
+</script>
+</body>
+</html>

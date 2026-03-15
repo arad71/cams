@@ -1,0 +1,175 @@
+{
+  "form_title": "Crossover Application",
+  "source_page": 15,
+  "page_dimensions": {
+    "width_pt": 595.6,
+    "height_pt": 842.0
+  },
+  "document_version": "3.1",
+  "date_of_issue": "23/06/2022",
+  "issuer": "City of Kalamunda — Asset Planning",
+  "form_description": "This form is required for all crossovers and must be completed by the Lot Owner.",
+  "declaration": "By signing this the Lot Owner declares that they will construct the crossover in accordance with the Specification for Crossover Construction and will ensure the protection of trees and vegetation in the verge.",
+  "submission": {
+    "email": "enquiries@kalamunda.wa.gov.au.",
+    "phone": "92579999",
+    "processing_time": "three weeks",
+    "postal": "PO Box 42, Kalamunda WA 6926"
+  },
+  "attachment_requirements": "Please attach a site plan, clearly dimensioned and showing all details required in the Specifications.",
+  "fields": [
+    {
+      "id": "lot_owner_name",
+      "label": "Lot Owner's Name",
+      "type": "text",
+      "required": true,
+      "description": "Full legal name of the property owner",
+      "position": {
+        "line": "Lot Owner’s Name:",
+        "line_number": 3,
+        "top": 220.5,
+        "bottom": 231.5,
+        "label_x0": 39.5,
+        "label_x1": 133.0
+      }
+    },
+    {
+      "id": "phone",
+      "label": "Phone",
+      "type": "tel",
+      "required": true,
+      "description": "Contact phone number",
+      "position": {
+        "line": "Phone:",
+        "line_number": 4,
+        "top": 246.5,
+        "bottom": 257.5,
+        "label_x0": 39.5,
+        "label_x1": 74.1
+      }
+    },
+    {
+      "id": "email",
+      "label": "Email",
+      "type": "email",
+      "required": true,
+      "description": "Contact email address",
+      "position": {
+        "line": "Email:",
+        "line_number": 5,
+        "top": 273.2,
+        "bottom": 284.2,
+        "label_x0": 39.5,
+        "label_x1": 68.7
+      }
+    },
+    {
+      "id": "postal_address",
+      "label": "Postal Address",
+      "type": "text",
+      "required": true,
+      "description": "Mailing address for correspondence",
+      "position": {
+        "line": "Postal Address:",
+        "line_number": 6,
+        "top": 299.9,
+        "bottom": 311.0,
+        "label_x0": 39.5,
+        "label_x1": 115.3
+      }
+    },
+    {
+      "id": "property_address",
+      "label": "Address of property requiring a crossover",
+      "type": "text",
+      "required": true,
+      "description": "Street address of the property where crossover will be built",
+      "position": {
+        "line": "Address of property",
+        "line_number": 7,
+        "top": 326.8,
+        "bottom": 337.9,
+        "label_x0": 39.5,
+        "label_x1": 138.2
+      }
+    },
+    {
+      "id": "estimated_construction_date",
+      "label": "Estimated construction date",
+      "type": "date",
+      "required": true,
+      "description": "Planned date for crossover construction (DD/MM/YYYY)",
+      "position": {
+        "line": "Estimated construction date:",
+        "line_number": 9,
+        "top": 368.1,
+        "bottom": 379.1,
+        "label_x0": 39.5,
+        "label_x1": 181.2
+      }
+    },
+    {
+      "id": "dev_application_number",
+      "label": "Development or building application number (if applicable)",
+      "type": "text",
+      "required": false,
+      "description": "Reference number if part of a development or building application",
+      "position": {
+        "line": "Development or building",
+        "line_number": 10,
+        "top": 393.2,
+        "bottom": 404.2,
+        "label_x0": 39.5,
+        "label_x1": 161.6
+      }
+    },
+    {
+      "id": "lot_owner_signature",
+      "label": "Lot Owner's Signature",
+      "type": "signature",
+      "required": true,
+      "description": "Owner's signature declaring compliance with specifications",
+      "position": {
+        "line": "Lot Owner’s Signature:",
+        "line_number": 16,
+        "top": 500.1,
+        "bottom": 511.2,
+        "label_x0": 39.5,
+        "label_x1": 150.6
+      }
+    },
+    {
+      "id": "date_signed",
+      "label": "Date",
+      "type": "date",
+      "required": true,
+      "description": "Date of signing",
+      "position": {
+        "line": "Date:",
+        "line_number": 17,
+        "top": 527.0,
+        "bottom": 538.0,
+        "label_x0": 39.5,
+        "label_x1": 65.5
+      }
+    },
+    {
+      "id": "num_attachments",
+      "label": "Number of attachments",
+      "type": "number",
+      "required": true,
+      "description": "Count of attached documents (site plan etc.)",
+      "position": {
+        "line": "Number of attachments:",
+        "line_number": 20,
+        "top": 588.9,
+        "bottom": 600.0,
+        "label_x0": 39.5,
+        "label_x1": 160.3
+      }
+    }
+  ],
+  "field_count": 10,
+  "required_field_count": 9,
+  "optional_field_count": 1
+}

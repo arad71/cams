@@ -1,0 +1,114 @@
+{
+  "form_title": "Crossover Application",
+  "source_file": "filled_with_signature.pdf",
+  "source_page": 15,
+  "extraction_methods": {
+    "annotations": 9,
+    "form_fields": 0,
+    "embedded_text": 0,
+    "ocr_fields": 0,
+    "signatures_detected": 0
+  },
+  "summary": {
+    "total_fields": 10,
+    "filled_fields": 9,
+    "empty_fields": 1
+  },
+  "fields": [
+    {
+      "field_id": "lot_owner_name",
+      "label": "Lot Owner's Name",
+      "value": "John Michael Smith",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "phone",
+      "label": "Phone",
+      "value": "0412 345 678",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "email",
+      "label": "Email",
+      "value": "john.smith@email.com.au",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "postal_address",
+      "label": "Postal Address",
+      "value": "42 Kalamunda Rd, Kalamunda WA 6076",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "property_address",
+      "label": "Address of property requiring a crossover",
+      "value": "15 Stirling Cres, Kalamunda WA 6076",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "estimated_construction_date",
+      "label": "Estimated construction date",
+      "value": "15/03/2026",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "dev_application_number",
+      "label": "Development or building application number",
+      "value": "DA-2025-0142",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "lot_owner_signature",
+      "label": "Lot Owner's Signature",
+      "value": null,
+      "signed": false,
+      "filled": false,
+      "source": null,
+      "confidence": null,
+      "signature_detail": null,
+      "ink_ratio": null
+    },
+    {
+      "field_id": "date_signed",
+      "label": "Date",
+      "value": "01/03/2026",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    },
+    {
+      "field_id": "num_attachments",
+      "label": "Number of attachments",
+      "value": "2",
+      "filled": true,
+      "source": "annotation",
+      "confidence": 99
+    }
+  ],
+  "values": {
+    "lot_owner_name": "John Michael Smith",
+    "phone": "0412 345 678",
+    "email": "john.smith@email.com.au",
+    "postal_address": "42 Kalamunda Rd, Kalamunda WA 6076",
+    "property_address": "15 Stirling Cres, Kalamunda WA 6076",
+    "estimated_construction_date": "15/03/2026",
+    "dev_application_number": "DA-2025-0142",
+    "lot_owner_signature": false,
+    "date_signed": "01/03/2026",
+    "num_attachments": "2"
+  }
+}
