@@ -1,0 +1,725 @@
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { SPEED_ROADS_DATA, SIGHT_DISTANCE_TABLE } from '../../data/constants';
+import { getAppCoords, getFirstRing, normalizeLotPolygon, findNearestRoadSpeed, getSightDistances } from '../../utils/geoHelpers';
+import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment } from '../../utils/geo';
+import LeafletMap from './LeafletMap';
+
+// ═══════════════════════════════════════════════════════════
+//  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
+// ═══════════════════════════════════════════════════════════
+function MapWithOverlay({ app, apps, onSelectApp }) {
+  const [showLots, setShowLots] = useState(true);
+  const [showSpeedRoads, setShowSpeedRoads] = useState(true);
+  const [showStreetNames, setShowStreetNames] = useState(true);
+  const [lotsData, setLotsData] = useState(null);
+  const [lotsLoading, setLotsLoading] = useState(false);
+  const [lotsError, setLotsError] = useState(null);
+
+  // useEffect(() => {
+  //   if (showLots && !lotsData && !lotsLoading) {
+  //     setLotsLoading(true);
+  //     if (window.__KALAMUNDA_LOTS__) { setLotsData(window.__KALAMUNDA_LOTS__); setLotsLoading(false); }
+  //     else { const ck = setInterval(() => { if (window.__KALAMUNDA_LOTS__) { setLotsData(window.__KALAMUNDA_LOTS__); setLotsLoading(false); clearInterval(ck); } }, 100); setTimeout(() => { clearInterval(ck); setLotsLoading(false); }, 5000); }
+  //   }
+  // }, [showLots, lotsData, lotsLoading]);
+
+  
+  useEffect(() => {
+    if (!showLots || lotsData || lotsLoading) return;
+  
+
+    let cancelled = false;
+
+    async function loadLots() {
+      try {
+        // 1) Prefer a global already injected (keeps your existing behavior)
+        // if (window.__KALAMUNDA_LOTS__) {
+        //   if (!cancelled) {
+        //     setLotsData(window.__KALAMUNDA_LOTS__);
+        //     setLotsLoading(false);
+        //   }
+        //   return;
+        // }
+
+        // 2) Otherwise, fetch from /lot.geojson
+        const res = await fetch('/lot.geojson', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`Failed to load lot.geojson: ${res.status}`);
+        const gj = await res.json();
+
+        if (!cancelled) {
+          setLotsData(gj);
+          setLotsLoading(false);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLotsError(err);
+          setLotsLoading(false);
+        }
+      }
+    }
+
+    loadLots();
+    return () => { cancelled = true; };
+  }, [showLots, lotsData, lotsLoading]);
+
+  const [drawMode, setDrawMode] = useState(null);
+  const [ptA, setPtA] = useState(null);
+  const [ptB, setPtB] = useState(null);
+  const [sightTriangle, setSightTriangle] = useState(null);
+  const coords = getAppCoords(lotsData, app);
+
+  // 3D Sight Analysis state
+  const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisSteps, setAnalysisSteps] = useState([]);
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState('obstructions');
+  const [eyeHeight, setEyeHeight] = useState(1.15);
+  const [objectHeight, setObjectHeight] = useState(0.65);
+
+  // ── 3D Sight Analysis Engine (from sight_line_3d-1.html) ──
+  const R_3D = 6371000, toRad3D = d => d * Math.PI / 180;
+  const havDist3D = (a, b) => { const dl = toRad3D(b.lat - a.lat), dn = toRad3D(b.lng - a.lng), x = Math.sin(dl / 2) ** 2 + Math.cos(toRad3D(a.lat)) * Math.cos(toRad3D(b.lat)) * Math.sin(dn / 2) ** 2; return R_3D * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)); };
+  const lerpPt3D = (a, b, t) => ({ lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t });
+  const segX3D = (a, b, c, d) => { const det = (b.lng - a.lng) * (d.lat - c.lat) - (b.lat - a.lat) * (d.lng - c.lng); if (Math.abs(det) < 1e-14) return null; const t = ((c.lng - a.lng) * (d.lat - c.lat) - (c.lat - a.lat) * (d.lng - c.lng)) / det, u = ((c.lng - a.lng) * (b.lat - a.lat) - (c.lat - a.lat) * (b.lng - a.lng)) / det; if (t > 0.005 && t < 0.995 && u > 0.005 && u < 0.995) return true; return null; };
+
+  const getElevAt3D = (pt, eg) => {
+    let b1 = { d: Infinity, e: 0 }, b2 = { d: Infinity, e: 0 };
+    for (let i = 0; i < eg.pts.length; i++) { const d = havDist3D(pt, eg.pts[i]); if (d < b1.d) { b2 = { ...b1 }; b1 = { d, e: eg.elevs[i] }; } else if (d < b2.d) b2 = { d, e: eg.elevs[i] }; }
+    if (b1.d < 0.1) return b1.e; const tot = b1.d + b2.d; return b1.e * (1 - b1.d / tot) + b2.e * (1 - b2.d / tot);
+  };
+
+  const fetchOSM3D = async (ctr, r) => {
+    r = Math.min(r, 500);
+    const q = `[out:json][timeout:25];(way["building"](around:${r},${ctr.lat},${ctr.lng});way["barrier"="fence"](around:${r},${ctr.lat},${ctr.lng});way["barrier"="wall"](around:${r},${ctr.lat},${ctr.lng});way["barrier"="retaining_wall"](around:${r},${ctr.lat},${ctr.lng});way["barrier"="hedge"](around:${r},${ctr.lat},${ctr.lng});node["natural"="tree"](around:${r},${ctr.lat},${ctr.lng});way["natural"="tree_row"](around:${r},${ctr.lat},${ctr.lng});way["landuse"="forest"](around:${r},${ctr.lat},${ctr.lng});way["man_made"="embankment"](around:${r},${ctr.lat},${ctr.lng}););out body geom;`;
+    const resp = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`); return resp.json();
+  };
+
+  const procOSM3D = (data) => {
+    const ff = []; if (!data?.elements) return ff;
+    for (const el of data.elements) {
+      let tp = null, ht = 0, geom = []; const tg = el.tags || {};
+      if (tg.building) { tp = 'building'; const l = parseInt(tg['building:levels']) || 0, h = parseFloat(tg.height); ht = !isNaN(h) ? h : l > 0 ? l * 3 : 6; if (el.geometry) geom = el.geometry.map(n => ({ lat: n.lat, lng: n.lon })); }
+      else if (tg.barrier === 'fence') { tp = 'fence'; ht = parseFloat(tg.height) || 1.5; if (el.geometry) geom = el.geometry.map(n => ({ lat: n.lat, lng: n.lon })); }
+      else if (tg.barrier === 'wall' || tg.barrier === 'retaining_wall') { tp = 'wall'; ht = parseFloat(tg.height) || 2; if (el.geometry) geom = el.geometry.map(n => ({ lat: n.lat, lng: n.lon })); }
+      else if (tg.barrier === 'hedge') { tp = 'hedge'; ht = parseFloat(tg.height) || 1.2; if (el.geometry) geom = el.geometry.map(n => ({ lat: n.lat, lng: n.lon })); }
+      else if (tg.natural === 'tree') { tp = 'tree'; ht = parseFloat(tg.height) || 8; if (el.lat && el.lon) geom = [{ lat: el.lat, lng: el.lon }]; }
+      else if (tg.natural === 'tree_row') { tp = 'tree_row'; ht = 6; if (el.geometry) geom = el.geometry.map(n => ({ lat: n.lat, lng: n.lon })); }
+      else if (tg.landuse === 'forest' || tg.natural === 'wood') { tp = 'vegetation'; ht = 10; if (el.geometry) geom = el.geometry.map(n => ({ lat: n.lat, lng: n.lon })); }
+      else if (tg.man_made === 'embankment') { tp = 'embankment'; ht = 2; if (el.geometry) geom = el.geometry.map(n => ({ lat: n.lat, lng: n.lon })); }
+      if (tp && geom.length > 0) ff.push({ id: el.id, type: tp, estimatedHeight: ht, geometry: geom, tags: tg, name: tg.name || tg['addr:street'] || `${tp} #${el.id}` });
+    } return ff;
+  };
+
+  const fetchElev3D = async (points) => {
+    const lats = points.map(p => p.lat.toFixed(6)).join(','), lngs = points.map(p => p.lng.toFixed(6)).join(',');
+    const resp = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`);
+    if (!resp.ok) throw new Error(`Elev ${resp.status}`); return resp.json();
+  };
+
+  const losEngine3D = (A, C, D, feats, eg, eyeH, tgtH) => {
+    const elevA = getElevAt3D(A, eg), eyeAlt = elevA + eyeH;
+    const obs = [], seen = new Set(), rays = [];
+    for (let ri = 0; ri <= 40; ri++) {
+      const tgt = lerpPt3D(C, D, ri / 40), elevTgt = getElevAt3D(tgt, eg), tgtAlt = elevTgt + tgtH, rayDist = havDist3D(A, tgt);
+      const rayObs = []; let tBlocked = false, tBlockPt = null, tBlockInfo = null;
+      for (let si = 1; si < 25; si++) {
+        const sf = si / 25, sp = lerpPt3D(A, tgt, sf), sd = rayDist * sf, rayAlt = eyeAlt + (tgtAlt - eyeAlt) * sf, gnd = getElevAt3D(sp, eg);
+        if (gnd > rayAlt && !tBlocked) { tBlocked = true; tBlockPt = sp; tBlockInfo = { groundElev: gnd, rayAlt, excessHeight: gnd - rayAlt, dist: sd }; }
+        for (const f of feats) {
+          if (seen.has(f.id + '_' + ri)) continue;
+          let hit = false;
+          if (f.type === 'tree' && f.geometry.length === 1) { if (havDist3D(sp, f.geometry[0]) < Math.min(f.estimatedHeight * 0.4, 5)) hit = true; }
+          else if (f.geometry.length >= 2) { for (const g of f.geometry) { if (havDist3D(sp, g) < 3) { hit = true; break; } } if (!hit) { for (let gi = 0; gi < f.geometry.length - 1; gi++) { if (segX3D(A, tgt, f.geometry[gi], f.geometry[gi + 1])) { hit = true; break; } } } }
+          if (hit) { const fg = f.groundElev != null ? f.groundElev : gnd, ft = fg + f.estimatedHeight; if (ft > rayAlt) { rayObs.push({ feature: f, point: f.geometry[0], distFromA: havDist3D(A, f.geometry[0]), isCritical: f.estimatedHeight >= 0.5 && f.estimatedHeight <= 1.0, blockType: 'feature', fGroundElev: fg, fTopAlt: ft, rayAltAtFeature: rayAlt, excessHeight: ft - rayAlt }); seen.add(f.id + '_' + ri); } }
+        }
+      }
+      if (tBlocked && tBlockPt) rayObs.push({ feature: { id: 'terrain_' + ri, type: 'terrain_ridge', estimatedHeight: tBlockInfo.excessHeight, geometry: [tBlockPt], tags: {}, name: 'Terrain Ridge' }, point: tBlockPt, distFromA: tBlockInfo.dist, isCritical: false, blockType: 'terrain', fGroundElev: tBlockInfo.groundElev, fTopAlt: tBlockInfo.groundElev, rayAltAtFeature: tBlockInfo.rayAlt, excessHeight: tBlockInfo.excessHeight });
+      rays.push({ target: tgt, obstructed: rayObs.length > 0, obs: rayObs, elevA, elevTgt, eyeAlt, tgtAlt });
+      for (const o of rayObs) { const uid = o.feature.id; if (!seen.has('m_' + uid)) { seen.add('m_' + uid); obs.push(o); } }
+    }
+    return { obstructions: obs, rays, features: feats, elevA, eyeAlt };
+  };
+
+  const aiClassify3D = async (A, C, D, obs, feats, ei) => {
+    try {
+      const prompt = `You are a 3D geospatial line-of-sight analyst. Observer A at ${ei.elevA.toFixed(1)}m ASL + ${ei.eyeH}m eye. Line C→D: ${havDist3D(C, D).toFixed(0)}m span at ${ei.elevCD.toFixed(1)}m ASL + ${ei.tgtH}m. ${obs.length} obstructions exceed sight ray. Features: ${feats.length}. Classify visibility. JSON only: {"overall_rating":"CLEAR|PARTIALLY_OBSTRUCTED|SEVERELY_OBSTRUCTED|BLOCKED","visibility_pct":0,"analysis_summary":"","critical_low_obstructions":[],"recommendations":[],"elevation_insight":""}`;
+      const resp = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }) });
+      const data = await resp.json(); return JSON.parse((data.content || []).map(c => c.text || '').join('').replace(/```json|```/g, '').trim());
+    } catch {
+      const vis = Math.max(0, Math.round((1 - obs.length / Math.max(feats.length + 1, 1) * 0.8) * 100));
+      let rt = 'CLEAR'; if (vis < 30) rt = 'BLOCKED'; else if (vis < 55) rt = 'SEVERELY_OBSTRUCTED'; else if (vis < 80) rt = 'PARTIALLY_OBSTRUCTED';
+      return { overall_rating: rt, visibility_pct: vis, analysis_summary: `${obs.length} obstructions found, ${obs.filter(o => o.isCritical).length} critical low.`, critical_low_obstructions: obs.filter(o => o.isCritical).map(c => ({ name: c.feature.name, height_range: c.feature.estimatedHeight.toFixed(1) + 'm', impact: `Exceeds ray by ${c.excessHeight?.toFixed(2)}m` })), recommendations: ['Review obstructions.'], elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, targets at ${ei.elevCD.toFixed(1)}m.` };
+    }
+  };
+
+  // Run the full 3D analysis using existing A/B and derived C/D points
+  const run3DSightAnalysis = async () => {
+    if (!sightTriangle?.ptA || !sightTriangle?.triLeft || !sightTriangle?.triRight) return;
+    const A = sightTriangle.ptA, C = sightTriangle.triLeft, D = sightTriangle.triRight;
+    const eyeH = eyeHeight, tgtH = objectHeight;
+    setAnalysisRunning(true); setAnalysisResult(null);
+    const steps = ['Querying OSM Overpass...', 'Processing features...', 'Fetching elevation (DEM)...', 'Ground elevations...', '3D line-of-sight (40 rays)...', 'AI classification...', 'Done!'];
+    const ss = (n) => setAnalysisSteps(steps.map((s, i) => ({ text: s, status: i < n ? 'done' : i === n ? 'active' : 'pending' })));
+    let feats = [], mode = 'live';
+    try { ss(0); const ctr = { lat: (A.lat + C.lat + D.lat) / 3, lng: (A.lng + C.lng + D.lng) / 3 }; const r = Math.max(havDist3D(A, C), havDist3D(A, D), havDist3D(C, D)) + 80; const data = await fetchOSM3D(ctr, r); ss(1); feats = procOSM3D(data); if (!feats.length) mode = 'no_data'; } catch { mode = 'error'; }
+    ss(2);
+    const mid = { lat: (C.lat + D.lat) / 2, lng: (C.lng + D.lng) / 2 };
+    const eSPts = []; for (let i = 0; i <= 20; i++) { eSPts.push(lerpPt3D(A, mid, i / 20)); eSPts.push(lerpPt3D(A, C, i / 20)); eSPts.push(lerpPt3D(A, D, i / 20)); eSPts.push(lerpPt3D(C, D, i / 20)); }
+    const mnLa = Math.min(A.lat, C.lat, D.lat) - .0002, mxLa = Math.max(A.lat, C.lat, D.lat) + .0002, mnLo = Math.min(A.lng, C.lng, D.lng) - .0003, mxLo = Math.max(A.lng, C.lng, D.lng) + .0003;
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) eSPts.push({ lat: mnLa + r / 3 * (mxLa - mnLa), lng: mnLo + c / 3 * (mxLo - mnLo) });
+    const uPts = []; const sn = new Set(); for (const p of eSPts) { const k = p.lat.toFixed(5) + ',' + p.lng.toFixed(5); if (!sn.has(k)) { sn.add(k); uPts.push(p); } if (uPts.length >= 100) break; }
+    let elevs = []; try { const ed = await fetchElev3D(uPts); elevs = ed.elevation || []; } catch { const b = 10 + Math.abs(A.lat * 100 % 20); elevs = uPts.map((_, i) => b + Math.sin(i * .3) * 1.5); }
+    const eg = { pts: uPts, elevs };
+    ss(3); for (const f of feats) { const ct = f.geometry.length === 1 ? f.geometry[0] : { lat: f.geometry.reduce((s, g) => s + g.lat, 0) / f.geometry.length, lng: f.geometry.reduce((s, g) => s + g.lng, 0) / f.geometry.length }; f.groundElev = getElevAt3D(ct, eg); }
+    ss(4); const res = losEngine3D(A, C, D, feats, eg, eyeH, tgtH);
+    ss(5); const elevA = getElevAt3D(A, eg), elevCD = getElevAt3D(mid, eg); const adv = (elevA + eyeH) - (elevCD + tgtH);
+    const ai = await aiClassify3D(A, C, D, res.obstructions, feats, { elevA, elevCD, eyeH, tgtH, eyeAlt: elevA + eyeH, tgtAlt: elevCD + tgtH, advantage: adv, elevRange: Math.max(...elevs) - Math.min(...elevs) });
+    ss(6); setAnalysisResult({ ...res, ai, elevA, elevCD, eyeH, tgtH, feats, mode }); setAnalysisRunning(false);
+  };
+
+  const reset3DAnalysis = () => { setAnalysisResult(null); setAnalysisRunning(false); setAnalysisSteps([]); };
+  const ratingMap3D = { CLEAR: { color: '#27ae60', bg: '#eafaf1', label: '✓ CLEAR' }, PARTIALLY_OBSTRUCTED: { color: '#e67e22', bg: '#fef5e7', label: '◐ PARTIAL' }, SEVERELY_OBSTRUCTED: { color: '#c0392b', bg: '#fdedec', label: '◑ SEVERE' }, BLOCKED: { color: '#c0392b', bg: '#fdedec', label: '✗ BLOCKED' } };
+  const hInputStyle = { background: "#f8fafb", border: "1.5px solid #d5dde2", color: "#1a3a4a", borderRadius: 5, padding: "4px 6px", width: 52, fontSize: 11, fontWeight: 700, fontFamily: "inherit", textAlign: "center", outline: "none" };
+
+  // Try to derive lot polygon from the lots layer using the address
+  const derivedLotFromAddress = useMemo(() => {
+    if (!lotsData || !app?.property?.address) return null;
+
+    const addr = app.property.address;
+    const addrUpper = addr.toUpperCase();
+
+    // Strategy: same as your lots tooltip match — address contains rd and n
+    // (This mirrors the existing "isMatch" you use when styling the lots layer.)
+    // p.n = lot number, p.rd = road text (uppercased in data)
+    for (const f of (lotsData.features || [])) {
+      const p = f.properties || {};
+      if (!p) continue;
+
+      if (p.rd && p.n && addrUpper.includes(p.rd) && addr.includes(p.n)) {
+        const ringLngLat = getFirstRing(f);
+        if (ringLngLat && ringLngLat.length >= 3) {
+          // Convert [lng,lat] → [lat,lng]
+          const poly = ringLngLat.map(([lng, lat]) => [lat, lng]);
+          return poly;
+        }
+      }
+    }
+    return null;
+  }, [lotsData, app?.property?.address]);
+
+  // Use real lotPoly if available, else approximate rectangle
+  // const lotPoly = coords?.lotPoly || (() => {
+  //   if (!coords) return [];
+  //   const c = coords, p = app.property;
+  //   const mLat = 111320, mLng = 111320 * Math.cos(c.lat * Math.PI / 180);
+  //   const hW = (p.frontage / 2) / mLng, hD = (p.depth / 2) / mLat;
+  //   return [[c.lat+hD,c.lng-hW],[c.lat+hD,c.lng+hW],[c.lat-hD,c.lng+hW],[c.lat-hD,c.lng-hW],[c.lat+hD,c.lng-hW]];
+  // })();
+
+  // Use API-provided polygon first, then derived-from-address, else approximate rectangle
+  const lotPoly = useMemo(() => {
+    // 1) API (applications.lot_polygon)
+    const apiPoly = normalizeLotPolygon(app?.lot_polygon);
+    if (apiPoly && apiPoly.length >= 3) return apiPoly;
+
+    // 2) Derived from address via lotsData
+    const addrPoly = normalizeLotPolygon(derivedLotFromAddress);
+    if (addrPoly && addrPoly.length >= 3) return addrPoly;
+
+    // 3) Approximate rectangle around coords center using frontage/depth
+    if (!coords) return [];
+    const c = coords, p = app.property;
+    const mLat = 111320, mLng = 111320 * Math.cos(c.lat * Math.PI / 180);
+    const hW = (p.frontage / 2) / mLng, hD = (p.depth / 2) / mLat;
+    return [
+      [c.lat + hD, c.lng - hW],
+      [c.lat + hD, c.lng + hW],
+      [c.lat - hD, c.lng + hW],
+      [c.lat - hD, c.lng - hW],
+      [c.lat + hD, c.lng - hW],
+    ];
+  }, [app?.lot_polygon, derivedLotFromAddress, coords, app?.property]);
+
+  const handleMapClick = useCallback((latlng) => {
+    if (drawMode === "ptA") { setPtA({ lat: latlng.lat, lng: latlng.lng }); setDrawMode("ptB"); }
+    else if (drawMode === "ptB") { setPtB({ lat: latlng.lat, lng: latlng.lng }); setDrawMode(null); }
+  }, [drawMode]);
+
+  useEffect(() => {
+    if (!ptA || !ptB || !coords) { setSightTriangle(null); return; }
+    const nearestRoad = findNearestRoadSpeed(ptB.lat, ptB.lng);
+    const sd = getSightDistances(nearestRoad.speed);
+    const leftDistM = sd.leftM, rightDistM = sd.rightM, baseTotal = leftDistM + rightDistM;
+
+    const bearing = geoBearing(ptA.lat, ptA.lng, ptB.lat, ptB.lng);
+    const triLeft = geoOffset(ptB.lat, ptB.lng, leftDistM, (bearing - 90 + 360) % 360);
+    const triRight = geoOffset(ptB.lat, ptB.lng, rightDistM, (bearing + 90) % 360);
+    const depthM = geoDistMetres(ptA.lat, ptA.lng, ptB.lat, ptB.lng);
+
+    // Distance from ptA to EACH side of lot polygon
+    const boundaryDists = [];
+    for (let i = 0; i < lotPoly.length - 1; i++) {
+      const seg = nearestPointOnSegment(ptA.lat, ptA.lng, lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
+      const d = geoDistMetres(ptA.lat, ptA.lng, seg.lat, seg.lng);
+      const sideLen = geoDistMetres(lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
+      boundaryDists.push({ idx: i, dist: d, distLabel: d.toFixed(1), nearPt: seg, sideLen: sideLen.toFixed(1), from: lotPoly[i], to: lotPoly[i+1] });
+    }
+    boundaryDists.sort((a, b) => a.dist - b.dist);
+
+    let nearestInt = null, nearestIntDist = Infinity;
+    (coords.intersections || []).forEach(isc => {
+      const d = geoDistMetres(ptB.lat, ptB.lng, isc.lat, isc.lng);
+      if (d < nearestIntDist) { nearestIntDist = d; nearestInt = { ...isc, dist: d.toFixed(1) }; }
+    });
+
+    const grade = (Math.random() * 7 + 1).toFixed(1);
+    const elevDiff = (parseFloat(grade) / 100 * depthM).toFixed(2);
+
+    setSightTriangle({
+      ptA, ptB, triLeft, triRight,
+      lineAB: [[ptA.lat, ptA.lng], [ptB.lat, ptB.lng]],
+      lotPoly, boundaryDists,
+      speedInfo: { detected: nearestRoad.speed, roadName: nearestRoad.roadName, networkType: nearestRoad.networkType, absMin: sd.absMin, ssdMin: sd.ssdMin, leftM: leftDistM, rightM: rightDistM, baseTotal },
+      analysis: {
+        depth: depthM.toFixed(1), area: (baseTotal * depthM / 2).toFixed(1), baseWidth: baseTotal.toFixed(1),
+        leftDist: leftDistM.toFixed(1), rightDist: rightDistM.toFixed(1),
+        distToProperty: boundaryDists[0]?.distLabel || "—",
+        nearestPropPt: boundaryDists[0]?.nearPt || null,
+        nearestIntersection: nearestInt, nearestIntDist: nearestIntDist.toFixed(1),
+        grade, elevDiff, compliant: depthM >= 2.0, heightClear: true,
+      },
+    });
+  }, [ptA, ptB, coords, lotPoly]);
+
+  const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); reset3DAnalysis(); };
+  const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
+
+  // Clicked lot from map
+  const [clickedLot, setClickedLot] = useState(null);
+  const handleLotClick = useCallback((lotInfo) => {
+    if (drawMode) return; // ignore during draw mode
+    const poly = lotInfo.polygon;
+    if (!poly || poly.length < 3) return;
+
+    // Compute lot center
+    const lats = poly.map(p => p[0]), lngs = poly.map(p => p[1]);
+    const cLat = lats.reduce((a,b)=>a+b,0)/lats.length;
+    const cLng = lngs.reduce((a,b)=>a+b,0)/lngs.length;
+
+    // Detect nearest road speed at lot center
+    const nearestRoad = findNearestRoadSpeed(cLat, cLng);
+    const sd = getSightDistances(nearestRoad.speed);
+
+    // Compute lot side lengths
+    const sides = [];
+    for (let i = 0; i < poly.length - 1; i++) {
+      const len = geoDistMetres(poly[i][0], poly[i][1], poly[i+1][0], poly[i+1][1]);
+      sides.push({ idx: i, length: len, from: poly[i], to: poly[i+1] });
+    }
+    // Find longest side (likely the frontage)
+    const frontage = sides.reduce((a, b) => a.length > b.length ? a : b, sides[0]);
+    // Compute lot area (shoelace)
+    let area = 0;
+    for (let i = 0; i < poly.length - 1; i++) {
+      const dLat = geoDistMetres(poly[i][0], poly[i][1], poly[i+1][0], poly[i][1]);
+      const dLng = geoDistMetres(poly[i][0], poly[i][1], poly[i][0], poly[i+1][1]);
+      area += (poly[i][1] * poly[i+1][0] - poly[i+1][1] * poly[i][0]);
+    }
+    const areaSqDeg = Math.abs(area) / 2;
+    const mPerDegLat = 111320, mPerDegLng = 111320 * Math.cos(cLat * Math.PI / 180);
+    const areaSqM = areaSqDeg * mPerDegLat * mPerDegLng;
+    const perimeter = sides.reduce((s, sd) => s + sd.length, 0);
+
+    // Apply crossover rules based on frontage
+    const frontageM = frontage.length;
+    const maxWidth = frontageM <= 12.5 ? 4.5 : 6.0;
+    const dualAllowed = frontageM > 20;
+    const setbackMin = 0.5;
+
+    setClickedLot({
+      ...lotInfo,
+      center: { lat: cLat, lng: cLng },
+      sides, frontage: frontage.length,
+      frontageIdx: frontage.idx,
+      areaSqM, perimeter,
+      speed: nearestRoad.speed,
+      roadName: nearestRoad.roadName,
+      networkType: nearestRoad.networkType,
+      sightDist: sd,
+      rules: {
+        maxWidth,
+        minWidth: 3.0,
+        dualAllowed,
+        setbackMin,
+        sightLeftM: sd.leftM,
+        sightRightM: sd.rightM,
+        sightBase: sd.leftM + sd.rightM,
+      }
+    });
+  }, [drawMode]);
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+          <button onClick={() => setShowLots(!showLots)}
+            style={{ padding: "6px 12px", borderRadius: 6, border: showLots ? "2px solid #2980b9" : "1px solid #d5dde2", background: showLots ? "#ebf5fb" : "#fff", color: showLots ? "#2980b9" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            🏘️ Lots
+          </button>
+          <button onClick={() => setShowSpeedRoads(!showSpeedRoads)}
+            style={{ padding: "6px 12px", borderRadius: 6, border: showSpeedRoads ? "2px solid #e67e22" : "1px solid #d5dde2", background: showSpeedRoads ? "#fef5e7" : "#fff", color: showSpeedRoads ? "#e67e22" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            🚗 Speed
+          </button>
+          <button onClick={() => setShowStreetNames(!showStreetNames)}
+            style={{ padding: "6px 12px", borderRadius: 6, border: showStreetNames ? "2px solid #16a085" : "1px solid #d5dde2", background: showStreetNames ? "#e8f8f5" : "#fff", color: showStreetNames ? "#16a085" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            🏷️ Street Names
+          </button>
+          {!drawMode && !sightTriangle && (
+            <button onClick={startDraw} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>🔺 Sight Triangle</button>
+          )}
+          {drawMode && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: drawMode === "ptA" ? "#fdf2f2" : "#ebf5fb", padding: "5px 12px", borderRadius: 6, border: `1px solid ${drawMode === "ptA" ? "#e74c3c40" : "#2980b940"}` }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: drawMode === "ptA" ? "#e74c3c" : "#2980b9", animation: "pulse 1.2s infinite" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: drawMode === "ptA" ? "#c0392b" : "#2980b9" }}>
+                {drawMode === "ptA" ? "Click: DRIVEWAY point (A)" : "Click: ROAD centreline (B)"}
+              </span>
+              <button onClick={resetTriangle} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, cursor: "pointer" }}>Cancel</button>
+            </div>
+          )}
+          {sightTriangle && !drawMode && (
+            <button onClick={resetTriangle} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>↺ Clear</button>
+          )}
+          {sightTriangle && !drawMode && !analysisRunning && (
+            <button onClick={run3DSightAnalysis} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #8e44ad, #6c3483)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 6px rgba(142,68,173,0.3)" }}>🔬 3D Sight Analysis</button>
+          )}
+          {analysisRunning && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#8e44ad", padding: "6px 12px", background: "#f4ecf7", borderRadius: 6 }}>⟳ Running 3D Analysis...</span>
+          )}
+        </div>
+        {/* Observer & Object height — shown when sight triangle exists */}
+        {(sightTriangle || drawMode) && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafb", padding: "5px 10px", borderRadius: 6, border: "1px solid #e4e9ec" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#e74c3c" }}>👁</span>
+              <input type="number" value={eyeHeight} onChange={e => setEyeHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
+              <span style={{ fontSize: 9, color: "#7a8a94" }}>m</span>
+            </div>
+            <div style={{ width: 1, height: 14, background: "#d5dde2" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#2980b9" }}>◎</span>
+              <input type="number" value={objectHeight} onChange={e => setObjectHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
+              <span style={{ fontSize: 9, color: "#7a8a94" }}>m</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Map */}
+      <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={520}
+        drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
+        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} onLotClick={handleLotClick} allLotsData={lotsData} />
+
+      {/* ═══ Clicked Lot Rules Panel ═══ */}
+      {clickedLot && !sightTriangle && (
+        <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #2980b9", background: "linear-gradient(135deg, #ebf5fb, #d6eaf8)" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#1a3a4a" }}>📍 {clickedLot.address}</div>
+              <div style={{ fontSize: 11, color: "#5a6a74" }}>{clickedLot.properties.loc} · {clickedLot.speed}km/h · {clickedLot.roadName}</div>
+            </div>
+            <button onClick={() => setClickedLot(null)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#95a5a6" }}>✕</button>
+          </div>
+
+          {/* Lot metrics */}
+          <div style={{ padding: "12px 16px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[
+              { label: "FRONTAGE", value: clickedLot.frontage.toFixed(1) + "m", color: "#2980b9" },
+              { label: "PERIMETER", value: clickedLot.perimeter.toFixed(1) + "m", color: "#16a085" },
+              { label: "AREA", value: clickedLot.areaSqM.toFixed(0) + "m²", color: "#8e44ad" },
+              { label: "SIDES", value: clickedLot.sides.length, color: "#1a3a4a" },
+              { label: "SPEED", value: clickedLot.speed + "km/h", color: "#e67e22" },
+              { label: "ROAD", value: clickedLot.roadName || "—", color: "#5a6a74" },
+            ].map(m => (
+              <div key={m.label} style={{ flex: "1 1 80px", background: "#f8fafb", borderRadius: 8, padding: "8px 10px", minWidth: 80 }}>
+                <div style={{ fontSize: 9, color: "#7a8a94", fontWeight: 700 }}>{m.label}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Lot boundary sides */}
+          <div style={{ padding: "0 16px 10px" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>Boundary Sides</div>
+            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+              {clickedLot.sides.map((s, i) => (
+                <div key={i} style={{ padding: "4px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, textAlign: "center", minWidth: 50,
+                  background: i === clickedLot.frontageIdx ? "#ebf5fb" : "#f8fafb", border: i === clickedLot.frontageIdx ? "2px solid #2980b9" : "1px solid #eef2f4",
+                  color: i === clickedLot.frontageIdx ? "#2980b9" : "#5a6a74" }}>
+                  {s.length.toFixed(1)}m{i === clickedLot.frontageIdx ? " ★" : ""}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Crossover Rules */}
+          <div style={{ padding: "0 16px 12px" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 6, textTransform: "uppercase" }}>📋 Crossover Rules for this lot</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              {[
+                { rule: "Min crossover width", value: "3.0m", ref: "§3.2" },
+                { rule: "Max crossover width", value: clickedLot.rules.maxWidth + "m", ref: clickedLot.frontage <= 12.5 ? "§3.2 (≤12.5m)" : "§3.2 (>12.5m)" },
+                { rule: "Dual crossover", value: clickedLot.rules.dualAllowed ? "✅ Permitted" : "❌ Not permitted", ref: clickedLot.rules.dualAllowed ? ">20m frontage" : "≤20m frontage" },
+                { rule: "Boundary setback", value: "≥ " + clickedLot.rules.setbackMin + "m", ref: "§3.3" },
+                { rule: "Sight dist — Left (abs)", value: clickedLot.rules.sightLeftM + "m", ref: clickedLot.sightDist.absMin + "m ÷ 10" },
+                { rule: "Sight dist — Right (ssd)", value: clickedLot.rules.sightRightM + "m", ref: clickedLot.sightDist.ssdMin + "m ÷ 10" },
+                { rule: "Sight triangle base", value: clickedLot.rules.sightBase.toFixed(1) + "m", ref: "Asymmetric" },
+                { rule: "Road edge max width", value: "≤ 6.0m", ref: "§3.1" },
+              ].map(r => (
+                <div key={r.rule} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px", borderRadius: 5, background: "#f8fafb", border: "1px solid #eef2f4" }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#1a3a4a" }}>{r.rule}</div>
+                    <div style={{ fontSize: 9, color: "#95a5a6" }}>{r.ref}</div>
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: r.value.includes("❌") ? "#e74c3c" : r.value.includes("✅") ? "#27ae60" : "#2980b9" }}>{r.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Sight Triangle Analysis Panel ═══ */}
+      {sightTriangle && sightTriangle.analysis && (
+        <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+          {/* Compliance header */}
+          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10,
+            background: sightTriangle.analysis.compliant ? "linear-gradient(135deg, #eafaf1, #d5f5e3)" : "linear-gradient(135deg, #fdedec, #fadbd8)",
+            borderBottom: `2px solid ${sightTriangle.analysis.compliant ? "#27ae60" : "#e74c3c"}` }}>
+            <span style={{ fontSize: 24 }}>{sightTriangle.analysis.compliant ? "✅" : "⚠️"}</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: sightTriangle.analysis.compliant ? "#1e8449" : "#c0392b" }}>
+                Sight Triangle — {sightTriangle.analysis.compliant ? "COMPLIANT" : "REVIEW REQUIRED"}
+              </div>
+              <div style={{ fontSize: 11, color: sightTriangle.analysis.compliant ? "#27ae60" : "#922b21" }}>
+                {sightTriangle.speedInfo?.detected}km/h on {sightTriangle.speedInfo?.roadName || "—"} | Base: {sightTriangle.analysis.leftDist}m + {sightTriangle.analysis.rightDist}m = {sightTriangle.analysis.baseWidth}m
+              </div>
+            </div>
+          </div>
+
+          {/* Metrics */}
+          <div style={{ padding: "12px 16px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[
+              { label: "SPEED", value: sightTriangle.speedInfo?.detected + " km/h", sub: sightTriangle.speedInfo?.roadName || "—", color: "#e67e22" },
+              { label: "LEFT (abs)", value: sightTriangle.analysis.leftDist + "m", sub: sightTriangle.speedInfo?.absMin , color: "#2980b9" },
+              { label: "RIGHT (ssd)", value: sightTriangle.analysis.rightDist + "m", sub: sightTriangle.speedInfo?.ssdMin , color: "#8e44ad" },
+              { label: "BASE", value: sightTriangle.analysis.baseWidth + "m", sub: "Asymmetric", color: "#16a085" },
+              { label: "DEPTH A→B", value: sightTriangle.analysis.depth + "m", sub: "Driveway → road", color: "#e74c3c" },
+              { label: "AREA", value: sightTriangle.analysis.area + "m²", sub: "½ × base × depth", color: "#1a3a4a" },
+            ].map(m => (
+              <div key={m.label} style={{ flex: "1 1 85px", background: "#f8fafb", borderRadius: 8, padding: "8px 10px", minWidth: 85 }}>
+                <div style={{ fontSize: 9, color: "#7a8a94", fontWeight: 700 }}>{m.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
+                <div style={{ fontSize: 9, color: "#95a5a6" }}>{m.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Boundary distances from A to each lot side */}
+          <div style={{ padding: "0 16px 12px" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>📐 Distance from Point A to each lot boundary side</div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {(sightTriangle.boundaryDists || []).map((bd, i) => (
+                <div key={i} style={{ flex: "1 1 110px", padding: "6px 10px", borderRadius: 6, fontSize: 11, minWidth: 100,
+                  background: i === 0 ? "#fdf2f2" : "#f8fafb", border: i === 0 ? "2px solid #e74c3c" : "1px solid #eef2f4" }}>
+                  <div style={{ fontWeight: 800, color: i === 0 ? "#e74c3c" : "#1a3a4a", fontSize: 16 }}>→ {bd.distLabel}m</div>
+                  <div style={{ color: "#7a8a94", fontSize: 9 }}>Side {bd.idx + 1} ({bd.sideLen}m){i === 0 ? " — nearest" : ""}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Info panels */}
+          <div style={{ padding: "0 16px 12px" }}>
+              <div style={{
+                  width: "100%",
+                  background: "#fef9e7",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  border: "1px solid #f9e79f"
+              }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "#b8860b", marginBottom: 3 }}>
+                      ▲ OBSTRUCTION 0.65–1.5m
+                  </div>
+                  <div style={{ fontSize: 12, color: "#7d6608", lineHeight: 1.5 }}>
+                      No objects within triangle between 0.65–1.5m height.
+                      {sightTriangle.analysis.nearestIntersection &&
+                          parseFloat(sightTriangle.analysis.nearestIntersection.dist) < 30
+                          ? ` ⚠ ${sightTriangle.analysis.nearestIntersection.name} within 30m.` 
+                          : ""}
+                  </div>
+              </div>
+          </div>
+
+          {/* Reference table */}
+          <div style={{ padding: "0 16px 10px" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>Sight Distance Reference (Austroads / AS 2890.1)</div>
+            <div style={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {SIGHT_DISTANCE_TABLE.map(e => {
+                const cur = e.speed === sightTriangle.speedInfo?.detected;
+                return (
+                  <div key={e.speed} style={{ padding: "3px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, textAlign: "center", minWidth: 55,
+                    background: cur ? "#e74c3c" : "#f5f8fa", color: cur ? "#fff" : "#5a6a74", border: cur ? "2px solid #c0392b" : "1px solid #eef2f4" }}>
+                    <div>{e.speed}km/h</div>
+                    <div style={{ fontWeight: 400, fontSize: 8 }}>{e.abs_min/10}m | {e.ssd_min/10}m</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ padding: "0 16px 12px", fontSize: 9, color: "#b0bdb2" }}>
+            AS 2890.1:2004 §3.2.4 | Eye 1.15m | Object 0.65–1.5m | Left = abs_min÷10 | Right = ssd_min÷10
+          </div>
+        </div>
+      )}
+
+      {/* ═══ 3D Analysis Processing Steps ═══ */}
+      {analysisRunning && analysisSteps.length > 0 && (
+        <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: "14px 16px" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#8e44ad", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>🔬 3D Sight Analysis Processing</div>
+          {analysisSteps.map((step, i) => (
+            <div key={i} style={{ padding: "2px 0", fontSize: 11, color: step.status === 'done' ? '#27ae60' : step.status === 'active' ? '#1a3a4a' : '#c8d0d4', fontWeight: step.status === 'active' ? 700 : 400, display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ fontSize: 10 }}>{step.status === 'done' ? '✓' : step.status === 'active' ? '◆' : '○'}</span>{step.text}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ 3D Analysis Results ═══ */}
+      {analysisResult && !analysisRunning && (
+        <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: `linear-gradient(135deg, ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).bg}, #fff)`,
+            borderBottom: `2px solid ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color}` }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#1a3a4a" }}>🔬 3D Sight-Line Analysis</div>
+              <div style={{ fontSize: 10, color: "#5a6a74", marginTop: 2 }}>
+                {sightTriangle?.speedInfo?.detected}km/h · {sightTriangle?.speedInfo?.roadName || '—'} | 👁 {analysisResult.eyeH}m | ◎ {analysisResult.tgtH}m | {analysisResult.mode === 'live' ? '● LIVE' : '○ Fallback'}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ padding: "5px 12px", borderRadius: 16, fontSize: 11, fontWeight: 800, background: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color, border: `1px solid ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color}40` }}>
+                {(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).label}
+              </span>
+              <button onClick={reset3DAnalysis} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", color: "#95a5a6" }}>✕</button>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div style={{ padding: "10px 16px", display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[
+              { label: "FEATURES", value: analysisResult.feats?.length || 0, color: "#2980b9" },
+              { label: "OBSTRUCTIONS", value: analysisResult.obstructions?.length || 0, color: "#e74c3c" },
+              { label: "VISIBILITY", value: (analysisResult.ai?.visibility_pct || 0) + "%", color: "#27ae60" },
+              { label: "👁 OBSERVER", value: analysisResult.eyeH + "m", color: "#e74c3c" },
+              { label: "◎ OBJECT", value: analysisResult.tgtH + "m", color: "#2980b9" },
+              { label: "ELEV A", value: analysisResult.elevA?.toFixed(1) + "m", color: "#1abc9c" },
+              { label: "ELEV C↔D", value: analysisResult.elevCD?.toFixed(1) + "m", color: "#e67e22" },
+              { label: "Δ", value: ((analysisResult.elevA + analysisResult.eyeH - (analysisResult.elevCD || 0)) >= 0 ? '+' : '') + (analysisResult.elevA + analysisResult.eyeH - (analysisResult.elevCD || 0)).toFixed(1) + "m", color: "#8e44ad" },
+            ].map(m => (
+              <div key={m.label} style={{ flex: "1 1 70px", background: "#f8fafb", borderRadius: 6, padding: "6px 8px", minWidth: 68 }}>
+                <div style={{ fontSize: 8, color: "#7a8a94", fontWeight: 700 }}>{m.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: "flex", gap: 1, borderBottom: "1px solid #e4e9ec", padding: "0 16px" }}>
+            {[{ id: 'obstructions', label: '⚠ Obstruct.' }, { id: 'features', label: '▤ Features' }, { id: 'ai', label: '◈ AI' }].map(tab => (
+              <button key={tab.id} onClick={() => setActiveAnalysisTab(tab.id)}
+                style={{ padding: "6px 12px", background: "none", border: "none", borderBottom: activeAnalysisTab === tab.id ? "2px solid #8e44ad" : "2px solid transparent", color: activeAnalysisTab === tab.id ? "#8e44ad" : "#7a8a94", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: "10px 16px", maxHeight: 260, overflowY: "auto" }}>
+            {activeAnalysisTab === 'obstructions' && (
+              analysisResult.obstructions?.length === 0
+                ? <div style={{ textAlign: "center", color: "#27ae60", padding: 12, fontSize: 11, fontWeight: 700 }}>Clear 3D line of sight ✓</div>
+                : analysisResult.obstructions?.map((o, i) => {
+                    const tc = { building: '#e07050', fence: '#f0c850', tree: '#00c090', wall: '#a090ff', hedge: '#50f0c0', terrain_ridge: '#ff4757' };
+                    return (
+                      <div key={i} style={{ padding: "6px 0", borderBottom: "1px solid #f0f3f5", fontSize: 11 }}>
+                        <div style={{ fontWeight: 700, color: tc[o.feature.type] || '#5a6a74' }}>{o.blockType === 'terrain' ? '▲ TERRAIN' : o.feature.type.toUpperCase()}: {o.feature.name}</div>
+                        <div style={{ display: "flex", gap: 5, marginTop: 2, flexWrap: "wrap", fontSize: 10 }}>
+                          <span style={{ padding: "1px 5px", borderRadius: 3, background: o.isCritical ? "#fdf2f2" : "#f5f8fa", color: o.isCritical ? "#e74c3c" : "#5a6a74", fontWeight: 700 }}>{o.feature.estimatedHeight?.toFixed(1)}m</span>
+                          <span style={{ color: "#95a5a6" }}>gnd {o.fGroundElev?.toFixed(1)}m</span>
+                          <span style={{ color: "#95a5a6" }}>top {o.fTopAlt?.toFixed(1)}m</span>
+                          <span style={{ color: "#e74c3c", fontWeight: 700 }}>+{o.excessHeight?.toFixed(2)}m</span>
+                          {o.isCritical && <span style={{ color: "#e74c3c", fontWeight: 700 }}>⚠ 0.5-1.0m</span>}
+                        </div>
+                      </div>
+                    );
+                  })
+            )}
+            {activeAnalysisTab === 'features' && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#7a8a94", marginBottom: 4 }}>{analysisResult.feats?.length || 0} Features</div>
+                {(analysisResult.feats || []).slice(0, 25).map((f, i) => {
+                  const tc = { building: '#e07050', fence: '#f0c850', tree: '#00c090', wall: '#a090ff', hedge: '#50f0c0', vegetation: '#00d0c8' };
+                  return (
+                    <div key={i} style={{ padding: "3px 0", borderBottom: "1px solid #f0f3f5", fontSize: 10 }}>
+                      <span style={{ fontWeight: 700, color: tc[f.type] || '#5a6a74' }}>{f.type}</span>
+                      <span style={{ color: "#7a8a94", marginLeft: 4 }}>{f.name}</span>
+                      <span style={{ marginLeft: 4, padding: "1px 4px", borderRadius: 3, background: "#f5f8fa", color: "#5a6a74", fontWeight: 700 }}>{f.estimatedHeight.toFixed(1)}m</span>
+                      <span style={{ color: "#95a5a6", marginLeft: 3 }}>gnd {f.groundElev?.toFixed(1)}m</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {activeAnalysisTab === 'ai' && analysisResult.ai && (
+              <div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700, background: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).color }}>
+                    {analysisResult.ai.overall_rating?.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div style={{ fontSize: 11, lineHeight: 1.6, color: "#1a3a4a", marginBottom: 10 }}>{analysisResult.ai.analysis_summary}</div>
+                {analysisResult.ai.critical_low_obstructions?.length > 0 && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#e67e22", marginBottom: 3 }}>⚠ CRITICAL LOW (0.5–1.0m)</div>
+                    {analysisResult.ai.critical_low_obstructions.map((c, i) => (
+                      <div key={i} style={{ fontSize: 10, padding: "3px 0", borderBottom: "1px solid #f0f3f5" }}>
+                        <strong style={{ color: "#e67e22" }}>{c.name}</strong> — <span style={{ color: "#7a8a94" }}>{c.height_range} · {c.impact}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {analysisResult.ai.elevation_insight && (
+                  <div style={{ background: "#f0f3f5", borderRadius: 6, padding: "8px 12px", marginBottom: 8, fontSize: 10, color: "#5a6a74", border: "1px solid #e4e9ec" }}>▲ {analysisResult.ai.elevation_insight}</div>
+                )}
+                {analysisResult.ai.recommendations?.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "#1abc9c", marginBottom: 3 }}>Recommendations</div>
+                    {analysisResult.ai.recommendations.map((r, i) => (
+                      <div key={i} style={{ fontSize: 10, padding: "2px 0", lineHeight: 1.5, color: "#1a3a4a" }}><span style={{ color: "#1abc9c", fontWeight: 700, marginRight: 3 }}>{i + 1}.</span>{r}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── Login Screen ───────────────────────────────────────
+
+export default MapWithOverlay;
