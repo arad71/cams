@@ -122,16 +122,20 @@ export default function KalamundaApprovalPortal() {
     } catch (e) { console.error("Update failed:", e); }
   };
 
+  const handleAppCreated = async () => {
+    await reloadAllApps();
+  };
+
   const renderView = () => {
     if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} />;
     switch (activeView) {
       case "dashboard": return <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
       case "map": return <FullMapView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
-      case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} />;
-      case "referrals": return <ApplicationListView apps={visibleApps} filter="referral_pending" onSelectApp={handleSelectApp} />;
+      case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
+      case "referrals": return <ApplicationListView apps={visibleApps} filter="referral_pending" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "inspections": return <InspectionsView apps={visibleApps} />;
       case "admin": return role === "admin" ? <SystemAdmin users={users} setUsers={setUsers} currentUser={currentUser} /> : <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
-      default: return <ApplicationListView apps={visibleApps} filter={null} onSelectApp={handleSelectApp} />;
+      default: return <ApplicationListView apps={visibleApps} filter={null} onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
     }
   };
 
