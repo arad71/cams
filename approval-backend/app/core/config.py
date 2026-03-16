@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-to-a-random-64-char-string"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
-    DOCUMENTS_DIR: str = "/app/documents"
+
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
@@ -105,6 +105,9 @@ class Settings(BaseSettings):
     PDF_RENDER_DPI: int = Field(default=200)
     MAX_IMAGE_DIM: int = Field(default=2048)
     AI_MAX_TOKENS: int = Field(default=4096)
+
+    # Document storage
+    DOCUMENT_DIR: str = Field(default="./uploads/documents")
 
     # Pydantic v2 settings config
     model_config = SettingsConfigDict(
