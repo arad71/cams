@@ -404,8 +404,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       for (const [catId, file] of Object.entries(documents)) {
         if (file) {
           try {
-            await api.addDocument(appId, { name: file.name, file_type: file.name.split(".").pop()?.toLowerCase() || "pdf", file_size: file.size < 1048576 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / 1048576).toFixed(1)} MB`, category: catLabels[catId] || catId });
-          } catch (de) { console.warn(`Failed to register doc ${file.name}:`, de); }
+            await api.uploadDocument(appId, file, catLabels[catId] || catId);
+          } catch (de) { console.warn(`Failed to upload doc ${file.name}:`, de); }
         }
       }
       onCreated(result); onClose();
