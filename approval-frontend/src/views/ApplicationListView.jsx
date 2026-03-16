@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { STATUS_CONFIG } from '../data/constants';
 import StatusBadge from '../components/ui/StatusBadge';
 import api from '../services/api';
@@ -6,7 +6,7 @@ import { apiAppToFrontend } from '../utils/transforms';
 
 // ─── Styles ────────────────────────────────────────────
 const overlay = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(12,31,46,0.55)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
-const modalBox = { background: "#fff", borderRadius: 16, width: "min(680px, 94vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(12,31,46,0.28)", overflow: "hidden" };
+const modalBox = { background: "#fff", borderRadius: 16, width: "min(720px, 94vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(12,31,46,0.28)", overflow: "hidden" };
 const inputBase = { width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: "#fafbfc", color: "#1a3a4a", outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" };
 const selectBase = { ...inputBase, appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b8090' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 };
 const labelStyle = { display: "block", fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" };
@@ -26,7 +26,6 @@ function Field({ label, required, span, children }) {
 // ═══════════════════════════════════════════════════════
 //  Address → Lot Boundary matching (mirrors backend logic)
 // ═══════════════════════════════════════════════════════
-
 const ROAD_TYPE_MAP = {
   RD: "RD", ROAD: "RD", CR: "CR", CRES: "CR", CRESCENT: "CR",
   ST: "ST", STREET: "ST", AVE: "AV", AV: "AV", AVENUE: "AV",
@@ -38,75 +37,48 @@ const ROAD_TYPE_MAP = {
   MEWS: "MEWS", GRN: "GRN", GREEN: "GRN", CCT: "CCT",
   CIRCUIT: "CCT", CIR: "CIR", CIRCLE: "CIR",
 };
+const ALL_ROAD_TYPES = new Set(Object.values(ROAD_TYPE_MAP));
 
 function normaliseRoadType(s) {
   return ROAD_TYPE_MAP[(s || "").toUpperCase().trim()] || (s || "").toUpperCase().trim();
 }
 
-/**
- * Parse an address string like "54 Stirling Cr, High Wycombe" into components.
- * Returns { road_number_1, road_name, road_type, locality } or null on failure.
- */
 function parseAddress(addr) {
   if (!addr) return null;
   const a = addr.replace(/,/g, " ").replace(/\s+/g, " ").trim().toUpperCase();
   const tokens = a.split(" ");
   if (tokens.length < 3) return null;
-
-  // First token should start with a number
   const numMatch = tokens[0].match(/^(\d+)/);
   if (!numMatch) return null;
   const number = numMatch[1];
   const rest = tokens.slice(1);
-
-  // Find road type token
   let roadTypeIdx = -1;
   for (let i = 0; i < rest.length; i++) {
-    if (normaliseRoadType(rest[i]) in ROAD_TYPE_MAP || Object.values(ROAD_TYPE_MAP).includes(normaliseRoadType(rest[i]))) {
-      // Verify it's a known normalised value
-      const normed = normaliseRoadType(rest[i]);
-      if (Object.values(ROAD_TYPE_MAP).includes(normed)) {
-        roadTypeIdx = i;
-        break;
-      }
-    }
+    if (ALL_ROAD_TYPES.has(normaliseRoadType(rest[i]))) { roadTypeIdx = i; break; }
   }
-  if (roadTypeIdx < 1) return null; // need at least one name token before type
-
+  if (roadTypeIdx < 1) return null;
   const roadName = rest.slice(0, roadTypeIdx).join(" ");
   const roadType = normaliseRoadType(rest[roadTypeIdx]);
   const locality = rest.slice(roadTypeIdx + 1).join(" ");
   if (!locality) return null;
-
   return { road_number_1: number, road_name: roadName, road_type: roadType, locality };
 }
 
-/**
- * Search globalLotsData for a feature matching the parsed address.
- * Returns the matched feature or null.
- */
 function findLotByAddress(lotsData, address) {
   if (!lotsData?.features || !address) return null;
   const q = parseAddress(address);
   if (!q) return null;
-
   for (const feat of lotsData.features) {
     const p = feat.properties || {};
     const pNum  = String(p.road_number_1 || "").trim();
     const pName = (p.road_name || "").toUpperCase().replace(/\s+/g, " ").trim();
     const pType = normaliseRoadType(p.road_type || "");
     const pLoc  = (p.locality || "").toUpperCase().replace(/\s+/g, " ").trim();
-
-    if (pNum === q.road_number_1 && pName === q.road_name && pType === q.road_type && pLoc === q.locality) {
-      return feat;
-    }
+    if (pNum === q.road_number_1 && pName === q.road_name && pType === q.road_type && pLoc === q.locality) return feat;
   }
   return null;
 }
 
-/**
- * Extract the polygon ring from a GeoJSON feature as [[lat, lng], ...].
- */
 function extractPolygon(feature) {
   const g = feature?.geometry;
   if (!g) return null;
@@ -114,10 +86,17 @@ function extractPolygon(feature) {
   if (g.type === "Polygon") ring = g.coordinates?.[0];
   else if (g.type === "MultiPolygon") ring = g.coordinates?.[0]?.[0];
   if (!ring || ring.length < 3) return null;
-  // GeoJSON is [lng, lat] — convert to [lat, lng] for lot_polygon storage
   return ring.map(([lng, lat]) => [lat, lng]);
 }
 
+// ─── Document category definitions ─────────────────────
+const DOC_CATEGORIES = [
+  { id: "application_form", label: "Application Form", icon: "📄", accept: ".pdf", hint: "Upload the official crossover application form PDF — fields will be auto-extracted", autoExtract: true },
+  { id: "site_plan", label: "Site Plan", icon: "📐", accept: ".pdf,.jpg,.jpeg,.png,.dwg,.dxf", hint: "Scaled site plan showing proposed crossover location and dimensions" },
+  { id: "certificate_of_title", label: "Certificate of Title", icon: "📜", accept: ".pdf,.jpg,.jpeg,.png", hint: "Current Certificate of Title for the property" },
+  { id: "photos", label: "Site Photos", icon: "📷", accept: ".jpg,.jpeg,.png,.webp", hint: "Photos of the verge, existing crossover, and street frontage" },
+  { id: "other", label: "Other Documents", icon: "📎", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx", hint: "Arborist reports, stormwater plans, or other supporting documents" },
+];
 
 // ─── Blank form state ──────────────────────────────────
 const blankForm = {
@@ -133,6 +112,87 @@ const blankForm = {
 
 
 // ═══════════════════════════════════════════════════════
+//  Document Upload Card
+// ═══════════════════════════════════════════════════════
+function DocUploadCard({ cat, file, onFileChange, extracting, extractResult }) {
+  const inputRef = useRef(null);
+  const hasFile = !!file;
+
+  return (
+    <div style={{
+      padding: "12px 14px", borderRadius: 10,
+      border: hasFile ? "1.5px solid #27ae60" : "1.5px dashed #c8d5cb",
+      background: hasFile ? "#f0faf3" : "#fafcfa",
+      transition: "all 0.2s",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+        <span style={{ fontSize: 18 }}>{cat.icon}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a" }}>{cat.label}</div>
+          <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 1 }}>{cat.hint}</div>
+        </div>
+        {hasFile && <span style={{ fontSize: 14, color: "#27ae60" }}>✓</span>}
+      </div>
+
+      {hasFile ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: 6 }}>
+          <span style={{ fontSize: 11, color: "#2c6e49", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {file.name} ({(file.size / 1024).toFixed(1)} KB)
+          </span>
+          <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "2px 6px" }}>✕</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={extracting}
+          style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#5a6a74", fontFamily: "inherit" }}
+        >
+          {extracting ? "⏳ Extracting fields…" : "Choose File"}
+        </button>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept={cat.accept}
+        style={{ display: "none" }}
+        onChange={e => {
+          const f = e.target.files?.[0];
+          if (f) onFileChange(f);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Extraction result banner */}
+      {extractResult && (
+        <div style={{
+          marginTop: 8, padding: "8px 10px", borderRadius: 6, fontSize: 11, lineHeight: 1.5,
+          background: extractResult.success ? "#eafaf1" : "#fef9e7",
+          border: extractResult.success ? "1px solid #d4efdf" : "1px solid #f9e79f",
+          color: extractResult.success ? "#2c6e49" : "#7d6608",
+        }}>
+          {extractResult.success ? (
+            <>
+              <strong style={{ color: "#27ae60" }}>✅ Form data extracted</strong> — {extractResult.filledCount} of {extractResult.totalFields} fields auto-filled
+              {extractResult.filledFields?.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: 10, color: "#5a7a64" }}>
+                  Filled: {extractResult.filledFields.join(", ")}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <strong>⚠️ Extraction issue</strong> — {extractResult.message}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════
 //  New Application Modal
 // ═══════════════════════════════════════════════════════
 function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
@@ -143,13 +203,17 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
 
   // Lot boundary state
   const [lotPolygon, setLotPolygon] = useState(null);
-  const [lotMatch, setLotMatch] = useState(null); // null | "found" | "not_found" | "parsing_error"
+  const [lotMatch, setLotMatch] = useState(null);
   const [matchedFeatureProps, setMatchedFeatureProps] = useState(null);
+
+  // Document state
+  const [documents, setDocuments] = useState({}); // { category_id: File }
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState(null);
 
   const set = (key) => (e) => {
     const val = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setForm(prev => ({ ...prev, [key]: val }));
-    // If they change the address, reset the lot match status
     if (key === "property_address") {
       setLotMatch(null);
       setLotPolygon(null);
@@ -157,32 +221,18 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     }
   };
 
-  // Look up the lot boundary when the address field loses focus
-  const handleAddressBlur = useCallback(() => {
-    const addr = form.property_address.trim();
-    if (!addr) {
-      setLotMatch(null);
-      setLotPolygon(null);
-      setMatchedFeatureProps(null);
-      return;
-    }
-
+  // ── Lot lookup on address blur ────────────────────────
+  const lookupLotBoundary = useCallback((address) => {
+    const addr = (address || "").trim();
+    if (!addr) { setLotMatch(null); setLotPolygon(null); setMatchedFeatureProps(null); return; }
     const parsed = parseAddress(addr);
-    if (!parsed) {
-      setLotMatch("parsing_error");
-      setLotPolygon(null);
-      setMatchedFeatureProps(null);
-      return;
-    }
-
+    if (!parsed) { setLotMatch("parsing_error"); setLotPolygon(null); setMatchedFeatureProps(null); return; }
     const feature = findLotByAddress(globalLotsData, addr);
     if (feature) {
       const poly = extractPolygon(feature);
       setLotPolygon(poly);
       setMatchedFeatureProps(feature.properties);
       setLotMatch("found");
-
-      // Auto-fill lot number and road name if available from the feature
       const fp = feature.properties || {};
       setForm(prev => ({
         ...prev,
@@ -190,14 +240,111 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         road_name: prev.road_name || (fp.road_name ? (fp.road_name.charAt(0) + fp.road_name.slice(1).toLowerCase() + (fp.road_type ? " " + fp.road_type : "")) : ""),
       }));
     } else {
-      setLotMatch("not_found");
-      setLotPolygon(null);
-      setMatchedFeatureProps(null);
+      setLotMatch("not_found"); setLotPolygon(null); setMatchedFeatureProps(null);
     }
-  }, [form.property_address, globalLotsData]);
+  }, [globalLotsData]);
+
+  const handleAddressBlur = useCallback(() => {
+    lookupLotBoundary(form.property_address);
+  }, [form.property_address, lookupLotBoundary]);
+
+  // ── Application Form PDF extraction ──────────────────
+  const handleAppFormUpload = useCallback(async (file) => {
+    setDocuments(prev => ({ ...prev, application_form: file }));
+    if (!file) { setExtractResult(null); return; }
+
+    // Only extract from PDFs
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setExtractResult({ success: false, message: "Auto-extraction only works with PDF files. You can still fill in the fields manually." });
+      return;
+    }
+
+    setExtracting(true);
+    setExtractResult(null);
+    try {
+      const result = await api.extractAppForm(file);
+      const values = result.values || {};
+
+      // Map extracted field_ids to form fields
+      const fieldMapping = {
+        lot_owner_name: "owner_name",
+        phone: "owner_phone",
+        email: "owner_email",
+        postal_address: "owner_postal_address",
+        property_address: "property_address",
+        estimated_construction_date: "crossover_est_date",
+        dev_application_number: "da_number",
+      };
+
+      const filledFields = [];
+      const updates = {};
+
+      for (const [extractKey, formKey] of Object.entries(fieldMapping)) {
+        const val = values[extractKey];
+        if (val && typeof val === "string" && val.trim()) {
+          updates[formKey] = val.trim();
+          filledFields.push(fieldMapping[extractKey] === formKey ? extractKey : formKey);
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setForm(prev => {
+          const merged = { ...prev };
+          for (const [k, v] of Object.entries(updates)) {
+            // Only auto-fill if the field is currently empty
+            if (!merged[k] || !merged[k].trim()) {
+              merged[k] = v;
+            }
+          }
+          return merged;
+        });
+
+        // If property address was extracted, trigger lot lookup
+        if (updates.property_address) {
+          setTimeout(() => lookupLotBoundary(updates.property_address), 100);
+        }
+      }
+
+      const friendlyNames = {
+        lot_owner_name: "Owner Name",
+        phone: "Phone",
+        email: "Email",
+        postal_address: "Postal Address",
+        property_address: "Property Address",
+        estimated_construction_date: "Est. Construction Date",
+        dev_application_number: "DA Number",
+        lot_owner_signature: "Signature",
+      };
+
+      setExtractResult({
+        success: true,
+        filledCount: filledFields.length,
+        totalFields: result.summary?.total_fields || Object.keys(result.fields || {}).length,
+        filledFields: filledFields.map(f => friendlyNames[f] || f),
+      });
+    } catch (e) {
+      setExtractResult({ success: false, message: e.message || "Failed to extract form data. You can still fill in the fields manually." });
+    } finally {
+      setExtracting(false);
+    }
+  }, [lookupLotBoundary]);
+
+  // ── Generic doc handler ──────────────────────────────
+  const handleDocChange = useCallback((catId, file) => {
+    if (catId === "application_form") {
+      handleAppFormUpload(file);
+    } else {
+      setDocuments(prev => {
+        const next = { ...prev };
+        if (file) next[catId] = file;
+        else delete next[catId];
+        return next;
+      });
+    }
+  }, [handleAppFormUpload]);
 
   const steps = [
-    { label: "Owner Details", icon: "👤" },
+    { label: "Documents & Owner", icon: "📄" },
     { label: "Property & Road", icon: "📍" },
     { label: "Crossover Design", icon: "📐" },
     { label: "Vegetation & Drainage", icon: "🌳" },
@@ -212,6 +359,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     setSaving(true);
     setError(null);
     try {
+      // 1. Create the application
       const payload = {
         owner_name: form.owner_name,
         owner_phone: form.owner_phone || null,
@@ -241,6 +389,27 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         lot_polygon: lotPolygon,
       };
       const result = await api.createApp(payload);
+      const appId = result.id;
+
+      // 2. Register uploaded documents on the new application
+      const docCatLabels = {};
+      DOC_CATEGORIES.forEach(c => { docCatLabels[c.id] = c.label; });
+
+      for (const [catId, file] of Object.entries(documents)) {
+        if (file) {
+          try {
+            await api.addDocument(appId, {
+              name: file.name,
+              file_type: file.name.split(".").pop()?.toLowerCase() || "pdf",
+              file_size: file.size < 1048576 ? `${(file.size / 1024).toFixed(1)} KB` : `${(file.size / 1048576).toFixed(1)} MB`,
+              category: docCatLabels[catId] || catId,
+            });
+          } catch (docErr) {
+            console.warn(`Failed to register document ${file.name}:`, docErr);
+          }
+        }
+      }
+
       onCreated(result);
       onClose();
     } catch (e) {
@@ -253,57 +422,63 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   // ── Lot match feedback banner ───────────────────────
   const renderLotMatchBanner = () => {
     if (!lotMatch) return null;
-
     if (lotMatch === "found") {
       const fp = matchedFeatureProps || {};
-      const coordCount = lotPolygon ? lotPolygon.length : 0;
       return (
         <div style={{ marginTop: 10, padding: "10px 14px", background: "#eafaf1", borderRadius: 8, border: "1px solid #d4efdf", fontSize: 12, lineHeight: 1.6 }}>
-          <div style={{ fontWeight: 800, color: "#27ae60", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>✅</span> Lot Boundary Found
-          </div>
+          <div style={{ fontWeight: 800, color: "#27ae60", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><span>✅</span> Lot Boundary Found</div>
           <div style={{ color: "#2c6e49", fontSize: 11 }}>
             Matched: <strong>{fp.road_number_1} {fp.road_name} {fp.road_type}</strong>, {fp.locality}
-            {fp.lot_number && <> — Lot {fp.lot_number}</>}
-            <br />
-            Boundary polygon saved ({coordCount} points).
+            {fp.lot_number && <> — Lot {fp.lot_number}</>} — {lotPolygon?.length || 0} boundary points captured.
           </div>
         </div>
       );
     }
-
     if (lotMatch === "not_found") {
       return (
         <div style={{ marginTop: 10, padding: "10px 14px", background: "#fef9e7", borderRadius: 8, border: "1px solid #f9e79f", fontSize: 12, lineHeight: 1.6 }}>
-          <div style={{ fontWeight: 800, color: "#b7950b", marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>⚠️</span> No Lot Boundary Match
-          </div>
-          <div style={{ color: "#7d6608", fontSize: 11 }}>
-            Address could not be matched in the lot database. The boundary can be set manually later. Try a format like: <strong>54 Stirling Cr, High Wycombe</strong>
-          </div>
+          <div style={{ fontWeight: 800, color: "#b7950b", marginBottom: 2 }}>⚠️ No Lot Boundary Match</div>
+          <div style={{ color: "#7d6608", fontSize: 11 }}>Address not matched in lot database. Try: <strong>54 Stirling Cr, High Wycombe</strong></div>
         </div>
       );
     }
-
     if (lotMatch === "parsing_error") {
       return (
         <div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: 8, border: "1px solid #e6d5d5", fontSize: 12, lineHeight: 1.6 }}>
-          <div style={{ fontWeight: 800, color: "#a04040", marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>ℹ️</span> Could Not Parse Address
-          </div>
-          <div style={{ color: "#784040", fontSize: 11 }}>
-            Enter a full address with street number, street name, road type, and suburb.<br />
-            Example: <strong>12 Railway Rd, Kalamunda</strong>
-          </div>
+          <div style={{ fontWeight: 800, color: "#a04040", marginBottom: 2 }}>ℹ️ Could Not Parse Address</div>
+          <div style={{ color: "#784040", fontSize: 11 }}>Use format: <strong>12 Railway Rd, Kalamunda</strong></div>
         </div>
       );
     }
     return null;
   };
 
-  // ── Step 0: Owner Details ─────────────────────────────
-  const renderOwnerStep = () => (
+  // ══════════════════════════════════════════════════════
+  //  STEP RENDERERS
+  // ══════════════════════════════════════════════════════
+
+  // ── Step 0: Documents & Owner Details ─────────────────
+  const renderDocsAndOwnerStep = () => (
     <>
+      {/* Document uploads */}
+      <div style={sectionTitle}><span>📎</span> Upload Documents</div>
+      <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 10, lineHeight: 1.5 }}>
+        Upload the application form PDF to <strong>auto-fill</strong> owner details and property address. Site plan and supporting documents can also be attached.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        {DOC_CATEGORIES.map(cat => (
+          <DocUploadCard
+            key={cat.id}
+            cat={cat}
+            file={documents[cat.id] || null}
+            onFileChange={f => handleDocChange(cat.id, f)}
+            extracting={cat.id === "application_form" && extracting}
+            extractResult={cat.id === "application_form" ? extractResult : null}
+          />
+        ))}
+      </div>
+
+      {/* Owner details */}
       <div style={sectionTitle}><span>👤</span> Owner / Applicant Information</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
         <Field label="Full Name" required span={2}>
@@ -319,13 +494,11 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
           <input style={inputBase} value={form.owner_postal_address} onChange={set("owner_postal_address")} placeholder="Postal address for correspondence" />
         </Field>
       </div>
+
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>📍</span> Property Address</div>
       <Field label="Property Address" required>
         <input
-          style={{
-            ...inputBase,
-            borderColor: lotMatch === "found" ? "#27ae60" : lotMatch === "not_found" ? "#f39c12" : "#d5dde2",
-          }}
+          style={{ ...inputBase, borderColor: lotMatch === "found" ? "#27ae60" : lotMatch === "not_found" ? "#f39c12" : "#d5dde2" }}
           value={form.property_address}
           onChange={set("property_address")}
           onBlur={handleAddressBlur}
@@ -341,12 +514,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     <>
       <div style={sectionTitle}><span>📍</span> Lot / Property Details</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
-        <Field label="Lot Number">
-          <input style={inputBase} value={form.lot_number} onChange={set("lot_number")} placeholder="e.g. 145" />
-        </Field>
-        <Field label="Plan / Diagram Number">
-          <input style={inputBase} value={form.plan_number} onChange={set("plan_number")} placeholder="e.g. P012345" />
-        </Field>
+        <Field label="Lot Number"><input style={inputBase} value={form.lot_number} onChange={set("lot_number")} placeholder="e.g. 145" /></Field>
+        <Field label="Plan / Diagram Number"><input style={inputBase} value={form.plan_number} onChange={set("plan_number")} placeholder="e.g. P012345" /></Field>
         <Field label="Lot Type">
           <select style={selectBase} value={form.lot_type} onChange={set("lot_type")}>
             <option value="green_title">Green Title</option>
@@ -356,29 +525,18 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <option value="commercial">Commercial</option>
           </select>
         </Field>
-        <Field label="Frontage (m)">
-          <input style={inputBase} type="number" step="0.1" value={form.frontage} onChange={set("frontage")} placeholder="0.0" />
-        </Field>
-        <Field label="Depth (m)">
-          <input style={inputBase} type="number" step="0.1" value={form.depth} onChange={set("depth")} placeholder="0.0" />
-        </Field>
-        <Field label="DA / Approval Number">
-          <input style={inputBase} value={form.da_number} onChange={set("da_number")} placeholder="Optional" />
-        </Field>
+        <Field label="Frontage (m)"><input style={inputBase} type="number" step="0.1" value={form.frontage} onChange={set("frontage")} placeholder="0.0" /></Field>
+        <Field label="Depth (m)"><input style={inputBase} type="number" step="0.1" value={form.depth} onChange={set("depth")} placeholder="0.0" /></Field>
+        <Field label="DA / Approval Number"><input style={inputBase} value={form.da_number} onChange={set("da_number")} placeholder="Optional" /></Field>
       </div>
-
-      {/* Lot boundary status on step 1 too */}
       {lotMatch === "found" && lotPolygon && (
         <div style={{ marginTop: 14, padding: "10px 14px", background: "#eafaf1", borderRadius: 8, border: "1px solid #d4efdf", fontSize: 11, color: "#2c6e49" }}>
           <strong style={{ color: "#27ae60" }}>✅ Lot Boundary:</strong> {lotPolygon.length} coordinate points captured from lot database.
         </div>
       )}
-
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>🛣️</span> Road Information</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px 14px" }}>
-        <Field label="Road Name" span={2}>
-          <input style={inputBase} value={form.road_name} onChange={set("road_name")} placeholder="e.g. Railway Road" />
-        </Field>
+        <Field label="Road Name" span={2}><input style={inputBase} value={form.road_name} onChange={set("road_name")} placeholder="e.g. Railway Road" /></Field>
         <Field label="Road Classification">
           <select style={selectBase} value={form.road_type} onChange={set("road_type")}>
             <option value="local">Local</option>
@@ -387,12 +545,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <option value="green">Green (Access)</option>
           </select>
         </Field>
-        <Field label="Road Width (m)">
-          <input style={inputBase} type="number" step="0.1" value={form.road_width} onChange={set("road_width")} placeholder="0.0" />
-        </Field>
-        <Field label="Verge Width (m)">
-          <input style={inputBase} type="number" step="0.1" value={form.verge_width} onChange={set("verge_width")} placeholder="0.0" />
-        </Field>
+        <Field label="Road Width (m)"><input style={inputBase} type="number" step="0.1" value={form.road_width} onChange={set("road_width")} placeholder="0.0" /></Field>
+        <Field label="Verge Width (m)"><input style={inputBase} type="number" step="0.1" value={form.verge_width} onChange={set("verge_width")} placeholder="0.0" /></Field>
       </div>
     </>
   );
@@ -402,9 +556,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     <>
       <div style={sectionTitle}><span>📐</span> Crossover Design</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
-        <Field label="Crossover Width (m)">
-          <input style={inputBase} type="number" step="0.1" value={form.crossover_width} onChange={set("crossover_width")} placeholder="e.g. 4.5" />
-        </Field>
+        <Field label="Crossover Width (m)"><input style={inputBase} type="number" step="0.1" value={form.crossover_width} onChange={set("crossover_width")} placeholder="e.g. 4.5" /></Field>
         <Field label="Number of Crossovers">
           <select style={selectBase} value={form.crossover_count} onChange={set("crossover_count")}>
             <option value="1">1 — Single</option>
@@ -420,12 +572,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <option value="other">Other</option>
           </select>
         </Field>
-        <Field label="Offset from Left Boundary (m)">
-          <input style={inputBase} type="number" step="0.1" value={form.offset_from_left} onChange={set("offset_from_left")} placeholder="0.0" />
-        </Field>
-        <Field label="Est. Construction Date" span={2}>
-          <input style={inputBase} type="date" value={form.crossover_est_date} onChange={set("crossover_est_date")} />
-        </Field>
+        <Field label="Offset from Left Boundary (m)"><input style={inputBase} type="number" step="0.1" value={form.offset_from_left} onChange={set("offset_from_left")} placeholder="0.0" /></Field>
+        <Field label="Est. Construction Date" span={2}><input style={inputBase} type="date" value={form.crossover_est_date} onChange={set("crossover_est_date")} /></Field>
       </div>
       <div style={{ marginTop: 14, padding: "10px 14px", background: "#f5f8fa", borderRadius: 8, fontSize: 11, color: "#5a6a74", lineHeight: 1.6 }}>
         <strong style={{ color: "#1a3a4a" }}>ℹ️ Width Guidelines:</strong> Minimum 3.0m at property boundary. Maximum depends on lot frontage. Second crossover permitted only if frontage exceeds 20m.
@@ -445,9 +593,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
           </label>
         </Field>
         {form.trees_nearby && (
-          <Field label="Tree Protection Measures" span={2}>
-            <input style={inputBase} value={form.tree_protection} onChange={set("tree_protection")} placeholder="Describe proposed tree protection plan" />
-          </Field>
+          <Field label="Tree Protection Measures" span={2}><input style={inputBase} value={form.tree_protection} onChange={set("tree_protection")} placeholder="Describe proposed tree protection plan" /></Field>
         )}
         <Field label="Vegetation Clearing Required?" span={2}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#2c3e2f", cursor: "pointer" }}>
@@ -456,7 +602,6 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
           </label>
         </Field>
       </div>
-
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>💧</span> Drainage & Stormwater</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
         <Field label="Drainage Type">
@@ -479,7 +624,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     </>
   );
 
-  const stepRenderers = [renderOwnerStep, renderPropertyStep, renderCrossoverStep, renderEnvironmentStep];
+  const stepRenderers = [renderDocsAndOwnerStep, renderPropertyStep, renderCrossoverStep, renderEnvironmentStep];
+
+  const docCount = Object.keys(documents).length;
 
   return (
     <div style={overlay} onClick={onClose}>
@@ -518,16 +665,13 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         <div style={{ padding: "14px 24px", borderTop: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafb" }}>
           <div style={{ fontSize: 11, color: "#9aabb5" }}>
             Step {step + 1} of {steps.length}
-            {lotMatch === "found" && <span style={{ color: "#27ae60", marginLeft: 10 }}>📐 Boundary captured</span>}
+            {docCount > 0 && <span style={{ color: "#2980b9", marginLeft: 10 }}>📎 {docCount} doc{docCount > 1 ? "s" : ""}</span>}
+            {lotMatch === "found" && <span style={{ color: "#27ae60", marginLeft: 10 }}>📐 Boundary</span>}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            {step > 0 && (
-              <button style={btnSecondary} onClick={() => setStep(s => s - 1)}>← Back</button>
-            )}
+            {step > 0 && <button style={btnSecondary} onClick={() => setStep(s => s - 1)}>← Back</button>}
             {step < steps.length - 1 ? (
-              <button style={{ ...btnPrimary, opacity: canGoNext() ? 1 : 0.5 }} disabled={!canGoNext()} onClick={() => { if (canGoNext()) setStep(s => s + 1); }}>
-                Next →
-              </button>
+              <button style={{ ...btnPrimary, opacity: canGoNext() ? 1 : 0.5 }} disabled={!canGoNext()} onClick={() => { if (canGoNext()) setStep(s => s + 1); }}>Next →</button>
             ) : (
               <button style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }} disabled={saving} onClick={handleSubmit}>
                 {saving ? "Submitting…" : "✅ Submit Application"}
@@ -569,10 +713,8 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
         <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a3a4a", margin: 0 }}>
           {filter === "pending_review" ? "Pending Review" : filter === "referral_pending" ? "Referrals" : "All Applications"}
         </h2>
-        <button
-          onClick={() => setShowNewModal(true)}
-          style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", fontSize: 12 }}
-        >
+        <button onClick={() => setShowNewModal(true)}
+          style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", fontSize: 12 }}>
           <span style={{ fontSize: 15, lineHeight: 1 }}>＋</span> New Application
         </button>
       </div>
@@ -598,11 +740,7 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: "#9aabb5", fontSize: 13 }}>
-                  {search ? "No applications match your search." : "No applications found."}
-                </td>
-              </tr>
+              <tr><td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: "#9aabb5", fontSize: 13 }}>{search ? "No applications match your search." : "No applications found."}</td></tr>
             ) : filtered.map(app => (
               <tr key={app.id} onClick={() => onSelectApp(app)} style={{ cursor: "pointer" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
@@ -620,11 +758,7 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
       </div>
 
       {showNewModal && (
-        <NewApplicationModal
-          onClose={() => setShowNewModal(false)}
-          onCreated={handleCreated}
-          globalLotsData={globalLotsData}
-        />
+        <NewApplicationModal onClose={() => setShowNewModal(false)} onCreated={handleCreated} globalLotsData={globalLotsData} />
       )}
     </div>
   );
