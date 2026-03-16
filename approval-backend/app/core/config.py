@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-to-a-random-64-char-string"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
-
+    DOCUMENTS_DIR: str = "/app/documents"
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
