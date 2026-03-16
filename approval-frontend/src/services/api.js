@@ -74,6 +74,13 @@ const api = {
   async generateReport(appId) { return this._fetch(`/applications/${appId}/reports`, { method: "POST" }); },
   async listReports(appId) { return this._fetch(`/applications/${appId}/reports`); },
   async getReport(appId, version) { return this._fetch(`/applications/${appId}/reports/${version}`); },
+
+  // Extract application form data from uploaded PDF
+  async extractAppForm(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return this._fetch("/extract_app_form", { method: "POST", body: formData });
+  },
 };
 
 export default api;
