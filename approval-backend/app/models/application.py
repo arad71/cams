@@ -61,6 +61,9 @@ class Application(Base):
     # GeoJSON lot polygon
     lot_polygon = Column(JSON, nullable=True)  # [[lat,lng], ...]
 
+    # Site plan AI extraction data
+    site_plan_data = Column(JSON, nullable=True)  # Full AI extraction JSON from site plan analysis
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
