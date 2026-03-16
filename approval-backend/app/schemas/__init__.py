@@ -72,6 +72,7 @@ class ApplicationCreate(BaseModel):
     culvert: bool = False
     trees_data: list = []
     lot_polygon: Optional[list] = None
+    site_plan_data: Optional[dict] = None
 
 class ApplicationUpdate(BaseModel):
     status: Optional[str] = None
@@ -85,6 +86,7 @@ class ApplicationUpdate(BaseModel):
     contribution_amount: Optional[float] = None
     referral_authority: Optional[str] = None
     referral_status: Optional[str] = None
+    site_plan_data: Optional[dict] = None
 
 class NoteOut(BaseModel):
     id: int
@@ -147,6 +149,7 @@ class ApplicationOut(BaseModel):
     contribution_eligible: bool = False
     contribution_amount: float = 0
     lot_polygon: Optional[list] = None
+    site_plan_data: Optional[dict] = None
     notes: list[NoteOut] = []
     documents: list[DocumentOut] = []
     inspections: list[InspectionOut] = []
