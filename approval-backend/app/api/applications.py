@@ -1,9 +1,13 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pathlib import Path
+import os
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_role
+from app.core.config import get_settings
 from app.models.user import User
 from app.models.application import Application, ApplicationNote, Document, Inspection, Report
 from app.schemas import (
@@ -195,6 +199,70 @@ def add_document(app_id: int, data: DocumentCreate, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Application not found")
 
     doc = Document(application_id=app_id, uploaded_by_id=current_user.id, **data.model_dump())
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+@router.post("/{app_id}/documents/upload", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
+async def upload_document(
+    app_id: int,
+    file: UploadFile = File(...),
+    category: str = Form("Other"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload an actual file and save it to disk under {DOCUMENT_DIR}/{ref_number}/."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    settings = get_settings()
+    # Create subfolder: {DOCUMENT_DIR}/{ref_number}/
+    app_dir = Path(settings.DOCUMENT_DIR) / app.ref_number
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sanitise filename, keep original name
+    safe_name = file.filename.replace("/", "_").replace("\\", "_").replace("..", "_")
+    dest_path = app_dir / safe_name
+
+    # If file already exists, add a suffix
+    if dest_path.exists():
+        stem = dest_path.stem
+        suffix = dest_path.suffix
+        counter = 1
+        while dest_path.exists():
+            dest_path = app_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+
+    # Write file to disk
+    file_bytes = await file.read()
+    file_size = len(file_bytes)
+    with open(dest_path, "wb") as f:
+        f.write(file_bytes)
+
+    # Determine file type from extension
+    file_ext = (safe_name.rsplit(".", 1)[-1] if "." in safe_name else "").lower()
+
+    # Format size string
+    if file_size < 1024:
+        size_str = f"{file_size} B"
+    elif file_size < 1048576:
+        size_str = f"{file_size / 1024:.1f} KB"
+    else:
+        size_str = f"{file_size / 1048576:.1f} MB"
+
+    # Create document record with file_path
+    doc = Document(
+        application_id=app_id,
+        uploaded_by_id=current_user.id,
+        name=safe_name,
+        file_type=file_ext,
+        file_size=size_str,
+        category=category,
+        file_path=str(dest_path),
+    )
     db.add(doc)
     db.commit()
     db.refresh(doc)
