@@ -103,6 +103,7 @@ class DocumentOut(BaseModel):
     file_size: Optional[str] = None
     category: Optional[str] = None
     status: str = "received"
+    file_path: Optional[str] = None
     uploaded_at: datetime
     class Config:
         from_attributes = True
