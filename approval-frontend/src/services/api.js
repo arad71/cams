@@ -81,6 +81,18 @@ const api = {
     formData.append("file", file);
     return this._fetch("/extract_app_form", { method: "POST", body: formData });
   },
+
+  // Analyse site plan via AI (Claude vision)
+  async analyseSitePlan(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+    const token = this._getToken();
+    const headers = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_BASE.replace('/api', '')}/ai/analyse`, { method: "POST", headers, body: formData });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Site plan analysis failed"); }
+    return res.json();
+  },
 };
 
 export default api;
