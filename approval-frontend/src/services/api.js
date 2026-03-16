@@ -46,6 +46,12 @@ const api = {
   async assignOfficer(appId, officerId) { return this._fetch(`/applications/${appId}/assign/${officerId}`, { method: "POST" }); },
   async addNote(appId, text) { return this._fetch(`/applications/${appId}/notes`, { method: "POST", body: { text } }); },
   async addDocument(appId, data) { return this._fetch(`/applications/${appId}/documents`, { method: "POST", body: data }); },
+  async uploadDocument(appId, file, category) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("category", category || "Other");
+    return this._fetch(`/applications/${appId}/documents/upload`, { method: "POST", body: formData });
+  },
   async updateDocStatus(appId, docId, status) { return this._fetch(`/applications/${appId}/documents/${docId}?status=${status}`, { method: "PATCH" }); },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
   // Verification (category-specific)
