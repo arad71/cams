@@ -107,7 +107,13 @@ class Document(Base):
     uploaded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Review fields
+    review_note = Column(Text, nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
     application = relationship("Application", back_populates="documents")
+    reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])
 
 
 class Inspection(Base):
