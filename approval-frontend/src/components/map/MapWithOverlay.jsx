@@ -11,56 +11,6 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(true);
   const [showStreetNames, setShowStreetNames] = useState(true);
-  const [lotsData, setLotsData] = useState(null);
-  const [lotsLoading, setLotsLoading] = useState(false);
-  const [lotsError, setLotsError] = useState(null);
-
-  // useEffect(() => {
-  //   if (showLots && !lotsData && !lotsLoading) {
-  //     setLotsLoading(true);
-  //     if (window.__KALAMUNDA_LOTS__) { setLotsData(window.__KALAMUNDA_LOTS__); setLotsLoading(false); }
-  //     else { const ck = setInterval(() => { if (window.__KALAMUNDA_LOTS__) { setLotsData(window.__KALAMUNDA_LOTS__); setLotsLoading(false); clearInterval(ck); } }, 100); setTimeout(() => { clearInterval(ck); setLotsLoading(false); }, 5000); }
-  //   }
-  // }, [showLots, lotsData, lotsLoading]);
-
-  
-  useEffect(() => {
-    if (!showLots || lotsData || lotsLoading) return;
-  
-
-    let cancelled = false;
-
-    async function loadLots() {
-      try {
-        // 1) Prefer a global already injected (keeps your existing behavior)
-        // if (window.__KALAMUNDA_LOTS__) {
-        //   if (!cancelled) {
-        //     setLotsData(window.__KALAMUNDA_LOTS__);
-        //     setLotsLoading(false);
-        //   }
-        //   return;
-        // }
-
-        // 2) Otherwise, fetch from /lot.geojson
-        const res = await fetch('/lot.geojson', { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`Failed to load lot.geojson: ${res.status}`);
-        const gj = await res.json();
-
-        if (!cancelled) {
-          setLotsData(gj);
-          setLotsLoading(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLotsError(err);
-          setLotsLoading(false);
-        }
-      }
-    }
-
-    loadLots();
-    return () => { cancelled = true; };
-  }, [showLots, lotsData, lotsLoading]);
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
