@@ -86,7 +86,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
       {/* ★ DOCUMENTS ★ */}
       <div style={{ marginBottom: 14 }}>
-        <DocumentList documents={localApp.documents} />
+        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} currentUser={currentUser} onDocUpdated={() => reloadApp(localApp._dbId)} />
       </div>
 
       {/* ★ APPROVAL CHECKLIST ★ */}
