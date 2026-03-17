@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -60,15 +60,15 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const icon = L.divIcon({
         className: '',
         html: `<div style="position:relative;cursor:pointer;">
-          <svg width="${isSelected?44:36}" height="${isSelected?52:44}" viewBox="0 0 36 44">
+          <svg width="${isSelected?32:24}" height="${isSelected?38:30}" viewBox="0 0 36 44">
             <path d="M18,42 C18,42 2,26 2,16 C2,7.2 9.2,0 18,0 C26.8,0 34,7.2 34,16 C34,26 18,42 18,42Z" fill="${sc.mapColor}" stroke="#fff" stroke-width="2.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.3))"/>
             <circle cx="18" cy="16" r="7" fill="#fff"/>
             <text x="18" y="20" text-anchor="middle" font-size="11" font-weight="bold" fill="${sc.mapColor}">${sc.icon}</text>
           </svg>
-          ${isSelected ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#1a3a4a;color:#fff;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;">' + app.id + '</div>' : ''}
+          ${isSelected ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#1a3a4a;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;white-space:nowrap;font-family:sans-serif;">' + app.id + '</div>' : ''}
         </div>`,
-        iconSize: [isSelected?44:36, isSelected?52:44],
-        iconAnchor: [isSelected?22:18, isSelected?52:44],
+        iconSize: [isSelected?32:24, isSelected?38:30],
+        iconAnchor: [isSelected?16:12, isSelected?38:30],
       });
 
       const marker = L.marker([coords.lat, coords.lng], { icon })
@@ -162,6 +162,18 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       color: '#e74c3c', weight: 3, fillColor: '#e74c3c', fillOpacity: 0.15, dashArray: '6,3',
     }).addTo(mapInstanceRef.current);
   }, [selectedApp, leafletLoaded, allLotsData]);
+
+  // Highlight clicked lot boundary
+  const clickedLotRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (clickedLotRef.current) { mapInstanceRef.current.removeLayer(clickedLotRef.current); clickedLotRef.current = null; }
+    if (!clickedLot?.polygon || clickedLot.polygon.length < 3) return;
+    const L = window.L;
+    clickedLotRef.current = L.polygon(clickedLot.polygon, {
+      color: '#f39c12', weight: 3, fillColor: '#f39c12', fillOpacity: 0.2, dashArray: '5,4',
+    }).addTo(mapInstanceRef.current);
+  }, [clickedLot, leafletLoaded]);
 
   // Render speed limit road network
   useEffect(() => {

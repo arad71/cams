@@ -249,65 +249,11 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   // Clicked lot from map
   const [clickedLot, setClickedLot] = useState(null);
   const handleLotClick = useCallback((lotInfo) => {
-    if (drawMode) return; // ignore during draw mode
+    if (drawMode) return;
     const poly = lotInfo.polygon;
     if (!poly || poly.length < 3) return;
-
-    // Compute lot center
-    const lats = poly.map(p => p[0]), lngs = poly.map(p => p[1]);
-    const cLat = lats.reduce((a,b)=>a+b,0)/lats.length;
-    const cLng = lngs.reduce((a,b)=>a+b,0)/lngs.length;
-
-    // Detect nearest road speed at lot center
-    const nearestRoad = findNearestRoadSpeed(cLat, cLng, speedRoadsData);
-    const sd = getSightDistances(nearestRoad.speed);
-
-    // Compute lot side lengths
-    const sides = [];
-    for (let i = 0; i < poly.length - 1; i++) {
-      const len = geoDistMetres(poly[i][0], poly[i][1], poly[i+1][0], poly[i+1][1]);
-      sides.push({ idx: i, length: len, from: poly[i], to: poly[i+1] });
-    }
-    // Find longest side (likely the frontage)
-    const frontage = sides.reduce((a, b) => a.length > b.length ? a : b, sides[0]);
-    // Compute lot area (shoelace)
-    let area = 0;
-    for (let i = 0; i < poly.length - 1; i++) {
-      const dLat = geoDistMetres(poly[i][0], poly[i][1], poly[i+1][0], poly[i][1]);
-      const dLng = geoDistMetres(poly[i][0], poly[i][1], poly[i][0], poly[i+1][1]);
-      area += (poly[i][1] * poly[i+1][0] - poly[i+1][1] * poly[i][0]);
-    }
-    const areaSqDeg = Math.abs(area) / 2;
-    const mPerDegLat = 111320, mPerDegLng = 111320 * Math.cos(cLat * Math.PI / 180);
-    const areaSqM = areaSqDeg * mPerDegLat * mPerDegLng;
-    const perimeter = sides.reduce((s, sd) => s + sd.length, 0);
-
-    // Apply crossover rules based on frontage
-    const frontageM = frontage.length;
-    const maxWidth = frontageM <= 12.5 ? 4.5 : 6.0;
-    const dualAllowed = frontageM > 20;
-    const setbackMin = 0.5;
-
-    setClickedLot({
-      ...lotInfo,
-      center: { lat: cLat, lng: cLng },
-      sides, frontage: frontage.length,
-      frontageIdx: frontage.idx,
-      areaSqM, perimeter,
-      speed: nearestRoad.speed,
-      roadName: nearestRoad.roadName,
-      networkType: nearestRoad.networkType,
-      sightDist: sd,
-      rules: {
-        maxWidth,
-        minWidth: 3.0,
-        dualAllowed,
-        setbackMin,
-        sightLeftM: sd.leftM,
-        sightRightM: sd.rightM,
-        sightBase: sd.leftM + sd.rightM,
-      }
-    });
+    // Just store the lot info for boundary highlighting — no rules panel
+    setClickedLot(prev => prev?.address === lotInfo.address ? null : lotInfo);
   }, [drawMode]);
 
   // Escape key exits fullscreen
@@ -389,76 +335,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
-        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} />
-
-      {/* ═══ Clicked Lot Rules Panel ═══ */}
-      {clickedLot && !sightTriangle && (
-        <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "2px solid #2980b9", background: "linear-gradient(135deg, #ebf5fb, #d6eaf8)" }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: "#1a3a4a" }}>📍 {clickedLot.address}</div>
-              <div style={{ fontSize: 11, color: "#5a6a74" }}>{clickedLot.properties.loc} · {clickedLot.speed}km/h · {clickedLot.roadName}</div>
-            </div>
-            <button onClick={() => setClickedLot(null)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#95a5a6" }}>✕</button>
-          </div>
-
-          {/* Lot metrics */}
-          <div style={{ padding: "12px 16px", display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {[
-              { label: "FRONTAGE", value: clickedLot.frontage.toFixed(1) + "m", color: "#2980b9" },
-              { label: "PERIMETER", value: clickedLot.perimeter.toFixed(1) + "m", color: "#16a085" },
-              { label: "AREA", value: clickedLot.areaSqM.toFixed(0) + "m²", color: "#8e44ad" },
-              { label: "SIDES", value: clickedLot.sides.length, color: "#1a3a4a" },
-              { label: "SPEED", value: clickedLot.speed + "km/h", color: "#e67e22" },
-              { label: "ROAD", value: clickedLot.roadName || "—", color: "#5a6a74" },
-            ].map(m => (
-              <div key={m.label} style={{ flex: "1 1 80px", background: "#f8fafb", borderRadius: 8, padding: "8px 10px", minWidth: 80 }}>
-                <div style={{ fontSize: 9, color: "#7a8a94", fontWeight: 700 }}>{m.label}</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Lot boundary sides */}
-          <div style={{ padding: "0 16px 10px" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>Boundary Sides</div>
-            <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-              {clickedLot.sides.map((s, i) => (
-                <div key={i} style={{ padding: "4px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, textAlign: "center", minWidth: 50,
-                  background: i === clickedLot.frontageIdx ? "#ebf5fb" : "#f8fafb", border: i === clickedLot.frontageIdx ? "2px solid #2980b9" : "1px solid #eef2f4",
-                  color: i === clickedLot.frontageIdx ? "#2980b9" : "#5a6a74" }}>
-                  {s.length.toFixed(1)}m{i === clickedLot.frontageIdx ? " ★" : ""}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Crossover Rules */}
-          <div style={{ padding: "0 16px 12px" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 6, textTransform: "uppercase" }}>📋 Crossover Rules for this lot</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              {[
-                { rule: "Min crossover width", value: "3.0m", ref: "§3.2" },
-                { rule: "Max crossover width", value: clickedLot.rules.maxWidth + "m", ref: clickedLot.frontage <= 12.5 ? "§3.2 (≤12.5m)" : "§3.2 (>12.5m)" },
-                { rule: "Dual crossover", value: clickedLot.rules.dualAllowed ? "✅ Permitted" : "❌ Not permitted", ref: clickedLot.rules.dualAllowed ? ">20m frontage" : "≤20m frontage" },
-                { rule: "Boundary setback", value: "≥ " + clickedLot.rules.setbackMin + "m", ref: "§3.3" },
-                { rule: "Sight dist — Left (abs)", value: clickedLot.rules.sightLeftM + "m", ref: clickedLot.sightDist.absMin + "m ÷ 10" },
-                { rule: "Sight dist — Right (ssd)", value: clickedLot.rules.sightRightM + "m", ref: clickedLot.sightDist.ssdMin + "m ÷ 10" },
-                { rule: "Sight triangle base", value: clickedLot.rules.sightBase.toFixed(1) + "m", ref: "Asymmetric" },
-                { rule: "Road edge max width", value: "≤ 6.0m", ref: "§3.1" },
-              ].map(r => (
-                <div key={r.rule} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px", borderRadius: 5, background: "#f8fafb", border: "1px solid #eef2f4" }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "#1a3a4a" }}>{r.rule}</div>
-                    <div style={{ fontSize: 9, color: "#95a5a6" }}>{r.ref}</div>
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: r.value.includes("❌") ? "#e74c3c" : r.value.includes("✅") ? "#27ae60" : "#2980b9" }}>{r.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} />
 
       {/* ═══ Sight Triangle Analysis Panel ═══ */}
       {sightTriangle && sightTriangle.analysis && (
