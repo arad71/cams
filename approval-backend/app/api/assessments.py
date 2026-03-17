@@ -13,10 +13,11 @@ from app.core.database import get_db
 from app.core.auth import get_current_user, require_role
 from app.models.user import User
 from app.models.application import Application
-from app.models.assessment import AssessmentCategory, AssessmentItem, CaseAssessment
+from app.models.assessment import AssessmentCategory, AssessmentItem, AssessmentRule, CaseAssessment
 from app.schemas import (
     AssessmentCategoryOut, AssessmentCategoryCreate, AssessmentCategoryUpdate,
     AssessmentItemOut, AssessmentItemCreate, AssessmentItemUpdate,
+    AssessmentRuleOut, AssessmentRuleCreate, AssessmentRuleUpdate,
     CaseAssessmentOut, CaseAssessmentUpdate,
     BulkAIAssessRequest, BulkOfficerDecisionRequest, CaseAssessmentSummary,
 )
@@ -236,7 +237,7 @@ def run_ai_assessment(app_id: int, db: Session = Depends(get_db),
 
     now = datetime.now(timezone.utc)
     for ca in results:
-        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app)
+        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
         ca.ai_result = ai_result
         ca.ai_confidence = confidence
         ca.ai_reason = reason
@@ -309,257 +310,187 @@ def get_assessment_summary(app_id: int, db: Session = Depends(get_db),
 
 
 # ═══════════════════════════════════════════════════════════
-#  AI AUTO-ASSESS ENGINE (Enhanced with Site Plan AI Data)
+#  DATABASE-DRIVEN AUTO-ASSESS ENGINE
 # ═══════════════════════════════════════════════════════════
 
-def _get_site_plan_data(app: Application) -> dict:
-    """Safely extract nested site plan AI data with defaults."""
-    spd = app.site_plan_data or {}
-    ext = spd.get("extraction", {})
-    return {
-        "dims": ext.get("crossover_dimensions", {}),
-        "cons": ext.get("construction", {}),
-        "site": ext.get("siteplan_measurements", {}),
-        "drain": ext.get("drainage", {}),
-        "prop": ext.get("property", {}),
-        "additional": ext.get("additional_findings", {}),
-        "compliance": spd.get("compliance", {}),
-        "has_data": bool(ext),
-    }
-
-
-def _auto_assess_item(item_code: str, app: Application) -> tuple[str, float, str]:
+def _resolve_field_value(source: str, field: str, app: Application):
     """
-    Evaluate a single checklist item against application data AND site plan AI extraction.
-    When site_plan_data is available, uses AI-extracted dimensions and compliance checks
-    for higher-confidence assessments instead of defaulting to "review".
-    Returns (result, confidence, reason).
+    Resolve a field value from app data or site_plan_data.
+    source: "app" → application column, "sp" → site_plan_data.extraction nested path
+    field: dot-separated path, e.g. "crossover_width" or "crossover_dimensions.width_at_boundary_m"
+    Returns the resolved value or None.
     """
-    # ── Application form data ────────────────────────────
-    fr = app.frontage or 0
-    w = app.crossover_width or 0
-    cnt = app.crossover_count or 1
-    rt = app.road_type or "local"
-    clearing = app.clearing or False
-    trees = app.trees_nearby or False
-    da = app.da_number or ""
+    if source == "app":
+        return getattr(app, field, None)
+    elif source == "sp":
+        spd = app.site_plan_data or {}
+        ext = spd.get("extraction", {})
+        # Walk dot-separated path
+        obj = ext
+        for part in field.split("."):
+            if isinstance(obj, dict):
+                obj = obj.get(part)
+            else:
+                return None
+            if obj is None:
+                return None
+        return obj
+    return None
 
-    # ── Site plan AI extraction data ─────────────────────
-    sp = _get_site_plan_data(app)
-    has_sp = sp["has_data"]
-    dims = sp["dims"]
-    cons = sp["cons"]
-    site = sp["site"]
-    drain = sp["drain"]
-    additional = sp["additional"]
-    compliance = sp["compliance"]
 
-    # Helper: find a compliance check result by item keyword
-    def _sp_check(keyword: str) -> dict | None:
-        """Find a compliance check from site plan data matching a keyword."""
-        for check in compliance.get("checks", []):
-            if keyword.lower() in (check.get("item", "") + check.get("rule", "")).lower():
-                return check
+def _cast_value(val_str: str, target_val):
+    """Cast a string threshold to match the type of the target value."""
+    if val_str is None:
         return None
+    if isinstance(target_val, bool):
+        return val_str.lower() in ("true", "1", "yes")
+    if isinstance(target_val, (int, float)):
+        try:
+            return float(val_str)
+        except (ValueError, TypeError):
+            return None
+    return val_str
 
-    # ── Site plan enriched values (prefer AI extraction, fall back to form) ──
-    sp_width = dims.get("width_at_boundary_m")
-    sp_total_width = dims.get("total_width_at_road_m")
-    sp_splay_l = dims.get("splay_left_m")
-    sp_splay_r = dims.get("splay_right_m")
-    sp_verge = dims.get("verge_depth_m")
-    sp_frontage = site.get("lot_frontage_m")
-    sp_material = cons.get("material")
-    sp_thickness = cons.get("thickness_mm")
-    sp_exp_joints = cons.get("expansion_joints")
-    sp_base_course = cons.get("base_course_specified")
-    sp_kerb = cons.get("kerb_type")
-    sp_footpath = cons.get("footpath_exists")
-    sp_veg = additional.get("vegetation_on_verge")
-    sp_road_name = site.get("road_name")
-    sp_has_dims = bool(sp_width or sp_verge or site.get("all_dimensions_found"))
-    sp_drain_plan = drain.get("drainage_plan_included", False)
-    sp_soakwells = drain.get("soakwells_proposed", False)
-    sp_tanks = drain.get("storage_tanks_proposed", False)
-    sp_council_drain = drain.get("connection_to_council_drain", False)
-    sp_pipe_dia = drain.get("pipe_diameter_mm")
 
-    # Use best available: site plan extraction > form field
-    eff_width = sp_width or w
-    eff_frontage = sp_frontage or fr
-    eff_material = sp_material or app.crossover_surface or ""
-    eff_trees = sp_veg if sp_veg is not None else trees
+def _evaluate_condition(field_value, operator: str, threshold_str: str) -> bool:
+    """Evaluate a single condition: field_value <operator> threshold."""
+    if operator == "exists":
+        return field_value is not None and field_value != "" and field_value != 0
+    if operator == "not_exists":
+        return field_value is None or field_value == "" or field_value == 0
+    if operator == "true":
+        return bool(field_value) is True
+    if operator == "false":
+        return not bool(field_value)
 
-    # Approved materials list
-    approved_mats = ["asphalt", "concrete", "brick", "paver", "block", "chip seal"]
-    mat_ok = eff_material and any(k in eff_material.lower() for k in approved_mats)
+    if field_value is None:
+        return False
 
-    rules = {
-        # ─── Ownership & Application ───
-        "owner_verified":       ("pass", 0.9, "Owner name present on application"),
-        "contact_details":      ("pass", 0.95, "Phone and email provided") if app.owner_phone and app.owner_email else ("review", 0.6, "Contact details incomplete"),
-        "application_complete": ("pass", 0.85, "All required fields populated"),
-        "fee_paid":             ("review", 0.5, "Fee payment to be confirmed offline"),
-        "declaration_signed":   ("review", 0.5, "Declaration signature to be confirmed"),
+    threshold = _cast_value(threshold_str, field_value)
 
-        # ─── Property & Lot ───
-        "lot_identified":       ("pass", 0.9, f"Lot {app.lot_number} / Plan {app.plan_number} present"),
-        "zoning_confirmed":     ("review", 0.5, "Zoning to be confirmed against TPS3"),
-        "frontage_measured": (
-            ("pass", 0.95, f"Frontage {eff_frontage}m confirmed from site plan and form") if has_sp and sp_frontage and fr > 0
-            else ("pass", 0.9, f"Frontage {eff_frontage}m from site plan AI extraction") if has_sp and sp_frontage
-            else ("pass", 0.85, f"Frontage stated as {fr}m") if fr > 0
-            else ("fail", 0.9, "Frontage not provided")
-        ),
-        "existing_crossover": (
-            ("pass", 0.8, f"Existing driveway {site['existing_driveway_width_m']}m identified on site plan") if has_sp and site.get("existing_driveway_width_m")
-            else ("review", 0.5, "Existing crossover status to be verified on-site")
-        ),
-        "battleaxe_check":      ("pass", 0.8, "Standard lot — not battleaxe") if eff_frontage >= 10 else ("review", 0.6, "Narrow frontage — check for battleaxe"),
+    if operator == "gte":
+        return float(field_value) >= float(threshold) if threshold is not None else False
+    if operator == "lte":
+        return float(field_value) <= float(threshold) if threshold is not None else False
+    if operator == "gt":
+        return float(field_value) > float(threshold) if threshold is not None else False
+    if operator == "lt":
+        return float(field_value) < float(threshold) if threshold is not None else False
+    if operator == "eq":
+        return str(field_value).lower() == str(threshold).lower()
+    if operator == "neq":
+        return str(field_value).lower() != str(threshold).lower()
+    if operator == "contains":
+        return str(threshold).lower() in str(field_value).lower() if threshold else False
+    if operator == "not_contains":
+        return str(threshold).lower() not in str(field_value).lower() if threshold else True
 
-        # ─── Width & Dimensions ───
-        "min_width": (
-            ("pass", 0.98, f"Width {sp_width}m ≥ 3.0m — confirmed from site plan") if has_sp and sp_width and sp_width >= 3.0
-            else ("fail", 0.98, f"Width {sp_width}m < 3.0m — from site plan") if has_sp and sp_width and sp_width < 3.0
-            else ("pass", 0.95, f"Width {w}m ≥ 3.0m minimum") if w >= 3.0
-            else ("fail", 0.95, f"Width {w}m < 3.0m minimum") if w > 0
-            else ("review", 0.5, "Crossover width not provided")
-        ),
-        "max_width": (
-            ("pass", 0.98, f"Width {eff_width}m within max for {eff_frontage}m frontage") if eff_width > 0 and ((eff_frontage <= 12.5 and eff_width <= 4.5) or (eff_frontage > 12.5 and eff_width <= 6.0))
-            else ("fail", 0.95, f"Width {eff_width}m exceeds max for {eff_frontage}m frontage") if eff_width > 0 and eff_frontage > 0
-            else ("review", 0.5, "Width or frontage data insufficient")
-        ),
-        "road_edge_width": (
-            ("pass", 0.95, f"Total width at road {sp_total_width}m ≤ 6.0m — site plan confirmed") if has_sp and sp_total_width and sp_total_width <= 6.0
-            else ("fail", 0.95, f"Total width at road {sp_total_width}m > 6.0m — exceeds limit") if has_sp and sp_total_width and sp_total_width > 6.0
-            else ("pass", 0.8, "Road edge widening ≤ 6.0m") if eff_width <= 6.0
-            else ("review", 0.7, "Width may exceed road edge limit")
-        ),
-        "dual_crossover":   ("pass", 0.95, f"Dual crossover: frontage {eff_frontage}m > 20m") if cnt > 1 and eff_frontage > 20 else ("fail", 0.95, f"Dual crossover not permitted — frontage {eff_frontage}m ≤ 20m") if cnt > 1 and eff_frontage <= 20 else ("pass", 0.9, "Single crossover"),
-        "separation_dist":  ("review", 0.5, "Dual separation to be verified") if cnt > 1 else ("pass", 0.9, "N/A — single crossover"),
-        "setback_boundary": (
-            ("pass", 0.85, f"Splay L={sp_splay_l}m R={sp_splay_r}m — boundary offset adequate") if has_sp and sp_splay_l is not None and sp_splay_r is not None and sp_splay_l >= 0.5 and sp_splay_r >= 0.5
-            else ("review", 0.6, "Boundary setback ≥ 0.5m to be confirmed on-site")
-        ),
+    return False
 
-        # ─── Construction & Materials ───
-        "base_course": (
-            ("pass", 0.9, "Base course specified on site plan") if has_sp and sp_base_course
-            else ("review", 0.5, "Base course spec to be verified at inspection")
-        ),
-        "surface_material": (
-            ("pass", 0.95, f"Material: {sp_material} — approved type confirmed from site plan") if has_sp and sp_material and mat_ok
-            else ("fail", 0.9, f"Material: {sp_material} — not an approved type") if has_sp and sp_material and not mat_ok
-            else ("pass", 0.8, f"Surface: {app.crossover_surface}") if app.crossover_surface
-            else ("review", 0.5, "Surface material not specified")
-        ),
-        "concrete_joints": (
-            ("pass", 0.9, "Expansion joints confirmed on site plan") if has_sp and sp_exp_joints
-            else ("fail", 0.85, "No expansion joints shown on site plan") if has_sp and sp_exp_joints is False
-            else ("review", 0.5, "Jointing to be verified at inspection")
-        ),
-        "commercial_spec": (
-            ("pass", 0.9, f"Thickness {sp_thickness}mm ≥ 150mm — commercial spec met") if has_sp and sp_thickness and sp_thickness >= 150 and (app.lot_type or "").lower() == "commercial"
-            else ("fail", 0.9, f"Thickness {sp_thickness}mm < 150mm — commercial spec not met") if has_sp and sp_thickness and sp_thickness < 150 and (app.lot_type or "").lower() == "commercial"
-            else ("pass", 0.8, "Residential lot — standard spec applies")
-        ),
-        "grade_alignment": ("review", 0.5, "Grade alignment to be checked on-site"),
-        "kerb_transition": (
-            ("pass", 0.85, f"Kerb type: {sp_kerb} — identified on site plan") if has_sp and sp_kerb
-            else ("review", 0.5, "Kerb transition to be confirmed")
-        ),
 
-        # ─── Vegetation & Trees ───
-        "tree_clearance": (
-            ("review", 0.7, "Vegetation on verge noted on site plan — clearance to be verified") if has_sp and sp_veg is True
-            else ("pass", 0.9, "No vegetation on verge per site plan") if has_sp and sp_veg is False
-            else ("review", 0.6, "Trees nearby — clearance to be verified") if eff_trees
-            else ("pass", 0.9, "No trees nearby")
-        ),
-        "tree_protection": (
-            ("review", 0.7, "Vegetation noted — tree protection plan may be required") if has_sp and sp_veg is True
-            else ("pass", 0.9, "No vegetation impact per site plan") if has_sp and sp_veg is False
-            else ("review", 0.6, "Tree protection plan may be required") if eff_trees
-            else ("pass", 0.9, "No tree protection needed")
-        ),
-        "no_clearing":     ("fail", 0.95, "Clearing flagged — DWER permit required") if clearing else ("pass", 0.9, "No clearing proposed"),
-        "dwer_permit":     ("fail", 0.9, "DWER permit needed for clearing") if clearing else ("pass", 0.9, "No clearing — DWER not required"),
-        "arborist_report": (
-            ("review", 0.7, "Vegetation on verge — arborist report may be needed") if has_sp and sp_veg is True
-            else ("pass", 0.9, "No vegetation impact — arborist not needed") if has_sp and sp_veg is False
-            else ("review", 0.6, "Arborist report may be required for nearby trees") if eff_trees
-            else ("pass", 0.9, "No arborist report needed")
-        ),
-
-        # ─── Drainage & Stormwater ───
-        "drainage_type": (
-            ("pass", 0.9, f"Drainage plan included on site plan: soakwells={sp_soakwells}, tanks={sp_tanks}, council={sp_council_drain}") if has_sp and sp_drain_plan
-            else ("pass", 0.75, f"Drainage: {app.drainage_type}") if app.drainage_type and app.drainage_type != "none"
-            else ("review", 0.5, "Drainage type not specified")
-        ),
-        "detention_ari": (
-            ("pass", 0.85, "Drainage detention shown on site plan") if has_sp and (sp_soakwells or sp_tanks)
-            else ("review", 0.5, "Detention design to be verified if applicable")
-        ),
-        "culvert_design": (
-            ("pass", 0.9, f"Culvert pipe {sp_pipe_dia}mm specified on site plan") if has_sp and sp_pipe_dia
-            else ("review", 0.6, "Culvert design to be verified") if app.culvert
-            else ("pass", 0.85, "No culvert required")
-        ),
-        "no_ponding": (
-            ("pass", 0.8, "Drainage plan addresses stormwater management") if has_sp and sp_drain_plan
-            else ("review", 0.5, "Ponding assessment to be done on-site")
-        ),
-        "stormwater_plan": (
-            ("pass", 0.9, "Stormwater plan included in site plan documentation") if has_sp and sp_drain_plan
-            else ("review", 0.5, "Stormwater plan to be reviewed if provided")
-        ),
-
-        # ─── Sight Lines & Safety ───
-        "sight_triangle":   ("review", 0.5, "Sight triangle to be verified on map/site"),
-        "intersection_dist":("review", 0.5, "Intersection distance to be measured"),
-        "pedestrian_safety": (
-            ("pass", 0.8, "Footpath identified on site plan — continuity to be checked") if has_sp and sp_footpath
-            else ("review", 0.5, "Pedestrian path continuity to be confirmed")
-        ),
-        "vehicle_turning":  ("review", 0.5, "Vehicle turning to be checked"),
-        "driveway_grade":   ("review", 0.5, "Driveway grade to be measured on-site"),
-
-        # ─── Road & Referrals ───
-        "road_class":       ("pass", 0.85, f"Road type: {rt}"),
-        "mrwa_referral":    ("fail", 0.9, "MRWA referral required for red road") if rt == "red" else ("pass", 0.9, "Not a red road — MRWA not required"),
-        "dplh_referral":    ("fail", 0.9, "DPLH referral required for blue road") if rt == "blue" else ("pass", 0.9, "Not a blue road — DPLH not required"),
-        "rav_clearance":    ("review", 0.5, "RAV clearance to be checked if applicable"),
-        "speed_zone":       ("review", 0.6, "Speed zone to be confirmed from road data"),
-
-        # ─── Underground Services ───
-        "dbyd_completed":   ("review", 0.5, "DBYD search to be confirmed"),
-        "power_clear":      ("review", 0.5, "Power/electrical clearance to be verified"),
-        "water_clear":      ("review", 0.5, "Water main clearance to be verified"),
-        "gas_clear":        ("review", 0.5, "Gas pipeline clearance to be verified"),
-        "telco_clear":      ("review", 0.5, "Telco/NBN clearance to be verified"),
-
-        # ─── Documentation ───
-        "site_plan": (
-            ("pass", 0.95, f"Site plan analysed — {len(site.get('all_dimensions_found', []))} dimensions extracted by AI") if has_sp and sp_has_dims
-            else ("pass", 0.7, "Site plan present but limited dimensions found") if has_sp
-            else ("review", 0.6, "Site plan presence to be confirmed")
-        ),
-        "cert_title":       ("pass", 0.8, "Certificate of Title referenced"),
-        "photos_provided":  ("review", 0.6, "Photos to be confirmed"),
-        "da_attached":      ("pass", 0.85, f"DA {da} referenced") if da else ("pass", 0.9, "No DA required"),
-        "engineering_dwg": (
-            ("pass", 0.85, "Engineering details extracted from site plan") if has_sp and sp_has_dims
-            else ("review", 0.5, "Engineering drawing to be checked if non-standard")
-        ),
-
-        # ─── Financial & Contribution ───
-        "first_crossover":  ("pass", 0.8, "First crossover — eligible for contribution") if app.contribution_eligible else ("review", 0.6, "Contribution eligibility to be confirmed"),
-        "contribution_calc":("pass", 0.85, f"Contribution: ${app.contribution_amount:.0f}") if app.contribution_amount > 0 else ("review", 0.5, "Contribution amount to be calculated"),
-        "not_da_linked":    ("fail", 0.9, "DA-linked crossover — contribution ineligible") if da and app.contribution_eligible else ("pass", 0.85, "Not DA-linked or contribution N/A"),
-        "receipts_info":    ("review", 0.5, "Receipts/invoices to be collected within 6 months"),
-    }
-
-    result = rules.get(item_code, ("review", 0.3, "No auto-assessment rule for this item"))
+def _render_reason(template: str, field_value, threshold_str: str) -> str:
+    """Fill in {field_value} and {threshold} placeholders in reason template."""
+    result = template
+    result = result.replace("{field_value}", str(field_value) if field_value is not None else "N/A")
+    result = result.replace("{threshold}", str(threshold_str) if threshold_str is not None else "")
     return result
+
+
+def _auto_assess_item(item_code: str, app: Application, db: Session) -> tuple[str, float, str]:
+    """
+    Evaluate a checklist item using database-driven rules.
+    Rules are loaded from assessment_rules table, evaluated in priority order.
+    First matching rule wins. If no rules match, returns "review" with low confidence.
+    """
+    # Load rules for this item code
+    item = db.query(AssessmentItem).filter(AssessmentItem.code == item_code).first()
+    if not item:
+        return ("review", 0.3, f"Unknown assessment item: {item_code}")
+
+    rules = (
+        db.query(AssessmentRule)
+        .filter(AssessmentRule.item_id == item.id, AssessmentRule.is_active == True)
+        .order_by(AssessmentRule.priority)
+        .all()
+    )
+
+    if not rules:
+        return ("review", 0.3, f"No assessment rules defined for {item_code}")
+
+    # Evaluate rules in priority order — first match wins
+    for rule in rules:
+        try:
+            field_value = _resolve_field_value(rule.source, rule.field, app)
+            matched = _evaluate_condition(field_value, rule.operator, rule.value)
+            if matched:
+                reason = _render_reason(rule.reason_template, field_value, rule.value)
+                return (rule.result, rule.confidence, reason)
+        except Exception as e:
+            # Skip broken rules gracefully
+            continue
+
+    # No rule matched — return the default fallback
+    return ("review", 0.4, f"No matching rule for {item_code} — manual review required")
+
+
+# ═══════════════════════════════════════════════════════════
+#  ASSESSMENT RULES CRUD (Admin only)
+# ═══════════════════════════════════════════════════════════
+
+@router.get("/assessment/rules", response_model=list[AssessmentRuleOut])
+def list_rules(item_code: str = None, db: Session = Depends(get_db),
+               current_user: User = Depends(get_current_user)):
+    """List all rules, optionally filtered by item code."""
+    q = db.query(AssessmentRule).options(joinedload(AssessmentRule.item))
+    if item_code:
+        q = q.join(AssessmentItem).filter(AssessmentItem.code == item_code)
+    rules = q.order_by(AssessmentRule.item_id, AssessmentRule.priority).all()
+    return [
+        AssessmentRuleOut(
+            **{c.name: getattr(r, c.name) for c in r.__table__.columns},
+            item_code=r.item.code if r.item else None,
+        )
+        for r in rules
+    ]
+
+
+@router.post("/assessment/rules", response_model=AssessmentRuleOut, status_code=201)
+def create_rule(data: AssessmentRuleCreate, db: Session = Depends(get_db),
+                current_user: User = Depends(require_role("admin"))):
+    item = db.query(AssessmentItem).filter(AssessmentItem.id == data.item_id).first()
+    if not item:
+        raise HTTPException(404, "Assessment item not found")
+    rule = AssessmentRule(**data.model_dump())
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return AssessmentRuleOut(
+        **{c.name: getattr(rule, c.name) for c in rule.__table__.columns},
+        item_code=item.code,
+    )
+
+
+@router.patch("/assessment/rules/{rule_id}", response_model=AssessmentRuleOut)
+def update_rule(rule_id: int, data: AssessmentRuleUpdate, db: Session = Depends(get_db),
+                current_user: User = Depends(require_role("admin"))):
+    rule = db.query(AssessmentRule).options(joinedload(AssessmentRule.item)).filter(AssessmentRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(404, "Rule not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(rule, k, v)
+    db.commit()
+    db.refresh(rule)
+    return AssessmentRuleOut(
+        **{c.name: getattr(rule, c.name) for c in rule.__table__.columns},
+        item_code=rule.item.code if rule.item else None,
+    )
+
+
+@router.delete("/assessment/rules/{rule_id}", status_code=204)
+def delete_rule(rule_id: int, db: Session = Depends(get_db),
+                current_user: User = Depends(require_role("admin"))):
+    rule = db.query(AssessmentRule).filter(AssessmentRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(404, "Rule not found")
+    db.delete(rule)
+    db.commit()
