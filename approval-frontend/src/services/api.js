@@ -74,12 +74,25 @@ const api = {
     });
   },
   
-  // Assessments
+  // Assessments (per-application)
   async listAssessments(appId) { return this._fetch(`/applications/${appId}/assessments`); },
   async updateAssessment(appId, itemId, data) { return this._fetch(`/applications/${appId}/assessments/${itemId}`, { method: "PATCH", body: data }); },
   async runAIAssess(appId) { return this._fetch(`/applications/${appId}/assessments/ai-assess`, { method: "POST" }); },
   async bulkOfficerDecision(appId, aiFilter, decision) { return this._fetch(`/applications/${appId}/assessments/bulk-officer`, { method: "POST", body: { ai_result_filter: aiFilter, officer_decision: decision } }); },
   async getAssessmentSummary(appId) { return this._fetch(`/applications/${appId}/assessments/summary`); },
+
+  // Assessment Master Data (categories & items)
+  async listCategories() { return this._fetch("/assessment/categories"); },
+  async createCategory(data) { return this._fetch("/assessment/categories", { method: "POST", body: data }); },
+  async updateCategory(id, data) { return this._fetch(`/assessment/categories/${id}`, { method: "PATCH", body: data }); },
+  async createItem(catId, data) { return this._fetch(`/assessment/categories/${catId}/items`, { method: "POST", body: data }); },
+  async updateItem(catId, itemId, data) { return this._fetch(`/assessment/categories/${catId}/items/${itemId}`, { method: "PATCH", body: data }); },
+
+  // Assessment Rules
+  async listRules(itemCode) { const q = itemCode ? `?item_code=${itemCode}` : ""; return this._fetch(`/assessment/rules${q}`); },
+  async createRule(data) { return this._fetch("/assessment/rules", { method: "POST", body: data }); },
+  async updateRule(id, data) { return this._fetch(`/assessment/rules/${id}`, { method: "PATCH", body: data }); },
+  async deleteRule(id) { return this._fetch(`/assessment/rules/${id}`, { method: "DELETE" }); },
 
   // Reports
   async generateReport(appId) { return this._fetch(`/applications/${appId}/reports`, { method: "POST" }); },
