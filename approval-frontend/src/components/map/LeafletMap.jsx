@@ -1,12 +1,12 @@
 import { useRef, useState, useEffect } from "react";
-import { TILE_LAYERS, STATUS_CONFIG, SPEED_ROADS_DATA } from '../../data/constants';
+import { TILE_LAYERS, STATUS_CONFIG } from '../../data/constants';
 import useLeaflet from '../../hooks/useLeaflet';
 import { getAppCoords } from '../../utils/geoHelpers';
 
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, onLotClick = null, allLotsData = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -45,7 +45,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     markersRef.current = [];
 
     apps.forEach(app => {
-      const coords = getAppCoords(allLotsData, app);
+      const coords = getAppCoords(allLotsData, app, speedRoadsData);
       if (!coords) return;
       const sc = STATUS_CONFIG[app.status];
       const isSelected = selectedApp?.id === app.id;
@@ -84,7 +84,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   // Fly to selected
   useEffect(() => {
     if (!mapInstanceRef.current || !selectedApp) return;
-    const c = getAppCoords(allLotsData, selectedApp);
+    const c = getAppCoords(allLotsData, selectedApp, speedRoadsData);
     if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 18, { duration: 1.2 });
   }, [selectedApp, allLotsData]);
 
@@ -148,7 +148,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (!mapInstanceRef.current || !leafletLoaded) return;
     if (appLotRef.current) { mapInstanceRef.current.removeLayer(appLotRef.current); appLotRef.current = null; }
     if (!selectedApp) return;
-    const coords = getAppCoords(allLotsData, selectedApp);
+    const coords = getAppCoords(allLotsData, selectedApp, speedRoadsData);
     if (!coords?.lotPoly) return;
     const L = window.L;
     appLotRef.current = L.polygon(coords.lotPoly, {
@@ -160,10 +160,10 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
     if (speedLayerRef.current) { mapInstanceRef.current.removeLayer(speedLayerRef.current); speedLayerRef.current = null; }
-    if (!showSpeedRoads || !SPEED_ROADS_DATA?.features) return;
+    if (!showSpeedRoads || !speedRoadsData?.features) return;
     const L = window.L;
     const speedColors = { 10: '#27ae60', 40: '#2ecc71', 50: '#f1c40f', 60: '#e67e22', 70: '#e74c3c', 80: '#c0392b', 90: '#8e44ad', 100: '#6c3483', 110: '#1a0530' };
-    speedLayerRef.current = L.geoJSON(SPEED_ROADS_DATA, {
+    speedLayerRef.current = L.geoJSON(speedRoadsData, {
       style: (feature) => {
         const sp = feature.properties.sp || 50;
         return { color: speedColors[sp] || '#f1c40f', weight: 4, opacity: 0.8 };

@@ -24,19 +24,22 @@ export default function KalamundaApprovalPortal() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [loading, setLoading] = useState(true);
   const [globalLotsData, setGlobalLotsData] = useState(null);
+  const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
 
-  // Load lot.geojson once at app level so all views can resolve coords
+  // Load lot.geojson and speed_roads.geojson once at app level
   useEffect(() => {
     let cancelled = false;
-    async function loadLots() {
+    async function loadGeoData() {
       try {
-        const res = await fetch('/lot.geojson', { cache: 'no-cache' });
-        if (!res.ok) return;
-        const gj = await res.json();
-        if (!cancelled) setGlobalLotsData(gj);
-      } catch (e) { console.error('Failed to load lot.geojson:', e); }
+        const [lotsRes, roadsRes] = await Promise.all([
+          fetch('/lot.geojson', { cache: 'no-cache' }),
+          fetch('/speed_roads.geojson', { cache: 'no-cache' }),
+        ]);
+        if (!cancelled && lotsRes.ok) setGlobalLotsData(await lotsRes.json());
+        if (!cancelled && roadsRes.ok) setGlobalSpeedRoads(await roadsRes.json());
+      } catch (e) { console.error('Failed to load geojson data:', e); }
     }
-    loadLots();
+    loadGeoData();
     return () => { cancelled = true; };
   }, []);
 
@@ -127,10 +130,10 @@ export default function KalamundaApprovalPortal() {
   };
 
   const renderView = () => {
-    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} />;
+    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} />;
     switch (activeView) {
       case "dashboard": return <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
-      case "map": return <FullMapView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
+      case "map": return <FullMapView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} globalSpeedRoads={globalSpeedRoads} />;
       case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "referrals": return <ApplicationListView apps={visibleApps} filter="referral_pending" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "inspections": return <InspectionsView apps={visibleApps} />;
