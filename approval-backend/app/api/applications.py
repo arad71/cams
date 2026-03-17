@@ -12,7 +12,7 @@ from app.models.user import User
 from app.models.application import Application, ApplicationNote, Document, Inspection, Report
 from app.schemas import (
     ApplicationCreate, ApplicationUpdate, ApplicationOut, ApplicationListOut,
-    ChecklistUpdate, NoteCreate, NoteOut, DocumentCreate, DocumentOut,
+    ChecklistUpdate, NoteCreate, NoteOut, DocumentCreate, DocumentOut, DocumentUpdate,
     InspectionCreate, InspectionUpdate, InspectionOut,
     ReportOut, ReportListOut,
 )
@@ -76,7 +76,7 @@ def get_application(app_id: int, db: Session = Depends(get_db), current_user: Us
         .options(
             joinedload(Application.assigned_officer),
             joinedload(Application.notes).joinedload(ApplicationNote.author),
-            joinedload(Application.documents),
+            joinedload(Application.documents).joinedload(Document.reviewed_by),
             joinedload(Application.inspections),
         )
         .filter(Application.id == app_id)
@@ -93,7 +93,7 @@ def get_application(app_id: int, db: Session = Depends(get_db), current_user: Us
         **{c.name: getattr(app, c.name) for c in app.__table__.columns},
         officer_name=app.assigned_officer.name if app.assigned_officer else None,
         notes=[NoteOut(id=n.id, text=n.text, author_name=n.author.name if n.author else None, created_at=n.created_at) for n in app.notes],
-        documents=[DocumentOut.model_validate(d) for d in app.documents],
+        documents=[_build_doc_out(d) for d in app.documents],
         inspections=[InspectionOut.model_validate(i) for i in app.inspections],
     )
 
@@ -187,9 +187,22 @@ def add_note(app_id: int, data: NoteCreate, db: Session = Depends(get_db), curre
 
 
 # ─── Documents ───────────────────────────────────────────
+
+def _build_doc_out(d: Document) -> DocumentOut:
+    """Build a DocumentOut with reviewed_by_name resolved from relationship."""
+    return DocumentOut(
+        id=d.id, name=d.name, file_type=d.file_type, file_size=d.file_size,
+        category=d.category, status=d.status, file_path=d.file_path,
+        review_note=d.review_note,
+        reviewed_by_name=d.reviewed_by.name if d.reviewed_by else None,
+        reviewed_at=d.reviewed_at,
+        uploaded_at=d.uploaded_at,
+    )
+
 @router.get("/{app_id}/documents", response_model=list[DocumentOut])
 def list_documents(app_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(Document).filter(Document.application_id == app_id).order_by(Document.uploaded_at.desc()).all()
+    docs = db.query(Document).filter(Document.application_id == app_id).options(joinedload(Document.reviewed_by)).order_by(Document.uploaded_at.desc()).all()
+    return [_build_doc_out(d) for d in docs]
 
 
 @router.post("/{app_id}/documents", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
@@ -270,14 +283,26 @@ async def upload_document(
 
 
 @router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)
-def update_document_status(app_id: int, doc_id: int, doc_status: str = Query(..., alias="status"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    doc = db.query(Document).options(joinedload(Document.reviewed_by)).filter(Document.id == doc_id, Document.application_id == app_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    doc.status = doc_status
+
+    now = datetime.now(timezone.utc)
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "status" in update_data:
+        doc.status = update_data["status"]
+        doc.reviewed_by_id = current_user.id
+        doc.reviewed_at = now
+    if "review_note" in update_data:
+        doc.review_note = update_data["review_note"]
+        doc.reviewed_by_id = current_user.id
+        doc.reviewed_at = now
+
     db.commit()
     db.refresh(doc)
-    return doc
+    return _build_doc_out(doc)
 
 
 # ─── Inspections ─────────────────────────────────────────
