@@ -72,6 +72,7 @@ class ApplicationCreate(BaseModel):
     culvert: bool = False
     trees_data: list = []
     lot_polygon: Optional[list] = None
+    site_plan_data: Optional[dict] = None
 
 class ApplicationUpdate(BaseModel):
     status: Optional[str] = None
@@ -85,6 +86,7 @@ class ApplicationUpdate(BaseModel):
     contribution_amount: Optional[float] = None
     referral_authority: Optional[str] = None
     referral_status: Optional[str] = None
+    site_plan_data: Optional[dict] = None
 
 class NoteOut(BaseModel):
     id: int
@@ -101,9 +103,17 @@ class DocumentOut(BaseModel):
     file_size: Optional[str] = None
     category: Optional[str] = None
     status: str = "received"
+    file_path: Optional[str] = None
+    review_note: Optional[str] = None
+    reviewed_by_name: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     uploaded_at: datetime
     class Config:
         from_attributes = True
+
+class DocumentUpdate(BaseModel):
+    status: Optional[str] = None
+    review_note: Optional[str] = None
 
 class InspectionOut(BaseModel):
     id: int
@@ -147,6 +157,7 @@ class ApplicationOut(BaseModel):
     contribution_eligible: bool = False
     contribution_amount: float = 0
     lot_polygon: Optional[list] = None
+    site_plan_data: Optional[dict] = None
     notes: list[NoteOut] = []
     documents: list[DocumentOut] = []
     inspections: list[InspectionOut] = []
@@ -238,6 +249,46 @@ class AssessmentCategoryUpdate(BaseModel):
     icon: Optional[str] = None
     sort_order: Optional[int] = None
     is_active: Optional[bool] = None
+
+
+# ─── Assessment Rules (database-driven) ─────────────────
+class AssessmentRuleOut(BaseModel):
+    id: int
+    item_id: int
+    item_code: Optional[str] = None
+    priority: int = 0
+    is_active: bool = True
+    source: str = "app"
+    field: str
+    operator: str
+    value: Optional[str] = None
+    result: str
+    confidence: float = 0.8
+    reason_template: str
+    class Config:
+        from_attributes = True
+
+class AssessmentRuleCreate(BaseModel):
+    item_id: int
+    priority: int = 0
+    source: str = "app"
+    field: str
+    operator: str
+    value: Optional[str] = None
+    result: str
+    confidence: float = 0.8
+    reason_template: str
+
+class AssessmentRuleUpdate(BaseModel):
+    priority: Optional[int] = None
+    is_active: Optional[bool] = None
+    source: Optional[str] = None
+    field: Optional[str] = None
+    operator: Optional[str] = None
+    value: Optional[str] = None
+    result: Optional[str] = None
+    confidence: Optional[float] = None
+    reason_template: Optional[str] = None
 
 
 # ─── Case Assessment (per-application per-item) ─────────

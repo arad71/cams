@@ -1,5 +1,5 @@
 import { geoDistMetres } from './geo';
-import { SPEED_ROADS_DATA, SIGHT_DISTANCE_TABLE } from '../data/constants';
+import { SIGHT_DISTANCE_TABLE } from '../data/constants';
 
 // ─── Lot GeoJSON lookup helpers ─────────────────────────
 // Match a lot feature from the GeoJSON by comparing app.property.address
@@ -39,14 +39,14 @@ export function getLotCoordsFromFeature(feature) {
   return { lat, lng, lotPoly: poly };
 }
 
-// Find nearby road intersections dynamically from SPEED_ROADS_DATA.
+// Find nearby road intersections dynamically from speedRoadsData.
 // An "intersection" is where two different named roads share an endpoint
 // within a tolerance. Returns intersections sorted by distance from (lat, lng).
-export function findNearbyIntersections(lat, lng, maxResults = 3, maxDistM = 500) {
-  if (!SPEED_ROADS_DATA?.features) return [];
+export function findNearbyIntersections(lat, lng, speedRoadsData, maxResults = 3, maxDistM = 500) {
+  if (!speedRoadsData?.features) return [];
   // Collect all endpoints with their road name
   const endpoints = [];
-  for (const f of SPEED_ROADS_DATA.features) {
+  for (const f of speedRoadsData.features) {
     const coords = f.geometry.coordinates;
     if (!coords || coords.length < 2) continue;
     const rd = f.properties.rd;
@@ -85,7 +85,7 @@ export function normalizeLotPolygon(poly) {
 }
 
 // Build a PROPERTY_COORDS-equivalent object for an app from lotsData
-export function getAppCoords(lotsData, app) {
+export function getAppCoords(lotsData, app, speedRoadsData) {
   if (!app) return null;
   // 1) Try lot_polygon from API
   const apiPoly = normalizeLotPolygon(app.lot_polygon);
@@ -93,24 +93,24 @@ export function getAppCoords(lotsData, app) {
     const lats = apiPoly.map(p => p[0]), lngs = apiPoly.map(p => p[1]);
     const lat = lats.reduce((a, b) => a + b, 0) / lats.length;
     const lng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-    const intersections = findNearbyIntersections(lat, lng);
+    const intersections = findNearbyIntersections(lat, lng, speedRoadsData);
     return { lat, lng, lotPoly: apiPoly, intersections };
   }
   // 2) Try matching from lotsData via address
   const feature = findLotFeatureByAddress(lotsData, app.property?.address);
   const derived = getLotCoordsFromFeature(feature);
   if (derived) {
-    derived.intersections = findNearbyIntersections(derived.lat, derived.lng);
+    derived.intersections = findNearbyIntersections(derived.lat, derived.lng, speedRoadsData);
     return derived;
   }
   return null;
 }
 
 // Find nearest road speed to a lat/lng point
-export function findNearestRoadSpeed(lat, lng) {
-  if (!SPEED_ROADS_DATA?.features) return { speed: 50, roadName: 'Unknown', dist: 999 };
+export function findNearestRoadSpeed(lat, lng, speedRoadsData) {
+  if (!speedRoadsData?.features) return { speed: 50, roadName: 'Unknown', dist: 999 };
   let best = { speed: 50, roadName: 'Unknown', dist: Infinity };
-  for (const f of SPEED_ROADS_DATA.features) {
+  for (const f of speedRoadsData.features) {
     const coords = f.geometry.coordinates;
     for (let i = 0; i < coords.length - 1; i++) {
       // nearest point on segment

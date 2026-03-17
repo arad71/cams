@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CHECKLIST_CATEGORIES } from '../../data/constants';
+
 
 // ─── Auto-assess a single checklist item ───────────────
 export function autoAssessItem(id, app) {
@@ -53,14 +53,14 @@ export function autoAssessItem(id, app) {
 }
 
 // ─── Approval Checklist UI ──────────────────────────────
-export default function ApprovalChecklist({ app, checklist, setChecklist, onAssessAll }) {
+export default function ApprovalChecklist({ app, checklist, setChecklist, onAssessAll, categories = [] }) {
   const [expandedCat, setExpandedCat] = useState(null);
   const [editNoteId, setEditNoteId] = useState(null);
   const [noteText, setNoteText] = useState("");
 
   const stats = { pass: 0, review: 0, fail: 0, total: 0, oApproved: 0, oRejected: 0, oPending: 0 };
-  CHECKLIST_CATEGORIES.forEach(cat => cat.items.forEach(item => {
-    const s = checklist[item.id];
+  categories.forEach(cat => cat.items.forEach(item => {
+    const s = checklist[item.code];
     stats.total++;
     if (s?.auto === "pass") stats.pass++; else if (s?.auto === "fail") stats.fail++; else stats.review++;
     if (s?.officer === "approved") stats.oApproved++; else if (s?.officer === "rejected") stats.oRejected++; else stats.oPending++;
@@ -108,13 +108,13 @@ export default function ApprovalChecklist({ app, checklist, setChecklist, onAsse
       </div>
 
       {/* Categories */}
-      {CHECKLIST_CATEGORIES.map(cat => {
-        const exp = expandedCat === cat.id;
+      {categories.map(cat => {
+        const exp = expandedCat === cat.code;
         const cf = cat.items.filter(i => checklist[i.id]?.auto === "fail" || checklist[i.id]?.officer === "rejected").length;
         const co = cat.items.filter(i => checklist[i.id]?.officer).length;
         return (
-          <div key={cat.id}>
-            <div onClick={() => setExpandedCat(exp ? null : cat.id)}
+          <div key={cat.code}>
+            <div onClick={() => setExpandedCat(exp ? null : cat.code)}
               style={{ padding: "9px 16px", borderBottom: "1px solid #f0f3f5", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", background: exp ? "#f5f8fa" : "transparent" }}
               onMouseEnter={e => { if (!exp) e.currentTarget.style.background = "#fafcfd"; }} onMouseLeave={e => { if (!exp) e.currentTarget.style.background = "transparent"; }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -129,7 +129,7 @@ export default function ApprovalChecklist({ app, checklist, setChecklist, onAsse
               </div>
             </div>
             {exp && cat.items.map(item => {
-              const s = checklist[item.id] || {};
+              const s = checklist[item.code] || {};
               return (
                 <div key={item.id} style={{ padding: "9px 16px 9px 44px", borderBottom: "1px solid #f5f7f8", background: s.officer === "rejected" ? "#fef5f5" : s.officer === "approved" ? "#f7fdf8" : "#fff" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -144,12 +144,12 @@ export default function ApprovalChecklist({ app, checklist, setChecklist, onAsse
                     {/* Details */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", lineHeight: 1.3 }}>{item.label}</div>
-                      <div style={{ fontSize: 9, color: "#b0bdb2" }}>{item.ref}</div>
+                      <div style={{ fontSize: 9, color: "#b0bdb2" }}>{item.reference}</div>
                       {s.note && <div style={{ marginTop: 3, padding: "3px 7px", background: "#fef9e7", borderRadius: 3, fontSize: 10, color: "#7d6608", lineHeight: 1.3 }}>💬 {s.note} <span style={{ color: "#c4a44a" }}>— {s.noteBy}, {s.noteDate}</span></div>}
-                      {editNoteId === item.id && (
+                      {editNoteId === item.code && (
                         <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
-                          <input value={noteText} onChange={e => setNoteText(e.target.value)} onKeyDown={e => e.key === "Enter" && saveNote(item.id)} placeholder="Note..." style={{ flex: 1, padding: "3px 7px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 10, fontFamily: "inherit", outline: "none" }} autoFocus />
-                          <button onClick={() => saveNote(item.id)} style={{ padding: "3px 7px", borderRadius: 3, border: "none", background: "#1a3a4a", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>OK</button>
+                          <input value={noteText} onChange={e => setNoteText(e.target.value)} onKeyDown={e => e.key === "Enter" && saveNote(item.code)} placeholder="Note..." style={{ flex: 1, padding: "3px 7px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 10, fontFamily: "inherit", outline: "none" }} autoFocus />
+                          <button onClick={() => saveNote(item.code)} style={{ padding: "3px 7px", borderRadius: 3, border: "none", background: "#1a3a4a", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>OK</button>
                           <button onClick={() => setEditNoteId(null)} style={{ padding: "3px 5px", borderRadius: 3, border: "1px solid #d5dde2", background: "#fff", fontSize: 9, color: "#95a5a6", cursor: "pointer" }}>✕</button>
                         </div>
                       )}
@@ -158,7 +158,7 @@ export default function ApprovalChecklist({ app, checklist, setChecklist, onAsse
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 110, flexShrink: 0 }}>
                       <div style={{ display: "flex", gap: 2 }}>
                         {[["approved", "✓ OK", "#27ae60"], ["rejected", "✕ No", "#c0392b"]].map(([val, lbl, clr]) => (
-                          <button key={val} onClick={() => setOfficer(item.id, val)}
+                          <button key={val} onClick={() => setOfficer(item.code, val)}
                             style={{ padding: "3px 9px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
                               border: s.officer === val ? `2px solid ${clr}` : "1px solid #d5dde2",
                               background: s.officer === val ? `${clr}10` : "#fff",
@@ -166,7 +166,7 @@ export default function ApprovalChecklist({ app, checklist, setChecklist, onAsse
                             {lbl}
                           </button>
                         ))}
-                        <button onClick={() => { setEditNoteId(editNoteId === item.id ? null : item.id); setNoteText(s.note || ""); }}
+                        <button onClick={() => { setEditNoteId(editNoteId === item.code ? null : item.id); setNoteText(s.note || ""); }}
                           style={{ padding: "3px 5px", borderRadius: 4, border: "1px solid #d5dde2", background: s.note ? "#fef9e7" : "#fff", color: "#95a5a6", fontSize: 10, cursor: "pointer" }}>💬</button>
                       </div>
                       {s.officer && <span style={{ fontSize: 8, color: "#b0bdb2" }}>{s.officerBy} {s.officerDate}</span>}
@@ -190,7 +190,7 @@ export default function ApprovalChecklist({ app, checklist, setChecklist, onAsse
         {!allDone && (
           <button onClick={() => {
             const u = { ...checklist };
-            CHECKLIST_CATEGORIES.forEach(c => c.items.forEach(i => {
+            categories.forEach(c => c.items.forEach(i => {
               if (u[i.id] && !u[i.id].officer) u[i.id] = { ...u[i.id], officer: u[i.id].auto === "pass" ? "approved" : "rejected", officerBy: "M. Thompson", officerDate: new Date().toISOString().split("T")[0] };
             }));
             setChecklist(u);

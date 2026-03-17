@@ -43,14 +43,51 @@ class AssessmentItem(Base):
     reference = Column(String(50), default="")                          # "§2.1", "AS 2890.1"
     sort_order = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
-    auto_assess_rule = Column(String(200), nullable=True)               # Rule hint for AI engine
+    auto_assess_rule = Column(String(200), nullable=True)               # Legacy — see assessment_rules table
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     category = relationship("AssessmentCategory", back_populates="items")
     case_results = relationship("CaseAssessment", back_populates="item")
+    rules = relationship("AssessmentRule", back_populates="item", order_by="AssessmentRule.priority")
 
     def __repr__(self):
         return f"<Item {self.code}: {self.label[:40]}>"
+
+
+class AssessmentRule(Base):
+    """
+    Database-driven assessment rules.
+    Each rule evaluates a condition against application data or site_plan_data.
+    Multiple rules per item are evaluated in priority order (first match wins).
+    """
+    __tablename__ = "assessment_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("assessment_items.id"), nullable=False, index=True)
+    priority = Column(Integer, default=0)          # Lower = evaluated first
+    is_active = Column(Boolean, default=True)
+
+    # Condition: what to check
+    # source: "app" (application fields) or "sp" (site_plan_data.extraction nested)
+    source = Column(String(10), default="app")     # app | sp
+    field = Column(String(100), nullable=False)     # e.g. "crossover_width", "crossover_dimensions.width_at_boundary_m"
+    operator = Column(String(20), nullable=False)   # gte, lte, gt, lt, eq, neq, exists, not_exists, contains, true, false
+    value = Column(String(200), nullable=True)      # threshold value (cast to appropriate type at runtime)
+
+    # Result when condition matches
+    result = Column(String(10), nullable=False)     # pass | fail | review
+    confidence = Column(Float, default=0.8)
+    reason_template = Column(String(500), nullable=False)  # Can use {field_value}, {threshold} placeholders
+
+    # Fallback: what to return if NO rules match for this item
+    # (only used on the last rule via a convention — see engine)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    item = relationship("AssessmentItem", back_populates="rules")
+
+    def __repr__(self):
+        return f"<Rule item={self.item_id} {self.source}.{self.field} {self.operator} {self.value} → {self.result}>"
 
 
 class CaseAssessment(Base):

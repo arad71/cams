@@ -3,7 +3,7 @@ import LeafletMap from '../components/map/LeafletMap';
 import MapWithOverlay from '../components/map/MapWithOverlay';
 
 // ─── Full Map View (Property Map) ─────────────────────
-export default function FullMapView({ apps, onSelectApp, globalLotsData }) {
+export default function FullMapView({ apps, onSelectApp, globalLotsData, globalSpeedRoads }) {
   const [selectedOnMap, setSelectedOnMap] = useState(null);
   return (
     <div>
@@ -17,10 +17,10 @@ export default function FullMapView({ apps, onSelectApp, globalLotsData }) {
               <button onClick={() => setSelectedOnMap(null)} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>✕ Close</button>
             </div>
           </div>
-          <MapWithOverlay app={selectedOnMap} apps={apps} onSelectApp={onSelectApp} />
+          <MapWithOverlay app={selectedOnMap} apps={apps} onSelectApp={onSelectApp} speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} />
         </div>
       ) : (
-        <LeafletMap apps={apps} onSelectApp={a => setSelectedOnMap(a)} height={600} allLotsData={globalLotsData} />
+        <LeafletMap apps={apps} onSelectApp={a => setSelectedOnMap(a)} height={600} allLotsData={globalLotsData} speedRoadsData={globalSpeedRoads} />
       )}
     </div>
   );

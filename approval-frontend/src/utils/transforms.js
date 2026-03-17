@@ -18,7 +18,7 @@ export function apiAppToFrontend(a) {
       inspections: (a.inspections || []).map(i => ({ type: i.inspection_type, date: i.scheduled_date, inspector: "", status: i.status })),
       contribution: { eligible: a.contribution_eligible || false, amount: a.contribution_amount || 0 },
     },
-    documents: (a.documents || []).map(d => ({ id: String(d.id), name: d.name, type: d.file_type || "pdf", size: d.file_size || "", date: d.uploaded_at ? d.uploaded_at.split("T")[0] : "", category: d.category || "", status: d.status || "received" })),
+    documents: (a.documents || []).map(d => ({ id: String(d.id), name: d.name, type: d.file_type || "pdf", size: d.file_size || "", date: d.uploaded_at ? d.uploaded_at.split("T")[0] : "", category: d.category || "", status: d.status || "received", reviewNote: d.review_note || "", reviewedBy: d.reviewed_by_name || "", reviewedAt: d.reviewed_at ? d.reviewed_at.split("T")[0] : "" })),
     checklist_data: a.checklist_data || {},
     lot_polygon: a.lot_polygon || null,
   };

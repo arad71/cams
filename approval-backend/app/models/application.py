@@ -61,6 +61,9 @@ class Application(Base):
     # GeoJSON lot polygon
     lot_polygon = Column(JSON, nullable=True)  # [[lat,lng], ...]
 
+    # Site plan AI extraction data
+    site_plan_data = Column(JSON, nullable=True)  # Full AI extraction JSON from site plan analysis
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -104,7 +107,13 @@ class Document(Base):
     uploaded_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Review fields
+    review_note = Column(Text, nullable=True)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
     application = relationship("Application", back_populates="documents")
+    reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])
 
 
 class Inspection(Base):

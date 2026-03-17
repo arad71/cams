@@ -13,10 +13,11 @@ from app.core.database import get_db
 from app.core.auth import get_current_user, require_role
 from app.models.user import User
 from app.models.application import Application
-from app.models.assessment import AssessmentCategory, AssessmentItem, CaseAssessment
+from app.models.assessment import AssessmentCategory, AssessmentItem, AssessmentRule, CaseAssessment
 from app.schemas import (
     AssessmentCategoryOut, AssessmentCategoryCreate, AssessmentCategoryUpdate,
     AssessmentItemOut, AssessmentItemCreate, AssessmentItemUpdate,
+    AssessmentRuleOut, AssessmentRuleCreate, AssessmentRuleUpdate,
     CaseAssessmentOut, CaseAssessmentUpdate,
     BulkAIAssessRequest, BulkOfficerDecisionRequest, CaseAssessmentSummary,
 )
@@ -236,7 +237,7 @@ def run_ai_assessment(app_id: int, db: Session = Depends(get_db),
 
     now = datetime.now(timezone.utc)
     for ca in results:
-        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app)
+        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
         ca.ai_result = ai_result
         ca.ai_confidence = confidence
         ca.ai_reason = reason
@@ -309,102 +310,187 @@ def get_assessment_summary(app_id: int, db: Session = Depends(get_db),
 
 
 # ═══════════════════════════════════════════════════════════
-#  AI AUTO-ASSESS ENGINE
+#  DATABASE-DRIVEN AUTO-ASSESS ENGINE
 # ═══════════════════════════════════════════════════════════
 
-def _auto_assess_item(item_code: str, app: Application) -> tuple[str, float, str]:
+def _resolve_field_value(source: str, field: str, app: Application):
     """
-    Evaluate a single checklist item against application data.
-    Returns (result, confidence, reason).
+    Resolve a field value from app data or site_plan_data.
+    source: "app" → application column, "sp" → site_plan_data.extraction nested path
+    field: dot-separated path, e.g. "crossover_width" or "crossover_dimensions.width_at_boundary_m"
+    Returns the resolved value or None.
     """
-    # Shorthand
-    fr = app.frontage or 0
-    w = app.crossover_width or 0
-    cnt = app.crossover_count or 1
-    rt = app.road_type or "local"
-    clearing = app.clearing or False
-    trees = app.trees_nearby or False
-    da = app.da_number or ""
+    if source == "app":
+        return getattr(app, field, None)
+    elif source == "sp":
+        spd = app.site_plan_data or {}
+        ext = spd.get("extraction", {})
+        # Walk dot-separated path
+        obj = ext
+        for part in field.split("."):
+            if isinstance(obj, dict):
+                obj = obj.get(part)
+            else:
+                return None
+            if obj is None:
+                return None
+        return obj
+    return None
 
-    rules = {
-        # ─── Ownership & Application ───
-        "owner_verified":       ("pass", 0.9, "Owner name present on application"),
-        "contact_details":      ("pass", 0.95, "Phone and email provided") if app.owner_phone and app.owner_email else ("review", 0.6, "Contact details incomplete"),
-        "application_complete": ("pass", 0.85, "All required fields populated"),
-        "fee_paid":             ("review", 0.5, "Fee payment to be confirmed offline"),
-        "declaration_signed":   ("review", 0.5, "Declaration signature to be confirmed"),
 
-        # ─── Property & Lot ───
-        "lot_identified":       ("pass", 0.9, f"Lot {app.lot_number} / Plan {app.plan_number} present"),
-        "zoning_confirmed":     ("review", 0.5, "Zoning to be confirmed against TPS3"),
-        "frontage_measured":    ("pass", 0.85, f"Frontage stated as {fr}m") if fr > 0 else ("fail", 0.9, "Frontage not provided"),
-        "existing_crossover":   ("review", 0.5, "Existing crossover status to be verified on-site"),
-        "battleaxe_check":      ("pass", 0.8, "Standard lot — not battleaxe") if fr >= 10 else ("review", 0.6, "Narrow frontage — check for battleaxe"),
+def _cast_value(val_str: str, target_val):
+    """Cast a string threshold to match the type of the target value."""
+    if val_str is None:
+        return None
+    if isinstance(target_val, bool):
+        return val_str.lower() in ("true", "1", "yes")
+    if isinstance(target_val, (int, float)):
+        try:
+            return float(val_str)
+        except (ValueError, TypeError):
+            return None
+    return val_str
 
-        # ─── Width & Dimensions ───
-        "min_width":            ("pass", 0.95, f"Width {w}m ≥ 3.0m minimum") if w >= 3.0 else ("fail", 0.95, f"Width {w}m < 3.0m minimum"),
-        "max_width":            ("pass", 0.95, f"Width {w}m within max for {fr}m frontage") if (fr <= 12.5 and w <= 4.5) or (fr > 12.5 and w <= 6.0) else ("fail", 0.95, f"Width {w}m exceeds max for {fr}m frontage"),
-        "road_edge_width":      ("pass", 0.8, "Road edge widening ≤ 6.0m") if w <= 6.0 else ("review", 0.7, "Width may exceed road edge limit"),
-        "dual_crossover":       ("pass", 0.95, f"Dual crossover: frontage {fr}m > 20m") if cnt > 1 and fr > 20 else ("fail", 0.95, f"Dual crossover not permitted — frontage {fr}m ≤ 20m") if cnt > 1 and fr <= 20 else ("pass", 0.9, "Single crossover"),
-        "separation_dist":      ("review", 0.5, "Dual separation to be verified") if cnt > 1 else ("pass", 0.9, "N/A — single crossover"),
-        "setback_boundary":     ("review", 0.6, "Boundary setback ≥ 0.5m to be confirmed on-site"),
 
-        # ─── Construction & Materials ───
-        "base_course":          ("review", 0.5, "Base course spec to be verified at inspection"),
-        "surface_material":     ("pass", 0.8, f"Surface: {app.crossover_surface}") if app.crossover_surface else ("review", 0.5, "Surface material not specified"),
-        "concrete_joints":      ("review", 0.5, "Jointing to be verified at inspection"),
-        "commercial_spec":      ("pass", 0.8, "Residential lot — standard spec applies"),
-        "grade_alignment":      ("review", 0.5, "Grade alignment to be checked on-site"),
-        "kerb_transition":      ("review", 0.5, "Kerb transition to be confirmed"),
+def _evaluate_condition(field_value, operator: str, threshold_str: str) -> bool:
+    """Evaluate a single condition: field_value <operator> threshold."""
+    if operator == "exists":
+        return field_value is not None and field_value != "" and field_value != 0
+    if operator == "not_exists":
+        return field_value is None or field_value == "" or field_value == 0
+    if operator == "true":
+        return bool(field_value) is True
+    if operator == "false":
+        return not bool(field_value)
 
-        # ─── Vegetation & Trees ───
-        "tree_clearance":       ("review", 0.6, "Trees nearby — clearance to be verified") if trees else ("pass", 0.9, "No trees nearby"),
-        "tree_protection":      ("review", 0.6, "Tree protection plan may be required") if trees else ("pass", 0.9, "No tree protection needed"),
-        "no_clearing":          ("fail", 0.95, "Clearing flagged — DWER permit required") if clearing else ("pass", 0.9, "No clearing proposed"),
-        "dwer_permit":          ("fail", 0.9, "DWER permit needed for clearing") if clearing else ("pass", 0.9, "No clearing — DWER not required"),
-        "arborist_report":      ("review", 0.6, "Arborist report may be required for nearby trees") if trees else ("pass", 0.9, "No arborist report needed"),
+    if field_value is None:
+        return False
 
-        # ─── Drainage & Stormwater ───
-        "drainage_type":        ("pass", 0.75, f"Drainage: {app.drainage_type}") if app.drainage_type else ("review", 0.5, "Drainage type not specified"),
-        "detention_ari":        ("review", 0.5, "Detention design to be verified if applicable"),
-        "culvert_design":       ("review", 0.6, "Culvert design to be verified") if app.culvert else ("pass", 0.85, "No culvert required"),
-        "no_ponding":           ("review", 0.5, "Ponding assessment to be done on-site"),
-        "stormwater_plan":      ("review", 0.5, "Stormwater plan to be reviewed if provided"),
+    threshold = _cast_value(threshold_str, field_value)
 
-        # ─── Sight Lines & Safety ───
-        "sight_triangle":       ("review", 0.5, "Sight triangle to be verified on map/site"),
-        "intersection_dist":    ("review", 0.5, "Intersection distance to be measured"),
-        "pedestrian_safety":    ("review", 0.5, "Pedestrian path continuity to be confirmed"),
-        "vehicle_turning":      ("review", 0.5, "Vehicle turning to be checked"),
-        "driveway_grade":       ("review", 0.5, "Driveway grade to be measured on-site"),
+    if operator == "gte":
+        return float(field_value) >= float(threshold) if threshold is not None else False
+    if operator == "lte":
+        return float(field_value) <= float(threshold) if threshold is not None else False
+    if operator == "gt":
+        return float(field_value) > float(threshold) if threshold is not None else False
+    if operator == "lt":
+        return float(field_value) < float(threshold) if threshold is not None else False
+    if operator == "eq":
+        return str(field_value).lower() == str(threshold).lower()
+    if operator == "neq":
+        return str(field_value).lower() != str(threshold).lower()
+    if operator == "contains":
+        return str(threshold).lower() in str(field_value).lower() if threshold else False
+    if operator == "not_contains":
+        return str(threshold).lower() not in str(field_value).lower() if threshold else True
 
-        # ─── Road & Referrals ───
-        "road_class":           ("pass", 0.85, f"Road type: {rt}"),
-        "mrwa_referral":        ("fail", 0.9, "MRWA referral required for red road") if rt == "red" else ("pass", 0.9, "Not a red road — MRWA not required"),
-        "dplh_referral":        ("fail", 0.9, "DPLH referral required for blue road") if rt == "blue" else ("pass", 0.9, "Not a blue road — DPLH not required"),
-        "rav_clearance":        ("review", 0.5, "RAV clearance to be checked if applicable"),
-        "speed_zone":           ("review", 0.6, "Speed zone to be confirmed from road data"),
+    return False
 
-        # ─── Underground Services ───
-        "dbyd_completed":       ("review", 0.5, "DBYD search to be confirmed"),
-        "power_clear":          ("review", 0.5, "Power/electrical clearance to be verified"),
-        "water_clear":          ("review", 0.5, "Water main clearance to be verified"),
-        "gas_clear":            ("review", 0.5, "Gas pipeline clearance to be verified"),
-        "telco_clear":          ("review", 0.5, "Telco/NBN clearance to be verified"),
 
-        # ─── Documentation ───
-        "site_plan":            ("review", 0.6, "Site plan presence to be confirmed"),
-        "cert_title":           ("pass", 0.8, "Certificate of Title referenced"),
-        "photos_provided":      ("review", 0.6, "Photos to be confirmed"),
-        "da_attached":          ("pass", 0.85, f"DA {da} referenced") if da else ("pass", 0.9, "No DA required"),
-        "engineering_dwg":      ("review", 0.5, "Engineering drawing to be checked if non-standard"),
-
-        # ─── Financial & Contribution ───
-        "first_crossover":      ("pass", 0.8, "First crossover — eligible for contribution") if app.contribution_eligible else ("review", 0.6, "Contribution eligibility to be confirmed"),
-        "contribution_calc":    ("pass", 0.85, f"Contribution: ${app.contribution_amount:.0f}") if app.contribution_amount > 0 else ("review", 0.5, "Contribution amount to be calculated"),
-        "not_da_linked":        ("fail", 0.9, "DA-linked crossover — contribution ineligible") if da and app.contribution_eligible else ("pass", 0.85, "Not DA-linked or contribution N/A"),
-        "receipts_info":        ("review", 0.5, "Receipts/invoices to be collected within 6 months"),
-    }
-
-    result = rules.get(item_code, ("review", 0.3, "No auto-assessment rule for this item"))
+def _render_reason(template: str, field_value, threshold_str: str) -> str:
+    """Fill in {field_value} and {threshold} placeholders in reason template."""
+    result = template
+    result = result.replace("{field_value}", str(field_value) if field_value is not None else "N/A")
+    result = result.replace("{threshold}", str(threshold_str) if threshold_str is not None else "")
     return result
+
+
+def _auto_assess_item(item_code: str, app: Application, db: Session) -> tuple[str, float, str]:
+    """
+    Evaluate a checklist item using database-driven rules.
+    Rules are loaded from assessment_rules table, evaluated in priority order.
+    First matching rule wins. If no rules match, returns "review" with low confidence.
+    """
+    # Load rules for this item code
+    item = db.query(AssessmentItem).filter(AssessmentItem.code == item_code).first()
+    if not item:
+        return ("review", 0.3, f"Unknown assessment item: {item_code}")
+
+    rules = (
+        db.query(AssessmentRule)
+        .filter(AssessmentRule.item_id == item.id, AssessmentRule.is_active == True)
+        .order_by(AssessmentRule.priority)
+        .all()
+    )
+
+    if not rules:
+        return ("review", 0.3, f"No assessment rules defined for {item_code}")
+
+    # Evaluate rules in priority order — first match wins
+    for rule in rules:
+        try:
+            field_value = _resolve_field_value(rule.source, rule.field, app)
+            matched = _evaluate_condition(field_value, rule.operator, rule.value)
+            if matched:
+                reason = _render_reason(rule.reason_template, field_value, rule.value)
+                return (rule.result, rule.confidence, reason)
+        except Exception as e:
+            # Skip broken rules gracefully
+            continue
+
+    # No rule matched — return the default fallback
+    return ("review", 0.4, f"No matching rule for {item_code} — manual review required")
+
+
+# ═══════════════════════════════════════════════════════════
+#  ASSESSMENT RULES CRUD (Admin only)
+# ═══════════════════════════════════════════════════════════
+
+@router.get("/assessment/rules", response_model=list[AssessmentRuleOut])
+def list_rules(item_code: str = None, db: Session = Depends(get_db),
+               current_user: User = Depends(get_current_user)):
+    """List all rules, optionally filtered by item code."""
+    q = db.query(AssessmentRule).options(joinedload(AssessmentRule.item))
+    if item_code:
+        q = q.join(AssessmentItem).filter(AssessmentItem.code == item_code)
+    rules = q.order_by(AssessmentRule.item_id, AssessmentRule.priority).all()
+    return [
+        AssessmentRuleOut(
+            **{c.name: getattr(r, c.name) for c in r.__table__.columns},
+            item_code=r.item.code if r.item else None,
+        )
+        for r in rules
+    ]
+
+
+@router.post("/assessment/rules", response_model=AssessmentRuleOut, status_code=201)
+def create_rule(data: AssessmentRuleCreate, db: Session = Depends(get_db),
+                current_user: User = Depends(require_role("admin"))):
+    item = db.query(AssessmentItem).filter(AssessmentItem.id == data.item_id).first()
+    if not item:
+        raise HTTPException(404, "Assessment item not found")
+    rule = AssessmentRule(**data.model_dump())
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return AssessmentRuleOut(
+        **{c.name: getattr(rule, c.name) for c in rule.__table__.columns},
+        item_code=item.code,
+    )
+
+
+@router.patch("/assessment/rules/{rule_id}", response_model=AssessmentRuleOut)
+def update_rule(rule_id: int, data: AssessmentRuleUpdate, db: Session = Depends(get_db),
+                current_user: User = Depends(require_role("admin"))):
+    rule = db.query(AssessmentRule).options(joinedload(AssessmentRule.item)).filter(AssessmentRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(404, "Rule not found")
+    for k, v in data.model_dump(exclude_unset=True).items():
+        setattr(rule, k, v)
+    db.commit()
+    db.refresh(rule)
+    return AssessmentRuleOut(
+        **{c.name: getattr(rule, c.name) for c in rule.__table__.columns},
+        item_code=rule.item.code if rule.item else None,
+    )
+
+
+@router.delete("/assessment/rules/{rule_id}", status_code=204)
+def delete_rule(rule_id: int, db: Session = Depends(get_db),
+                current_user: User = Depends(require_role("admin"))):
+    rule = db.query(AssessmentRule).filter(AssessmentRule.id == rule_id).first()
+    if not rule:
+        raise HTTPException(404, "Rule not found")
+    db.delete(rule)
+    db.commit()

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { SPEED_ROADS_DATA, SIGHT_DISTANCE_TABLE } from '../../data/constants';
+import { SIGHT_DISTANCE_TABLE } from '../../data/constants';
 import { getAppCoords, getFirstRing, normalizeLotPolygon, findNearestRoadSpeed, getSightDistances } from '../../utils/geoHelpers';
 import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment } from '../../utils/geo';
 import LeafletMap from './LeafletMap';
@@ -7,7 +7,7 @@ import LeafletMap from './LeafletMap';
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null }) {
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(true);
   const [showStreetNames, setShowStreetNames] = useState(true);
@@ -66,7 +66,7 @@ function MapWithOverlay({ app, apps, onSelectApp }) {
   const [ptA, setPtA] = useState(null);
   const [ptB, setPtB] = useState(null);
   const [sightTriangle, setSightTriangle] = useState(null);
-  const coords = getAppCoords(lotsData, app);
+  const coords = getAppCoords(lotsData, app, speedRoadsData);
 
   // 3D Sight Analysis state
   const [analysisRunning, setAnalysisRunning] = useState(false);
@@ -248,7 +248,7 @@ function MapWithOverlay({ app, apps, onSelectApp }) {
 
   useEffect(() => {
     if (!ptA || !ptB || !coords) { setSightTriangle(null); return; }
-    const nearestRoad = findNearestRoadSpeed(ptB.lat, ptB.lng);
+    const nearestRoad = findNearestRoadSpeed(ptB.lat, ptB.lng, speedRoadsData);
     const sd = getSightDistances(nearestRoad.speed);
     const leftDistM = sd.leftM, rightDistM = sd.rightM, baseTotal = leftDistM + rightDistM;
 
@@ -308,7 +308,7 @@ function MapWithOverlay({ app, apps, onSelectApp }) {
     const cLng = lngs.reduce((a,b)=>a+b,0)/lngs.length;
 
     // Detect nearest road speed at lot center
-    const nearestRoad = findNearestRoadSpeed(cLat, cLng);
+    const nearestRoad = findNearestRoadSpeed(cLat, cLng, speedRoadsData);
     const sd = getSightDistances(nearestRoad.speed);
 
     // Compute lot side lengths
@@ -419,7 +419,7 @@ function MapWithOverlay({ app, apps, onSelectApp }) {
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={520}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
-        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} onLotClick={handleLotClick} allLotsData={lotsData} />
+        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} />
 
       {/* ═══ Clicked Lot Rules Panel ═══ */}
       {clickedLot && !sightTriangle && (

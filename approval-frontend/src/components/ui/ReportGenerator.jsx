@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { CHECKLIST_CATEGORIES } from '../../data/constants';
 
-function ReportGenerator({ app, checklist, summary, currentUser }) {
+
+function ReportGenerator({ app, checklist, summary, currentUser, categories = [] }) {
   const [reports, setReports] = useState([]);
   const [viewingReport, setViewingReport] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -14,9 +14,9 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
       // Snapshot checklist state at generation time
       const checklistSnapshot = {};
       let itemsPassed = 0, itemsFailed = 0, itemsReview = 0, officerApproved = 0, officerRejected = 0;
-      CHECKLIST_CATEGORIES.forEach(cat => cat.items.forEach(item => {
-        const st = checklist[item.id] || {};
-        checklistSnapshot[item.id] = { ...st, catLabel: cat.label, catIcon: cat.icon, itemLabel: item.label, itemRef: item.ref };
+      categories.forEach(cat => cat.items.forEach(item => {
+        const st = checklist[item.code] || {};
+        checklistSnapshot[item.code] = { ...st, catLabel: cat.label, catIcon: cat.icon, itemLabel: item.label, itemRef: item.reference };
         if (st.auto === "pass") itemsPassed++;
         else if (st.auto === "fail") itemsFailed++;
         else itemsReview++;
@@ -55,12 +55,12 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
     if (!w) return;
     const s = report.appSnapshot;
     const cl = report.checklist;
-    const cats = CHECKLIST_CATEGORIES;
+    const cats = categories;
     let checklistHTML = "";
     cats.forEach(cat => {
       let rows = "";
       cat.items.forEach(item => {
-        const r = cl[item.id] || {};
+        const r = cl[item.code] || {};
         const aiColor = r.auto === "pass" ? "#27ae60" : r.auto === "fail" ? "#e74c3c" : "#e67e22";
         const offColor = r.officer === "approved" ? "#27ae60" : r.officer === "rejected" ? "#e74c3c" : "#999";
         rows += `<tr>
@@ -68,7 +68,7 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
           <td style="padding:4px 8px;border:1px solid #ddd;font-size:11px;text-align:center;"><span style="color:${aiColor};font-weight:700">${(r.auto||"—").toUpperCase()}</span></td>
           <td style="padding:4px 8px;border:1px solid #ddd;font-size:11px;text-align:center;"><span style="color:${offColor};font-weight:700">${(r.officer||"pending").toUpperCase()}</span></td>
           <td style="padding:4px 8px;border:1px solid #ddd;font-size:11px;">${r.note||""}</td>
-          <td style="padding:4px 8px;border:1px solid #ddd;font-size:11px;">${item.ref}</td>
+          <td style="padding:4px 8px;border:1px solid #ddd;font-size:11px;">${item.reference}</td>
         </tr>`;
       });
       checklistHTML += `<tr style="background:#f0f3f5"><td colspan="5" style="padding:6px 8px;border:1px solid #ddd;font-weight:700;font-size:12px;">${cat.icon} ${cat.label}</td></tr>${rows}`;
@@ -218,12 +218,12 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
 
           {/* Checklist breakdown by category */}
           <div style={{ maxHeight: 300, overflowY: "auto", borderRadius: 8, border: "1px solid #e4e9ec", background: "#fff" }}>
-            {CHECKLIST_CATEGORIES.map(cat => {
-              const items = cat.items.map(item => ({ ...item, result: viewingReport.checklist[item.id] || {} }));
+            {categories.map(cat => {
+              const items = cat.items.map(item => ({ ...item, result: viewingReport.checklist[item.code] || {} }));
               const catPass = items.filter(i => i.result.auto === "pass").length;
               const catFail = items.filter(i => i.result.auto === "fail").length;
               return (
-                <div key={cat.id}>
+                <div key={cat.code}>
                   <div style={{ padding: "6px 10px", background: "#f5f8fa", borderBottom: "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#1a3a4a" }}>{cat.icon} {cat.label}</span>
                     <span style={{ fontSize: 9, color: "#7a8a94" }}>{catPass}✓ {catFail > 0 ? catFail + "✕ " : ""}{cat.items.length} items</span>
@@ -231,7 +231,7 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
                   {items.map(item => {
                     const r = item.result;
                     return (
-                      <div key={item.id} style={{ padding: "4px 10px 4px 24px", borderBottom: "1px solid #f8fafb", display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
+                      <div key={item.code} style={{ padding: "4px 10px 4px 24px", borderBottom: "1px solid #f8fafb", display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
                         <span style={{ width: 50, fontWeight: 700, fontSize: 10, textAlign: "center",
                           color: r.auto === "pass" ? "#27ae60" : r.auto === "fail" ? "#e74c3c" : "#e67e22" }}>
                           {(r.auto || "—").toUpperCase()}
@@ -241,7 +241,7 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
                           {r.officer ? r.officer.toUpperCase() : "PENDING"}
                         </span>
                         <span style={{ flex: 1, color: "#3a4a5a" }}>{item.label}</span>
-                        <span style={{ fontSize: 9, color: "#bdc3c7" }}>{item.ref}</span>
+                        <span style={{ fontSize: 9, color: "#bdc3c7" }}>{item.reference}</span>
                       </div>
                     );
                   })}

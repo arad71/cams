@@ -1,23 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from '../services/api';
 import { frontendAppToApiUpdate } from '../utils/transforms';
-import { STATUS_CONFIG, ROLE_CONFIG, CHECKLIST_CATEGORIES } from '../data/constants';
+import { STATUS_CONFIG, ROLE_CONFIG } from '../data/constants';
 import StatusBadge from '../components/ui/StatusBadge';
 import MapWithOverlay from '../components/map/MapWithOverlay';
 import DocumentList from '../components/ui/DocumentList';
 import ApprovalChecklist, { autoAssessItem } from '../components/ui/ApprovalChecklist';
 import ReportGenerator from '../components/ui/ReportGenerator';
 
-function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users }) {
+function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData }) {
   const [localApp, setLocalApp] = useState(JSON.parse(JSON.stringify(app)));
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
   const [assignee, setAssignee] = useState(app.assessment.officer);
   const [checklist, setChecklist] = useState({});
   const [assessed, setAssessed] = useState(false);
+  const [categories, setCategories] = useState([]);
   const role = currentUser?.role || "engineer";
   const canAssign = role === "admin" || role === "manager";
   const canDecide = role === "admin" || role === "manager";
+
+  // Fetch assessment categories from API once
+  useEffect(() => {
+    let cancelled = false;
+    api.listCategories().then(data => { if (!cancelled) setCategories(data); }).catch(e => console.error(e));
+    return () => { cancelled = true; };
+  }, []);
 
   const addNote = async () => {
     if (!newNote.trim()) return;
@@ -44,16 +52,16 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
   const runAutoAssess = () => {
     const r = {};
-    CHECKLIST_CATEGORIES.forEach(c => c.items.forEach(i => {
-      const prev = checklist[i.id] || {};
-      r[i.id] = { ...prev, auto: autoAssessItem(i.id, localApp), autoDate: new Date().toISOString().split("T")[0] };
+    categories.forEach(c => c.items.forEach(i => {
+      const prev = checklist[i.code] || {};
+      r[i.code] = { ...prev, auto: autoAssessItem(i.code, localApp), autoDate: new Date().toISOString().split("T")[0] };
     }));
     setChecklist(r); setAssessed(true);
   };
 
   const summary = (() => {
     let pass=0,review=0,fail=0,oA=0,oR=0,t=0;
-    CHECKLIST_CATEGORIES.forEach(c=>c.items.forEach(i=>{t++;const s=checklist[i.id];if(s?.auto==="pass")pass++;else if(s?.auto==="fail")fail++;else review++;if(s?.officer==="approved")oA++;if(s?.officer==="rejected")oR++;}));
+    categories.forEach(c=>c.items.forEach(i=>{t++;const s=checklist[i.code];if(s?.auto==="pass")pass++;else if(s?.auto==="fail")fail++;else review++;if(s?.officer==="approved")oA++;if(s?.officer==="rejected")oR++;}));
     return {pass,review,fail,oA,oR,t,score:t>0?Math.round(pass/t*100):0};
   })();
 
@@ -66,7 +74,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
       </div>
 
       {/* ★ MAP WITH OVERLAY ★ */}
-      <div style={{ marginBottom: 16 }}><MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp} /></div>
+      <div style={{ marginBottom: 16 }}><MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp} speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} /></div>
 
       {/* Info Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
@@ -86,12 +94,12 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
       {/* ★ DOCUMENTS ★ */}
       <div style={{ marginBottom: 14 }}>
-        <DocumentList documents={localApp.documents} />
+        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} currentUser={currentUser} onDocUpdated={() => reloadApp(localApp._dbId)} />
       </div>
 
       {/* ★ APPROVAL CHECKLIST ★ */}
       <div style={{ marginBottom: 14 }}>
-        <ApprovalChecklist app={localApp} checklist={checklist} setChecklist={setChecklist} onAssessAll={runAutoAssess} />
+        <ApprovalChecklist app={localApp} checklist={checklist} setChecklist={setChecklist} onAssessAll={runAutoAssess} categories={categories} />
       </div>
 
       {/* Summary (after assessment) */}
@@ -113,11 +121,11 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
             ))}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 5 }}>
-            {CHECKLIST_CATEGORIES.map(cat => {
-              const cf = cat.items.filter(i => checklist[i.id]?.auto === "fail").length;
-              const cp = cat.items.filter(i => checklist[i.id]?.auto === "pass").length;
-              const co = cat.items.filter(i => checklist[i.id]?.officer).length;
-              return <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 5, background: cf > 0 ? "#fef5f5" : co === cat.items.length ? "#f7fdf8" : "#f8fafb", border: `1px solid ${cf > 0 ? "#f5c6cb" : co === cat.items.length ? "#c3e6cb" : "#eef2f4"}` }}>
+            {categories.map(cat => {
+              const cf = cat.items.filter(i => checklist[i.code]?.auto === "fail").length;
+              const cp = cat.items.filter(i => checklist[i.code]?.auto === "pass").length;
+              const co = cat.items.filter(i => checklist[i.code]?.officer).length;
+              return <div key={cat.code} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 5, background: cf > 0 ? "#fef5f5" : co === cat.items.length ? "#f7fdf8" : "#f8fafb", border: `1px solid ${cf > 0 ? "#f5c6cb" : co === cat.items.length ? "#c3e6cb" : "#eef2f4"}` }}>
                 <span style={{ fontSize: 12 }}>{cat.icon}</span>
                 <div><div style={{ fontSize: 10, fontWeight: 700, color: "#1a3a4a" }}>{cat.label}</div><div style={{ fontSize: 8, color: "#95a5a6" }}>{cp}✓ {cf > 0 ? cf + "✕ " : ""}{co}/{cat.items.length} signed</div></div>
               </div>;
@@ -128,7 +136,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
       {/* ★ REPORT GENERATOR ★ */}
       <div style={{ marginBottom: 14 }}>
-        <ReportGenerator app={localApp} checklist={checklist} summary={summary} currentUser={currentUser} />
+        <ReportGenerator app={localApp} checklist={checklist} summary={summary} currentUser={currentUser} categories={categories} />
       </div>
 
       {/* Officer + Notes */}

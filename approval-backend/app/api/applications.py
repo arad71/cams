@@ -1,14 +1,18 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pathlib import Path
+import os
+import shutil
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_role
+from app.core.config import get_settings
 from app.models.user import User
 from app.models.application import Application, ApplicationNote, Document, Inspection, Report
 from app.schemas import (
     ApplicationCreate, ApplicationUpdate, ApplicationOut, ApplicationListOut,
-    ChecklistUpdate, NoteCreate, NoteOut, DocumentCreate, DocumentOut,
+    ChecklistUpdate, NoteCreate, NoteOut, DocumentCreate, DocumentOut, DocumentUpdate,
     InspectionCreate, InspectionUpdate, InspectionOut,
     ReportOut, ReportListOut,
 )
@@ -72,7 +76,7 @@ def get_application(app_id: int, db: Session = Depends(get_db), current_user: Us
         .options(
             joinedload(Application.assigned_officer),
             joinedload(Application.notes).joinedload(ApplicationNote.author),
-            joinedload(Application.documents),
+            joinedload(Application.documents).joinedload(Document.reviewed_by),
             joinedload(Application.inspections),
         )
         .filter(Application.id == app_id)
@@ -89,7 +93,7 @@ def get_application(app_id: int, db: Session = Depends(get_db), current_user: Us
         **{c.name: getattr(app, c.name) for c in app.__table__.columns},
         officer_name=app.assigned_officer.name if app.assigned_officer else None,
         notes=[NoteOut(id=n.id, text=n.text, author_name=n.author.name if n.author else None, created_at=n.created_at) for n in app.notes],
-        documents=[DocumentOut.model_validate(d) for d in app.documents],
+        documents=[_build_doc_out(d) for d in app.documents],
         inspections=[InspectionOut.model_validate(i) for i in app.inspections],
     )
 
@@ -183,9 +187,22 @@ def add_note(app_id: int, data: NoteCreate, db: Session = Depends(get_db), curre
 
 
 # ─── Documents ───────────────────────────────────────────
+
+def _build_doc_out(d: Document) -> DocumentOut:
+    """Build a DocumentOut with reviewed_by_name resolved from relationship."""
+    return DocumentOut(
+        id=d.id, name=d.name, file_type=d.file_type, file_size=d.file_size,
+        category=d.category, status=d.status, file_path=d.file_path,
+        review_note=d.review_note,
+        reviewed_by_name=d.reviewed_by.name if d.reviewed_by else None,
+        reviewed_at=d.reviewed_at,
+        uploaded_at=d.uploaded_at,
+    )
+
 @router.get("/{app_id}/documents", response_model=list[DocumentOut])
 def list_documents(app_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(Document).filter(Document.application_id == app_id).order_by(Document.uploaded_at.desc()).all()
+    docs = db.query(Document).filter(Document.application_id == app_id).options(joinedload(Document.reviewed_by)).order_by(Document.uploaded_at.desc()).all()
+    return [_build_doc_out(d) for d in docs]
 
 
 @router.post("/{app_id}/documents", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
@@ -201,15 +218,91 @@ def add_document(app_id: int, data: DocumentCreate, db: Session = Depends(get_db
     return doc
 
 
-@router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)
-def update_document_status(app_id: int, doc_id: int, doc_status: str = Query(..., alias="status"), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-    doc.status = doc_status
+@router.post("/{app_id}/documents/upload", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
+async def upload_document(
+    app_id: int,
+    file: UploadFile = File(...),
+    category: str = Form("Other"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload an actual file and save it to disk under {DOCUMENT_DIR}/{ref_number}/."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    settings = get_settings()
+    # Create subfolder: {DOCUMENT_DIR}/{ref_number}/
+    app_dir = Path(settings.DOCUMENT_DIR) / app.ref_number
+    app_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sanitise filename, keep original name
+    safe_name = file.filename.replace("/", "_").replace("\\", "_").replace("..", "_")
+    dest_path = app_dir / safe_name
+
+    # If file already exists, add a suffix
+    if dest_path.exists():
+        stem = dest_path.stem
+        suffix = dest_path.suffix
+        counter = 1
+        while dest_path.exists():
+            dest_path = app_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+
+    # Write file to disk
+    file_bytes = await file.read()
+    file_size = len(file_bytes)
+    with open(dest_path, "wb") as f:
+        f.write(file_bytes)
+
+    # Determine file type from extension
+    file_ext = (safe_name.rsplit(".", 1)[-1] if "." in safe_name else "").lower()
+
+    # Format size string
+    if file_size < 1024:
+        size_str = f"{file_size} B"
+    elif file_size < 1048576:
+        size_str = f"{file_size / 1024:.1f} KB"
+    else:
+        size_str = f"{file_size / 1048576:.1f} MB"
+
+    # Create document record with file_path
+    doc = Document(
+        application_id=app_id,
+        uploaded_by_id=current_user.id,
+        name=safe_name,
+        file_type=file_ext,
+        file_size=size_str,
+        category=category,
+        file_path=str(dest_path),
+    )
+    db.add(doc)
     db.commit()
     db.refresh(doc)
     return doc
+
+
+@router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)
+def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    doc = db.query(Document).options(joinedload(Document.reviewed_by)).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    now = datetime.now(timezone.utc)
+    update_data = data.model_dump(exclude_unset=True)
+
+    if "status" in update_data:
+        doc.status = update_data["status"]
+        doc.reviewed_by_id = current_user.id
+        doc.reviewed_at = now
+    if "review_note" in update_data:
+        doc.review_note = update_data["review_note"]
+        doc.reviewed_by_id = current_user.id
+        doc.reviewed_at = now
+
+    db.commit()
+    db.refresh(doc)
+    return _build_doc_out(doc)
 
 
 # ─── Inspections ─────────────────────────────────────────

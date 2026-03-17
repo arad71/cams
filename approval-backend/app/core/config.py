@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     MAX_IMAGE_DIM: int = Field(default=2048)
     AI_MAX_TOKENS: int = Field(default=4096)
 
+    # Document storage
+    DOCUMENT_DIR: str = Field(default="./uploads/documents")
+
     # Pydantic v2 settings config
     model_config = SettingsConfigDict(
         env_file=".env",
