@@ -1,92 +1,170 @@
 import { useState } from "react";
 import api from '../../services/api';
 
-// ─── Document List & Viewer with Verification Actions ──
+const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
+const STATUS_OPTIONS = [
+  { value: "received",  label: "Received",  color: "#3498db", icon: "📥", bg: "#ebf5fb" },
+  { value: "verified",  label: "Verified",  color: "#27ae60", icon: "✅", bg: "#eafaf1" },
+  { value: "rejected",  label: "Rejected",  color: "#e74c3c", icon: "❌", bg: "#fdedec" },
+];
+
+function getStatusConfig(status) {
+  return STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
+}
+
+// ─── Document Review Panel (shown when a doc is selected) ──
+function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
+  const [status, setStatus] = useState(doc.status || "received");
+  const [note, setNote] = useState(doc.reviewNote || "");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const canReview = currentUser && (currentUser.role === "admin" || currentUser.role === "manager" || currentUser.role === "engineer");
+  const hasChanges = status !== (doc.status || "received") || note !== (doc.reviewNote || "");
+  const sc = getStatusConfig(status);
+
+  const handleSave = async () => {
+    if (!appDbId || !canReview) return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.updateDocStatus(appDbId, doc.id, status, note);
+      setSaved(true);
+      if (onDocUpdated) onDocUpdated();
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error("Failed to update document:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ borderTop: "2px solid #2980b9", background: "#f8fafb" }}>
+      {/* Document info header */}
+      <div style={{ padding: "14px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a3a4a" }}>{typeIcons[doc.type] || "📄"} {doc.name}</div>
+          <div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>{doc.category} · {doc.type.toUpperCase()} · {doc.size} · Uploaded: {doc.date}</div>
+        </div>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#95a5a6" }}>✕</button>
+      </div>
+
+      {/* Preview + Download */}
+      <div style={{ padding: "0 16px 12px" }}>
+        <div style={{ background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
+          <div style={{ fontSize: 40, marginBottom: 6 }}>{typeIcons[doc.type] || "📄"}</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", marginBottom: 8 }}>{doc.name}</div>
+          <button onClick={() => {
+            const blob = new Blob([`[Document: ${doc.name}]\nID: ${doc.id}\nCategory: ${doc.category}\nSize: ${doc.size}`], { type: "application/octet-stream" });
+            const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = doc.name; a.click(); URL.revokeObjectURL(url);
+          }} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>📥 Download</button>
+        </div>
+      </div>
+
+      {/* ★ REVIEW SECTION — Status + Note (like approval checklist) ★ */}
+      {canReview && (
+        <div style={{ padding: "0 16px 14px" }}>
+          <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+            {/* Review header */}
+            <div style={{ padding: "10px 14px", background: `${sc.color}08`, borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a", textTransform: "uppercase", letterSpacing: "0.04em" }}>📋 Document Review</span>
+              {doc.reviewedBy && (
+                <span style={{ fontSize: 10, color: "#7a8a94" }}>
+                  Last reviewed by <strong>{doc.reviewedBy}</strong> on {doc.reviewedAt}
+                </span>
+              )}
+            </div>
+
+            {/* Status selector */}
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>Review Status</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {STATUS_OPTIONS.map(opt => {
+                  const active = status === opt.value;
+                  return (
+                    <button key={opt.value} onClick={() => setStatus(opt.value)}
+                      style={{
+                        flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit",
+                        border: active ? `2px solid ${opt.color}` : "1.5px solid #d5dde2",
+                        background: active ? opt.bg : "#fff",
+                        color: active ? opt.color : "#7a8a94",
+                        fontWeight: active ? 800 : 500, fontSize: 12,
+                        transition: "all 0.15s",
+                      }}>
+                      <div style={{ fontSize: 16, marginBottom: 2 }}>{opt.icon}</div>
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Review note */}
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>Review Note</div>
+              <textarea
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="Add review comments, issues found, or conditions for this document…"
+                rows={3}
+                style={{
+                  width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #d5dde2",
+                  fontSize: 12, fontFamily: "inherit", background: "#fafbfc", color: "#1a3a4a",
+                  outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.5,
+                }}
+              />
+            </div>
+
+            {/* Save button */}
+            <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 10, color: "#95a5a6" }}>
+                {currentUser && <span>Reviewing as <strong style={{ color: "#5a6a74" }}>{currentUser.name}</strong></span>}
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {saved && <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 600 }}>✅ Saved</span>}
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !hasChanges}
+                  style={{
+                    padding: "7px 18px", borderRadius: 8, border: "none",
+                    background: hasChanges ? `linear-gradient(135deg, ${sc.color}, ${sc.color}dd)` : "#d5dde2",
+                    color: hasChanges ? "#fff" : "#95a5a6",
+                    fontWeight: 700, fontSize: 12, cursor: hasChanges ? "pointer" : "default",
+                    fontFamily: "inherit", boxShadow: hasChanges ? `0 2px 8px ${sc.color}30` : "none",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {saving ? "Saving…" : hasChanges ? `💾 Save as ${getStatusConfig(status).label}` : "No Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── Document List with Review ─────────────────────────
 export default function DocumentList({ documents, appDbId, currentUser, onDocUpdated }) {
-  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [selectedDocId, setSelectedDocId] = useState(null);
   const [filter, setFilter] = useState("All");
-  const [previewDoc, setPreviewDoc] = useState(null);
-  const [actionLoading, setActionLoading] = useState(null); // docId being acted on
 
   if (!documents || documents.length === 0) return <div style={{ padding: 16, color: "#95a5a6", fontSize: 12 }}>No documents submitted.</div>;
 
   const categories = ["All", ...new Set(documents.map(d => d.category))];
   const filtered = filter === "All" ? documents : documents.filter(d => d.category === filter);
+  const selectedDoc = documents.find(d => d.id === selectedDocId);
 
-  const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
-  const statusColors = { received: "#3498db", verified: "#27ae60", pending: "#e67e22", rejected: "#e74c3c" };
-  const statusIcons = { received: "📥", verified: "✅", pending: "⏳", rejected: "❌" };
-
-  const canVerify = currentUser && (currentUser.role === "admin" || currentUser.role === "manager" || currentUser.role === "engineer");
-
-  // Handle doc status change via API
-  const handleStatusChange = async (doc, newStatus) => {
-    if (!appDbId) return;
-    setActionLoading(doc.id);
-    try {
-      await api.updateDocStatus(appDbId, doc.id, newStatus);
-      if (onDocUpdated) onDocUpdated();
-    } catch (e) {
-      console.error("Failed to update document status:", e);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Render action buttons for a document
-  const renderActions = (doc) => {
-    if (!canVerify) return null;
-    const loading = actionLoading === doc.id;
-
-    if (doc.status === "verified") {
-      return (
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <span style={{ fontSize: 9, color: "#27ae60", fontWeight: 700 }}>✅ Verified</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleStatusChange(doc, "received"); }}
-            disabled={loading}
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontSize: 9, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-            title="Undo verification"
-          >↩ Undo</button>
-        </div>
-      );
-    }
-
-    if (doc.status === "rejected") {
-      return (
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <span style={{ fontSize: 9, color: "#e74c3c", fontWeight: 700 }}>❌ Rejected</span>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleStatusChange(doc, "received"); }}
-            disabled={loading}
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontSize: 9, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-            title="Reset to received"
-          >↩ Reset</button>
-        </div>
-      );
-    }
-
-    // received or pending — show verify/reject buttons
-    return (
-      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <button
-          onClick={(e) => { e.stopPropagation(); handleStatusChange(doc, "verified"); }}
-          disabled={loading}
-          style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: loading ? "#bdc3c7" : "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
-          title="Mark as verified"
-        >{loading ? "…" : "✓ Verify"}</button>
-        <button
-          onClick={(e) => { e.stopPropagation(); handleStatusChange(doc, "rejected"); }}
-          disabled={loading}
-          style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: loading ? "#bdc3c7" : "#e74c3c", color: "#fff", fontSize: 9, fontWeight: 700, cursor: loading ? "default" : "pointer", fontFamily: "inherit", transition: "background 0.15s" }}
-          title="Mark as rejected"
-        >{loading ? "…" : "✗ Reject"}</button>
-      </div>
-    );
-  };
+  const verified = documents.filter(d => d.status === "verified").length;
+  const rejected = documents.filter(d => d.status === "rejected").length;
+  const pending = documents.length - verified - rejected;
 
   return (
     <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+      {/* Header */}
       <div style={{ padding: "12px 16px", borderBottom: "1px solid #f0f3f5", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: 0 }}>📎 Documents ({documents.length})</h4>
         <div style={{ display: "flex", gap: 2 }}>
@@ -97,145 +175,57 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
         </div>
       </div>
 
-      {/* Document verification summary bar */}
-      {canVerify && documents.length > 0 && (
-        <div style={{ padding: "6px 16px", background: "#f8fafb", borderBottom: "1px solid #f0f3f5", display: "flex", gap: 12, fontSize: 10, color: "#7a8a94" }}>
-          <span style={{ color: "#27ae60", fontWeight: 700 }}>✅ {documents.filter(d => d.status === "verified").length} verified</span>
-          <span style={{ color: "#e74c3c", fontWeight: 700 }}>❌ {documents.filter(d => d.status === "rejected").length} rejected</span>
-          <span style={{ color: "#3498db", fontWeight: 700 }}>📥 {documents.filter(d => d.status === "received" || d.status === "pending").length} pending</span>
-        </div>
-      )}
-
-      <div style={{ maxHeight: 280, overflowY: "auto" }}>
-        {filtered.map(doc => (
-          <div key={doc.id} onClick={() => setSelectedDoc(selectedDoc?.id === doc.id ? null : doc)}
-            style={{ padding: "8px 16px", borderBottom: "1px solid #f8fafb", display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
-              background: selectedDoc?.id === doc.id ? "#ebf5fb" : "transparent", transition: "background 0.15s" }}
-            onMouseEnter={e => { if (selectedDoc?.id !== doc.id) e.currentTarget.style.background = "#f8fafb"; }}
-            onMouseLeave={e => { if (selectedDoc?.id !== doc.id) e.currentTarget.style.background = "transparent"; }}>
-            <span style={{ fontSize: 18 }}>{typeIcons[doc.type] || "📄"}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
-              <div style={{ fontSize: 10, color: "#95a5a6" }}>{doc.type.toUpperCase()} · {doc.size} · {doc.date}</div>
-            </div>
-            {/* Status badge */}
-            <span style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: `${statusColors[doc.status] || "#95a5a6"}18`, color: statusColors[doc.status] || "#95a5a6", whiteSpace: "nowrap" }}>
-              {statusIcons[doc.status] || "📄"} {doc.status}
-            </span>
-            {/* Verify/reject actions inline */}
-            {renderActions(doc)}
-          </div>
-        ))}
+      {/* Summary bar */}
+      <div style={{ padding: "6px 16px", background: "#f8fafb", borderBottom: "1px solid #f0f3f5", display: "flex", gap: 14, fontSize: 10 }}>
+        <span style={{ color: "#27ae60", fontWeight: 700 }}>✅ {verified} verified</span>
+        <span style={{ color: "#e74c3c", fontWeight: 700 }}>❌ {rejected} rejected</span>
+        <span style={{ color: "#3498db", fontWeight: 700 }}>📥 {pending} pending review</span>
       </div>
 
-      {/* Document Viewer */}
+      {/* Document rows */}
+      <div style={{ maxHeight: 280, overflowY: "auto" }}>
+        {filtered.map(doc => {
+          const sc = getStatusConfig(doc.status);
+          const isSelected = selectedDocId === doc.id;
+          return (
+            <div key={doc.id}
+              onClick={() => setSelectedDocId(isSelected ? null : doc.id)}
+              style={{
+                padding: "9px 16px", borderBottom: "1px solid #f8fafb", display: "flex", alignItems: "center", gap: 10,
+                cursor: "pointer", background: isSelected ? "#ebf5fb" : "transparent", transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#f8fafb"; }}
+              onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}>
+              <span style={{ fontSize: 18 }}>{typeIcons[doc.type] || "📄"}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
+                <div style={{ fontSize: 10, color: "#95a5a6" }}>
+                  {doc.type.toUpperCase()} · {doc.size} · {doc.date}
+                  {doc.reviewedBy && <span style={{ marginLeft: 6, color: "#7a8a94" }}>· Reviewed by {doc.reviewedBy}</span>}
+                </div>
+              </div>
+              {/* Status badge */}
+              <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
+                {sc.icon} {sc.label}
+              </span>
+              {/* Has note indicator */}
+              {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: "#e67e22" }}>💬</span>}
+              {/* Expand indicator */}
+              <span style={{ fontSize: 10, color: "#bdc3c7", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Review panel (expanded below the list) */}
       {selectedDoc && (
-        <div style={{ borderTop: "2px solid #2980b9", padding: 16, background: "#f8fafb" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#1a3a4a" }}>{typeIcons[selectedDoc.type] || "📄"} {selectedDoc.name}</div>
-              <div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>{selectedDoc.category} · {selectedDoc.type.toUpperCase()} · {selectedDoc.size}</div>
-            </div>
-            <button onClick={() => setSelectedDoc(null)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#95a5a6" }}>✕</button>
-          </div>
-
-          {/* Preview area */}
-          <div style={{ background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", padding: 20, minHeight: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            {selectedDoc.type === "pdf" ? (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 48, marginBottom: 8 }}>📄</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#1a3a4a", marginBottom: 4 }}>{selectedDoc.name}</div>
-                <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 12 }}>PDF Document · {selectedDoc.size}</div>
-                <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                  <button onClick={() => { const blob = new Blob([`[Mock PDF content for ${selectedDoc.name}]\n\nDocument ID: ${selectedDoc.id}\nCategory: ${selectedDoc.category}\nSize: ${selectedDoc.size}\nUploaded: ${selectedDoc.date}`], { type: "application/octet-stream" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = selectedDoc.name + "." + selectedDoc.type; a.click(); URL.revokeObjectURL(url); }}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>📥 Download</button>
-                  <button onClick={() => setPreviewDoc(selectedDoc)}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>🔍 Full View</button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ width: "100%", height: 160, background: "linear-gradient(135deg, #dfe6e9, #b2bec3)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 48 }}>🖼️</span>
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a" }}>{selectedDoc.name}</div>
-                <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 2, marginBottom: 8 }}>{selectedDoc.type.toUpperCase()} · {selectedDoc.size}</div>
-                <button style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>📥 Download</button>
-              </div>
-            )}
-          </div>
-
-          {/* Document metadata + verification actions in detail view */}
-          <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", gap: 12, fontSize: 10, color: "#7a8a94" }}>
-              <span>📅 Uploaded: {selectedDoc.date}</span>
-              <span>📁 Category: {selectedDoc.category}</span>
-              <span>Status: <strong style={{ color: statusColors[selectedDoc.status] }}>{statusIcons[selectedDoc.status]} {selectedDoc.status}</strong></span>
-            </div>
-            {/* Larger verify/reject buttons in detail panel */}
-            {canVerify && selectedDoc.status !== "verified" && selectedDoc.status !== "rejected" && (
-              <div style={{ display: "flex", gap: 6 }}>
-                <button
-                  onClick={() => handleStatusChange(selectedDoc, "verified")}
-                  disabled={actionLoading === selectedDoc.id}
-                  style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#27ae60", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
-                >✅ Mark Verified</button>
-                <button
-                  onClick={() => handleStatusChange(selectedDoc, "rejected")}
-                  disabled={actionLoading === selectedDoc.id}
-                  style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "#e74c3c", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}
-                >❌ Reject</button>
-              </div>
-            )}
-            {canVerify && selectedDoc.status === "verified" && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 700 }}>✅ Verified</span>
-                <button onClick={() => handleStatusChange(selectedDoc, "received")} disabled={actionLoading === selectedDoc.id}
-                  style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>↩ Undo</button>
-              </div>
-            )}
-            {canVerify && selectedDoc.status === "rejected" && (
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <span style={{ fontSize: 11, color: "#e74c3c", fontWeight: 700 }}>❌ Rejected</span>
-                <button onClick={() => handleStatusChange(selectedDoc, "received")} disabled={actionLoading === selectedDoc.id}
-                  style={{ padding: "5px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>↩ Reset</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Full-screen document preview modal */}
-      {previewDoc && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-          onClick={() => setPreviewDoc(null)}>
-          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 700, maxHeight: "90vh", overflow: "auto", padding: 24, position: "relative" }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#1a3a4a" }}>{previewDoc.name}</div>
-                <div style={{ fontSize: 12, color: "#7a8a94", marginTop: 2 }}>{previewDoc.category} · {previewDoc.type.toUpperCase()} · {previewDoc.size}</div>
-              </div>
-              <button onClick={() => setPreviewDoc(null)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "#95a5a6", lineHeight: 1 }}>✕</button>
-            </div>
-            <div style={{ background: "#f5f8fa", borderRadius: 10, padding: 40, textAlign: "center", minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", border: "1px solid #e4e9ec" }}>
-              <div style={{ fontSize: 64, marginBottom: 12 }}>{previewDoc.type === "pdf" ? "📄" : "🖼️"}</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a3a4a", marginBottom: 4 }}>{previewDoc.name}</div>
-              <div style={{ fontSize: 12, color: "#7a8a94", marginBottom: 16 }}>{previewDoc.type.toUpperCase()} · {previewDoc.size}</div>
-              <div style={{ fontSize: 12, color: "#95a5a6", marginBottom: 20, maxWidth: 350 }}>
-                This is a mock preview. In production, the actual document would render here via a document viewer.
-              </div>
-              <button onClick={() => { const blob = new Blob([`[Mock content for ${previewDoc.name}]`], { type: "application/octet-stream" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = previewDoc.name + "." + previewDoc.type; a.click(); URL.revokeObjectURL(url); }}
-                style={{ padding: "8px 20px", borderRadius: 7, border: "none", background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>📥 Download File</button>
-            </div>
-            <div style={{ marginTop: 14, display: "flex", gap: 16, fontSize: 11, color: "#7a8a94" }}>
-              <span>📅 Uploaded: {previewDoc.date}</span>
-              <span>📁 Category: {previewDoc.category}</span>
-              <span>✅ Status: {previewDoc.status}</span>
-              <span>🆔 {previewDoc.id}</span>
-            </div>
-          </div>
-        </div>
+        <DocReviewPanel
+          doc={selectedDoc}
+          appDbId={appDbId}
+          currentUser={currentUser}
+          onClose={() => setSelectedDocId(null)}
+          onDocUpdated={onDocUpdated}
+        />
       )}
     </div>
   );
