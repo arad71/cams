@@ -30,8 +30,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Ensure this is literal && (not &amp;&amp;) and no HTML escapes
-    command: sh -c "python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: sh -c 'python -c "from app.seed import run_seed; run_seed()" && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload'
     restart: unless-stopped
 
 volumes:
