@@ -104,9 +104,16 @@ class DocumentOut(BaseModel):
     category: Optional[str] = None
     status: str = "received"
     file_path: Optional[str] = None
+    review_note: Optional[str] = None
+    reviewed_by_name: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     uploaded_at: datetime
     class Config:
         from_attributes = True
+
+class DocumentUpdate(BaseModel):
+    status: Optional[str] = None
+    review_note: Optional[str] = None
 
 class InspectionOut(BaseModel):
     id: int
