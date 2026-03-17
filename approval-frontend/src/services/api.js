@@ -52,7 +52,12 @@ const api = {
     formData.append("category", category || "Other");
     return this._fetch(`/applications/${appId}/documents/upload`, { method: "POST", body: formData });
   },
-  async updateDocStatus(appId, docId, status) { return this._fetch(`/applications/${appId}/documents/${docId}?status=${status}`, { method: "PATCH" }); },
+  async updateDocStatus(appId, docId, status, reviewNote) {
+    const body = {};
+    if (status !== undefined) body.status = status;
+    if (reviewNote !== undefined) body.review_note = reviewNote;
+    return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "PATCH", body });
+  },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
   // Verification (category-specific)
   async verifyApplicationDoc(appId, docId) {
