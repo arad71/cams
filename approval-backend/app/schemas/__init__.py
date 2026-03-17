@@ -251,6 +251,46 @@ class AssessmentCategoryUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+# ─── Assessment Rules (database-driven) ─────────────────
+class AssessmentRuleOut(BaseModel):
+    id: int
+    item_id: int
+    item_code: Optional[str] = None
+    priority: int = 0
+    is_active: bool = True
+    source: str = "app"
+    field: str
+    operator: str
+    value: Optional[str] = None
+    result: str
+    confidence: float = 0.8
+    reason_template: str
+    class Config:
+        from_attributes = True
+
+class AssessmentRuleCreate(BaseModel):
+    item_id: int
+    priority: int = 0
+    source: str = "app"
+    field: str
+    operator: str
+    value: Optional[str] = None
+    result: str
+    confidence: float = 0.8
+    reason_template: str
+
+class AssessmentRuleUpdate(BaseModel):
+    priority: Optional[int] = None
+    is_active: Optional[bool] = None
+    source: Optional[str] = None
+    field: Optional[str] = None
+    operator: Optional[str] = None
+    value: Optional[str] = None
+    result: Optional[str] = None
+    confidence: Optional[float] = None
+    reason_template: Optional[str] = None
+
+
 # ─── Case Assessment (per-application per-item) ─────────
 class CaseAssessmentOut(BaseModel):
     id: int
