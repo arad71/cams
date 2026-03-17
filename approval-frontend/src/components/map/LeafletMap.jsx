@@ -18,6 +18,13 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   const tileLayerRef = useRef(null);
 
 
+  // Invalidate map size when height changes (e.g. fullscreen toggle)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    setTimeout(() => { mapInstanceRef.current.invalidateSize(); }, 100);
+  }, [height]);
+
+
   // Initialize map
   useEffect(() => {
     if (!leafletLoaded || !mapRef.current || mapInstanceRef.current) return;

@@ -11,6 +11,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(true);
   const [showStreetNames, setShowStreetNames] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
@@ -309,10 +310,25 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
     });
   }, [drawMode]);
 
+  // Escape key exits fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKey = (e) => { if (e.key === "Escape") setIsFullscreen(false); };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isFullscreen]);
+
+  const fullscreenContainerStyle = isFullscreen ? {
+    position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999,
+    background: "#fff", display: "flex", flexDirection: "column", overflow: "auto",
+  } : {};
+
+  const mapHeight = isFullscreen ? "calc(100vh - 52px)" : 520;
+
   return (
-    <div>
+    <div style={fullscreenContainerStyle}>
       {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isFullscreen ? 0 : 8, flexWrap: "wrap", gap: 6, ...(isFullscreen ? { padding: "8px 12px", background: "#f8fafb", borderBottom: "1px solid #e4e9ec" } : {}) }}>
         <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
           <button onClick={() => setShowLots(!showLots)}
             style={{ padding: "6px 12px", borderRadius: 6, border: showLots ? "2px solid #2980b9" : "1px solid #d5dde2", background: showLots ? "#ebf5fb" : "#fff", color: showLots ? "#2980b9" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
@@ -347,6 +363,10 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
           {analysisRunning && (
             <span style={{ fontSize: 11, fontWeight: 700, color: "#8e44ad", padding: "6px 12px", background: "#f4ecf7", borderRadius: 6 }}>⟳ Running 3D Analysis...</span>
           )}
+          <button onClick={() => setIsFullscreen(!isFullscreen)}
+            style={{ padding: "6px 12px", borderRadius: 6, border: isFullscreen ? "2px solid #1a3a4a" : "1px solid #d5dde2", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit", marginLeft: 4 }}>
+            {isFullscreen ? "✕ Exit Fullscreen" : "⛶ Fullscreen"}
+          </button>
         </div>
         {/* Observer & Object height — shown when sight triangle exists */}
         {(sightTriangle || drawMode) && (
@@ -367,7 +387,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
       </div>
 
       {/* Map */}
-      <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={520}
+      <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
         showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} />
 
