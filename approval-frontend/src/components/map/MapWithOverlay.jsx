@@ -464,7 +464,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
       {sightTriangle && sightTriangle.analysis && (
         <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
           {/* Compliance header */}
-          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10,
+          {/* <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10,
             background: sightTriangle.analysis.compliant ? "linear-gradient(135deg, #eafaf1, #d5f5e3)" : "linear-gradient(135deg, #fdedec, #fadbd8)",
             borderBottom: `2px solid ${sightTriangle.analysis.compliant ? "#27ae60" : "#e74c3c"}` }}>
             <span style={{ fontSize: 24 }}>{sightTriangle.analysis.compliant ? "✅" : "⚠️"}</span>
@@ -476,10 +476,10 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
                 {sightTriangle.speedInfo?.detected}km/h on {sightTriangle.speedInfo?.roadName || "—"} | Base: {sightTriangle.analysis.leftDist}m + {sightTriangle.analysis.rightDist}m = {sightTriangle.analysis.baseWidth}m
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Metrics */}
-          <div style={{ padding: "12px 16px", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {/* <div style={{ padding: "12px 16px", display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               { label: "SPEED", value: sightTriangle.speedInfo?.detected + " km/h", sub: sightTriangle.speedInfo?.roadName || "—", color: "#e67e22" },
               { label: "LEFT (abs)", value: sightTriangle.analysis.leftDist + "m", sub: sightTriangle.speedInfo?.absMin , color: "#2980b9" },
@@ -494,7 +494,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
                 <div style={{ fontSize: 9, color: "#95a5a6" }}>{m.sub}</div>
               </div>
             ))}
-          </div>
+          </div> */}
 
           {/* Boundary distances from A to each lot side */}
           <div style={{ padding: "0 16px 12px" }}>
@@ -511,7 +511,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
           </div>
 
           {/* Info panels */}
-          <div style={{ padding: "0 16px 12px" }}>
+          {/* <div style={{ padding: "0 16px 12px" }}>
               <div style={{
                   width: "100%",
                   background: "#fef9e7",
@@ -530,7 +530,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
                           : ""}
                   </div>
               </div>
-          </div>
+          </div> */}
 
           {/* Reference table */}
           <div style={{ padding: "0 16px 10px" }}>
