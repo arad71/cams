@@ -222,91 +222,63 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     } else { setLotMatch("not_found"); setLotPolygon(null); setMatchedFeatureProps(null); }
   }, [globalLotsData]);
 
-  // ── Geocode autocomplete + lot lookup ───────────────────
+  // ── Address autocomplete from lot.geojson ───────────────
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef(null);
   const suggestionsRef = useRef(null);
 
-  // Nominatim geocode search — biased to Kalamunda area
-  const geocodeSearch = useCallback(async (query) => {
-    if (!query || query.length < 3) { setSuggestions([]); return; }
-    try {
-      const params = new URLSearchParams({
-        q: query, format: "json", addressdetails: "1", limit: "6", countrycodes: "au",
-        viewbox: "115.95,-31.93,116.12,-32.05", bounded: "1",
-      });
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-        headers: { "Accept-Language": "en" },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setSuggestions(data.map(r => ({
-        display: r.display_name,
-        lat: parseFloat(r.lat), lng: parseFloat(r.lon),
-        house_number: r.address?.house_number || "",
-        road: r.address?.road || "",
-        suburb: r.address?.suburb || r.address?.town || r.address?.city_district || "",
-        short: [r.address?.house_number, r.address?.road, r.address?.suburb].filter(Boolean).join(", "),
-      })));
-      setShowSuggestions(true);
-    } catch (e) { console.error("Geocode error:", e); }
-  }, []);
+  // Search lot.geojson features by partial address text
+  const searchLots = useCallback((query) => {
+    if (!query || query.length < 2 || !globalLotsData?.features) { setSuggestions([]); return; }
+    const q = query.toUpperCase().replace(/,/g, " ").replace(/\s+/g, " ").trim();
+    const tokens = q.split(" ").filter(Boolean);
+    const results = [];
+    for (const feat of globalLotsData.features) {
+      if (results.length >= 8) break;
+      const p = feat.properties || {};
+      const num = String(p.road_number_1 || "");
+      const name = (p.road_name || "").toUpperCase();
+      const type = (p.road_type || "").toUpperCase();
+      const loc = (p.locality || "").toUpperCase();
+      const full = `${num} ${name} ${type} ${loc}`;
+      // Every token must appear somewhere in the full address
+      if (tokens.every(t => full.includes(t))) {
+        const display = [num, name, type].filter(Boolean).join(" ");
+        const displayFull = [display, loc].filter(Boolean).join(", ");
+        results.push({ display: displayFull, num, name, type, loc, feature: feat });
+      }
+    }
+    setSuggestions(results);
+    setShowSuggestions(results.length > 0);
+  }, [globalLotsData]);
 
   const handleAddressInput = useCallback((e) => {
     const val = e.target.value;
     setForm(prev => ({ ...prev, property_address: val }));
     setLotMatch(null); setLotPolygon(null); setMatchedFeatureProps(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => geocodeSearch(val), 350);
-  }, [geocodeSearch]);
+    debounceRef.current = setTimeout(() => searchLots(val), 150);
+  }, [searchLots]);
 
-  // Find nearest lot by coordinate (fallback when name match fails)
-  const findLotByCoord = useCallback((lat, lng) => {
-    if (!globalLotsData?.features) return null;
-    let best = null, bestDist = Infinity;
-    for (const feat of globalLotsData.features) {
-      const ring = feat.geometry?.type === "Polygon" ? feat.geometry.coordinates?.[0]
-        : feat.geometry?.type === "MultiPolygon" ? feat.geometry.coordinates?.[0]?.[0] : null;
-      if (!ring || ring.length < 3) continue;
-      // Centroid
-      let cLat = 0, cLng = 0;
-      ring.forEach(([lo, la]) => { cLat += la; cLng += lo; });
-      cLat /= ring.length; cLng /= ring.length;
-      const d = (cLat - lat) ** 2 + (cLng - lng) ** 2;
-      if (d < bestDist) { bestDist = d; best = feat; }
-    }
-    // Only accept if within ~100m (~0.001 degrees)
-    return bestDist < 0.000001 ? best : null;
-  }, [globalLotsData]);
-
-  // Select a geocode suggestion
-  const selectSuggestion = useCallback((suggestion) => {
-    setForm(prev => ({ ...prev, property_address: suggestion.short }));
+  // Select a suggestion
+  const selectSuggestion = useCallback((s) => {
+    setForm(prev => ({ ...prev, property_address: s.display }));
     setShowSuggestions(false);
     setSuggestions([]);
-
-    // Try name-based match first (fuzzy)
-    let feature = findLotByAddress(globalLotsData, suggestion.short);
-
-    // Fallback: coordinate-based nearest lot
-    if (!feature && suggestion.lat && suggestion.lng) {
-      feature = findLotByCoord(suggestion.lat, suggestion.lng);
-    }
-
-    if (feature) {
-      const poly = extractPolygon(feature);
-      setLotPolygon(poly); setMatchedFeatureProps(feature.properties); setLotMatch("found");
-      const fp = feature.properties || {};
+    const poly = extractPolygon(s.feature);
+    const fp = s.feature.properties || {};
+    if (poly) {
+      setLotPolygon(poly); setMatchedFeatureProps(fp); setLotMatch("found");
       setForm(prev => ({
-        ...prev,
+        ...prev, property_address: s.display,
         lot_number: prev.lot_number || (fp.lot_number ? String(fp.lot_number) : ""),
         road_name: prev.road_name || (fp.road_name ? (fp.road_name.charAt(0) + fp.road_name.slice(1).toLowerCase() + (fp.road_type ? " " + fp.road_type : "")) : ""),
       }));
     } else {
       setLotMatch("not_found"); setLotPolygon(null); setMatchedFeatureProps(null);
     }
-  }, [globalLotsData, findLotByCoord]);
+  }, []);
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -317,11 +289,11 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Also keep onBlur lookup for manual entry (typed without selecting)
+  // Blur fallback — for manually typed addresses without selecting a suggestion
   const handleAddressBlur = useCallback(() => {
     setTimeout(() => {
       if (!showSuggestions) lookupLotBoundary(form.property_address);
-    }, 200);
+    }, 250);
   }, [form.property_address, lookupLotBoundary, showSuggestions]);
 
   // ── Application Form PDF extraction ──────────────────
@@ -604,16 +576,16 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
           <input style={{ ...inputBase, borderColor: lotMatch === "found" ? "#27ae60" : lotMatch === "not_found" ? "#f39c12" : "#d5dde2" }}
             value={form.property_address} onChange={handleAddressInput} onBlur={handleAddressBlur}
             onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
-            placeholder="Start typing an address..." autoComplete="off" />
+            placeholder="Start typing an address... e.g. 54 Stirling" autoComplete="off" />
           {showSuggestions && suggestions.length > 0 && (
-            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, background: "#fff", borderRadius: "0 0 8px 8px", border: "1.5px solid #d5dde2", borderTop: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", maxHeight: 220, overflowY: "auto" }}>
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#fff", borderRadius: "0 0 8px 8px", border: "1.5px solid #d5dde2", borderTop: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", maxHeight: 220, overflowY: "auto" }}
+              onMouseDown={e => e.preventDefault()}>
               {suggestions.map((s, i) => (
-                <div key={i} onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                  style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f5f7f8", fontSize: 12, color: "#1a3a4a", transition: "background 0.1s" }}
+                <div key={i} onClick={(e) => { e.stopPropagation(); selectSuggestion(s); }}
+                  style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f5f7f8", fontSize: 12, color: "#1a3a4a" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f0f8ff"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <div style={{ fontWeight: 600 }}>{s.short}</div>
-                  <div style={{ fontSize: 10, color: "#95a5a6", marginTop: 1 }}>{s.display.length > 80 ? s.display.slice(0, 80) + "…" : s.display}</div>
+                  <div style={{ fontWeight: 600 }}>{s.display}</div>
                 </div>
               ))}
             </div>
