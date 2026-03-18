@@ -27,12 +27,23 @@ function Field({ label, required, span, children }) {
 //  Address → Lot Boundary matching
 // ═══════════════════════════════════════════════════════
 const ROAD_TYPE_MAP = {
+  // Standard abbreviations → canonical form (matching lot.geojson)
   RD: "RD", ROAD: "RD", CR: "CR", CRES: "CR", CRESCENT: "CR", ST: "ST", STREET: "ST",
   AVE: "AV", AV: "AV", AVENUE: "AV", HWY: "HWY", HIGHWAY: "HWY", DR: "DR", DRIVE: "DR",
   CT: "CT", COURT: "CT", WAY: "WAY", PL: "PL", PLACE: "PL", CL: "CL", CLOSE: "CL",
   GDNS: "GDNS", GARDENS: "GDNS", LOOP: "LOOP", TCE: "TCE", TERRACE: "TCE", LANE: "LANE",
   BVD: "BVD", BOULEVARD: "BVD", GR: "GR", GROVE: "GR", MEWS: "MEWS", GRN: "GRN",
   GREEN: "GRN", CCT: "CCT", CIRCUIT: "CCT", CIR: "CIR", CIRCLE: "CIR",
+  // Extended types from City of Kalamunda lot.geojson
+  APP: "APP", APPROACH: "APP", BEND: "BEND", CH: "CH", CHASE: "CH",
+  CNR: "CNR", CORNER: "CNR", CRSS: "CRSS", CROSS: "CRSS", CROSSING: "CRSS",
+  ELB: "ELB", ELBOW: "ELB", ENT: "ENT", ENTRANCE: "ENT",
+  FAWY: "FAWY", FAIRWAY: "FAWY", HTS: "HTS", HEIGHTS: "HTS",
+  LINK: "LINK", MALL: "MALL", PASS: "PASS", PASSAGE: "PASS",
+  PDE: "PDE", PARADE: "PDE", REST: "REST", RISE: "RISE",
+  RMBL: "RMBL", RAMBLE: "RMBL", RTT: "RTT", RETREAT: "RTT",
+  SQ: "SQ", SQUARE: "SQ", TURN: "TURN", VALE: "VALE",
+  VIEW: "VIEW", VSTA: "VSTA", VISTA: "VSTA",
 };
 const ALL_ROAD_TYPES = new Set(Object.values(ROAD_TYPE_MAP));
 function normaliseRoadType(s) { return ROAD_TYPE_MAP[(s || "").toUpperCase().trim()] || (s || "").toUpperCase().trim(); }
@@ -40,15 +51,19 @@ function normaliseRoadType(s) { return ROAD_TYPE_MAP[(s || "").toUpperCase().tri
 function parseAddress(addr) {
   if (!addr) return null;
   const tokens = addr.replace(/,/g, " ").replace(/\s+/g, " ").trim().toUpperCase().split(" ");
-  if (tokens.length < 3) return null;
-  const numMatch = tokens[0].match(/^(\d+)/);
+  if (tokens.length < 2) return null;
+  const numMatch = tokens[0].match(/^(\d+[A-Z]?)/);
   if (!numMatch) return null;
   const rest = tokens.slice(1);
   let rti = -1;
   for (let i = 0; i < rest.length; i++) { if (ALL_ROAD_TYPES.has(normaliseRoadType(rest[i]))) { rti = i; break; } }
-  if (rti < 1) return null;
-  const locality = rest.slice(rti + 1).join(" ");
-  if (!locality) return null;
+  // If no road type found, treat all remaining as road name (fuzzy match will handle it)
+  if (rti < 1) {
+    const road_name = rest.join(" ");
+    if (!road_name) return null;
+    return { road_number_1: numMatch[1], road_name, road_type: null, locality: null };
+  }
+  const locality = rest.slice(rti + 1).join(" ") || null;
   return { road_number_1: numMatch[1], road_name: rest.slice(0, rti).join(" "), road_type: normaliseRoadType(rest[rti]), locality };
 }
 
@@ -56,14 +71,41 @@ function findLotByAddress(lotsData, address) {
   if (!lotsData?.features || !address) return null;
   const q = parseAddress(address);
   if (!q) return null;
+
+  // Score each feature — higher is better
+  let bestFeat = null, bestScore = 0;
   for (const feat of lotsData.features) {
     const p = feat.properties || {};
-    if (String(p.road_number_1 || "").trim() === q.road_number_1 &&
-        (p.road_name || "").toUpperCase().replace(/\s+/g, " ").trim() === q.road_name &&
-        normaliseRoadType(p.road_type || "") === q.road_type &&
-        (p.locality || "").toUpperCase().replace(/\s+/g, " ").trim() === q.locality) return feat;
+    const pNum = String(p.road_number_1 || "").trim();
+    const pName = (p.road_name || "").toUpperCase().replace(/\s+/g, " ").trim();
+    const pType = normaliseRoadType(p.road_type || "");
+    const pLoc = (p.locality || "").toUpperCase().replace(/\s+/g, " ").trim();
+
+    // Must match number
+    if (pNum !== q.road_number_1) continue;
+
+    let score = 0;
+
+    // Road name: exact match (3), starts-with or contains (2), partial (1)
+    if (pName === q.road_name) score += 3;
+    else if (pName.startsWith(q.road_name) || q.road_name.startsWith(pName)) score += 2;
+    else if (pName.includes(q.road_name) || q.road_name.includes(pName)) score += 1;
+    else continue; // no name match at all → skip
+
+    // Road type: exact (2), skip if query has no type (neutral)
+    if (q.road_type) {
+      if (pType === q.road_type) score += 2;
+    }
+
+    // Locality: exact (3), partial (1), not provided = neutral
+    if (q.locality) {
+      if (pLoc === q.locality) score += 3;
+      else if (pLoc.includes(q.locality) || q.locality.includes(pLoc)) score += 1;
+    }
+
+    if (score > bestScore) { bestScore = score; bestFeat = feat; }
   }
-  return null;
+  return bestFeat;
 }
 
 function extractPolygon(feature) {
@@ -363,6 +405,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
 
   const canGoNext = () => {
     if (step === 0) return form.owner_name.trim() && form.property_address.trim();
+    if (step === 1) return true; // Property & road details optional
+    if (step === 2) return form.crossover_width > 0; // Need at least crossover width
     return true;
   };
 
@@ -416,8 +460,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const renderLotBanner = () => {
     if (!lotMatch) return null;
     if (lotMatch === "found") { const fp = matchedFeatureProps || {}; return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#eafaf1", borderRadius: 8, border: "1px solid #d4efdf", fontSize: 12, lineHeight: 1.6 }}><div style={{ fontWeight: 800, color: "#27ae60", marginBottom: 4 }}>✅ Lot Boundary Found</div><div style={{ color: "#2c6e49", fontSize: 11 }}>Matched: <strong>{fp.road_number_1} {fp.road_name} {fp.road_type}</strong>, {fp.locality}{fp.lot_number && <> — Lot {fp.lot_number}</>} — {lotPolygon?.length || 0} boundary points.</div></div>); }
-    if (lotMatch === "not_found") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#fef9e7", borderRadius: 8, border: "1px solid #f9e79f", fontSize: 12 }}><strong style={{ color: "#b7950b" }}>⚠️ No Lot Match</strong> <span style={{ color: "#7d6608", fontSize: 11 }}>— Try: <strong>54 Stirling Cr, High Wycombe</strong></span></div>);
-    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: 8, border: "1px solid #e6d5d5", fontSize: 12 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse</strong> <span style={{ color: "#784040", fontSize: 11 }}>— Use: <strong>12 Railway Rd, Kalamunda</strong></span></div>);
+    if (lotMatch === "not_found") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#fef9e7", borderRadius: 8, border: "1px solid #f9e79f", fontSize: 12 }}><strong style={{ color: "#b7950b" }}>⚠️ No Exact Lot Match</strong> <span style={{ color: "#7d6608", fontSize: 11 }}>— Boundary not found. You can still proceed — the lot boundary can be added later. Try format: <strong>54 Stirling Cr, High Wycombe</strong></span></div>);
+    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: 8, border: "1px solid #e6d5d5", fontSize: 12 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse Address</strong> <span style={{ color: "#784040", fontSize: 11 }}>— You can still proceed. Try: <strong>12 Railway Rd, Kalamunda</strong> or <strong>5 Mead St Kalamunda</strong></span></div>);
     return null;
   };
 
