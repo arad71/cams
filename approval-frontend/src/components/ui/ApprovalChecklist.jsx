@@ -29,15 +29,21 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
   assessments.forEach(a => { if (a.item_code) byCode[a.item_code] = a; });
 
   // Stats
-  const stats = { pass: 0, review: 0, fail: 0, total: 0, oApproved: 0, oRejected: 0, oPending: 0 };
+  const stats = { pass: 0, review: 0, fail: 0, total: 0, oApproved: 0, oRejected: 0, oNA: 0, oReferred: 0, oInvestigation: 0, oPending: 0 };
   categories.forEach(cat => (cat.items || []).forEach(item => {
     const a = byCode[item.code];
     stats.total++;
     if (a?.ai_result === "pass") stats.pass++; else if (a?.ai_result === "fail") stats.fail++; else stats.review++;
-    if (a?.officer_result === "approved") stats.oApproved++; else if (a?.officer_result === "rejected") stats.oRejected++; else stats.oPending++;
+    if (a?.officer_result === "approved") stats.oApproved++;
+    else if (a?.officer_result === "rejected") stats.oRejected++;
+    else if (a?.officer_result === "not_required") stats.oNA++;
+    else if (a?.officer_result === "referred") stats.oReferred++;
+    else if (a?.officer_result === "investigation") stats.oInvestigation++;
+    else stats.oPending++;
   }));
+  const oDecided = stats.total - stats.oPending;
   const allDone = stats.oPending === 0 && stats.total > 0;
-  const allPassed = allDone && stats.oRejected === 0;
+  const allPassed = allDone && stats.oRejected === 0 && stats.oInvestigation === 0;
 
   // Run Auto-Assess (backend rule engine)
   const runAutoAssess = async () => {
@@ -118,14 +124,17 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
       <div style={{ padding: "6px 16px", borderBottom: "1px solid #eef2f4", background: "#fafcfd" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
           <span style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Officer Sign-Off</span>
-          <span style={{ fontSize: 9, fontWeight: 700, color: allPassed ? "#27ae60" : "#1a3a4a" }}>{stats.oApproved + stats.oRejected}/{stats.total}</span>
+          <span style={{ fontSize: 9, fontWeight: 700, color: allPassed ? "#27ae60" : "#1a3a4a" }}>{oDecided}/{stats.total}</span>
         </div>
         <div style={{ height: 5, background: "#eef2f4", borderRadius: 3, overflow: "hidden", display: "flex" }}>
           <div style={{ width: `${(stats.oApproved / Math.max(stats.total, 1)) * 100}%`, background: "#27ae60", transition: "width 0.3s" }} />
+          <div style={{ width: `${(stats.oNA / Math.max(stats.total, 1)) * 100}%`, background: "#7f8c8d", transition: "width 0.3s" }} />
+          <div style={{ width: `${(stats.oReferred / Math.max(stats.total, 1)) * 100}%`, background: "#8e44ad", transition: "width 0.3s" }} />
+          <div style={{ width: `${(stats.oInvestigation / Math.max(stats.total, 1)) * 100}%`, background: "#2980b9", transition: "width 0.3s" }} />
           <div style={{ width: `${(stats.oRejected / Math.max(stats.total, 1)) * 100}%`, background: "#e74c3c", transition: "width 0.3s" }} />
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 3, fontSize: 9, color: "#95a5a6" }}>
-          <span>🟢 {stats.oApproved}</span><span>🔴 {stats.oRejected}</span><span>⬜ {stats.oPending}</span>
+        <div style={{ display: "flex", gap: 6, marginTop: 3, fontSize: 9, color: "#95a5a6", flexWrap: "wrap" }}>
+          <span>🟢 {stats.oApproved}</span><span>🔴 {stats.oRejected}</span><span>⚪ {stats.oNA}</span><span>🟣 {stats.oReferred}</span><span>🔵 {stats.oInvestigation}</span><span>⬜ {stats.oPending}</span>
         </div>
       </div>
 
@@ -155,7 +164,7 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
               const a = byCode[item.code] || {};
               const isSaving = saving === a.item_id;
               return (
-                <div key={item.code} style={{ padding: "9px 16px 9px 44px", borderBottom: "1px solid #f5f7f8", background: a.officer_result === "rejected" ? "#fef5f5" : a.officer_result === "approved" ? "#f7fdf8" : "#fff", opacity: isSaving ? 0.6 : 1 }}>
+                <div key={item.code} style={{ padding: "9px 16px 9px 44px", borderBottom: "1px solid #f5f7f8", background: a.officer_result === "rejected" ? "#fef5f5" : a.officer_result === "approved" ? "#f7fdf8" : a.officer_result === "referred" ? "#f9f0fc" : a.officer_result === "investigation" ? "#eef5fb" : a.officer_result === "not_required" ? "#f5f5f5" : "#fff", opacity: isSaving ? 0.6 : 1 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                     {/* Auto badge */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, minWidth: 36 }}>
@@ -185,11 +194,17 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
                       )}
                     </div>
                     {/* Officer buttons */}
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 120, flexShrink: 0 }}>
-                      <div style={{ display: "flex", gap: 2 }}>
-                        {[["approved", "✓ OK", "#27ae60"], ["rejected", "✕ No", "#c0392b"]].map(([val, lbl, clr]) => (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 160, flexShrink: 0 }}>
+                      <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        {[
+                          ["approved", "✓ OK", "#27ae60"],
+                          ["rejected", "✕ No", "#c0392b"],
+                          ["not_required", "N/A", "#7f8c8d"],
+                          ["referred", "↗ Refer", "#8e44ad"],
+                          ["investigation", "🔍 Investigate", "#2980b9"],
+                        ].map(([val, lbl, clr]) => (
                           <button key={val} onClick={() => setOfficer(a.item_id, val)} disabled={isSaving}
-                            style={{ padding: "3px 9px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: isSaving ? "wait" : "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                            style={{ padding: "3px 7px", borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: isSaving ? "wait" : "pointer", fontFamily: "inherit", transition: "all 0.15s",
                               border: a.officer_result === val ? `2px solid ${clr}` : "1px solid #d5dde2",
                               background: a.officer_result === val ? `${clr}10` : "#fff",
                               color: a.officer_result === val ? clr : "#95a5a6" }}>
@@ -213,9 +228,13 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
       <div style={{ padding: "12px 16px", borderTop: "2px solid #eef2f4", background: allPassed ? "#eafaf1" : allDone ? "#fdedec" : "#f8fafb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <div style={{ fontWeight: 800, fontSize: 12, color: allPassed ? "#1e8449" : allDone ? "#c0392b" : "#5a6a74" }}>
-            {allPassed ? "✅ ALL ITEMS APPROVED — Ready for final decision" : allDone ? "❌ ITEMS REJECTED — Cannot approve without resolution" : `⏳ ${stats.oPending} items awaiting officer review`}
+            {allPassed ? "✅ ALL ITEMS CLEARED — Ready for final decision"
+              : allDone && stats.oReferred > 0 ? `↗️ ${stats.oReferred} item${stats.oReferred > 1 ? "s" : ""} referred — awaiting external response`
+              : allDone && stats.oInvestigation > 0 ? `🔍 ${stats.oInvestigation} item${stats.oInvestigation > 1 ? "s" : ""} under investigation`
+              : allDone ? "❌ ITEMS REJECTED — Cannot approve without resolution"
+              : `⏳ ${stats.oPending} items awaiting officer review`}
           </div>
-          {allDone && <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 1 }}>{stats.oApproved} approved, {stats.oRejected} rejected of {stats.total}</div>}
+          {allDone && <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 1 }}>{stats.oApproved} approved, {stats.oRejected} rejected, {stats.oNA} N/A, {stats.oReferred} referred, {stats.oInvestigation} investigating — of {stats.total}</div>}
         </div>
         {!allDone && (
           <button onClick={bulkDecide} disabled={saving === "bulk"}

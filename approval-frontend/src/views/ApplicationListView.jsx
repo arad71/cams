@@ -140,11 +140,11 @@ const blankForm = {
 // ═══════════════════════════════════════════════════════
 //  Document Upload Card
 // ═══════════════════════════════════════════════════════
-function DocUploadCard({ cat, file, onFileChange, processing, processResult }) {
+function DocUploadCard({ cat, file, onFileChange, processing, processResult, skipped, onSkip }) {
   const inputRef = useRef(null);
   const hasFile = !!file;
   return (
-    <div style={{ padding: "12px 14px", borderRadius: 10, border: hasFile ? "1.5px solid #27ae60" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : "#fafcfa", transition: "all 0.2s" }}>
+    <div style={{ padding: "12px 14px", borderRadius: 10, border: hasFile ? "1.5px solid #27ae60" : skipped ? "1.5px solid #95a5a6" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : skipped ? "#f8f9fa" : "#fafcfa", transition: "all 0.2s", opacity: skipped ? 0.7 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <span style={{ fontSize: 18 }}>{cat.icon}</span>
         <div style={{ flex: 1 }}>
@@ -152,20 +152,32 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult }) {
           <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 1 }}>{cat.hint}</div>
         </div>
         {hasFile && <span style={{ fontSize: 14, color: "#27ae60" }}>✓</span>}
+        {skipped && !hasFile && <span style={{ fontSize: 10, color: "#95a5a6", fontWeight: 700 }}>Later</span>}
       </div>
       {hasFile ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: 6 }}>
           <span style={{ fontSize: 11, color: "#2c6e49", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
           <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "2px 6px" }}>✕</button>
         </div>
-      ) : (
-        <button onClick={() => inputRef.current?.click()} disabled={processing}
-          style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#5a6a74", fontFamily: "inherit" }}>
-          {processing ? "⏳ Analysing…" : "Choose File"}
+      ) : skipped ? (
+        <button onClick={() => onSkip(false)}
+          style={{ width: "100%", padding: "7px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#2980b9", fontFamily: "inherit" }}>
+          ↩ Upload now instead
         </button>
+      ) : (
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => inputRef.current?.click()} disabled={processing}
+            style={{ flex: 1, padding: "8px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#5a6a74", fontFamily: "inherit" }}>
+            {processing ? "⏳ Analysing…" : "Choose File"}
+          </button>
+          <button onClick={() => onSkip(true)}
+            style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #e4e9ec", background: "#f8f9fa", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#95a5a6", fontFamily: "inherit" }}>
+            Add later
+          </button>
+        </div>
       )}
       <input ref={inputRef} type="file" accept={cat.accept} style={{ display: "none" }}
-        onChange={e => { const f = e.target.files?.[0]; if (f) onFileChange(f); e.target.value = ""; }} />
+        onChange={e => { const f = e.target.files?.[0]; if (f) { onSkip(false); onFileChange(f); } e.target.value = ""; }} />
       {processResult && (
         <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, fontSize: 11, lineHeight: 1.5,
           background: processResult.success ? "#eafaf1" : "#fef9e7",

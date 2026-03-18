@@ -130,7 +130,7 @@ class CaseAssessment(Base):
     __table_args__ = (
         UniqueConstraint("application_id", "item_id", name="uq_case_item"),
         CheckConstraint("ai_result IN ('pass','review','fail') OR ai_result IS NULL", name="ck_ai_result"),
-        CheckConstraint("officer_result IN ('approved','rejected') OR officer_result IS NULL", name="ck_officer_result"),
+        CheckConstraint("officer_result IN ('approved','rejected','not_required','referred','investigation') OR officer_result IS NULL", name="ck_officer_result"),
         CheckConstraint("status IN ('pending','pass','fail','waived','na')", name="ck_status"),
     )
 
