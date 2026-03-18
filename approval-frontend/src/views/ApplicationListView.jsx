@@ -69,7 +69,9 @@ function parseAddress(addr) {
 
 function findLotByAddress(lotsData, address) {
   if (!lotsData?.features || !address) return null;
-  const q = parseAddress(address);
+  // Strip postcodes and clean
+  const cleaned = address.replace(/\b\d{4}\b/g, "").trim();
+  const q = parseAddress(cleaned);
   if (!q) return null;
 
   // Score each feature — higher is better
@@ -228,28 +230,66 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const debounceRef = useRef(null);
   const suggestionsRef = useRef(null);
 
+  // Build reverse road type lookup: canonical → all variants
+  // e.g. "CR" → ["CR", "CRES", "CRESCENT"]
+  const ROAD_TYPE_VARIANTS = useRef(null);
+  if (!ROAD_TYPE_VARIANTS.current) {
+    const rev = {};
+    for (const [variant, canonical] of Object.entries(ROAD_TYPE_MAP)) {
+      if (!rev[canonical]) rev[canonical] = new Set();
+      rev[canonical].add(variant);
+      rev[canonical].add(canonical);
+    }
+    ROAD_TYPE_VARIANTS.current = rev;
+  }
+
   // Search lot.geojson features by partial address text
   const searchLots = useCallback((query) => {
     if (!query || query.length < 2 || !globalLotsData?.features) { setSuggestions([]); return; }
-    const q = query.toUpperCase().replace(/,/g, " ").replace(/\s+/g, " ").trim();
-    const tokens = q.split(" ").filter(Boolean);
+    // Clean: remove commas, strip postcodes (4-digit numbers), normalise whitespace
+    const cleaned = query.toUpperCase().replace(/,/g, " ").replace(/\b\d{4}\b/g, "").replace(/\s+/g, " ").trim();
+    if (!cleaned) { setSuggestions([]); return; }
+
+    // Normalise each token: convert road type variants to canonical form
+    const rawTokens = cleaned.split(" ").filter(Boolean);
+    const tokens = rawTokens.map(t => {
+      const canonical = ROAD_TYPE_MAP[t];
+      return canonical || t; // normalise "CRESCENT" → "CR", "ROAD" → "RD", etc.
+    });
+
     const results = [];
     for (const feat of globalLotsData.features) {
-      if (results.length >= 8) break;
+      if (results.length >= 10) break;
       const p = feat.properties || {};
       const num = String(p.road_number_1 || "");
       const name = (p.road_name || "").toUpperCase();
       const type = (p.road_type || "").toUpperCase();
       const loc = (p.locality || "").toUpperCase();
-      const full = `${num} ${name} ${type} ${loc}`;
-      // Every token must appear somewhere in the full address
-      if (tokens.every(t => full.includes(t))) {
+
+      // Build searchable text: include canonical type AND all variants
+      const typeVariants = ROAD_TYPE_VARIANTS.current[type] ? [...ROAD_TYPE_VARIANTS.current[type]].join(" ") : type;
+      const full = `${num} ${name} ${type} ${typeVariants} ${loc}`;
+
+      // Score: each matching token adds points
+      let score = 0;
+      let allMatch = true;
+      for (const t of tokens) {
+        if (full.includes(t)) {
+          score += (t === num ? 3 : t === name ? 3 : t === type ? 2 : 1);
+        } else {
+          allMatch = false;
+        }
+      }
+      // Require at least all tokens match, or score high enough for partial
+      if (allMatch || (score >= tokens.length && score >= 3)) {
         const display = [num, name, type].filter(Boolean).join(" ");
         const displayFull = [display, loc].filter(Boolean).join(", ");
-        results.push({ display: displayFull, num, name, type, loc, feature: feat });
+        results.push({ display: displayFull, num, name, type, loc, feature: feat, score });
       }
     }
-    setSuggestions(results);
+    // Sort by score descending
+    results.sort((a, b) => b.score - a.score);
+    setSuggestions(results.slice(0, 8));
     setShowSuggestions(results.length > 0);
   }, [globalLotsData]);
 
