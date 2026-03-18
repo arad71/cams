@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -242,6 +242,36 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       });
     }
   }, [sightTriangle, leafletLoaded]);
+
+  // Render 3D analysis obstruction points as red dots on the map
+  const obsLayerRef = useRef([]);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    // Clear previous obstruction markers
+    obsLayerRef.current.forEach(m => mapInstanceRef.current.removeLayer(m));
+    obsLayerRef.current = [];
+    if (!analysisResult?.obstructions?.length) return;
+    const L = window.L;
+    analysisResult.obstructions.forEach(obs => {
+      const pt = obs.point;
+      if (!pt?.lat || !pt?.lng) return;
+      const isCritical = obs.isCritical;
+      const color = isCritical ? '#ff0000' : '#e74c3c';
+      const radius = isCritical ? 7 : 5;
+      const name = obs.feature?.name || obs.feature?.type || 'Obstruction';
+      const excess = obs.excessHeight != null ? obs.excessHeight.toFixed(2) : '?';
+      const dist = obs.distFromA != null ? obs.distFromA.toFixed(0) : '?';
+      const marker = L.circleMarker([pt.lat, pt.lng], {
+        radius, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.9,
+      }).bindTooltip(
+        `<b style="color:${color}">${isCritical ? '⚠ ' : ''}${name}</b><br/>` +
+        `Exceeds ray: <b>${excess}m</b><br/>` +
+        `Distance: ${dist}m from observer`,
+        { direction: 'top', className: 'obstruction-tooltip' }
+      ).addTo(mapInstanceRef.current);
+      obsLayerRef.current.push(marker);
+    });
+  }, [analysisResult, leafletLoaded]);
 
 
   return (
