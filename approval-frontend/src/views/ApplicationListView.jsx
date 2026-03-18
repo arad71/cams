@@ -601,37 +601,25 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   // ══════════════════════════════════════════════════════
   //  STEP RENDERERS
   // ══════════════════════════════════════════════════════
-  const [showDocUpload, setShowDocUpload] = useState(false);
+  const [skippedDocs, setSkippedDocs] = useState({});  // { catId: true }
+  const [showDocUpload] = useState(true);
 
   const renderStep0 = () => (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={sectionTitle}><span>📎</span> Upload Documents</div>
-        <button onClick={() => setShowDocUpload(!showDocUpload)}
-          style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: showDocUpload ? "#fff" : "#f0faf7", color: showDocUpload ? "#7a8a94" : "#1abc9c", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-          {showDocUpload ? "▲ Hide" : "📎 Upload Now"}
-        </button>
+      <div style={sectionTitle}><span>📎</span> Upload Documents</div>
+      <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 10, lineHeight: 1.5 }}>
+        Upload documents now or click <strong>"Add later"</strong> on any item to skip — you can always upload from the application detail page.
       </div>
-      {!showDocUpload && (
-        <div style={{ padding: "10px 14px", background: "#f5f8fa", borderRadius: 8, border: "1px solid #e4e9ec", fontSize: 11, color: "#5a6a74", marginBottom: 18, lineHeight: 1.5 }}>
-          📌 Documents can be added later from the application detail page. Click <strong>"Upload Now"</strong> to attach documents with this application, or skip and add them after submission.
-        </div>
-      )}
-      {showDocUpload && (
-        <>
-          <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 10, lineHeight: 1.5 }}>
-            Upload the <strong>Application Form</strong> PDF to auto-fill owner details. Upload the <strong>Site Plan</strong> for AI analysis of crossover dimensions, materials, and compliance.
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-            {DOC_CATEGORIES.map(cat => (
-              <DocUploadCard key={cat.id} cat={cat} file={documents[cat.id] || null}
-                onFileChange={f => handleDocChange(cat.id, f)}
-                processing={!!processing[cat.id]}
-                processResult={processResults[cat.id] || null} />
-            ))}
-          </div>
-        </>
-      )}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        {DOC_CATEGORIES.map(cat => (
+          <DocUploadCard key={cat.id} cat={cat} file={documents[cat.id] || null}
+            onFileChange={f => handleDocChange(cat.id, f)}
+            processing={!!processing[cat.id]}
+            processResult={processResults[cat.id] || null}
+            skipped={!!skippedDocs[cat.id]}
+            onSkip={(val) => setSkippedDocs(prev => ({ ...prev, [cat.id]: val }))} />
+        ))}
+      </div>
       <div style={sectionTitle}><span>👤</span> Owner / Applicant Information</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
         <Field label="Full Name" required span={2}><input style={inputBase} value={form.owner_name} onChange={set("owner_name")} placeholder="e.g. John Smith" /></Field>
