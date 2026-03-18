@@ -404,9 +404,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   ];
 
   const canGoNext = () => {
-    if (step === 0) return form.owner_name.trim() && form.property_address.trim();
-    if (step === 1) return true; // Property & road details optional
-    if (step === 2) return form.crossover_width > 0; // Need at least crossover width
+    if (step === 0) return !!(form.owner_name.trim() && form.property_address.trim());
+    if (step === 1) return true;
+    if (step === 2) return true;
     return true;
   };
 
@@ -585,7 +585,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
           <div style={{ display: "flex", gap: 10 }}>
             {step > 0 && <button style={btnSecondary} onClick={() => setStep(s => s - 1)}>← Back</button>}
             {step < steps.length - 1 ? (
-              <button style={{ ...btnPrimary, opacity: canGoNext() ? 1 : 0.5 }} disabled={!canGoNext() || anyProcessing} onClick={() => { if (canGoNext()) setStep(s => s + 1); }}>Next →</button>
+              <button style={{ ...btnPrimary, opacity: canGoNext() ? 1 : 0.5 }} disabled={!canGoNext()} onClick={() => { if (canGoNext()) setStep(s => s + 1); }}>Next →</button>
             ) : (
               <button style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }} disabled={saving || anyProcessing} onClick={handleSubmit}>{saving ? "Submitting…" : "✅ Submit Application"}</button>
             )}
