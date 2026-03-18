@@ -133,7 +133,7 @@ export default function KalamundaApprovalPortal() {
     if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} />;
     switch (activeView) {
       case "dashboard": return <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
-      case "map": return <FullMapView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} globalSpeedRoads={globalSpeedRoads} />;
+      // case "map": return <FullMapView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} globalSpeedRoads={globalSpeedRoads} />;
       case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "referrals": return <ApplicationListView apps={visibleApps} filter="referral_pending" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "inspections": return <InspectionsView apps={visibleApps} />;
