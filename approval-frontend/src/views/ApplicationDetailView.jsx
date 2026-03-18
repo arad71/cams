@@ -5,7 +5,7 @@ import { STATUS_CONFIG, ROLE_CONFIG } from '../data/constants';
 import StatusBadge from '../components/ui/StatusBadge';
 import MapWithOverlay from '../components/map/MapWithOverlay';
 import DocumentList from '../components/ui/DocumentList';
-import ApprovalChecklist, { autoAssessItem } from '../components/ui/ApprovalChecklist';
+import ApprovalChecklist from '../components/ui/ApprovalChecklist';
 import ReportGenerator from '../components/ui/ReportGenerator';
 
 function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData }) {
@@ -13,8 +13,6 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
   const [assignee, setAssignee] = useState(app.assessment.officer);
-  const [checklist, setChecklist] = useState({});
-  const [assessed, setAssessed] = useState(false);
   const [categories, setCategories] = useState([]);
   const role = currentUser?.role || "engineer";
   const canAssign = role === "admin" || role === "manager";
@@ -50,21 +48,6 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
     } catch (e) { console.error("Save failed:", e); }
   };
 
-  const runAutoAssess = () => {
-    const r = {};
-    categories.forEach(c => c.items.forEach(i => {
-      const prev = checklist[i.code] || {};
-      r[i.code] = { ...prev, auto: autoAssessItem(i.code, localApp), autoDate: new Date().toISOString().split("T")[0] };
-    }));
-    setChecklist(r); setAssessed(true);
-  };
-
-  const summary = (() => {
-    let pass=0,review=0,fail=0,oA=0,oR=0,t=0;
-    categories.forEach(c=>c.items.forEach(i=>{t++;const s=checklist[i.code];if(s?.auto==="pass")pass++;else if(s?.auto==="fail")fail++;else review++;if(s?.officer==="approved")oA++;if(s?.officer==="rejected")oR++;}));
-    return {pass,review,fail,oA,oR,t,score:t>0?Math.round(pass/t*100):0};
-  })();
-
   return (
     <div>
       <button onClick={onBack} style={{ background: "none", border: "none", color: "#2980b9", fontWeight: 600, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 14, fontFamily: "inherit" }}>← Back</button>
@@ -99,44 +82,12 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
       {/* ★ APPROVAL CHECKLIST ★ */}
       <div style={{ marginBottom: 14 }}>
-        <ApprovalChecklist app={localApp} checklist={checklist} setChecklist={setChecklist} onAssessAll={runAutoAssess} categories={categories} />
+        <ApprovalChecklist app={localApp} categories={categories} currentUser={currentUser} />
       </div>
-
-      {/* Summary (after assessment) */}
-      {assessed && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: 16, marginBottom: 14 }}>
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: "0 0 10px" }}>Assessment Summary</h4>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-            {[
-              {l:"PASS",v:summary.pass,c:"#27ae60",bg:"#eafaf1"},
-              {l:"REVIEW",v:summary.review,c:"#e67e22",bg:"#fef5e7"},
-              {l:"FAIL",v:summary.fail,c:"#c0392b",bg:"#fdedec"},
-              {l:"SCORE",v:summary.score+"%",c:summary.score>=80?"#27ae60":summary.score>=50?"#e67e22":"#c0392b",bg:"#f5f8fa"},
-              {l:"OFFICER ✓",v:`${summary.oA}/${summary.t}`,c:summary.oA===summary.t?"#27ae60":"#1a3a4a",bg:summary.oA===summary.t?"#eafaf1":"#f5f8fa"},
-            ].map(m=>(
-              <div key={m.l} style={{flex:1,minWidth:70,background:m.bg,borderRadius:8,padding:"8px 10px",textAlign:"center"}}>
-                <div style={{fontSize:20,fontWeight:800,color:m.c}}>{m.v}</div>
-                <div style={{fontSize:9,color:m.c,fontWeight:600}}>{m.l}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 5 }}>
-            {categories.map(cat => {
-              const cf = cat.items.filter(i => checklist[i.code]?.auto === "fail").length;
-              const cp = cat.items.filter(i => checklist[i.code]?.auto === "pass").length;
-              const co = cat.items.filter(i => checklist[i.code]?.officer).length;
-              return <div key={cat.code} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 5, background: cf > 0 ? "#fef5f5" : co === cat.items.length ? "#f7fdf8" : "#f8fafb", border: `1px solid ${cf > 0 ? "#f5c6cb" : co === cat.items.length ? "#c3e6cb" : "#eef2f4"}` }}>
-                <span style={{ fontSize: 12 }}>{cat.icon}</span>
-                <div><div style={{ fontSize: 10, fontWeight: 700, color: "#1a3a4a" }}>{cat.label}</div><div style={{ fontSize: 8, color: "#95a5a6" }}>{cp}✓ {cf > 0 ? cf + "✕ " : ""}{co}/{cat.items.length} signed</div></div>
-              </div>;
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ★ REPORT GENERATOR ★ */}
       <div style={{ marginBottom: 14 }}>
-        <ReportGenerator app={localApp} checklist={checklist} summary={summary} currentUser={currentUser} categories={categories} />
+        <ReportGenerator app={localApp} currentUser={currentUser} categories={categories} />
       </div>
 
       {/* Officer + Notes */}
