@@ -37,6 +37,9 @@ class Application(Base):
     da_number = Column(String(50))
     offset_from_left = Column(Float)
     offset2_from_left = Column(Float, nullable=True)
+    declaration_signed = Column(Boolean, default=False)
+    date_signed = Column(String(30), nullable=True)
+    attachment_count = Column(Integer, nullable=True)
 
     # Vegetation
     trees_nearby = Column(Boolean, default=False)
