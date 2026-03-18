@@ -92,17 +92,110 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
     return { obstructions: obs, rays, features: feats, elevA, eyeAlt };
   };
 
+  // const aiClassify3D = async (A, C, D, obs, feats, ei) => {
+  //   try {
+  //     const prompt = `You are a 3D geospatial line-of-sight analyst. Observer A at ${ei.elevA.toFixed(1)}m ASL + ${ei.eyeH}m eye. Line C→D: ${havDist3D(C, D).toFixed(0)}m span at ${ei.elevCD.toFixed(1)}m ASL + ${ei.tgtH}m. ${obs.length} obstructions exceed sight ray. Features: ${feats.length}. Classify visibility. JSON only: {"overall_rating":"CLEAR|PARTIALLY_OBSTRUCTED|SEVERELY_OBSTRUCTED|BLOCKED","visibility_pct":0,"analysis_summary":"","critical_low_obstructions":[],"recommendations":[],"elevation_insight":""}`;
+  //     const resp = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }) });
+  //     const data = await resp.json(); return JSON.parse((data.content || []).map(c => c.text || '').join('').replace(/```json|```/g, '').trim());
+  //   } catch {
+  //     const vis = Math.max(0, Math.round((1 - obs.length / Math.max(feats.length + 1, 1) * 0.8) * 100));
+  //     let rt = 'CLEAR'; if (vis < 30) rt = 'BLOCKED'; else if (vis < 55) rt = 'SEVERELY_OBSTRUCTED'; else if (vis < 80) rt = 'PARTIALLY_OBSTRUCTED';
+  //     return { overall_rating: rt, visibility_pct: vis, analysis_summary: `${obs.length} obstructions found, ${obs.filter(o => o.isCritical).length} critical low.`, critical_low_obstructions: obs.filter(o => o.isCritical).map(c => ({ name: c.feature.name, height_range: c.feature.estimatedHeight.toFixed(1) + 'm', impact: `Exceeds ray by ${c.excessHeight?.toFixed(2)}m` })), recommendations: ['Review obstructions.'], elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, targets at ${ei.elevCD.toFixed(1)}m.` };
+  //   }
+  // };
+
   const aiClassify3D = async (A, C, D, obs, feats, ei) => {
-    try {
-      const prompt = `You are a 3D geospatial line-of-sight analyst. Observer A at ${ei.elevA.toFixed(1)}m ASL + ${ei.eyeH}m eye. Line C→D: ${havDist3D(C, D).toFixed(0)}m span at ${ei.elevCD.toFixed(1)}m ASL + ${ei.tgtH}m. ${obs.length} obstructions exceed sight ray. Features: ${feats.length}. Classify visibility. JSON only: {"overall_rating":"CLEAR|PARTIALLY_OBSTRUCTED|SEVERELY_OBSTRUCTED|BLOCKED","visibility_pct":0,"analysis_summary":"","critical_low_obstructions":[],"recommendations":[],"elevation_insight":""}`;
-      const resp = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }) });
-      const data = await resp.json(); return JSON.parse((data.content || []).map(c => c.text || '').join('').replace(/```json|```/g, '').trim());
-    } catch {
-      const vis = Math.max(0, Math.round((1 - obs.length / Math.max(feats.length + 1, 1) * 0.8) * 100));
-      let rt = 'CLEAR'; if (vis < 30) rt = 'BLOCKED'; else if (vis < 55) rt = 'SEVERELY_OBSTRUCTED'; else if (vis < 80) rt = 'PARTIALLY_OBSTRUCTED';
-      return { overall_rating: rt, visibility_pct: vis, analysis_summary: `${obs.length} obstructions found, ${obs.filter(o => o.isCritical).length} critical low.`, critical_low_obstructions: obs.filter(o => o.isCritical).map(c => ({ name: c.feature.name, height_range: c.feature.estimatedHeight.toFixed(1) + 'm', impact: `Exceeds ray by ${c.excessHeight?.toFixed(2)}m` })), recommendations: ['Review obstructions.'], elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, targets at ${ei.elevCD.toFixed(1)}m.` };
-    }
-  };
+  try {
+    // ---- AI MODE (no change) ----
+    const prompt = `You are a 3D geospatial line-of-sight analyst. 
+    Observer A at ${ei.elevA.toFixed(1)}m ASL + ${ei.eyeH}m eye. 
+    Line C→D: ${havDist3D(C, D).toFixed(0)}m span at ${ei.elevCD.toFixed(1)}m ASL + ${ei.tgtH}m. 
+    ${obs.length} obstructions exceed sight ray. 
+    Features: ${feats.length}. 
+    Classify visibility. 
+    JSON only: {"overall_rating":"CLEAR|PARTIALLY_OBSTRUCTED|SEVERELY_OBSTRUCTED|BLOCKED","visibility_pct":0,"analysis_summary":"","critical_low_obstructions":[],"recommendations":[],"elevation_insight":""}`;
+
+        const resp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 1000,
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+
+        const data = await resp.json();
+        return JSON.parse(
+          (data.content || [])
+            .map(c => c.text || "")
+            .join("")
+            .replace(/```json|```/g, "")
+            .trim()
+        );
+
+      } catch (err) {
+
+        // ---- NEW LOS FALLBACK RULE ----
+
+        // No obstructions at all
+        if (obs.length === 0) {
+          return {
+            overall_rating: "CLEAR",
+            visibility_pct: 100,
+            analysis_summary: "No obstructions detected along the sight-line.",
+            critical_low_obstructions: [],
+            recommendations: [],
+            elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, target at ${ei.elevCD.toFixed(1)}m.`
+          };
+        }
+
+        // Highest amount the obstruction exceeds the ray
+        const highestBlock = Math.max(
+          ...obs.map(o => o.excessHeight || 0),
+          0
+        );
+
+        // Lowest vertical clearance among all obstruction intersections
+        const lowestClearance = Math.min(
+          ...obs.map(o => o.clearance ?? Infinity),
+          Infinity
+        );
+
+        // Visibility % based on physical obstruction height
+        let vis = 100;
+
+        if (highestBlock > 0) {
+          // Strong penalty for physical exceedance
+          vis = Math.max(0, 100 - (highestBlock * 25));
+        }
+
+        // Rating thresholds tied to real LOS engineering logic
+        let rating = "CLEAR";
+        if (vis < 20) rating = "BLOCKED";
+        else if (vis < 45) rating = "SEVERELY_OBSTRUCTED";
+        else if (vis < 75) rating = "PARTIALLY_OBSTRUCTED";
+
+        return {
+          overall_rating: rating,
+          visibility_pct: vis,
+          analysis_summary: `${obs.length} obstructions found. Highest exceedance: ${highestBlock.toFixed(2)}m. Lowest clearance: ${lowestClearance === Infinity ? "No clearance intersections" : lowestClearance.toFixed(2) + "m"}.`,
+          critical_low_obstructions: obs
+            .filter(o => o.isCritical)
+            .map(c => ({
+              name: c.feature.name,
+              height_range: `${c.feature.estimatedHeight.toFixed(1)}m`,
+              impact: `Exceeds ray by ${c.excessHeight?.toFixed(2)}m`
+            })),
+          recommendations: [
+            highestBlock > 0
+              ? "Increase observer height or relocate to clear physical obstructions."
+              : "LOS is mostly clear; minor clearance considerations only."
+          ],
+          elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, target at ${ei.elevCD.toFixed(1)}m.`
+        };
+      }
+    };
 
   // Run the full 3D analysis using existing A/B and derived C/D points
   const run3DSightAnalysis = async () => {
