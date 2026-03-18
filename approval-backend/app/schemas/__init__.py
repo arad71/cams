@@ -65,6 +65,9 @@ class ApplicationCreate(BaseModel):
     da_number: Optional[str] = None
     offset_from_left: Optional[float] = None
     offset2_from_left: Optional[float] = None
+    declaration_signed: bool = False
+    date_signed: Optional[str] = None
+    attachment_count: Optional[int] = None
     trees_nearby: bool = False
     tree_protection: Optional[str] = None
     clearing: bool = False
@@ -147,6 +150,9 @@ class ApplicationOut(BaseModel):
     crossover_surface: Optional[str] = None
     da_number: Optional[str] = None
     offset_from_left: Optional[float] = None
+    declaration_signed: Optional[bool] = None
+    date_signed: Optional[str] = None
+    attachment_count: Optional[int] = None
     trees_nearby: bool = False
     clearing: bool = False
     drainage_type: Optional[str] = None

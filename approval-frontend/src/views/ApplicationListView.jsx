@@ -131,6 +131,7 @@ const blankForm = {
   frontage: "", depth: "", road_name: "", road_type: "local", road_width: "", verge_width: "",
   crossover_width: "", crossover_count: "1", crossover_surface: "concrete",
   crossover_est_date: "", da_number: "", offset_from_left: "",
+  declaration_signed: false, date_signed: "", attachment_count: "",
   trees_nearby: false, tree_protection: "", clearing: false, drainage_type: "none", culvert: false,
 };
 
@@ -336,12 +337,17 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     try {
       const result = await api.extractAppForm(file);
       const values = result.values || {};
-      const mapping = { lot_owner_name: "owner_name", phone: "owner_phone", email: "owner_email", postal_address: "owner_postal_address", property_address: "property_address", estimated_construction_date: "crossover_est_date", dev_application_number: "da_number" };
+      const mapping = { lot_owner_name: "owner_name", phone: "owner_phone", email: "owner_email", postal_address: "owner_postal_address", property_address: "property_address", estimated_construction_date: "crossover_est_date", dev_application_number: "da_number", date_signed: "date_signed", num_attachments: "attachment_count" };
       const filled = [];
       const updates = {};
       for (const [ek, fk] of Object.entries(mapping)) {
         const val = values[ek];
         if (val && typeof val === "string" && val.trim()) { updates[fk] = val.trim(); filled.push(ek); }
+      }
+      // Handle signature as boolean
+      const sig = values.lot_owner_signature;
+      if (sig && typeof sig === "string" && sig.trim() && sig.trim().toLowerCase() !== "not signed" && sig.trim() !== "-") {
+        updates.declaration_signed = true; filled.push("lot_owner_signature");
       }
       if (Object.keys(updates).length > 0) {
         setForm(prev => {
@@ -534,6 +540,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         crossover_est_date: form.crossover_est_date || null,
         da_number: form.da_number || null,
         offset_from_left: form.offset_from_left ? parseFloat(form.offset_from_left) : null,
+        declaration_signed: !!form.declaration_signed,
+        date_signed: form.date_signed || null,
+        attachment_count: form.attachment_count ? parseInt(form.attachment_count) : null,
         trees_nearby: form.trees_nearby,
         tree_protection: form.tree_protection || null,
         clearing: form.clearing,
