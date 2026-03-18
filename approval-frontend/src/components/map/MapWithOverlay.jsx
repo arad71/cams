@@ -124,6 +124,18 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
     const eg = { pts: uPts, elevs };
     ss(3); for (const f of feats) { const ct = f.geometry.length === 1 ? f.geometry[0] : { lat: f.geometry.reduce((s, g) => s + g.lat, 0) / f.geometry.length, lng: f.geometry.reduce((s, g) => s + g.lng, 0) / f.geometry.length }; f.groundElev = getElevAt3D(ct, eg); }
     ss(4); const res = losEngine3D(A, C, D, feats, eg, eyeH, tgtH);
+    // Filter obstructions to only those inside the sight triangle A-C-D
+    const ptInTri = (p, a, b, c) => {
+      const dx = p.lat - c.lat, dy = p.lng - c.lng;
+      const dx1 = a.lat - c.lat, dy1 = a.lng - c.lng;
+      const dx2 = b.lat - c.lat, dy2 = b.lng - c.lng;
+      const d = dx1 * dy2 - dx2 * dy1;
+      if (Math.abs(d) < 1e-14) return false;
+      const u = (dy2 * dx - dx2 * dy) / d;
+      const v = (dx1 * dy - dy1 * dx) / d;
+      return u >= -0.02 && v >= -0.02 && (u + v) <= 1.02;
+    };
+    res.obstructions = res.obstructions.filter(o => o.point && ptInTri(o.point, A, C, D));
     ss(5); const elevA = getElevAt3D(A, eg), elevCD = getElevAt3D(mid, eg); const adv = (elevA + eyeH) - (elevCD + tgtH);
     const ai = await aiClassify3D(A, C, D, res.obstructions, feats, { elevA, elevCD, eyeH, tgtH, eyeAlt: elevA + eyeH, tgtAlt: elevCD + tgtH, advantage: adv, elevRange: Math.max(...elevs) - Math.min(...elevs) });
     ss(6); setAnalysisResult({ ...res, ai, elevA, elevCD, eyeH, tgtH, feats, mode }); setAnalysisRunning(false);

@@ -243,7 +243,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     }
   }, [sightTriangle, leafletLoaded]);
 
-  // Render 3D analysis obstruction points as red dots on the map (only inside triangle)
+  // Render 3D analysis obstruction points as red dots on the map
   const obsLayerRef = useRef([]);
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
@@ -252,27 +252,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (!analysisResult?.obstructions?.length) return;
     const L = window.L;
 
-    // Point-in-triangle test using barycentric coordinates
-    const A = sightTriangle?.ptA;
-    const C = sightTriangle?.triLeft;
-    const D = sightTriangle?.triRight;
-    const hasTriangle = A && C && D;
-    const pointInTriangle = (p, a, b, c) => {
-      const dx = p.lat - c.lat, dy = p.lng - c.lng;
-      const dx1 = a.lat - c.lat, dy1 = a.lng - c.lng;
-      const dx2 = b.lat - c.lat, dy2 = b.lng - c.lng;
-      const d = dx1 * dy2 - dx2 * dy1;
-      if (Math.abs(d) < 1e-14) return false;
-      const u = (dy2 * dx - dx2 * dy) / d;
-      const v = (dx1 * dy - dy1 * dx) / d;
-      return u >= -0.02 && v >= -0.02 && (u + v) <= 1.02; // small tolerance
-    };
-
     analysisResult.obstructions.forEach(obs => {
       const pt = obs.point;
       if (!pt?.lat || !pt?.lng) return;
-      // Skip obstructions outside the sight triangle
-      if (hasTriangle && !pointInTriangle(pt, A, C, D)) return;
       const isCritical = obs.isCritical;
       const color = isCritical ? '#ff0000' : '#e74c3c';
       const radius = isCritical ? 7 : 5;
@@ -289,7 +271,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       ).addTo(mapInstanceRef.current);
       obsLayerRef.current.push(marker);
     });
-  }, [analysisResult, sightTriangle, leafletLoaded]);
+  }, [analysisResult, leafletLoaded]);
 
 
   return (
