@@ -13,10 +13,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   const containerRef = useRef(null);
   const lotsLayerRef = useRef(null);
   const speedLayerRef = useRef(null);
+  const drawModeRef = useRef(drawMode);
   const leafletLoaded = useLeaflet();
   const [activeLayer, setActiveLayer] = useState("street");
   const tileLayerRef = useRef(null);
 
+
+  // Keep drawModeRef in sync so lot click handler can check without layer rebuild
+  useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
 
   // Invalidate map size when height changes (e.g. fullscreen toggle)
   useEffect(() => {
@@ -116,10 +120,8 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (!showLots || !lotsData) return;
     const L = window.L;
     lotsLayerRef.current = L.geoJSON(lotsData, {
-      interactive: !drawMode,
       style: (feature) => {
         const p = feature.properties;
-        // Highlight the lot matching the selected app
         const selAddr = selectedApp?.property;
         const isMatch = selAddr && p.rd && p.n && (
           (selAddr.address.toUpperCase().includes(p.rd) && selAddr.address.includes(p.n))
@@ -133,21 +135,21 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         };
       },
       onEachFeature: (feature, layer) => {
-        if (drawMode) return; // Don't intercept clicks during draw mode
         const p = feature.properties;
         const addr = [p.n, p.rd, p.rt].filter(Boolean).join(' ');
         layer.bindTooltip(`<b>${addr}</b><br/>${p.loc}`, { sticky: true, className: 'lot-tooltip' });
         layer.on('click', (e) => {
+          // During draw mode, don't intercept — let the map click handler take it
+          if (drawModeRef.current) return;
           L.DomEvent.stopPropagation(e);
-          // Extract lot polygon coords as [lat,lng] pairs
           const coords = feature.geometry.coordinates;
           const ring = coords[0] || coords;
-          const poly = ring.map(c => [c[1], c[0]]); // [lng,lat] → [lat,lng]
+          const poly = ring.map(c => [c[1], c[0]]);
           if (onLotClick) onLotClick({ properties: p, polygon: poly, address: addr });
         });
       },
     }).addTo(mapInstanceRef.current);
-  }, [showLots, lotsData, selectedApp, leafletLoaded, drawMode, onLotClick]);
+  }, [showLots, lotsData, selectedApp, leafletLoaded, onLotClick]);
 
   // Render selected app lot polygon (derived from lotsData)
   const appLotRef = useRef(null);

@@ -210,7 +210,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   }, [drawMode]);
 
   useEffect(() => {
-    if (!ptA || !ptB || !coords) { setSightTriangle(null); return; }
+    if (!ptA || !ptB) { setSightTriangle(null); return; }
     const nearestRoad = findNearestRoadSpeed(ptB.lat, ptB.lng, speedRoadsData);
     const sd = getSightDistances(nearestRoad.speed);
     const leftDistM = sd.leftM, rightDistM = sd.rightM, baseTotal = leftDistM + rightDistM;
@@ -220,18 +220,20 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
     const triRight = geoOffset(ptB.lat, ptB.lng, rightDistM, (bearing + 90) % 360);
     const depthM = geoDistMetres(ptA.lat, ptA.lng, ptB.lat, ptB.lng);
 
-    // Distance from ptA to EACH side of lot polygon
+    // Distance from ptA to EACH side of lot polygon (if available)
     const boundaryDists = [];
-    for (let i = 0; i < lotPoly.length - 1; i++) {
-      const seg = nearestPointOnSegment(ptA.lat, ptA.lng, lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
-      const d = geoDistMetres(ptA.lat, ptA.lng, seg.lat, seg.lng);
-      const sideLen = geoDistMetres(lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
-      boundaryDists.push({ idx: i, dist: d, distLabel: d.toFixed(1), nearPt: seg, sideLen: sideLen.toFixed(1), from: lotPoly[i], to: lotPoly[i+1] });
+    if (lotPoly && lotPoly.length > 1) {
+      for (let i = 0; i < lotPoly.length - 1; i++) {
+        const seg = nearestPointOnSegment(ptA.lat, ptA.lng, lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
+        const d = geoDistMetres(ptA.lat, ptA.lng, seg.lat, seg.lng);
+        const sideLen = geoDistMetres(lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
+        boundaryDists.push({ idx: i, dist: d, distLabel: d.toFixed(1), nearPt: seg, sideLen: sideLen.toFixed(1), from: lotPoly[i], to: lotPoly[i+1] });
+      }
+      boundaryDists.sort((a, b) => a.dist - b.dist);
     }
-    boundaryDists.sort((a, b) => a.dist - b.dist);
 
     let nearestInt = null, nearestIntDist = Infinity;
-    (coords.intersections || []).forEach(isc => {
+    ((coords?.intersections) || []).forEach(isc => {
       const d = geoDistMetres(ptB.lat, ptB.lng, isc.lat, isc.lng);
       if (d < nearestIntDist) { nearestIntDist = d; nearestInt = { ...isc, dist: d.toFixed(1) }; }
     });
