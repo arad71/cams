@@ -282,6 +282,49 @@ async def upload_document(
     return doc
 
 
+@router.get("/{app_id}/documents/{doc_id}/file")
+def download_document(
+    app_id: int, doc_id: int,
+    token: str = Query(None, description="Bearer token (for iframe/new window access)"),
+    db: Session = Depends(get_db),
+):
+    """Serve the uploaded document file for viewing/downloading."""
+    from fastapi.responses import FileResponse
+    from app.core.auth import get_current_user as _get_user
+    from jose import jwt as jose_jwt, JWTError as JoseJWTError
+
+    # Authenticate via query token (for iframe) or normal auth header
+    if token:
+        try:
+            settings = get_settings()
+            payload = jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            user_id = payload.get("sub")
+            if not user_id:
+                raise HTTPException(401, "Invalid token")
+            user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()
+            if not user:
+                raise HTTPException(401, "Invalid token")
+        except Exception:
+            raise HTTPException(401, "Invalid token")
+    else:
+        raise HTTPException(401, "Token required — pass ?token=... for document viewing")
+
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.file_path:
+        raise HTTPException(status_code=404, detail="No file on disk for this document")
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on disk")
+
+    ext = (doc.file_type or "").lower()
+    media_types = {"pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "doc": "application/msword", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+    media_type = media_types.get(ext, "application/octet-stream")
+
+    return FileResponse(file_path, media_type=media_type, filename=doc.name)
+
+
 @router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)
 def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     doc = db.query(Document).options(joinedload(Document.reviewed_by)).filter(Document.id == doc_id, Document.application_id == app_id).first()
