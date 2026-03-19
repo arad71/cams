@@ -17,8 +17,11 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
     if (!appDbId) return;
     try {
       const data = await api.listAssessments(appDbId);
-      setAssessments(data);
-    } catch (e) { console.error("Load assessments failed:", e); }
+      setAssessments(data || []);
+    } catch (e) {
+      console.error("Load assessments failed:", e);
+      setAssessments([]);
+    }
     setLoading(false);
   }, [appDbId]);
 
@@ -58,7 +61,7 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
 
   // Save officer decision to API
   const setOfficer = async (itemId, val) => {
-    if (!appDbId) return;
+    if (!appDbId || !itemId) { console.warn("Cannot save: missing appDbId or itemId", { appDbId, itemId }); return; }
     setSaving(itemId);
     try {
       await api.updateAssessment(appDbId, itemId, { officer_result: val });
@@ -69,7 +72,7 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
 
   // Save note to API
   const saveNote = async (itemId) => {
-    if (!noteText.trim() || !appDbId) return;
+    if (!noteText.trim() || !appDbId || !itemId) { console.warn("Cannot save note: missing data", { appDbId, itemId }); return; }
     setSaving(itemId);
     try {
       await api.updateAssessment(appDbId, itemId, { note: noteText.trim() });
@@ -195,6 +198,9 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
                     </div>
                     {/* Officer buttons */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 160, flexShrink: 0 }}>
+                      {!a.item_id ? (
+                        <span style={{ fontSize: 9, color: "#95a5a6", fontStyle: "italic" }}>Run Auto-Assess first</span>
+                      ) : (
                       <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         {[
                           ["approved", "✓ OK", "#27ae60"],
@@ -214,6 +220,7 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
                         <button onClick={() => { setEditNoteId(editNoteId === item.code ? null : item.code); setNoteText(a.note || ""); }}
                           style={{ padding: "3px 5px", borderRadius: 4, border: "1px solid #d5dde2", background: a.note ? "#fef9e7" : "#fff", color: "#95a5a6", fontSize: 10, cursor: "pointer" }}>💬</button>
                       </div>
+                      )}
                       {a.officer_result && a.officer_name && <span style={{ fontSize: 8, color: "#b0bdb2" }}>{a.officer_name} {a.officer_assessed_at ? a.officer_assessed_at.split("T")[0] : ""}</span>}
                     </div>
                   </div>
