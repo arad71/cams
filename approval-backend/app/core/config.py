@@ -114,7 +114,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         env_prefix="",          # if you want APP_ prefix, set to "APP_" and rename env vars
-        extra="forbid",         # keep strict to catch typos; change to "ignore" if you want
+        extra="ignore",         # ignore unknown env vars (Docker sets many like HOSTNAME, PATH, etc)
         populate_by_name=True,
         env_ignore_empty=True,  # <-- CRITICAL: empty strings ('') won't override defaults
     )

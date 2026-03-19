@@ -1,0 +1,80 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════
+#  CAMS — City of Kalamunda Approval Management System
+#  Production Docker Compose
+# ═══════════════════════════════════════════════════════════
+#
+#  Usage:
+#    cp .env.example .env        # Edit with real values
+#    docker compose -f docker-compose.prod.yml up -d --build
+#
+# ═══════════════════════════════════════════════════════════
+
+services:
+  # ─── Database ──────────────────────────────────────────
+  approval-db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cams_approval}
+      POSTGRES_USER: ${POSTGRES_USER:-cams}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata_approval:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cams} -d ${POSTGRES_DB:-cams_approval}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cams-net]
+    # Not exposed to host — only accessible via cams-net
+
+  # ─── Backend API ───────────────────────────────────────
+  approval-api:
+    build:
+      context: ./approval-backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-cams}:${POSTGRES_PASSWORD}@approval-db:5432/${POSTGRES_DB:-cams_approval}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (64+ random chars)}
+      DEBUG: "false"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}
+      PDF_RENDER_DPI: ${PDF_RENDER_DPI:-200}
+      MAX_IMAGE_DIM: ${MAX_IMAGE_DIM:-2048}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-4096}
+      DOCUMENT_DIR: /app/uploads/documents
+    depends_on:
+      approval-db: { condition: service_healthy }
+    volumes:
+      - approval_uploads:/app/uploads
+    command: >
+      sh -c '
+        python -c "from app.seed import run_seed; run_seed()" &&
+        gunicorn app.main:app -k uvicorn.workers.UvicornWorker
+        --bind 0.0.0.0:8000 --workers ${API_WORKERS:-2} --timeout 120
+      '
+    networks: [cams-net]
+    # Not exposed to host — nginx proxies to it
+
+  # ─── Frontend (Nginx + React SPA) ─────────────────────
+  approval-frontend:
+    build:
+      context: ./approval-frontend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+    depends_on: [approval-api]
+    networks: [cams-net]
+
+volumes:
+  pgdata_approval:
+  approval_uploads:
+
+networks:
+  cams-net:
+    driver: bridge
