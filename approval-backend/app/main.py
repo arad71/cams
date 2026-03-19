@@ -97,9 +97,45 @@ async def ai_analyse(
 
 @app.on_event("startup")
 def on_startup():
-    """Create tables if they don't exist (dev only — use Alembic in prod)."""
-    if settings.DEBUG:
-        Base.metadata.create_all(bind=engine)
+    """Create tables if they don't exist and seed lookup data."""
+    Base.metadata.create_all(bind=engine)
+    _seed_lookups()
+
+
+def _seed_lookups():
+    """Ensure roles and departments tables have data."""
+    from app.core.database import SessionLocal
+    from app.models.lookup import Role, Department
+
+    db = SessionLocal()
+    try:
+        if db.query(Role).count() == 0:
+            db.add_all([
+                Role(code="admin", label="Administrator", icon="🛡️", color="#e74c3c", permissions=["all"], sort_order=1),
+                Role(code="manager", label="Manager", icon="👔", color="#2980b9", permissions=["view_all", "assign", "approve", "refer", "reject", "report"], sort_order=2),
+                Role(code="engineer", label="Engineer", icon="🔧", color="#27ae60", permissions=["view_assigned", "assess", "note", "inspect"], sort_order=3),
+                Role(code="inspector", label="Inspector", icon="🔍", color="#8e44ad", permissions=["view_assigned", "inspect", "note", "photo"], sort_order=4),
+                Role(code="viewer", label="Viewer", icon="👁", color="#7f8c8d", permissions=["view_all"], sort_order=5),
+            ])
+            db.commit()
+            print("  ✓ Auto-seeded roles")
+
+        if db.query(Department).count() == 0:
+            db.add_all([
+                Department(code="asset_services", label="Asset Services", sort_order=1),
+                Department(code="engineering", label="Engineering", sort_order=2),
+                Department(code="planning", label="Planning & Development", sort_order=3),
+                Department(code="parks", label="Parks & Environment", sort_order=4),
+                Department(code="compliance", label="Compliance", sort_order=5),
+                Department(code="customer_service", label="Customer Service", sort_order=6),
+            ])
+            db.commit()
+            print("  ✓ Auto-seeded departments")
+    except Exception as e:
+        print(f"  ⚠ Lookup seed error: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 @app.get("/api/health")
