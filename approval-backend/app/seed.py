@@ -8,6 +8,7 @@ from app.core.auth import hash_password
 from app.models.user import User
 from app.models.application import Application, ApplicationNote, Document
 from app.models.assessment import AssessmentCategory, AssessmentItem, AssessmentRule
+from app.models.lookup import Role, Department
 
 
 def run_seed():
@@ -17,6 +18,38 @@ def run_seed():
     db = SessionLocal()
 
     try:
+        # ─── Roles ──────────────────────────────────────────
+        if db.query(Role).count() == 0:
+            roles = [
+                Role(code="admin", label="Administrator", icon="🛡️", color="#e74c3c",
+                     permissions=["all"], sort_order=1),
+                Role(code="manager", label="Manager", icon="👔", color="#2980b9",
+                     permissions=["view_all", "assign", "approve", "refer", "reject", "report"], sort_order=2),
+                Role(code="engineer", label="Engineer", icon="🔧", color="#27ae60",
+                     permissions=["view_assigned", "assess", "note", "inspect"], sort_order=3),
+                Role(code="inspector", label="Inspector", icon="🔍", color="#8e44ad",
+                     permissions=["view_assigned", "inspect", "note", "photo"], sort_order=4),
+                Role(code="viewer", label="Viewer", icon="👁", color="#7f8c8d",
+                     permissions=["view_all"], sort_order=5),
+            ]
+            db.add_all(roles)
+            db.commit()
+            print(f"  ✓ Seeded {len(roles)} roles")
+
+        # ─── Departments ────────────────────────────────────
+        if db.query(Department).count() == 0:
+            depts = [
+                Department(code="asset_services", label="Asset Services", sort_order=1),
+                Department(code="engineering", label="Engineering", sort_order=2),
+                Department(code="planning", label="Planning & Development", sort_order=3),
+                Department(code="parks", label="Parks & Environment", sort_order=4),
+                Department(code="compliance", label="Compliance", sort_order=5),
+                Department(code="customer_service", label="Customer Service", sort_order=6),
+            ]
+            db.add_all(depts)
+            db.commit()
+            print(f"  ✓ Seeded {len(depts)} departments")
+
         # ─── Users ───────────────────────────────────────────
         if db.query(User).count() == 0:
             users = [

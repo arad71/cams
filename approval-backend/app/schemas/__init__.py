@@ -48,6 +48,55 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 
+# ─── Roles & Departments ────────────────────────────────
+class RoleOut(BaseModel):
+    id: int
+    code: str
+    label: str
+    icon: str = ""
+    color: str = "#5a6a74"
+    permissions: list = []
+    sort_order: int = 0
+    is_active: bool = True
+    class Config:
+        from_attributes = True
+
+class RoleCreate(BaseModel):
+    code: str
+    label: str
+    icon: str = ""
+    color: str = "#5a6a74"
+    permissions: list = []
+    sort_order: int = 0
+
+class RoleUpdate(BaseModel):
+    label: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+    permissions: Optional[list] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class DepartmentOut(BaseModel):
+    id: int
+    code: str
+    label: str
+    sort_order: int = 0
+    is_active: bool = True
+    class Config:
+        from_attributes = True
+
+class DepartmentCreate(BaseModel):
+    code: str
+    label: str
+    sort_order: int = 0
+
+class DepartmentUpdate(BaseModel):
+    label: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
 # ─── Application ─────────────────────────────────────────
 class ApplicationCreate(BaseModel):
     owner_name: str

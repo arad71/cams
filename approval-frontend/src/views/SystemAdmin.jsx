@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import api from '../services/api';
 import { apiUserToFrontend } from '../utils/transforms';
-import { ROLE_CONFIG, SIGHT_DISTANCE_TABLE } from '../data/constants';
+import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT, SIGHT_DISTANCE_TABLE } from '../data/constants';
 
 // ─── Shared styles ─────────────────────────────────────
 const inputS = { padding: "5px 8px", borderRadius: 5, border: "1.5px solid #d5dde2", fontSize: 11, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" };
@@ -20,7 +20,7 @@ const OPERATOR_LABELS = { gte: "≥", lte: "≤", gt: ">", lt: "<", eq: "=", neq
 // ═══════════════════════════════════════════════════════
 //  Users Tab
 // ═══════════════════════════════════════════════════════
-function UsersTab({ users, setUsers, currentUser }) {
+function UsersTab({ users, setUsers, currentUser, ROLE_CONFIG, departments }) {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({});
   const [showAddForm, setShowAddForm] = useState(false);
@@ -81,7 +81,11 @@ function UsersTab({ users, setUsers, currentUser }) {
                 {Object.entries(ROLE_CONFIG).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}
               </select></div>
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Department</label>
-              <input value={newUserForm.department} onChange={e => setNewUserForm({...newUserForm, department: e.target.value})} style={inputS} placeholder="Engineering" /></div>
+              <select value={newUserForm.department} onChange={e => setNewUserForm({...newUserForm, department: e.target.value})} style={inputS}>
+                {departments.length > 0
+                  ? departments.filter(d => d.is_active).map(d => <option key={d.code} value={d.label}>{d.label}</option>)
+                  : <option value="Engineering">Engineering</option>}
+              </select></div>
           </div>
           {addError && <div style={{ marginTop: 8, padding: "6px 10px", background: "#fdedec", borderRadius: 6, fontSize: 11, color: "#c0392b" }}>⚠️ {addError}</div>}
           {tempPassword && (
@@ -101,12 +105,12 @@ function UsersTab({ users, setUsers, currentUser }) {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead><tr style={{ background: "#f5f8fa" }}>{["User","Email","Role","Department","Status","Actions"].map(h => <th key={h} style={thS}>{h}</th>)}</tr></thead>
           <tbody>{users.map(u => {
-            const rc = ROLE_CONFIG[u.role]; const ed = editId === u.id;
+            const rc = ROLE_CONFIG[u.role] || { label: u.role, icon: "👤", color: "#5a6a74" }; const ed = editId === u.id;
             return (<tr key={u.id} style={{ background: ed ? "#ebf5fb" : "transparent" }}>
               <td style={tdS}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ width: 28, height: 28, borderRadius: "50%", background: u.active ? rc.color : "#bdc3c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800 }}>{u.initials}</div>{ed ? <input value={form.name} onChange={e => setForm({...form, name: e.target.value, initials: e.target.value.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)})} style={{ ...inputS, width: 130 }} /> : <span style={{ fontWeight: 600, color: "#1a3a4a" }}>{u.name}</span>}</div></td>
               <td style={tdS}>{ed ? <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={{ ...inputS, width: 200 }} /> : <span style={{ color: "#5a6a74" }}>{u.email}</span>}</td>
               <td style={tdS}>{ed ? <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} style={{ ...inputS, width: 120 }}>{Object.entries(ROLE_CONFIG).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}</select> : <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${rc.color}15`, color: rc.color }}>{rc.icon} {rc.label}</span>}</td>
-              <td style={tdS}>{ed ? <input value={form.department} onChange={e => setForm({...form, department: e.target.value})} style={{ ...inputS, width: 120 }} /> : <span style={{ color: "#5a6a74" }}>{u.department}</span>}</td>
+              <td style={tdS}>{ed ? <select value={form.department} onChange={e => setForm({...form, department: e.target.value})} style={{ ...inputS, width: 140 }}>{departments.length > 0 ? departments.filter(d => d.is_active).map(d => <option key={d.code} value={d.label}>{d.label}</option>) : <option value={form.department}>{form.department}</option>}</select> : <span style={{ color: "#5a6a74" }}>{u.department}</span>}</td>
               <td style={tdS}><button onClick={() => toggleActive(u)} disabled={u.id === currentUser.id} style={{ padding: "3px 10px", borderRadius: 10, border: "none", fontSize: 10, fontWeight: 700, cursor: u.id === currentUser.id ? "default" : "pointer", fontFamily: "inherit", background: u.active ? "#eafaf1" : "#fdedec", color: u.active ? "#27ae60" : "#e74c3c" }}>{u.active ? "Active" : "Inactive"}</button></td>
               <td style={tdS}>{ed ? <div style={{ display: "flex", gap: 4 }}><button onClick={saveEdit} style={btnSave}>Save</button><button onClick={() => setEditId(null)} style={btnCancel}>Cancel</button></div> : <button onClick={() => startEdit(u)} style={btnEdit}>Edit</button>}</td>
             </tr>);
@@ -412,7 +416,8 @@ function SightDistTab() {
 // ═══════════════════════════════════════════════════════
 //  Main SystemAdmin Component
 // ═══════════════════════════════════════════════════════
-function SystemAdmin({ users, setUsers, currentUser }) {
+function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PROP, roles, departments }) {
+  const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
   const [activeTab, setActiveTab] = useState('users');
 
   const tabs = [
@@ -436,7 +441,7 @@ function SystemAdmin({ users, setUsers, currentUser }) {
         ))}
       </div>
 
-      {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} currentUser={currentUser} />}
+      {activeTab === 'users' && <UsersTab users={users} setUsers={setUsers} currentUser={currentUser} ROLE_CONFIG={ROLE_CONFIG} departments={departments || []} />}
       {activeTab === 'assessment' && <AssessmentTab />}
       {activeTab === 'rules' && <RulesTab />}
       {activeTab === 'sight_dist' && <SightDistTab />}

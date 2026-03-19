@@ -37,6 +37,14 @@ const api = {
   async createUser(data) { return this._fetch("/users/", { method: "POST", body: data }); },
   async updateUser(id, data) { return this._fetch(`/users/${id}`, { method: "PATCH", body: data }); },
   async changePassword(currentPassword, newPassword) { return this._fetch("/auth/change-password", { method: "POST", body: { current_password: currentPassword, new_password: newPassword } }); },
+
+  // Roles & Departments
+  async listRoles() { return this._fetch("/lookups/roles"); },
+  async createRole(data) { return this._fetch("/lookups/roles", { method: "POST", body: data }); },
+  async updateRole(id, data) { return this._fetch(`/lookups/roles/${id}`, { method: "PATCH", body: data }); },
+  async listDepartments() { return this._fetch("/lookups/departments"); },
+  async createDepartment(data) { return this._fetch("/lookups/departments", { method: "POST", body: data }); },
+  async updateDepartment(id, data) { return this._fetch(`/lookups/departments/${id}`, { method: "PATCH", body: data }); },
   async deleteUser(id) { return this._fetch(`/users/${id}`, { method: "DELETE" }); },
 
   // Applications

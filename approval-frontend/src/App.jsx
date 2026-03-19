@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from './services/api';
 import { apiAppToFrontend, apiUserToFrontend, frontendAppToApiUpdate } from './utils/transforms';
-import { ROLE_CONFIG } from './data/constants';
+import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from './data/constants';
 import LoginScreen from './views/LoginScreen';
 import DashboardView from './views/DashboardView';
 import FullMapView from './views/FullMapView';
@@ -25,6 +25,13 @@ export default function KalamundaApprovalPortal() {
   const [loading, setLoading] = useState(true);
   const [globalLotsData, setGlobalLotsData] = useState(null);
   const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
+  const [roles, setRoles] = useState([]);
+  const [departments, setDepartments] = useState([]);
+
+  // Build ROLE_CONFIG from API roles (fallback to hardcoded)
+  const ROLE_CONFIG = roles.length > 0
+    ? Object.fromEntries(roles.map(r => [r.code, { label: r.label, icon: r.icon, color: r.color, permissions: r.permissions }]))
+    : ROLE_CONFIG_DEFAULT;
 
   // Load lot.geojson and speed_roads.geojson once at app level
   useEffect(() => {
@@ -80,6 +87,19 @@ export default function KalamundaApprovalPortal() {
       } catch { /* non-admin cannot list users */ }
     };
     loadUsers();
+  }, [currentUser]);
+
+  // Load roles and departments from API
+  useEffect(() => {
+    if (!currentUser) return;
+    const loadLookups = async () => {
+      try {
+        const [r, d] = await Promise.all([api.listRoles(), api.listDepartments()]);
+        setRoles(r || []);
+        setDepartments(d || []);
+      } catch { /* fallback to hardcoded ROLE_CONFIG */ }
+    };
+    loadLookups();
   }, [currentUser]);
 
   // Lot boundaries loaded at top level via globalLotsData
@@ -200,7 +220,7 @@ export default function KalamundaApprovalPortal() {
       case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "referrals": return <ApplicationListView apps={visibleApps} filter="referral_pending" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "inspections": return <InspectionsView apps={visibleApps} />;
-      case "admin": return role === "admin" ? <SystemAdmin users={users} setUsers={setUsers} currentUser={currentUser} /> : <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
+      case "admin": return role === "admin" ? <SystemAdmin users={users} setUsers={setUsers} currentUser={currentUser} ROLE_CONFIG={ROLE_CONFIG} roles={roles} departments={departments} /> : <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
       default: return <ApplicationListView apps={visibleApps} filter={null} onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
     }
   };
@@ -209,7 +229,7 @@ export default function KalamundaApprovalPortal() {
     <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f0f3f5", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(26,188,156,0.1)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
       {ChangePasswordModal}
-      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} />
+      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} />
       <div style={{ flex: "1 1 0%", padding: "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "6px 12px", background: `${ROLE_CONFIG[role].color}08`, borderRadius: 8, border: `1px solid ${ROLE_CONFIG[role].color}20` }}>
           <span style={{ fontSize: 11, color: ROLE_CONFIG[role].color, fontWeight: 600 }}>{ROLE_CONFIG[role].icon} {currentUser.name} — {ROLE_CONFIG[role].label}</span>
