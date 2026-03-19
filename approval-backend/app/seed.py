@@ -162,9 +162,15 @@ def run_seed():
             R("contact_details",     0, "app", "owner_phone",      "exists", None,  "pass",   0.5,  "Phone provided")
             R("contact_details",     1, "app", "owner_email",      "exists", None,  "pass",   0.95, "Phone and email provided")
             R("contact_details",     9, "app", "owner_phone",      "not_exists", None, "review", 0.6, "Contact details incomplete")
-            R("application_complete",0, "app", "owner_name",       "exists", None,  "pass",   0.85, "All required fields populated")
+            R("application_complete",0, "app", "owner_name",       "exists", None,  "pass",   0.3,  "Checking required fields...")
+            R("application_complete",1, "app", "property_address", "exists", None,  "pass",   0.3,  "Property address provided")
+            R("application_complete",2, "app", "crossover_width",  "exists", None,  "pass",   0.85, "All key fields populated — owner, address, crossover width")
+            R("application_complete",3, "app", "crossover_width",  "not_exists", None, "fail", 0.9,  "Missing crossover width")
+            R("application_complete",9, "app", "owner_name",       "not_exists", None, "fail", 0.95, "Owner name missing")
             R("fee_paid",            0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Fee payment to be confirmed offline")
-            R("declaration_signed",  0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Declaration signature to be confirmed")
+            R("declaration_signed",  0, "app", "declaration_signed", "true", None,  "pass",   0.95, "Owner declaration signed")
+            R("declaration_signed",  1, "app", "date_signed",      "exists", None,  "pass",   0.8,  "Date signed present — signature likely")
+            R("declaration_signed",  9, "app", "declaration_signed", "false", None,  "review", 0.7,  "Declaration signature not confirmed")
 
             # ── Property & Lot ──
             R("lot_identified",      0, "app", "lot_number",       "exists", None,  "pass",   0.9,  "Lot {field_value} present")

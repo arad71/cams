@@ -69,7 +69,9 @@ function parseAddress(addr) {
 
 function findLotByAddress(lotsData, address) {
   if (!lotsData?.features || !address) return null;
-  const q = parseAddress(address);
+  // Strip postcodes and clean
+  const cleaned = address.replace(/\b\d{4}\b/g, "").trim();
+  const q = parseAddress(cleaned);
   if (!q) return null;
 
   // Score each feature — higher is better
@@ -138,11 +140,11 @@ const blankForm = {
 // ═══════════════════════════════════════════════════════
 //  Document Upload Card
 // ═══════════════════════════════════════════════════════
-function DocUploadCard({ cat, file, onFileChange, processing, processResult }) {
+function DocUploadCard({ cat, file, onFileChange, processing, processResult, skipped, onSkip }) {
   const inputRef = useRef(null);
   const hasFile = !!file;
   return (
-    <div style={{ padding: "12px 14px", borderRadius: 10, border: hasFile ? "1.5px solid #27ae60" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : "#fafcfa", transition: "all 0.2s" }}>
+    <div style={{ padding: "12px 14px", borderRadius: 10, border: hasFile ? "1.5px solid #27ae60" : skipped ? "1.5px solid #95a5a6" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : skipped ? "#f8f9fa" : "#fafcfa", transition: "all 0.2s", opacity: skipped ? 0.7 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <span style={{ fontSize: 18 }}>{cat.icon}</span>
         <div style={{ flex: 1 }}>
@@ -150,20 +152,32 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult }) {
           <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 1 }}>{cat.hint}</div>
         </div>
         {hasFile && <span style={{ fontSize: 14, color: "#27ae60" }}>✓</span>}
+        {skipped && !hasFile && <span style={{ fontSize: 10, color: "#95a5a6", fontWeight: 700 }}>Later</span>}
       </div>
       {hasFile ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: 6 }}>
           <span style={{ fontSize: 11, color: "#2c6e49", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
           <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "2px 6px" }}>✕</button>
         </div>
-      ) : (
-        <button onClick={() => inputRef.current?.click()} disabled={processing}
-          style={{ width: "100%", padding: "8px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#5a6a74", fontFamily: "inherit" }}>
-          {processing ? "⏳ Analysing…" : "Choose File"}
+      ) : skipped ? (
+        <button onClick={() => onSkip(false)}
+          style={{ width: "100%", padding: "7px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#2980b9", fontFamily: "inherit" }}>
+          ↩ Upload now instead
         </button>
+      ) : (
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => inputRef.current?.click()} disabled={processing}
+            style={{ flex: 1, padding: "8px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#5a6a74", fontFamily: "inherit" }}>
+            {processing ? "⏳ Analysing…" : "Choose File"}
+          </button>
+          <button onClick={() => onSkip(true)}
+            style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #e4e9ec", background: "#f8f9fa", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#95a5a6", fontFamily: "inherit" }}>
+            Add later
+          </button>
+        </div>
       )}
       <input ref={inputRef} type="file" accept={cat.accept} style={{ display: "none" }}
-        onChange={e => { const f = e.target.files?.[0]; if (f) onFileChange(f); e.target.value = ""; }} />
+        onChange={e => { const f = e.target.files?.[0]; if (f) { onSkip(false); onFileChange(f); } e.target.value = ""; }} />
       {processResult && (
         <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, fontSize: 11, lineHeight: 1.5,
           background: processResult.success ? "#eafaf1" : "#fef9e7",
@@ -228,28 +242,66 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const debounceRef = useRef(null);
   const suggestionsRef = useRef(null);
 
+  // Build reverse road type lookup: canonical → all variants
+  // e.g. "CR" → ["CR", "CRES", "CRESCENT"]
+  const ROAD_TYPE_VARIANTS = useRef(null);
+  if (!ROAD_TYPE_VARIANTS.current) {
+    const rev = {};
+    for (const [variant, canonical] of Object.entries(ROAD_TYPE_MAP)) {
+      if (!rev[canonical]) rev[canonical] = new Set();
+      rev[canonical].add(variant);
+      rev[canonical].add(canonical);
+    }
+    ROAD_TYPE_VARIANTS.current = rev;
+  }
+
   // Search lot.geojson features by partial address text
   const searchLots = useCallback((query) => {
     if (!query || query.length < 2 || !globalLotsData?.features) { setSuggestions([]); return; }
-    const q = query.toUpperCase().replace(/,/g, " ").replace(/\s+/g, " ").trim();
-    const tokens = q.split(" ").filter(Boolean);
+    // Clean: remove commas, strip postcodes (4-digit numbers), normalise whitespace
+    const cleaned = query.toUpperCase().replace(/,/g, " ").replace(/\b\d{4}\b/g, "").replace(/\s+/g, " ").trim();
+    if (!cleaned) { setSuggestions([]); return; }
+
+    // Normalise each token: convert road type variants to canonical form
+    const rawTokens = cleaned.split(" ").filter(Boolean);
+    const tokens = rawTokens.map(t => {
+      const canonical = ROAD_TYPE_MAP[t];
+      return canonical || t; // normalise "CRESCENT" → "CR", "ROAD" → "RD", etc.
+    });
+
     const results = [];
     for (const feat of globalLotsData.features) {
-      if (results.length >= 8) break;
+      if (results.length >= 10) break;
       const p = feat.properties || {};
       const num = String(p.road_number_1 || "");
       const name = (p.road_name || "").toUpperCase();
       const type = (p.road_type || "").toUpperCase();
       const loc = (p.locality || "").toUpperCase();
-      const full = `${num} ${name} ${type} ${loc}`;
-      // Every token must appear somewhere in the full address
-      if (tokens.every(t => full.includes(t))) {
+
+      // Build searchable text: include canonical type AND all variants
+      const typeVariants = ROAD_TYPE_VARIANTS.current[type] ? [...ROAD_TYPE_VARIANTS.current[type]].join(" ") : type;
+      const full = `${num} ${name} ${type} ${typeVariants} ${loc}`;
+
+      // Score: each matching token adds points
+      let score = 0;
+      let allMatch = true;
+      for (const t of tokens) {
+        if (full.includes(t)) {
+          score += (t === num ? 3 : t === name ? 3 : t === type ? 2 : 1);
+        } else {
+          allMatch = false;
+        }
+      }
+      // Require at least all tokens match, or score high enough for partial
+      if (allMatch || (score >= tokens.length && score >= 3)) {
         const display = [num, name, type].filter(Boolean).join(" ");
         const displayFull = [display, loc].filter(Boolean).join(", ");
-        results.push({ display: displayFull, num, name, type, loc, feature: feat });
+        results.push({ display: displayFull, num, name, type, loc, feature: feat, score });
       }
     }
-    setSuggestions(results);
+    // Sort by score descending
+    results.sort((a, b) => b.score - a.score);
+    setSuggestions(results.slice(0, 8));
     setShowSuggestions(results.length > 0);
   }, [globalLotsData]);
 
@@ -549,18 +601,23 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   // ══════════════════════════════════════════════════════
   //  STEP RENDERERS
   // ══════════════════════════════════════════════════════
+  const [skippedDocs, setSkippedDocs] = useState({});  // { catId: true }
+  const [showDocUpload] = useState(true);
+
   const renderStep0 = () => (
     <>
       <div style={sectionTitle}><span>📎</span> Upload Documents</div>
       <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 10, lineHeight: 1.5 }}>
-        Upload the <strong>Application Form</strong> PDF to auto-fill owner details. Upload the <strong>Site Plan</strong> for AI analysis of crossover dimensions, materials, and compliance.
+        Upload documents now or click <strong>"Add later"</strong> on any item to skip — you can always upload from the application detail page.
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
         {DOC_CATEGORIES.map(cat => (
           <DocUploadCard key={cat.id} cat={cat} file={documents[cat.id] || null}
             onFileChange={f => handleDocChange(cat.id, f)}
             processing={!!processing[cat.id]}
-            processResult={processResults[cat.id] || null} />
+            processResult={processResults[cat.id] || null}
+            skipped={!!skippedDocs[cat.id]}
+            onSkip={(val) => setSkippedDocs(prev => ({ ...prev, [cat.id]: val }))} />
         ))}
       </div>
       <div style={sectionTitle}><span>👤</span> Owner / Applicant Information</div>
