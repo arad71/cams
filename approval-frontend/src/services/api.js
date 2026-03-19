@@ -36,6 +36,7 @@ const api = {
   async listUsers() { return this._fetch("/users/"); },
   async createUser(data) { return this._fetch("/users/", { method: "POST", body: data }); },
   async updateUser(id, data) { return this._fetch(`/users/${id}`, { method: "PATCH", body: data }); },
+  async changePassword(currentPassword, newPassword) { return this._fetch("/auth/change-password", { method: "POST", body: { current_password: currentPassword, new_password: newPassword } }); },
   async deleteUser(id) { return this._fetch(`/users/${id}`, { method: "DELETE" }); },
 
   // Applications

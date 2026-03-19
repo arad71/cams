@@ -23,7 +23,7 @@ class UserBase(BaseModel):
     initials: str = ""
 
 class UserCreate(UserBase):
-    password: str
+    password: Optional[str] = None  # If not provided, a random one-time password is generated
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -33,13 +33,19 @@ class UserUpdate(BaseModel):
     initials: Optional[str] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
+    must_change_password: Optional[bool] = None
 
 class UserOut(UserBase):
     id: int
     is_active: bool
+    must_change_password: bool = False
     created_at: datetime
     class Config:
         from_attributes = True
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 # ─── Application ─────────────────────────────────────────

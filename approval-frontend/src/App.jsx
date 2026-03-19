@@ -84,9 +84,30 @@ export default function KalamundaApprovalPortal() {
 
   // Lot boundaries loaded at top level via globalLotsData
 
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [changePwForm, setChangePwForm] = useState({ current: "", new1: "", new2: "" });
+  const [changePwError, setChangePwError] = useState(null);
+  const [changePwSuccess, setChangePwSuccess] = useState(false);
+
   // Login/logout
-  const handleLogin = (user) => { setCurrentUser(user); setActiveView("dashboard"); };
-  const handleLogout = () => { api.logout(); setCurrentUser(null); setActiveView("dashboard"); setSelectedApp(null); setApps([]); };
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    setActiveView("dashboard");
+    if (user.must_change_password) setShowChangePassword(true);
+  };
+  const handleLogout = () => { api.logout(); setCurrentUser(null); setActiveView("dashboard"); setSelectedApp(null); setApps([]); setShowChangePassword(false); };
+
+  const handleChangePassword = async () => {
+    setChangePwError(null);
+    if (changePwForm.new1.length < 6) { setChangePwError("New password must be at least 6 characters"); return; }
+    if (changePwForm.new1 !== changePwForm.new2) { setChangePwError("New passwords do not match"); return; }
+    try {
+      await api.changePassword(changePwForm.current, changePwForm.new1);
+      setChangePwSuccess(true);
+      setCurrentUser(prev => ({ ...prev, must_change_password: false }));
+      setTimeout(() => { setShowChangePassword(false); setChangePwSuccess(false); setChangePwForm({ current: "", new1: "", new2: "" }); }, 1500);
+    } catch (e) { setChangePwError(e.message || "Failed to change password"); }
+  };
 
   // Reload a single app from API
   const reloadApp = async (dbId) => {
@@ -110,6 +131,48 @@ export default function KalamundaApprovalPortal() {
 
   if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',sans-serif", color: "#7a8a94" }}>Loading...</div>;
   if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
+
+  // Password change modal (shown on first login with temp password)
+  const ChangePasswordModal = showChangePassword ? (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(12,31,46,0.6)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", width: "min(400px, 90vw)", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: "#1a3a4a", margin: "0 0 4px" }}>🔐 Change Password</h3>
+        <p style={{ fontSize: 12, color: "#7a8a94", margin: "0 0 16px" }}>
+          {currentUser.must_change_password ? "You must change your temporary password before continuing." : "Update your password"}
+        </p>
+        {changePwSuccess ? (
+          <div style={{ padding: "16px", background: "#eafaf1", borderRadius: 8, textAlign: "center" }}>
+            <div style={{ fontSize: 24, marginBottom: 4 }}>✅</div>
+            <div style={{ fontWeight: 700, color: "#27ae60" }}>Password changed successfully!</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Current Password</label>
+              <input type="password" value={changePwForm.current} onChange={e => setChangePwForm({...changePwForm, current: e.target.value})}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Enter current / temporary password" />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>New Password</label>
+              <input type="password" value={changePwForm.new1} onChange={e => setChangePwForm({...changePwForm, new1: e.target.value})}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Min 6 characters" />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Confirm New Password</label>
+              <input type="password" value={changePwForm.new2} onChange={e => setChangePwForm({...changePwForm, new2: e.target.value})}
+                onKeyDown={e => e.key === "Enter" && handleChangePassword()}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Repeat new password" />
+            </div>
+            {changePwError && <div style={{ marginBottom: 10, padding: "8px 10px", background: "#fdedec", borderRadius: 6, fontSize: 11, color: "#c0392b" }}>⚠️ {changePwError}</div>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              {!currentUser.must_change_password && <button onClick={() => setShowChangePassword(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>}
+              <button onClick={handleChangePassword} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Change Password</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   const role = currentUser.role;
   const visibleApps = role === "engineer"
@@ -145,6 +208,7 @@ export default function KalamundaApprovalPortal() {
   return (
     <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f0f3f5", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(26,188,156,0.1)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
+      {ChangePasswordModal}
       <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} />
       <div style={{ flex: "1 1 0%", padding: "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "6px 12px", background: `${ROLE_CONFIG[role].color}08`, borderRadius: 8, border: `1px solid ${ROLE_CONFIG[role].color}20` }}>
