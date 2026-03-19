@@ -29,6 +29,18 @@ const api = {
     this._setToken(data.access_token);
     return data.user;
   },
+  async getAuthConfig() {
+    const res = await fetch(`${API_BASE}/auth/config`);
+    if (!res.ok) return { local_enabled: true, entra_enabled: false };
+    return res.json();
+  },
+  async entraTokenExchange(code, redirectUri) {
+    const res = await fetch(`${API_BASE}/auth/entra/token?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(redirectUri)}`, { method: "POST" });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Microsoft login failed"); }
+    const data = await res.json();
+    this._setToken(data.access_token);
+    return data.user;
+  },
   async me() { return this._fetch("/auth/me"); },
   logout() { this._setToken(null); },
 
