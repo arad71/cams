@@ -95,9 +95,11 @@ export default function KalamundaApprovalPortal() {
     const loadLookups = async () => {
       try {
         const [r, d] = await Promise.all([api.listRoles(), api.listDepartments()]);
-        setRoles(r || []);
-        setDepartments(d || []);
-      } catch { /* fallback to hardcoded ROLE_CONFIG */ }
+        if (r && r.length > 0) setRoles(r);
+        if (d && d.length > 0) setDepartments(d);
+      } catch (e) {
+        console.warn("Failed to load roles/departments from API, using defaults:", e.message);
+      }
     };
     loadLookups();
   }, [currentUser]);
