@@ -279,7 +279,102 @@ async def upload_document(
     db.add(doc)
     db.commit()
     db.refresh(doc)
-    return doc
+
+    # Auto AI analysis for site plan uploads
+    if "site" in category.lower() or "plan" in category.lower():
+        try:
+            _run_site_plan_ai(app, doc, file_bytes, db)
+        except Exception as e:
+            print(f"  ⚠ Auto site plan AI failed: {e}")
+
+    return _build_doc_out(doc)
+
+
+def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session):
+    """Run Claude Vision AI on a site plan, store results, save training data."""
+    from app.services.ai_analyser import analyse_document, save_training_sample
+    settings = get_settings()
+    if not settings.ANTHROPIC_API_KEY:
+        return
+
+    findings = analyse_document(
+        file_bytes=file_bytes,
+        filename=doc.name,
+        api_key=settings.ANTHROPIC_API_KEY,
+        model=settings.AI_MODEL_DEFAULT,
+    )
+
+    if "error" not in findings:
+        # Store extraction on application (strip internal fields)
+        clean = {k: v for k, v in findings.items() if not k.startswith("_")}
+        app.site_plan_data = clean
+        db.commit()
+
+        # Save training data (images + labels)
+        try:
+            save_training_sample(
+                application_id=app.id,
+                document_id=doc.id,
+                findings=findings,
+                file_bytes=file_bytes,
+                filename=doc.name,
+            )
+        except Exception as e:
+            print(f"  ⚠ Training data capture failed: {e}")
+
+        print(f"  ✓ AI analysis complete for {app.ref_number}")
+
+
+@router.post("/{app_id}/documents/{doc_id}/analyse")
+async def analyse_document_endpoint(
+    app_id: int, doc_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Manually trigger AI analysis on an uploaded document + save training data + run assessment."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(404, "Document not found or no file on disk")
+
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+
+    file_bytes = file_path.read_bytes()
+    _run_site_plan_ai(app, doc, file_bytes, db)
+
+    if not app.site_plan_data or "error" in (app.site_plan_data or {}):
+        settings = get_settings()
+        if not settings.ANTHROPIC_API_KEY:
+            raise HTTPException(400, "AI analysis unavailable — no ANTHROPIC_API_KEY configured")
+        return {"success": False, "error": "Analysis failed"}
+
+    # Auto-run assessment
+    from app.api.assessments import _ensure_case_rows, _auto_assess_item
+    from app.models.assessment import CaseAssessment
+    from sqlalchemy.orm import joinedload as jl
+    _ensure_case_rows(db, app_id)
+    results = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
+    now = datetime.now(timezone.utc)
+    for ca in results:
+        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
+        ca.ai_result = ai_result
+        ca.ai_confidence = confidence
+        ca.ai_reason = reason
+        ca.ai_assessed_at = now
+    db.commit()
+
+    comp = (app.site_plan_data or {}).get("compliance", {})
+    return {
+        "success": True,
+        "recommendation": comp.get("recommendation", "N/A"),
+        "summary": comp.get("summary", {}),
+        "assessment_updated": len(results),
+    }
 
 
 @router.get("/{app_id}/documents/{doc_id}/file")

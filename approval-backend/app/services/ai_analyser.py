@@ -397,5 +397,78 @@ def analyse_document(
         },
         "extraction": extracted,
         "compliance": compliance,
+        "_raw_response": raw[:5000],  # Keep for training data (trimmed)
+        "_page_images": images,  # Pass through for training capture
     }
     return findings
+
+
+def save_training_sample(
+    application_id: int,
+    document_id: int | None,
+    findings: Dict[str, Any],
+    file_bytes: bytes,
+    filename: str,
+):
+    """
+    Save AI analysis results + page images as training data.
+    Called after successful analysis to build the training dataset.
+    Each page becomes a separate training sample.
+    """
+    from app.core.database import SessionLocal
+    from app.models.ai_training import AITrainingSample
+
+    images = findings.get("_page_images", [])
+    extraction = findings.get("extraction", {})
+    compliance = findings.get("compliance", {})
+    model_name = findings.get("ai_model", "unknown")
+    raw = findings.get("_raw_response", "")
+
+    # Extract key values for denormalised columns
+    dims = extraction.get("crossover_dimensions", {}) or {}
+    cons = extraction.get("construction", {}) or {}
+    drain = extraction.get("drainage", {}) or {}
+    additional = extraction.get("additional_findings", {}) or {}
+
+    db = SessionLocal()
+    try:
+        training_dir = Path(settings.DOCUMENT_DIR).parent / "training_data" / str(application_id)
+        training_dir.mkdir(parents=True, exist_ok=True)
+
+        for img_info in images:
+            page_num = img_info.get("page", 1)
+
+            # Save page image to disk
+            img_filename = f"{Path(filename).stem}_p{page_num}.png"
+            img_path = training_dir / img_filename
+            img_bytes = base64.standard_b64decode(img_info["base64"])
+            with open(img_path, "wb") as f:
+                f.write(img_bytes)
+
+            sample = AITrainingSample(
+                application_id=application_id,
+                document_id=document_id,
+                source_filename=filename,
+                page_number=page_num,
+                image_path=str(img_path),
+                ai_model=model_name,
+                ai_provider="anthropic",
+                extraction_json=extraction,
+                compliance_json=compliance,
+                raw_response=raw,
+                width_at_boundary=dims.get("width_at_boundary_m"),
+                total_width_at_road=dims.get("total_width_at_road_m"),
+                verge_depth=dims.get("verge_depth_m"),
+                material=cons.get("material"),
+                has_drainage=bool(drain.get("drainage_plan_included")),
+                has_vegetation=additional.get("vegetation_on_verge"),
+            )
+            db.add(sample)
+
+        db.commit()
+        print(f"  ✓ Saved {len(images)} training sample(s) for application {application_id}")
+    except Exception as e:
+        print(f"  ⚠ Training data save failed: {e}")
+        db.rollback()
+    finally:
+        db.close()
