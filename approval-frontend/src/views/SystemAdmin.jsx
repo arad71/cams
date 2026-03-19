@@ -14,7 +14,7 @@ const btnEdit = { padding: "4px 10px", borderRadius: 4, border: "1px solid #d5dd
 const btnDel = { padding: "4px 10px", borderRadius: 4, border: "1px solid #fdedec", background: "#fdedec", fontSize: 10, color: "#c0392b", cursor: "pointer", fontFamily: "inherit" };
 
 const RESULT_COLORS = { pass: "#27ae60", fail: "#e74c3c", review: "#e67e22" };
-const SOURCE_LABELS = { app: "Application Field", sp: "Site Plan AI Data" };
+const SOURCE_LABELS = { app: "Application Field", sp: "Site Plan AI Data", doc: "Uploaded Document" };
 const OPERATOR_LABELS = { gte: "≥", lte: "≤", gt: ">", lt: "<", eq: "=", neq: "≠", exists: "exists", not_exists: "empty", contains: "contains", true: "is true", false: "is false" };
 
 // ═══════════════════════════════════════════════════════

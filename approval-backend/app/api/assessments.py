@@ -335,6 +335,24 @@ def _resolve_field_value(source: str, field: str, app: Application):
             if obj is None:
                 return None
         return obj
+    elif source == "doc":
+        # Check uploaded documents by category
+        # field = document category (e.g. "site_plan", "application_form", "photos")
+        # Returns the document status string if found, or None
+        from app.models.application import Document
+        from app.core.database import SessionLocal
+        db_sess = SessionLocal()
+        try:
+            doc = (
+                db_sess.query(Document)
+                .filter(Document.application_id == app.id, Document.category == field)
+                .first()
+            )
+            if doc:
+                return doc.status or "received"
+            return None
+        finally:
+            db_sess.close()
     return None
 
 
