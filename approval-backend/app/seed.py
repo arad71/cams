@@ -309,15 +309,26 @@ def run_seed():
             R("gas_clear",           0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Gas pipeline clearance to be verified")
             R("telco_clear",         0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Telco/NBN clearance to be verified")
 
-            # ── Documentation ──
-            R("site_plan",           0, "sp",  "crossover_dimensions.width_at_boundary_m", "exists", None, "pass", 0.95, "Site plan analysed — dimensions extracted by AI")
-            R("site_plan",           9, "app", "owner_name",       "exists", None,  "review", 0.6,  "Site plan presence to be confirmed")
-            R("cert_title",          0, "app", "lot_number",       "exists", None,  "pass",   0.8,  "Certificate of Title referenced")
-            R("cert_title",          9, "app", "lot_number",       "not_exists", None, "review", 0.6, "Certificate of Title to be confirmed")
-            R("photos_provided",     0, "app", "owner_name",       "exists", None,  "review", 0.6,  "Photos to be confirmed")
-            R("da_attached",         0, "app", "da_number",        "exists", None,  "pass",   0.85, "DA {field_value} referenced")
+            # ── Documentation — check uploaded documents first ──
+            # source="doc", field=document category label, operator="exists" checks if uploaded
+            # operator="eq" with value="verified" checks if document has been verified
+            R("site_plan",           0, "doc", "Site Plan",          "exists", None, "pass",   0.9,  "Site plan document uploaded")
+            R("site_plan",           1, "sp",  "crossover_dimensions.width_at_boundary_m", "exists", None, "pass", 0.95, "Site plan analysed — dimensions extracted by AI")
+            R("site_plan",           9, "app", "owner_name",       "exists", None,  "review", 0.6,  "Site plan not uploaded — to be confirmed")
+
+            R("cert_title",          0, "doc", "Certificate of Title", "exists", None, "pass",  0.9,  "Certificate of Title uploaded")
+            R("cert_title",          1, "app", "lot_number",       "exists", None,  "pass",   0.8,  "Certificate of Title referenced via lot number")
+            R("cert_title",          9, "app", "lot_number",       "not_exists", None, "review", 0.6, "Certificate of Title not uploaded")
+
+            R("photos_provided",     0, "doc", "Site Photos",       "exists", None, "pass",   0.9,  "Site photos uploaded")
+            R("photos_provided",     9, "app", "owner_name",       "exists", None,  "review", 0.6,  "Site photos not uploaded")
+
+            R("da_attached",         0, "doc", "Other Documents",   "exists", None, "pass",   0.8,  "Supporting document uploaded")
+            R("da_attached",         1, "app", "da_number",        "exists", None,  "pass",   0.85, "DA {field_value} referenced")
             R("da_attached",         9, "app", "da_number",        "not_exists", None, "pass", 0.9,  "No DA required")
-            R("engineering_dwg",     0, "sp",  "crossover_dimensions.width_at_boundary_m", "exists", None, "pass", 0.85, "Engineering details extracted from site plan")
+
+            R("engineering_dwg",     0, "doc", "Site Plan",          "exists", None, "pass",   0.85, "Engineering drawing available via site plan upload")
+            R("engineering_dwg",     1, "sp",  "crossover_dimensions.width_at_boundary_m", "exists", None, "pass", 0.85, "Engineering details extracted from site plan")
             R("engineering_dwg",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Engineering drawing to be checked if non-standard")
 
             # ── Financial & Contribution ──
