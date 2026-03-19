@@ -39,6 +39,7 @@ class UserOut(UserBase):
     id: int
     is_active: bool
     must_change_password: bool = False
+    auth_provider: str = "local"
     created_at: datetime
     class Config:
         from_attributes = True

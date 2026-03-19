@@ -109,6 +109,16 @@ class Settings(BaseSettings):
     # Document storage
     DOCUMENT_DIR: str = Field(default="./uploads/documents")
 
+    # === Microsoft Entra ID (Azure AD) SSO ===
+    # Set these to enable "Sign in with Microsoft" alongside local auth
+    ENTRA_ENABLED: bool = Field(default=False)
+    ENTRA_TENANT_ID: str = Field(default="")         # e.g. "a1b2c3d4-..."
+    ENTRA_CLIENT_ID: str = Field(default="")          # App Registration client ID
+    ENTRA_CLIENT_SECRET: str = Field(default="")      # App Registration client secret
+    ENTRA_REDIRECT_URI: str = Field(default="")       # e.g. "https://crossover.kalamunda.wa.gov.au/api/auth/entra/callback"
+    ENTRA_AUTO_CREATE_USER: bool = Field(default=True) # Auto-create user on first SSO login
+    ENTRA_DEFAULT_ROLE: str = Field(default="engineer") # Default role for auto-created SSO users
+
     # Pydantic v2 settings config
     model_config = SettingsConfigDict(
         env_file=".env",
