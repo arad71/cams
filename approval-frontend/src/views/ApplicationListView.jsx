@@ -365,8 +365,15 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       const filled = [];
       const updates = {};
       for (const [ek, fk] of Object.entries(mapping)) {
-        const val = values[ek];
-        if (val && typeof val === "string" && val.trim()) { updates[fk] = val.trim(); filled.push(ek); }
+        let val = values[ek];
+        if (val && typeof val === "string" && val.trim()) {
+          // Convert date formats (DD/MM/YYYY, DD-MM-YYYY) → YYYY-MM-DD for <input type="date">
+          if (fk === "crossover_est_date" || fk === "date_signed") {
+            const dm = val.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (dm) val = `${dm[3]}-${dm[2].padStart(2,"0")}-${dm[1].padStart(2,"0")}`;
+          }
+          updates[fk] = val.trim(); filled.push(ek);
+        }
       }
       // Handle signature as boolean
       const sig = values.lot_owner_signature;
@@ -376,7 +383,12 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       if (Object.keys(updates).length > 0) {
         setForm(prev => {
           const m = { ...prev };
-          for (const [k, v] of Object.entries(updates)) { if (!m[k] || !m[k].trim()) m[k] = v; }
+          for (const [k, v] of Object.entries(updates)) {
+            // Only overwrite empty fields; handle booleans/numbers properly
+            if (typeof v === "boolean") { m[k] = v; }
+            else if (typeof m[k] === "string" && !m[k].trim()) { m[k] = v; }
+            else if (!m[k]) { m[k] = v; }
+          }
           return m;
         });
         if (updates.property_address) setTimeout(() => lookupLotBoundary(updates.property_address), 100);
