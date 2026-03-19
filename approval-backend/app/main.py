@@ -110,11 +110,12 @@ def _backfill_columns():
 
     db = SessionLocal()
     try:
-        # Fix NULL auth_provider on existing users
-        updated = db.query(User).filter(User.auth_provider == None).update({"auth_provider": "local"})
-        if updated:
+        n1 = db.query(User).filter(User.auth_provider == None).update({"auth_provider": "local"})
+        n2 = db.query(User).filter(User.must_change_password == None).update({"must_change_password": False})
+        if n1 or n2:
             db.commit()
-            print(f"  ✓ Backfilled auth_provider='local' on {updated} users")
+            if n1: print(f"  ✓ Backfilled auth_provider='local' on {n1} users")
+            if n2: print(f"  ✓ Backfilled must_change_password=False on {n2} users")
     except Exception as e:
         print(f"  ⚠ Backfill error: {e}")
         db.rollback()

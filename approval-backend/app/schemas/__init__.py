@@ -18,9 +18,9 @@ class TokenResponse(BaseModel):
 class UserBase(BaseModel):
     name: str
     email: str
-    role: str = "engineer"
-    department: str = "Engineering"
-    initials: str = ""
+    role: Optional[str] = "engineer"
+    department: Optional[str] = "Engineering"
+    initials: Optional[str] = ""
 
 class UserCreate(UserBase):
     password: Optional[str] = None  # If not provided, a random one-time password is generated
@@ -37,10 +37,10 @@ class UserUpdate(BaseModel):
 
 class UserOut(UserBase):
     id: int
-    is_active: bool
-    must_change_password: bool = False
+    is_active: bool = True
+    must_change_password: Optional[bool] = False
     auth_provider: Optional[str] = "local"
-    created_at: datetime
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
