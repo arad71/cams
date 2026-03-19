@@ -1,9 +1,10 @@
-import { ROLE_CONFIG } from '../../data/constants';
+import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from '../../data/constants';
 
 // ═══════════════════════════════════════════════════════════
 //  SIDEBAR
 // ═══════════════════════════════════════════════════════════
-export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout }) {
+export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP }) {
+  const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
   const pend = apps.filter(a => a.status === "pending_review").length;
   const refs = apps.filter(a => a.status === "referral_pending").length;
   const role = currentUser?.role || "engineer";
