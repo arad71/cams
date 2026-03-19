@@ -79,6 +79,10 @@ const api = {
     if (reviewNote !== undefined) body.review_note = reviewNote;
     return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "PATCH", body });
   },
+  getDocumentFileUrl(appId, docId) {
+    const token = this._getToken();
+    return `${API_BASE}/applications/${appId}/documents/${docId}/file?token=${encodeURIComponent(token || "")}`;
+  },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
   // Verification (category-specific)
   async verifyApplicationDoc(appId, docId) {

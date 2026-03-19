@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import api from '../../services/api';
 
-const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
+const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
 const STATUS_OPTIONS = [
   { value: "received",  label: "Received",  color: "#3498db", icon: "📥", bg: "#ebf5fb" },
   { value: "verified",  label: "Verified",  color: "#27ae60", icon: "✅", bg: "#eafaf1" },
@@ -12,7 +12,92 @@ function getStatusConfig(status) {
   return STATUS_OPTIONS.find(s => s.value === status) || STATUS_OPTIONS[0];
 }
 
-// ─── Document Review Panel (shown when a doc is selected) ──
+// ─── Floating Document Viewer ─────────────────────────
+function DocViewer({ doc, appDbId, onClose }) {
+  const [pos, setPos] = useState({ x: 80, y: 60 });
+  const [size, setSize] = useState({ w: 640, h: 520 });
+  const [dragging, setDragging] = useState(false);
+  const [dragOff, setDragOff] = useState({ x: 0, y: 0 });
+  const [maximized, setMaximized] = useState(false);
+  const prevState = useRef(null);
+
+  const fileUrl = api.getDocumentFileUrl(appDbId, doc.id);
+  const isImage = ["jpg", "jpeg", "png", "gif"].includes((doc.type || "").toLowerCase());
+  const isPdf = (doc.type || "").toLowerCase() === "pdf";
+
+  // Drag handlers
+  const onMouseDown = (e) => {
+    if (maximized) return;
+    setDragging(true);
+    setDragOff({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+  };
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => setPos({ x: e.clientX - dragOff.x, y: e.clientY - dragOff.y });
+    const onUp = () => setDragging(false);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [dragging, dragOff]);
+
+  const toggleMaximize = () => {
+    if (maximized) {
+      if (prevState.current) { setPos(prevState.current.pos); setSize(prevState.current.size); }
+      setMaximized(false);
+    } else {
+      prevState.current = { pos: { ...pos }, size: { ...size } };
+      setPos({ x: 0, y: 0 });
+      setSize({ w: window.innerWidth, h: window.innerHeight });
+      setMaximized(true);
+    }
+  };
+
+  const style = maximized
+    ? { position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", zIndex: 10001 }
+    : { position: "fixed", top: pos.y, left: pos.x, width: size.w, height: size.h, zIndex: 10001 };
+
+  return (
+    <div style={{ ...style, background: "#fff", borderRadius: maximized ? 0 : 12, boxShadow: "0 12px 48px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", overflow: "hidden", border: maximized ? "none" : "1px solid #d5dde2" }}>
+      {/* Title bar */}
+      <div onMouseDown={onMouseDown}
+        style={{ padding: "8px 12px", background: "#1a3a4a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: maximized ? "default" : "move", flexShrink: 0, userSelect: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span style={{ fontSize: 14 }}>{typeIcons[doc.type] || "📄"}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
+          <span style={{ fontSize: 10, opacity: 0.6 }}>{doc.type.toUpperCase()} · {doc.size}</span>
+        </div>
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          <button onClick={() => window.open(fileUrl, "_blank")} title="Open in new tab"
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>↗</button>
+          <button onClick={toggleMaximize} title={maximized ? "Restore" : "Maximize"}
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>{maximized ? "❐" : "□"}</button>
+          <button onClick={onClose} title="Close"
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 14, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>✕</button>
+        </div>
+      </div>
+      {/* Content */}
+      <div style={{ flex: 1, overflow: "hidden", background: "#e8ecef" }}>
+        {isPdf ? (
+          <iframe src={fileUrl} style={{ width: "100%", height: "100%", border: "none" }} title={doc.name} />
+        ) : isImage ? (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", padding: 12 }}>
+            <img src={fileUrl} alt={doc.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 4, boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }} />
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
+            <span style={{ fontSize: 48 }}>{typeIcons[doc.type] || "📄"}</span>
+            <div style={{ fontSize: 13, color: "#5a6a74", fontWeight: 600 }}>Preview not available for {doc.type.toUpperCase()} files</div>
+            <a href={fileUrl} download={doc.name}
+              style={{ padding: "8px 18px", borderRadius: 8, background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📥 Download File</a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ─── Document Review Panel ───────────────────────────
 function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
   const [status, setStatus] = useState(doc.status || "received");
   const [note, setNote] = useState(doc.reviewNote || "");
@@ -25,23 +110,18 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
 
   const handleSave = async () => {
     if (!appDbId || !canReview) return;
-    setSaving(true);
-    setSaved(false);
+    setSaving(true); setSaved(false);
     try {
       await api.updateDocStatus(appDbId, doc.id, status, note);
       setSaved(true);
       if (onDocUpdated) onDocUpdated();
       setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
-      console.error("Failed to update document:", e);
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { console.error("Failed to update document:", e); }
+    finally { setSaving(false); }
   };
 
   return (
     <div style={{ borderTop: "2px solid #2980b9", background: "#f8fafb" }}>
-      {/* Document info header */}
       <div style={{ padding: "14px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#1a3a4a" }}>{typeIcons[doc.type] || "📄"} {doc.name}</div>
@@ -50,91 +130,42 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
         <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#95a5a6" }}>✕</button>
       </div>
 
-      {/* Preview + Download */}
-      <div style={{ padding: "0 16px 12px" }}>
-        <div style={{ background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", padding: 20, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
-          <div style={{ fontSize: 40, marginBottom: 6 }}>{typeIcons[doc.type] || "📄"}</div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", marginBottom: 8 }}>{doc.name}</div>
-          <button onClick={() => {
-            const blob = new Blob([`[Document: ${doc.name}]\nID: ${doc.id}\nCategory: ${doc.category}\nSize: ${doc.size}`], { type: "application/octet-stream" });
-            const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = doc.name; a.click(); URL.revokeObjectURL(url);
-          }} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>📥 Download</button>
-        </div>
-      </div>
-
-      {/* ★ REVIEW SECTION — Status + Note (like approval checklist) ★ */}
       {canReview && (
         <div style={{ padding: "0 16px 14px" }}>
           <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-            {/* Review header */}
             <div style={{ padding: "10px 14px", background: `${sc.color}08`, borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a", textTransform: "uppercase", letterSpacing: "0.04em" }}>📋 Document Review</span>
-              {doc.reviewedBy && (
-                <span style={{ fontSize: 10, color: "#7a8a94" }}>
-                  Last reviewed by <strong>{doc.reviewedBy}</strong> on {doc.reviewedAt}
-                </span>
-              )}
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a", textTransform: "uppercase" }}>📋 Document Review</span>
+              {doc.reviewedBy && <span style={{ fontSize: 10, color: "#7a8a94" }}>Last reviewed by <strong>{doc.reviewedBy}</strong> on {doc.reviewedAt}</span>}
             </div>
-
-            {/* Status selector */}
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>Review Status</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Status</div>
               <div style={{ display: "flex", gap: 6 }}>
-                {STATUS_OPTIONS.map(opt => {
-                  const active = status === opt.value;
-                  return (
-                    <button key={opt.value} onClick={() => setStatus(opt.value)}
-                      style={{
-                        flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit",
-                        border: active ? `2px solid ${opt.color}` : "1.5px solid #d5dde2",
-                        background: active ? opt.bg : "#fff",
-                        color: active ? opt.color : "#7a8a94",
-                        fontWeight: active ? 800 : 500, fontSize: 12,
-                        transition: "all 0.15s",
-                      }}>
-                      <div style={{ fontSize: 16, marginBottom: 2 }}>{opt.icon}</div>
-                      {opt.label}
-                    </button>
-                  );
-                })}
+                {STATUS_OPTIONS.map(opt => (
+                  <button key={opt.value} onClick={() => setStatus(opt.value)}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit",
+                      border: status === opt.value ? `2px solid ${opt.color}` : "1.5px solid #d5dde2",
+                      background: status === opt.value ? opt.bg : "#fff",
+                      color: status === opt.value ? opt.color : "#7a8a94",
+                      fontWeight: status === opt.value ? 800 : 500, fontSize: 12 }}>
+                    <div style={{ fontSize: 16, marginBottom: 2 }}>{opt.icon}</div>{opt.label}
+                  </button>
+                ))}
               </div>
             </div>
-
-            {/* Review note */}
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>Review Note</div>
-              <textarea
-                value={note}
-                onChange={e => setNote(e.target.value)}
-                placeholder="Add review comments, issues found, or conditions for this document…"
-                rows={3}
-                style={{
-                  width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #d5dde2",
-                  fontSize: 12, fontFamily: "inherit", background: "#fafbfc", color: "#1a3a4a",
-                  outline: "none", resize: "vertical", boxSizing: "border-box", lineHeight: 1.5,
-                }}
-              />
+              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Note</div>
+              <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add review comments…" rows={3}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", background: "#fafbfc", color: "#1a3a4a", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
             </div>
-
-            {/* Save button */}
             <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 10, color: "#95a5a6" }}>
-                {currentUser && <span>Reviewing as <strong style={{ color: "#5a6a74" }}>{currentUser.name}</strong></span>}
-              </div>
+              <div style={{ fontSize: 10, color: "#95a5a6" }}>{currentUser && <span>Reviewing as <strong style={{ color: "#5a6a74" }}>{currentUser.name}</strong></span>}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {saved && <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 600 }}>✅ Saved</span>}
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !hasChanges}
-                  style={{
-                    padding: "7px 18px", borderRadius: 8, border: "none",
+                <button onClick={handleSave} disabled={saving || !hasChanges}
+                  style={{ padding: "7px 18px", borderRadius: 8, border: "none",
                     background: hasChanges ? `linear-gradient(135deg, ${sc.color}, ${sc.color}dd)` : "#d5dde2",
-                    color: hasChanges ? "#fff" : "#95a5a6",
-                    fontWeight: 700, fontSize: 12, cursor: hasChanges ? "pointer" : "default",
-                    fontFamily: "inherit", boxShadow: hasChanges ? `0 2px 8px ${sc.color}30` : "none",
-                    transition: "all 0.15s",
-                  }}
-                >
+                    color: hasChanges ? "#fff" : "#95a5a6", fontWeight: 700, fontSize: 12,
+                    cursor: hasChanges ? "pointer" : "default", fontFamily: "inherit" }}>
                   {saving ? "Saving…" : hasChanges ? `💾 Save as ${getStatusConfig(status).label}` : "No Changes"}
                 </button>
               </div>
@@ -147,9 +178,10 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
 }
 
 
-// ─── Document List with Review ─────────────────────────
+// ─── Document List with Review + Viewer ─────────────
 export default function DocumentList({ documents, appDbId, currentUser, onDocUpdated }) {
   const [selectedDocId, setSelectedDocId] = useState(null);
+  const [viewerDoc, setViewerDoc] = useState(null);
   const [filter, setFilter] = useState("All");
 
   if (!documents || documents.length === 0) return <div style={{ padding: 16, color: "#95a5a6", fontSize: 12 }}>No documents submitted.</div>;
@@ -179,7 +211,7 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
       <div style={{ padding: "6px 16px", background: "#f8fafb", borderBottom: "1px solid #f0f3f5", display: "flex", gap: 14, fontSize: 10 }}>
         <span style={{ color: "#27ae60", fontWeight: 700 }}>✅ {verified} verified</span>
         <span style={{ color: "#e74c3c", fontWeight: 700 }}>❌ {rejected} rejected</span>
-        <span style={{ color: "#3498db", fontWeight: 700 }}>📥 {pending} pending review</span>
+        <span style={{ color: "#3498db", fontWeight: 700 }}>📥 {pending} pending</span>
       </div>
 
       {/* Document rows */}
@@ -188,44 +220,46 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
           const sc = getStatusConfig(doc.status);
           const isSelected = selectedDocId === doc.id;
           return (
-            <div key={doc.id}
-              onClick={() => setSelectedDocId(isSelected ? null : doc.id)}
-              style={{
-                padding: "9px 16px", borderBottom: "1px solid #f8fafb", display: "flex", alignItems: "center", gap: 10,
-                cursor: "pointer", background: isSelected ? "#ebf5fb" : "transparent", transition: "background 0.15s",
-              }}
-              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#f8fafb"; }}
-              onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}>
-              <span style={{ fontSize: 18 }}>{typeIcons[doc.type] || "📄"}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
-                <div style={{ fontSize: 10, color: "#95a5a6" }}>
-                  {doc.type.toUpperCase()} · {doc.size} · {doc.date}
-                  {doc.reviewedBy && <span style={{ marginLeft: 6, color: "#7a8a94" }}>· Reviewed by {doc.reviewedBy}</span>}
+            <div key={doc.id} style={{ borderBottom: "1px solid #f8fafb" }}>
+              <div style={{ padding: "9px 16px", display: "flex", alignItems: "center", gap: 10, background: isSelected ? "#ebf5fb" : "transparent", transition: "background 0.15s" }}
+                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#f8fafb"; }}
+                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? "#ebf5fb" : "transparent"; }}>
+                <span style={{ fontSize: 18 }}>{typeIcons[doc.type] || "📄"}</span>
+                <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setSelectedDocId(isSelected ? null : doc.id)}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
+                  <div style={{ fontSize: 10, color: "#95a5a6" }}>
+                    {doc.type.toUpperCase()} · {doc.size} · {doc.date}
+                    {doc.reviewedBy && <span style={{ marginLeft: 6, color: "#7a8a94" }}>· {doc.reviewedBy}</span>}
+                  </div>
                 </div>
+                {/* View button */}
+                <button onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}
+                  title="Open document viewer"
+                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                  👁 View
+                </button>
+                {/* Status badge */}
+                <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
+                  {sc.icon} {sc.label}
+                </span>
+                {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: "#e67e22" }}>💬</span>}
+                <span onClick={() => setSelectedDocId(isSelected ? null : doc.id)}
+                  style={{ fontSize: 10, color: "#bdc3c7", cursor: "pointer", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
               </div>
-              {/* Status badge */}
-              <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
-                {sc.icon} {sc.label}
-              </span>
-              {/* Has note indicator */}
-              {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: "#e67e22" }}>💬</span>}
-              {/* Expand indicator */}
-              <span style={{ fontSize: 10, color: "#bdc3c7", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
             </div>
           );
         })}
       </div>
 
-      {/* Review panel (expanded below the list) */}
+      {/* Review panel */}
       {selectedDoc && (
-        <DocReviewPanel
-          doc={selectedDoc}
-          appDbId={appDbId}
-          currentUser={currentUser}
-          onClose={() => setSelectedDocId(null)}
-          onDocUpdated={onDocUpdated}
-        />
+        <DocReviewPanel doc={selectedDoc} appDbId={appDbId} currentUser={currentUser}
+          onClose={() => setSelectedDocId(null)} onDocUpdated={onDocUpdated} />
+      )}
+
+      {/* Floating document viewer */}
+      {viewerDoc && (
+        <DocViewer doc={viewerDoc} appDbId={appDbId} onClose={() => setViewerDoc(null)} />
       )}
     </div>
   );
