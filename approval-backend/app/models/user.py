@@ -15,7 +15,7 @@ class User(Base):
     department = Column(String(100), default="Engineering")
     is_active = Column(Boolean, default=True)
     must_change_password = Column(Boolean, default=False)
-    auth_provider = Column(String(20), default="local")  # local | entra
+    auth_provider = Column(String(20), default="local", server_default="local")  # local | entra
     entra_oid = Column(String(100), nullable=True, unique=True, index=True)  # Microsoft Entra Object ID
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -100,6 +100,26 @@ def on_startup():
     """Create tables if they don't exist and seed lookup data."""
     Base.metadata.create_all(bind=engine)
     _seed_lookups()
+    _backfill_columns()
+
+
+def _backfill_columns():
+    """Backfill NULL values for columns added after initial deployment."""
+    from app.core.database import SessionLocal
+    from app.models.user import User
+
+    db = SessionLocal()
+    try:
+        # Fix NULL auth_provider on existing users
+        updated = db.query(User).filter(User.auth_provider == None).update({"auth_provider": "local"})
+        if updated:
+            db.commit()
+            print(f"  ✓ Backfilled auth_provider='local' on {updated} users")
+    except Exception as e:
+        print(f"  ⚠ Backfill error: {e}")
+        db.rollback()
+    finally:
+        db.close()
 
 
 def _seed_lookups():
