@@ -367,11 +367,6 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       for (const [ek, fk] of Object.entries(mapping)) {
         let val = values[ek];
         if (val && typeof val === "string" && val.trim()) {
-          // Convert date formats (DD/MM/YYYY, DD-MM-YYYY) → YYYY-MM-DD for <input type="date">
-          if (fk === "crossover_est_date" || fk === "date_signed") {
-            const dm = val.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
-            if (dm) val = `${dm[3]}-${dm[2].padStart(2,"0")}-${dm[1].padStart(2,"0")}`;
-          }
           updates[fk] = val.trim(); filled.push(ek);
         }
       }
@@ -695,7 +690,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         <Field label="Number of Crossovers"><select style={selectBase} value={form.crossover_count} onChange={set("crossover_count")}><option value="1">1 — Single</option><option value="2">2 — Dual</option></select></Field>
         <Field label="Surface Material"><select style={selectBase} value={form.crossover_surface} onChange={set("crossover_surface")}><option value="concrete">Concrete</option><option value="asphalt">Asphalt</option><option value="brick_paver">Brick Paver</option><option value="gravel">Gravel</option><option value="other">Other</option></select></Field>
         <Field label="Offset from Left Boundary (m)"><input style={inputBase} type="number" step="0.1" value={form.offset_from_left} onChange={set("offset_from_left")} placeholder="0.0" /></Field>
-        <Field label="Est. Construction Date" span={2}><input style={inputBase} type="date" value={form.crossover_est_date} onChange={set("crossover_est_date")} /></Field>
+        <Field label="Est. Construction Date" span={2}><input style={inputBase} type="text" value={form.crossover_est_date} onChange={set("crossover_est_date")} placeholder="e.g. 15/03/2026" /></Field>
       </div>
       {sitePlanData && (<div style={{ marginTop: 14, padding: "10px 14px", background: "#ebf5fb", borderRadius: 8, border: "1px solid #d4e6f1", fontSize: 11, color: "#2471a3", lineHeight: 1.6 }}><strong>📐 AI Site Plan Data:</strong> Full extraction with {(sitePlanData.compliance?.checks || []).length} compliance checks stored. Recommendation: <strong>{(sitePlanData.compliance?.recommendation || "N/A").replace(/_/g, " ")}</strong></div>)}
       <div style={{ marginTop: 14, padding: "10px 14px", background: "#f5f8fa", borderRadius: 8, fontSize: 11, color: "#5a6a74", lineHeight: 1.6 }}><strong style={{ color: "#1a3a4a" }}>ℹ️ Width Guidelines:</strong> Minimum 3.0m at property boundary. Maximum depends on lot frontage. Second crossover permitted only if frontage exceeds 20m.</div>
