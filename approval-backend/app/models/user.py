@@ -14,6 +14,7 @@ class User(Base):
     role = Column(String(20), nullable=False, default="engineer")  # admin | manager | engineer
     department = Column(String(100), default="Engineering")
     is_active = Column(Boolean, default=True)
+    must_change_password = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -23,6 +23,10 @@ const OPERATOR_LABELS = { gte: "≥", lte: "≤", gt: ">", lt: "<", eq: "=", neq
 function UsersTab({ users, setUsers, currentUser }) {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({});
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({ name: "", email: "", role: "engineer", department: "Engineering" });
+  const [tempPassword, setTempPassword] = useState(null);
+  const [addError, setAddError] = useState(null);
 
   const startEdit = (u) => { setEditId(u.id); setForm({ ...u }); };
   const saveEdit = async () => {
@@ -36,11 +40,16 @@ function UsersTab({ users, setUsers, currentUser }) {
     try { await api.updateUser(u._dbId, { is_active: !u.active }); const uList = await api.listUsers(); setUsers(uList.map(apiUserToFrontend)); } catch (e) { console.error(e); }
   };
   const addUser = async () => {
+    if (!newUserForm.name.trim() || !newUserForm.email.trim()) { setAddError("Name and email are required"); return; }
+    setAddError(null);
     try {
-      const nu = await api.createUser({ name: "New User", email: `new${Date.now()}@kalamunda.wa.gov.au`, password: "engineer123", role: "engineer", department: "Engineering" });
+      const result = await api.createUser({ name: newUserForm.name.trim(), email: newUserForm.email.trim(), role: newUserForm.role, department: newUserForm.department });
+      setTempPassword(result.temp_password);
       const uList = await api.listUsers(); setUsers(uList.map(apiUserToFrontend));
-      startEdit(apiUserToFrontend(nu));
-    } catch (e) { console.error(e); }
+      setNewUserForm({ name: "", email: "", role: "engineer", department: "Engineering" });
+    } catch (e) {
+      setAddError(e.message || "Failed to create user");
+    }
   };
 
   return (
@@ -55,8 +64,39 @@ function UsersTab({ users, setUsers, currentUser }) {
             </div>;
           })}
         </div>
-        <button onClick={addUser} style={btnAdd}>+ Add User</button>
+        <button onClick={() => { setShowAddForm(!showAddForm); setTempPassword(null); setAddError(null); }} style={btnAdd}>{showAddForm ? "✕ Cancel" : "+ Add User"}</button>
       </div>
+
+      {/* Add User Form */}
+      {showAddForm && (
+        <div style={{ background: "#fff", borderRadius: 12, border: "2px solid #1abc9c", padding: 16, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a", marginBottom: 10 }}>New User</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px 12px" }}>
+            <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Full Name *</label>
+              <input value={newUserForm.name} onChange={e => setNewUserForm({...newUserForm, name: e.target.value})} style={inputS} placeholder="e.g. Jane Smith" /></div>
+            <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Email *</label>
+              <input value={newUserForm.email} onChange={e => setNewUserForm({...newUserForm, email: e.target.value})} style={inputS} placeholder="jane@kalamunda.wa.gov.au" /></div>
+            <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Role</label>
+              <select value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})} style={inputS}>
+                {Object.entries(ROLE_CONFIG).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}
+              </select></div>
+            <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Department</label>
+              <input value={newUserForm.department} onChange={e => setNewUserForm({...newUserForm, department: e.target.value})} style={inputS} placeholder="Engineering" /></div>
+          </div>
+          {addError && <div style={{ marginTop: 8, padding: "6px 10px", background: "#fdedec", borderRadius: 6, fontSize: 11, color: "#c0392b" }}>⚠️ {addError}</div>}
+          {tempPassword && (
+            <div style={{ marginTop: 10, padding: "10px 14px", background: "#eafaf1", borderRadius: 8, border: "1px solid #d4efdf" }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#27ae60", marginBottom: 4 }}>✅ User Created — One-Time Password</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#1a3a4a", background: "#fff", padding: "8px 12px", borderRadius: 6, border: "1px solid #d4efdf", fontFamily: "monospace", letterSpacing: "0.1em", display: "inline-block" }}>{tempPassword}</div>
+              <div style={{ fontSize: 10, color: "#5a6a74", marginTop: 6 }}>Share this password with the user. They will be asked to change it on first login.</div>
+            </div>
+          )}
+          <div style={{ marginTop: 10, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button onClick={() => { setShowAddForm(false); setTempPassword(null); }} style={btnCancel}>Close</button>
+            {!tempPassword && <button onClick={addUser} disabled={!newUserForm.name.trim() || !newUserForm.email.trim()} style={{ ...btnAdd, opacity: newUserForm.name.trim() && newUserForm.email.trim() ? 1 : 0.5 }}>Create User</button>}
+          </div>
+        </div>
+      )}
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e4e9ec", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead><tr style={{ background: "#f5f8fa" }}>{["User","Email","Role","Department","Status","Actions"].map(h => <th key={h} style={thS}>{h}</th>)}</tr></thead>

@@ -29,7 +29,7 @@ export function apiAppListToFrontend(a) {
 }
 
 export function apiUserToFrontend(u) {
-  return { id: String(u.id), _dbId: u.id, name: u.name, email: u.email, role: u.role, initials: u.initials || u.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2), department: u.department || "", active: u.is_active };
+  return { id: String(u.id), _dbId: u.id, name: u.name, email: u.email, role: u.role, initials: u.initials || u.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2), department: u.department || "", active: u.is_active, must_change_password: !!u.must_change_password };
 }
 
 export function frontendAppToApiUpdate(localApp) {
