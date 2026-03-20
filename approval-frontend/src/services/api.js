@@ -84,6 +84,15 @@ const api = {
     return `${API_BASE}/applications/${appId}/documents/${docId}/file?token=${encodeURIComponent(token || "")}`;
   },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
+
+  // Document AI analysis
+  async analyseDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}/analyse`, { method: "POST" }); },
+
+  // AI Training data
+  async trainingStats() { return this._fetch("/training/stats"); },
+  async trainingVerify(sampleId) { return this._fetch(`/training/samples/${sampleId}/verify`, { method: "POST" }); },
+  async trainingCorrect(sampleId, corrections) { return this._fetch(`/training/samples/${sampleId}/correct`, { method: "POST", body: corrections }); },
+  async trainingSamples(appId) { return this._fetch(`/training/samples?limit=50&offset=0`); },
   // Verification (category-specific)
   async verifyApplicationDoc(appId, docId) {
     // e.g. POST /api/applications/{appId}/documents/{docId}/verify-application

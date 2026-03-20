@@ -6,6 +6,7 @@ import StatusBadge from '../components/ui/StatusBadge';
 import MapWithOverlay from '../components/map/MapWithOverlay';
 import DocumentList from '../components/ui/DocumentList';
 import ApprovalChecklist from '../components/ui/ApprovalChecklist';
+import AIExtractionReview from '../components/ui/AIExtractionReview';
 import ReportGenerator from '../components/ui/ReportGenerator';
 
 function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData }) {
@@ -77,7 +78,12 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
       {/* ★ DOCUMENTS ★ */}
       <div style={{ marginBottom: 14 }}>
-        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} currentUser={currentUser} onDocUpdated={() => reloadApp(localApp._dbId)} />
+        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} currentUser={currentUser} onDocUpdated={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} />
+      </div>
+
+      {/* ★ AI SITE PLAN EXTRACTION — officer review + corrections ★ */}
+      <div style={{ marginBottom: 14 }}>
+        <AIExtractionReview app={localApp} currentUser={currentUser} onReload={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} />
       </div>
 
       {/* ★ APPROVAL CHECKLIST ★ */}
