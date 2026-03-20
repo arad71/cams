@@ -71,9 +71,25 @@ services:
     depends_on: [approval-api]
     networks: [cams-net]
 
+  # ─── Scheduled Tasks (weekly lot.geojson update) ───────
+  cams-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.cron
+    restart: always
+    environment:
+      LOT_GEOJSON_PATH: /data/lot.geojson
+      KALAMUNDA_BBOX: "115.95,-32.10,116.15,-31.87"
+    volumes:
+      - lot_geojson_data:/data
+      - cron_logs:/var/log/cams
+    networks: [cams-net]
+
 volumes:
   pgdata_approval:
   approval_uploads:
+  lot_geojson_data:
+  cron_logs:
 
 networks:
   cams-net:
