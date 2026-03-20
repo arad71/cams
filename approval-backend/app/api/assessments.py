@@ -290,6 +290,10 @@ def bulk_officer_decision(app_id: int, data: BulkOfficerDecisionRequest,
         ca.status_changed_at = now
 
     db.commit()
+    if results:
+        from app.services.audit import log_audit
+        app = db.query(Application).filter(Application.id == app_id).first()
+        log_audit(db=db, action="bulk_assess", entity_type="assessment", user=current_user, entity_id=str(app_id), entity_ref=app.ref_number if app else None, description=f"Bulk {data.officer_decision} on {len(results)} items (AI={data.ai_result_filter})")
     return list_case_assessments(app_id, db, current_user)
 
 

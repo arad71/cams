@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import secrets
@@ -39,13 +39,14 @@ def create_user(
     data: UserCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
+    from app.services.audit import log_audit
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Generate random one-time password if not provided
     temp_password = data.password or _generate_temp_password()
-    must_change = not data.password  # If auto-generated, must change on first login
+    must_change = not data.password
 
     user = User(
         name=data.name,
@@ -59,8 +60,8 @@ def create_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+    log_audit(db=db, action="create", entity_type="user", user=current_user, entity_id=str(user.id), description=f"Created user {user.name} ({user.email}), role={user.role}", request=request)
 
-    # Return user data + the temp password (only shown once)
     user_out = UserOut.model_validate(user).model_dump()
     user_out["temp_password"] = temp_password
     return user_out
@@ -72,7 +73,9 @@ def update_user(
     data: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
+    from app.services.audit import log_audit
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -83,11 +86,17 @@ def update_user(
     else:
         update_data.pop("password", None)
 
+    changes = {}
     for key, value in update_data.items():
+        old = getattr(user, key, None)
+        if key != "hashed_password" and old != value:
+            changes[key] = {"old": str(old) if old is not None else None, "new": str(value) if value is not None else None}
         setattr(user, key, value)
 
     db.commit()
     db.refresh(user)
+    if changes:
+        log_audit(db=db, action="update", entity_type="user", user=current_user, entity_id=str(user.id), description=f"Updated user {user.name}: {', '.join(changes.keys())}", field_changes=changes, request=request)
     return user
 
 
@@ -96,11 +105,14 @@ def delete_user(
     user_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    request: Request = None,
 ):
+    from app.services.audit import log_audit
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    log_audit(db=db, action="delete", entity_type="user", user=current_user, entity_id=str(user.id), description=f"Deleted user {user.name} ({user.email})", request=request)
     db.delete(user)
     db.commit()

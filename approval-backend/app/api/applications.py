@@ -299,6 +299,8 @@ async def upload_document(
         except Exception as e:
             print(f"  ⚠ Auto site plan AI failed: {e}")
 
+    from app.services.audit import log_audit
+    log_audit(db=db, action="upload", entity_type="document", user=current_user, entity_id=str(doc.id), entity_ref=app.ref_number, description=f"Uploaded {safe_name} ({size_str}) to {app.ref_number}, category={category}")
     return _build_doc_out(doc)
 
 
@@ -429,6 +431,8 @@ def download_document(
     media_types = {"pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "doc": "application/msword", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
     media_type = media_types.get(ext, "application/octet-stream")
 
+    from app.services.audit import log_audit
+    log_audit(db=db, action="download", entity_type="document", user=user, entity_id=str(doc.id), description=f"Downloaded {doc.name}")
     return FileResponse(file_path, media_type=media_type, filename=doc.name)
 
 

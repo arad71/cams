@@ -151,6 +151,8 @@ def entra_token_exchange(
 
     # Issue CAMS JWT
     token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    from app.services.audit import log_audit
+    log_audit(db=db, action="login", entity_type="auth", user=user, description=f"User logged in via Microsoft Entra ID SSO")
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
