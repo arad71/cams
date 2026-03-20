@@ -3,7 +3,8 @@ from app.models.application import Application, ApplicationNote, Document, Inspe
 from app.models.assessment import AssessmentCategory, AssessmentItem, AssessmentRule, CaseAssessment
 from app.models.lookup import Role, Department
 from app.models.ai_training import AITrainingSample, AITrainingCorrection
+from app.models.audit import AuditLog
 
 __all__ = ["User", "Application", "ApplicationNote", "Document", "Inspection", "Report",
            "AssessmentCategory", "AssessmentItem", "AssessmentRule", "CaseAssessment",
-           "Role", "Department", "AITrainingSample", "AITrainingCorrection"]
+           "Role", "Department", "AITrainingSample", "AITrainingCorrection", "AuditLog"]

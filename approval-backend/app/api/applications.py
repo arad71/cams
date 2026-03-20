@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import os
 import shutil
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status, Request
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
@@ -100,18 +100,21 @@ def get_application(app_id: int, db: Session = Depends(get_db), current_user: Us
 
 # ─── Create Application ─────────────────────────────────
 @router.post("/", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)
-def create_application(data: ApplicationCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def create_application(data: ApplicationCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), request: Request = None):
+    from app.services.audit import log_audit
     ref = _gen_ref_number(db)
     app = Application(ref_number=ref, **data.model_dump())
     db.add(app)
     db.commit()
     db.refresh(app)
+    log_audit(db=db, action="create", entity_type="application", user=current_user, entity_id=str(app.id), entity_ref=ref, description=f"Created application {ref} for {data.property_address}", request=request)
     return get_application(app.id, db, current_user)
 
 
 # ─── Update Application (status, assignment, checklist) ──
 @router.patch("/{app_id}", response_model=ApplicationOut)
-def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), request: Request = None):
+    from app.services.audit import log_audit
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -124,11 +127,18 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
         if restricted & set(update_data.keys()):
             raise HTTPException(status_code=403, detail="Engineers cannot change status or assignment")
 
+    # Track changes for audit
+    changes = {}
     for key, value in update_data.items():
+        old_val = getattr(app, key, None)
+        if old_val != value:
+            changes[key] = {"old": str(old_val) if old_val is not None else None, "new": str(value) if value is not None else None}
         setattr(app, key, value)
 
     db.commit()
     db.refresh(app)
+    if changes:
+        log_audit(db=db, action="update", entity_type="application", user=current_user, entity_id=str(app.id), entity_ref=app.ref_number, description=f"Updated {', '.join(changes.keys())}", field_changes=changes, request=request)
     return get_application(app.id, db, current_user)
 
 
@@ -153,6 +163,8 @@ def assign_officer(
         app.status = "under_assessment"
     db.commit()
     db.refresh(app)
+    from app.services.audit import log_audit
+    log_audit(db=db, action="assign_officer", entity_type="application", user=current_user, entity_id=str(app.id), entity_ref=app.ref_number, description=f"Assigned officer {officer.name} to {app.ref_number}", field_changes={"officer_id": {"old": None, "new": str(officer_id)}})
     return get_application(app.id, db, current_user)
 
 
