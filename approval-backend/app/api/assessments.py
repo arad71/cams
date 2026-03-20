@@ -208,6 +208,19 @@ def update_case_assessment(app_id: int, item_id: int, data: CaseAssessmentUpdate
 
     db.commit()
     db.refresh(ca)
+
+    # Audit log for officer decisions
+    if "officer_result" in update or "note" in update:
+        from app.services.audit import log_audit
+        app = db.query(Application).filter(Application.id == app_id).first()
+        item_label = ca.item.label if ca.item else f"item_{item_id}"
+        desc_parts = []
+        if "officer_result" in update:
+            desc_parts.append(f"officer decision: {update['officer_result']}")
+        if "note" in update:
+            desc_parts.append(f"note added")
+        log_audit(db=db, action="assess", entity_type="assessment", user=current_user, entity_id=str(ca.id), entity_ref=app.ref_number if app else None, description=f"{item_label} — {', '.join(desc_parts)}", field_changes=update)
+
     return _build_case_out(ca)
 
 
@@ -277,6 +290,10 @@ def bulk_officer_decision(app_id: int, data: BulkOfficerDecisionRequest,
         ca.status_changed_at = now
 
     db.commit()
+    if results:
+        from app.services.audit import log_audit
+        app = db.query(Application).filter(Application.id == app_id).first()
+        log_audit(db=db, action="bulk_assess", entity_type="assessment", user=current_user, entity_id=str(app_id), entity_ref=app.ref_number if app else None, description=f"Bulk {data.officer_decision} on {len(results)} items (AI={data.ai_result_filter})")
     return list_case_assessments(app_id, db, current_user)
 
 

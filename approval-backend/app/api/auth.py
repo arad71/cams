@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -36,14 +36,18 @@ def auth_config():
 # ═══════════════════════════════════════════════════════
 
 @router.post("/login", response_model=TokenResponse)
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db), request: Request = None):
+    from app.services.audit import log_audit
     user = db.query(User).filter(User.email == form.username).first()
     if not user or not user.hashed_password or not verify_password(form.password, user.hashed_password):
+        log_audit(db=db, action="login_failed", entity_type="auth", description=f"Failed login attempt for {form.username}", request=request, success=False, error_detail="Invalid credentials")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if not user.is_active:
+        log_audit(db=db, action="login_blocked", entity_type="auth", user=user, description="Login blocked — account disabled", request=request, success=False, error_detail="Account disabled")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account disabled")
 
     token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    log_audit(db=db, action="login", entity_type="auth", user=user, description=f"User logged in via local auth", request=request)
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
@@ -147,6 +151,8 @@ def entra_token_exchange(
 
     # Issue CAMS JWT
     token = create_access_token(data={"sub": str(user.id), "role": user.role})
+    from app.services.audit import log_audit
+    log_audit(db=db, action="login", entity_type="auth", user=user, description=f"User logged in via Microsoft Entra ID SSO")
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 
@@ -160,14 +166,17 @@ def get_me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/change-password")
-def change_password(data: ChangePasswordRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def change_password(data: ChangePasswordRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), request: Request = None):
+    from app.services.audit import log_audit
     if current_user.auth_provider == "entra" and not current_user.hashed_password:
         raise HTTPException(400, "SSO users cannot change password here — use Microsoft account settings")
     if not verify_password(data.current_password, current_user.hashed_password):
+        log_audit(db=db, action="password_change_failed", entity_type="auth", user=current_user, request=request, success=False, error_detail="Incorrect current password")
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     if len(data.new_password) < 6:
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
     current_user.hashed_password = hash_password(data.new_password)
     current_user.must_change_password = False
     db.commit()
+    log_audit(db=db, action="password_changed", entity_type="auth", user=current_user, description="Password changed successfully", request=request)
     return {"message": "Password changed successfully"}
