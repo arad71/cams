@@ -151,6 +151,11 @@ const api = {
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Site plan analysis failed"); }
     return res.json();
   },
+
+  // Site Settings
+  async getPublicSettings() { const res = await fetch(`${API_BASE}/settings/public`); return res.ok ? res.json() : {}; },
+  async getAllSettings() { return this._fetch("/settings/"); },
+  async updateSettings(updates) { return this._fetch("/settings/", { method: "PATCH", body: updates }); },
 };
 
 export default api;

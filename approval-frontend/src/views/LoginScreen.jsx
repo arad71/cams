@@ -2,7 +2,16 @@ import { useState, useEffect, useCallback } from "react";
 import api, { API_BASE } from '../services/api';
 import { apiUserToFrontend } from '../utils/transforms';
 
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen({ onLogin, branding: B = {} }) {
+  const orgName = B.orgName || "City of Kalamunda";
+  const systemName = B.systemName || "Crossover Approval System";
+  const version = B.version || "3.1";
+  const icon = B.icon || "🏛";
+  const primaryColor = B.primaryColor || "#1abc9c";
+  const darkColor = B.darkColor || "#1a3a4a";
+  const copyright = B.copyright || "";
+  const disclaimer = B.disclaimer || "";
+  const emailDomain = B.emailDomain || "kalamunda.wa.gov.au";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -69,9 +78,9 @@ export default function LoginScreen({ onLogin }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #0c1f2e, #1a3a4a)", fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: "40px 36px", width: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: "linear-gradient(135deg,#1abc9c,#16a085)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 12 }}>🏛</div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1a3a4a", margin: "0 0 4px" }}>City of Kalamunda</h1>
-          <p style={{ color: "#7a8a94", fontSize: 12, margin: 0 }}>Crossover Approval System v3.1</p>
+          <div style={{ width: 56, height: 56, borderRadius: 14, background: `linear-gradient(135deg,${primaryColor},${primaryColor}dd)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 12 }}>{icon}</div>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: darkColor, margin: "0 0 4px" }}>{orgName}</h1>
+          <p style={{ color: "#7a8a94", fontSize: 12, margin: 0 }}>{systemName} v{version}</p>
         </div>
 
         {/* Microsoft SSO Button */}

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
-from app.api import auth, users, applications, assessments, sight_distance, extract_app_form, lookups, ai_training, audit
+from app.api import auth, users, applications, assessments, sight_distance, extract_app_form, lookups, ai_training, audit, site_settings
 
 from app.schemas.ai import FindingsResponse, ErrorResponse
 from app.services.ai_analyser import analyse_document, GUIDELINE
@@ -45,6 +45,7 @@ app.include_router(extract_app_form.router, prefix="/api")
 app.include_router(lookups.router, prefix="/api")
 app.include_router(ai_training.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
+app.include_router(site_settings.router, prefix="/api")
 
 
 @app.get("/ai/guideline")
@@ -100,6 +101,8 @@ async def ai_analyse(
 @app.on_event("startup")
 def on_startup():
     """Create tables if they don't exist and seed lookup data."""
+    # Import all models so SQLAlchemy knows about every table
+    import app.models  # noqa — ensures all models are registered with Base
     Base.metadata.create_all(bind=engine)
     _seed_lookups()
     _backfill_columns()
@@ -126,9 +129,10 @@ def _backfill_columns():
 
 
 def _seed_lookups():
-    """Ensure roles and departments tables have data."""
+    """Ensure roles, departments, and site_settings tables have data."""
     from app.core.database import SessionLocal
     from app.models.lookup import Role, Department
+    from app.models.site_settings import SiteSetting
 
     db = SessionLocal()
     try:
@@ -154,6 +158,13 @@ def _seed_lookups():
             ])
             db.commit()
             print("  ✓ Auto-seeded departments")
+
+        if db.query(SiteSetting).count() == 0:
+            from app.api.site_settings import DEFAULTS
+            for key, value, cat, label, public in DEFAULTS:
+                db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
+            db.commit()
+            print(f"  ✓ Auto-seeded {len(DEFAULTS)} site settings")
     except Exception as e:
         print(f"  ⚠ Lookup seed error: {e}")
         db.rollback()

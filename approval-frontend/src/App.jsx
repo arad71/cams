@@ -27,11 +27,36 @@ export default function KalamundaApprovalPortal() {
   const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [siteSettings, setSiteSettings] = useState({});
+
+  // Site branding helpers (used everywhere)
+  const S = {
+    orgName: siteSettings.org_name || "City of Kalamunda",
+    orgShort: siteSettings.org_short_name || "Kalamunda",
+    systemName: siteSettings.system_name || "Crossover Approval Management System",
+    systemShort: siteSettings.system_short_name || "CAMS",
+    version: siteSettings.system_version || "3.1",
+    icon: siteSettings.system_icon || "🏛",
+    logoUrl: siteSettings.logo_url || "",
+    primaryColor: siteSettings.primary_color || "#1abc9c",
+    darkColor: siteSettings.dark_color || "#1a3a4a",
+    portalTitle: siteSettings.portal_title || "Approval Portal",
+    copyright: siteSettings.copyright_text || "© 2026 City of Kalamunda. All rights reserved.",
+    contactEmail: siteSettings.contact_email || "",
+    contactPhone: siteSettings.contact_phone || "",
+    disclaimer: siteSettings.disclaimer || "",
+    emailDomain: siteSettings.email_domain || "kalamunda.wa.gov.au",
+  };
 
   // Build ROLE_CONFIG from API roles (fallback to hardcoded)
   const ROLE_CONFIG = roles.length > 0
     ? Object.fromEntries(roles.map(r => [r.code, { label: r.label, icon: r.icon, color: r.color, permissions: r.permissions }]))
     : ROLE_CONFIG_DEFAULT;
+
+  // Load site settings before anything else (login page needs branding)
+  useEffect(() => {
+    api.getPublicSettings().then(s => { if (s && Object.keys(s).length > 0) setSiteSettings(s); }).catch(() => {});
+  }, []);
 
   // Load lot.geojson and speed_roads.geojson once at app level
   useEffect(() => {
@@ -152,7 +177,7 @@ export default function KalamundaApprovalPortal() {
   };
 
   if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',sans-serif", color: "#7a8a94" }}>Loading...</div>;
-  if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
+  if (!currentUser) return <LoginScreen onLogin={handleLogin} branding={S} />;
 
   // Password change modal (shown on first login with temp password)
   const ChangePasswordModal = showChangePassword ? (
@@ -222,7 +247,7 @@ export default function KalamundaApprovalPortal() {
       case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "referrals": return <ApplicationListView apps={visibleApps} filter="referral_pending" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "inspections": return <InspectionsView apps={visibleApps} />;
-      case "admin": return role === "admin" ? <SystemAdmin users={users} setUsers={setUsers} currentUser={currentUser} ROLE_CONFIG={ROLE_CONFIG} roles={roles} departments={departments} /> : <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
+      case "admin": return role === "admin" ? <SystemAdmin users={users} setUsers={setUsers} currentUser={currentUser} ROLE_CONFIG={ROLE_CONFIG} roles={roles} departments={departments} branding={S} /> : <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
       default: return <ApplicationListView apps={visibleApps} filter={null} onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
     }
   };
@@ -231,13 +256,16 @@ export default function KalamundaApprovalPortal() {
     <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f0f3f5", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(26,188,156,0.1)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
       {ChangePasswordModal}
-      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} />
+      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} />
       <div style={{ flex: "1 1 0%", padding: "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "6px 12px", background: `${ROLE_CONFIG[role].color}08`, borderRadius: 8, border: `1px solid ${ROLE_CONFIG[role].color}20` }}>
           <span style={{ fontSize: 11, color: ROLE_CONFIG[role].color, fontWeight: 600 }}>{ROLE_CONFIG[role].icon} {currentUser.name} — {ROLE_CONFIG[role].label}</span>
           {role === "engineer" && <span style={{ fontSize: 10, color: "#7a8a94" }}>{visibleApps.length} assigned case{visibleApps.length !== 1 ? "s" : ""}</span>}
         </div>
         {renderView()}
+        <div style={{ marginTop: 20, padding: "12px 0", borderTop: "1px solid #e4e9ec", textAlign: "center", fontSize: 10, color: "#95a5a6" }}>
+          {S.copyright} · {S.systemShort} v{S.version}
+        </div>
       </div>
     </div>
   );

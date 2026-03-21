@@ -1,0 +1,98 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import Optional
+
+from app.core.database import get_db
+from app.core.auth import get_current_user, require_role
+from app.models.user import User
+from app.models.site_settings import SiteSetting
+
+router = APIRouter(prefix="/settings", tags=["Site Settings"])
+
+# Default settings — seeded on first access if table is empty
+DEFAULTS = [
+    # Branding
+    ("org_name",           "City of Kalamunda",                      "branding", "Organisation Name",       True),
+    ("org_short_name",     "Kalamunda",                              "branding", "Short Name",              True),
+    ("system_name",        "Crossover Approval Management System",   "branding", "System Name",             True),
+    ("system_short_name",  "CAMS",                                   "branding", "System Short Name",       True),
+    ("system_version",     "3.1",                                    "branding", "Version",                 True),
+    ("system_icon",        "🏛",                                     "branding", "System Icon (emoji)",     True),
+    ("logo_url",           "",                                       "branding", "Logo URL (optional)",     True),
+    ("primary_color",      "#1abc9c",                                "branding", "Primary Color",           True),
+    ("dark_color",         "#1a3a4a",                                "branding", "Dark Color",              True),
+    ("portal_title",       "Approval Portal",                        "branding", "Portal Title",            True),
+
+    # Contact
+    ("contact_email",      "asset.services@kalamunda.wa.gov.au",     "contact",  "Contact Email",           True),
+    ("contact_phone",      "(08) 9257 9999",                         "contact",  "Contact Phone",           True),
+    ("contact_address",    "2 Railway Road, Kalamunda WA 6076",      "contact",  "Street Address",          True),
+    ("website_url",        "https://www.kalamunda.wa.gov.au",        "contact",  "Website URL",             True),
+
+    # Legal
+    ("copyright_text",     "© 2026 City of Kalamunda. All rights reserved.", "legal", "Copyright Text",     True),
+    ("privacy_url",        "",                                       "legal",    "Privacy Policy URL",      True),
+    ("terms_url",          "",                                       "legal",    "Terms of Use URL",        True),
+    ("disclaimer",         "This system is for authorised council staff only.", "legal", "Login Disclaimer", True),
+
+    # System (not public)
+    ("email_domain",       "kalamunda.wa.gov.au",                    "system",   "Default Email Domain",    False),
+    ("ref_prefix",         "CRO",                                    "system",   "Reference Number Prefix", False),
+    ("guideline_version",  "3.1",                                    "system",   "Guideline Version",       False),
+    ("guideline_date",     "23/06/2022",                             "system",   "Guideline Date",          False),
+]
+
+
+def _ensure_defaults(db: Session):
+    """Seed default settings if table is empty."""
+    if db.query(SiteSetting).count() > 0:
+        return
+    for key, value, cat, label, public in DEFAULTS:
+        db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
+    db.commit()
+
+
+@router.get("/public")
+def get_public_settings(db: Session = Depends(get_db)):
+    """Public endpoint — returns branding/contact settings for login page and UI.
+    No authentication required."""
+    _ensure_defaults(db)
+    settings = db.query(SiteSetting).filter(SiteSetting.is_public == True).all()
+    return {s.key: s.value for s in settings}
+
+
+@router.get("/")
+def get_all_settings(db: Session = Depends(get_db), current_user: User = Depends(require_role("admin"))):
+    """Admin only — returns all settings with metadata."""
+    _ensure_defaults(db)
+    settings = db.query(SiteSetting).order_by(SiteSetting.category, SiteSetting.key).all()
+    return [{
+        "id": s.id, "key": s.key, "value": s.value,
+        "category": s.category, "label": s.label,
+        "is_public": s.is_public, "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+    } for s in settings]
+
+
+@router.patch("/")
+def update_settings(
+    updates: dict,  # {"org_name": "City of Armadale", "system_version": "4.0"}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """Admin only — update one or more settings."""
+    from app.services.audit import log_audit
+    _ensure_defaults(db)
+    changed = {}
+    for key, new_value in updates.items():
+        setting = db.query(SiteSetting).filter(SiteSetting.key == key).first()
+        if setting:
+            old = setting.value
+            setting.value = new_value
+            if old != new_value:
+                changed[key] = {"old": old, "new": new_value}
+    db.commit()
+    if changed:
+        log_audit(db=db, action="update", entity_type="site_settings", user=current_user,
+                  description=f"Updated settings: {', '.join(changed.keys())}",
+                  field_changes=changed)
+    return {"updated": list(changed.keys()), "count": len(changed)}
