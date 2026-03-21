@@ -104,14 +104,14 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
         {/* Local Login Form */}
         <label style={{ fontSize: 11, fontWeight: 700, color: "#5a6a74", display: "block", marginBottom: 4 }}>Email</label>
         <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()}
-          placeholder="m.thompson@kalamunda.wa.gov.au" style={{ ...iS, marginBottom: 12 }} />
+          placeholder={`user@${emailDomain}`} style={{ ...iS, marginBottom: 12 }} />
         <label style={{ fontSize: 11, fontWeight: 700, color: "#5a6a74", display: "block", marginBottom: 4 }}>Password</label>
         <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()}
           placeholder="Enter password" style={{ ...iS, marginBottom: 6 }} />
         {error && <div style={{ color: "#e74c3c", fontSize: 11, marginBottom: 8, fontWeight: 600 }}>{error}</div>}
         <button onClick={handleLogin} disabled={loading}
           style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", marginTop: 10,
-            background: loading ? "#d5dde2" : "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff",
+            background: loading ? "#d5dde2" : `linear-gradient(135deg,${primaryColor},${primaryColor}dd)`, color: "#fff",
             fontWeight: 800, fontSize: 13, cursor: loading ? "default" : "pointer", fontFamily: "inherit" }}>
           {loading ? "Signing in..." : "Sign In"}
         </button>
@@ -127,9 +127,17 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
         {!authConfig?.entra_enabled && (
           <div style={{ marginTop: 16, padding: "10px", background: "#f8fafb", borderRadius: 8, fontSize: 10, color: "#7a8a94", lineHeight: 1.6 }}>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Demo Accounts:</div>
-            <div>🛡️ Admin: m.thompson@kalamunda.wa.gov.au / admin123</div>
-            <div>👔 Manager: k.williams@kalamunda.wa.gov.au / manager123</div>
-            <div>🔧 Engineer: s.patel@kalamunda.wa.gov.au / engineer123</div>
+            <div>🛡️ Admin: m.thompson@{emailDomain} / admin123</div>
+            <div>👔 Manager: k.williams@{emailDomain} / manager123</div>
+            <div>🔧 Engineer: s.patel@{emailDomain} / engineer123</div>
+          </div>
+        )}
+
+        {/* Disclaimer + Copyright */}
+        {(disclaimer || copyright) && (
+          <div style={{ marginTop: 14, textAlign: "center", fontSize: 9, color: "#b0bdb2", lineHeight: 1.5 }}>
+            {disclaimer && <div>{disclaimer}</div>}
+            {copyright && <div style={{ marginTop: 2 }}>{copyright}</div>}
           </div>
         )}
       </div>

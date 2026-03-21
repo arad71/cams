@@ -21,7 +21,7 @@ export default function KalamundaApprovalPortal() {
   const [apps, setApps] = useState([]);
   const [activeView, setActiveView] = useState("dashboard");
   const [selectedApp, setSelectedApp] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [globalLotsData, setGlobalLotsData] = useState(null);
   const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
@@ -30,9 +30,10 @@ export default function KalamundaApprovalPortal() {
   const [siteSettings, setSiteSettings] = useState({});
 
   // Site branding helpers (used everywhere)
+  const _orgName = siteSettings.org_name || "City of Kalamunda";
   const S = {
-    orgName: siteSettings.org_name || "City of Kalamunda",
-    orgShort: siteSettings.org_short_name || "Kalamunda",
+    orgName: _orgName,
+    orgShort: siteSettings.org_short_name || _orgName.replace(/^City of /i, ""),
     systemName: siteSettings.system_name || "Crossover Approval Management System",
     systemShort: siteSettings.system_short_name || "CAMS",
     version: siteSettings.system_version || "3.1",
@@ -41,11 +42,11 @@ export default function KalamundaApprovalPortal() {
     primaryColor: siteSettings.primary_color || "#1abc9c",
     darkColor: siteSettings.dark_color || "#1a3a4a",
     portalTitle: siteSettings.portal_title || "Approval Portal",
-    copyright: siteSettings.copyright_text || "© 2026 City of Kalamunda. All rights reserved.",
+    copyright: siteSettings.copyright_text || `© ${new Date().getFullYear()} ${_orgName}. All rights reserved.`,
     contactEmail: siteSettings.contact_email || "",
     contactPhone: siteSettings.contact_phone || "",
     disclaimer: siteSettings.disclaimer || "",
-    emailDomain: siteSettings.email_domain || "kalamunda.wa.gov.au",
+    emailDomain: siteSettings.email_domain || "council.wa.gov.au",
   };
 
   // Build ROLE_CONFIG from API roles (fallback to hardcoded)
