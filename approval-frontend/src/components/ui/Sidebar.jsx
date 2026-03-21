@@ -3,8 +3,13 @@ import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from '../../data/constants';
 // ═══════════════════════════════════════════════════════════
 //  SIDEBAR
 // ═══════════════════════════════════════════════════════════
-export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP }) {
+export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {} }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
+  const orgName = B.orgName || "City of Kalamunda";
+  const portalTitle = B.portalTitle || "Approval Portal";
+  const version = B.version || "3.1";
+  const icon = B.icon || "🏛";
+  const primaryColor = B.primaryColor || "#1abc9c";
   const pend = apps.filter(a => a.status === "pending_review").length;
   const refs = apps.filter(a => a.status === "referral_pending").length;
   const role = currentUser?.role || "engineer";
@@ -29,8 +34,8 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
         ) : (
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#1abc9c,#16a085)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏛</div>
-              <div><div style={{ color: "#ecf0f1", fontWeight: 800, fontSize: 11 }}>City of Kalamunda</div><div style={{ color: "#5d7a8c", fontSize: 9 }}>Approval Portal v3.1</div></div>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg,${primaryColor},${primaryColor}dd)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{icon}</div>
+              <div><div style={{ color: "#ecf0f1", fontWeight: 800, fontSize: 11 }}>{orgName}</div><div style={{ color: "#5d7a8c", fontSize: 9 }}>{portalTitle} v{version}</div></div>
             </div>
             <button onClick={() => setCollapsed(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#5d7a8c", padding: 2 }} title="Collapse">✕</button>
           </>
