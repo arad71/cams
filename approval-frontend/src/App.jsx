@@ -9,6 +9,7 @@ import ApplicationListView from './views/ApplicationListView';
 import ApplicationDetailView from './views/ApplicationDetailView';
 import InspectionsView from './views/InspectionsView';
 import SystemAdmin from './views/SystemAdmin';
+import ExecutiveDashboard from './views/ExecutiveDashboard';
 import Sidebar from './components/ui/Sidebar';
 
 // ═══════════════════════════════════════════════════════════
@@ -140,7 +141,7 @@ export default function KalamundaApprovalPortal() {
   // Login/logout
   const handleLogin = (user) => {
     setCurrentUser(user);
-    setActiveView("dashboard");
+    setActiveView(user.role === "viewer" ? "exec_dashboard" : "dashboard");
     if (user.must_change_password) setShowChangePassword(true);
   };
   const handleLogout = () => { api.logout(); setCurrentUser(null); setActiveView("dashboard"); setSelectedApp(null); setApps([]); setShowChangePassword(false); };
@@ -241,8 +242,12 @@ export default function KalamundaApprovalPortal() {
   };
 
   const renderView = () => {
+    // Viewer role — only sees executive dashboard
+    if (role === "viewer") return <ExecutiveDashboard apps={apps} branding={S} />;
+
     if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} />;
     switch (activeView) {
+      case "exec_dashboard": return <ExecutiveDashboard apps={apps} branding={S} />;
       case "dashboard": return <DashboardView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} />;
       // case "map": return <FullMapView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} globalSpeedRoads={globalSpeedRoads} />;
       case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
