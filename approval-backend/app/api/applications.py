@@ -292,39 +292,58 @@ async def upload_document(
     db.commit()
     db.refresh(doc)
 
-    # Auto AI analysis for site plan uploads
+    # Auto AI analysis for site plan uploads (if enabled in settings)
     if "site" in category.lower() or "plan" in category.lower():
-        try:
-            _run_site_plan_ai(app, doc, file_bytes, db)
-        except Exception as e:
-            print(f"  ⚠ Auto site plan AI failed: {e}")
+        from app.services.ai_config import get_ai_config
+        ai_cfg = get_ai_config(db)
+        if ai_cfg.auto_analyse:
+            try:
+                _run_site_plan_ai(app, doc, file_bytes, db, ai_cfg)
+            except Exception as e:
+                print(f"  ⚠ Auto site plan AI failed: {e}")
 
     from app.services.audit import log_audit
     log_audit(db=db, action="upload", entity_type="document", user=current_user, entity_id=str(doc.id), entity_ref=app.ref_number, description=f"Uploaded {safe_name} ({size_str}) to {app.ref_number}, category={category}")
     return _build_doc_out(doc)
 
 
-def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session):
-    """Run Claude Vision AI on a site plan, store results, save training data."""
+def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
+    """Run AI analysis using configured mode (claude / yolo / hybrid)."""
     from app.services.ai_analyser import analyse_document, save_training_sample
+    from app.services.ai_config import get_ai_config
     settings = get_settings()
-    if not settings.ANTHROPIC_API_KEY:
-        return
 
-    findings = analyse_document(
-        file_bytes=file_bytes,
-        filename=doc.name,
-        api_key=settings.ANTHROPIC_API_KEY,
-        model=settings.AI_MODEL_DEFAULT,
-    )
+    if ai_cfg is None:
+        ai_cfg = get_ai_config(db)
 
-    if "error" not in findings:
-        # Store extraction on application (strip internal fields)
+    findings = None
+
+    # ── YOLO-first modes ──
+    if ai_cfg.mode in ("yolo", "hybrid") and ai_cfg.yolo_model_path:
+        findings = _run_yolo_inference(file_bytes, doc.name, ai_cfg)
+        if findings and ai_cfg.mode == "hybrid":
+            # Check confidence — fallback to Claude if too low
+            conf = findings.get("_yolo_confidence", 0)
+            if conf < ai_cfg.yolo_confidence and ai_cfg.fallback_to_claude:
+                print(f"  ℹ YOLO confidence {conf:.2f} < {ai_cfg.yolo_confidence} — falling back to Claude")
+                findings = None  # will fall through to Claude below
+
+    # ── Claude mode (or fallback) ──
+    if findings is None:
+        if not settings.ANTHROPIC_API_KEY:
+            return
+        findings = analyse_document(
+            file_bytes=file_bytes,
+            filename=doc.name,
+            api_key=settings.ANTHROPIC_API_KEY,
+            model=ai_cfg.claude_model,
+        )
+
+    if findings and "error" not in findings:
         clean = {k: v for k, v in findings.items() if not k.startswith("_")}
         app.site_plan_data = clean
         db.commit()
 
-        # Save training data (images + labels)
         try:
             save_training_sample(
                 application_id=app.id,
@@ -336,7 +355,69 @@ def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session):
         except Exception as e:
             print(f"  ⚠ Training data capture failed: {e}")
 
-        print(f"  ✓ AI analysis complete for {app.ref_number}")
+        mode_label = ai_cfg.mode.upper()
+        print(f"  ✓ AI analysis complete for {app.ref_number} (mode={mode_label})")
+
+
+def _run_yolo_inference(file_bytes: bytes, filename: str, ai_cfg) -> dict | None:
+    """Run YOLO model inference on a site plan image. Returns findings dict or None."""
+    try:
+        from pathlib import Path
+        model_path = Path(ai_cfg.yolo_model_path)
+        if not model_path.exists():
+            print(f"  ⚠ YOLO model not found: {model_path}")
+            return None
+
+        from ultralytics import YOLO
+        model = YOLO(str(model_path))
+
+        # Convert file to image
+        from app.services.ai_analyser import file_to_images_from_upload
+        from app.core.config import get_settings
+        s = get_settings()
+        images = file_to_images_from_upload(file_bytes, filename, max_dim=s.MAX_IMAGE_DIM)
+        if not images:
+            return None
+
+        import base64, io
+        from PIL import Image
+        img_bytes = base64.standard_b64decode(images[0]["base64"])
+        img = Image.open(io.BytesIO(img_bytes))
+
+        results = model.predict(img, conf=ai_cfg.yolo_confidence)
+        if not results or len(results[0].boxes) == 0:
+            return None
+
+        # Build extraction from YOLO detections
+        detections = []
+        max_conf = 0
+        for box in results[0].boxes:
+            cls_id = int(box.cls[0])
+            conf = float(box.conf[0])
+            max_conf = max(max_conf, conf)
+            detections.append({
+                "class": results[0].names[cls_id],
+                "confidence": round(conf, 3),
+                "bbox": box.xyxy[0].tolist(),
+            })
+
+        return {
+            "schema_version": "1.0",
+            "analyser_version": "yolo-1.0",
+            "ai_provider": "YOLO",
+            "ai_model": str(ai_cfg.yolo_model_path),
+            "source_file": filename,
+            "extraction": {"yolo_detections": detections},
+            "compliance": {},
+            "_yolo_confidence": max_conf,
+            "_page_images": images,
+        }
+    except ImportError:
+        print("  ⚠ ultralytics not installed — YOLO mode unavailable")
+        return None
+    except Exception as e:
+        print(f"  ⚠ YOLO inference error: {e}")
+        return None
 
 
 @router.post("/{app_id}/documents/{doc_id}/analyse")

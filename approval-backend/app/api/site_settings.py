@@ -40,16 +40,30 @@ DEFAULTS = [
     ("ref_prefix",         "CRO",                                    "system",   "Reference Number Prefix", False),
     ("guideline_version",  "3.1",                                    "system",   "Guideline Version",       False),
     ("guideline_date",     "23/06/2022",                             "system",   "Guideline Date",          False),
+
+    # AI Pipeline (not public)
+    ("ai_analysis_mode",            "claude",                        "ai",       "Analysis Mode (claude | yolo | hybrid)",       False),
+    ("ai_claude_model",             "claude-sonnet-4-20250514",      "ai",       "Claude Model ID",                             False),
+    ("ai_yolo_model_path",          "",                              "ai",       "YOLO Model File Path (.pt)",                  False),
+    ("ai_yolo_confidence_threshold","0.7",                           "ai",       "YOLO Confidence Threshold (0.0-1.0)",         False),
+    ("ai_phase2_sample_threshold",  "100",                           "ai",       "Phase 2 (Hybrid) Min Training Samples",       False),
+    ("ai_phase3_sample_threshold",  "500",                           "ai",       "Phase 3 (YOLO Primary) Min Training Samples", False),
+    ("ai_auto_analyse_on_upload",   "true",                          "ai",       "Auto-run AI on Site Plan Upload",             False),
+    ("ai_fallback_to_claude",       "true",                          "ai",       "YOLO Fallback to Claude When Low Confidence", False),
 ]
 
 
 def _ensure_defaults(db: Session):
-    """Seed default settings if table is empty."""
-    if db.query(SiteSetting).count() > 0:
-        return
+    """Seed default settings — adds any missing keys (safe to run repeatedly)."""
+    existing_keys = {r.key for r in db.query(SiteSetting.key).all()}
+    added = 0
     for key, value, cat, label, public in DEFAULTS:
-        db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
-    db.commit()
+        if key not in existing_keys:
+            db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
+            added += 1
+    if added:
+        db.commit()
+        print(f"  ✓ Added {added} new site settings")
 
 
 @router.get("/public")

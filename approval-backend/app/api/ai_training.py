@@ -24,19 +24,24 @@ router = APIRouter(prefix="/training", tags=["AI Training"])
 @router.get("/stats")
 def training_stats(db: Session = Depends(get_db), current_user: User = Depends(require_role("admin", "manager"))):
     """Get training dataset statistics."""
+    from app.services.ai_config import get_ai_config
+    ai_cfg = get_ai_config(db)
+
     total = db.query(AITrainingSample).count()
     verified = db.query(AITrainingSample).filter(AITrainingSample.officer_verified == True).count()
     corrected = db.query(AITrainingSample).filter(AITrainingSample.officer_corrected == True).count()
     used = db.query(AITrainingSample).filter(AITrainingSample.used_in_training == True).count()
     corrections = db.query(AITrainingCorrection).count()
 
-    # Readiness assessment
-    if total >= 500:
+    p2 = ai_cfg.phase2_threshold
+    p3 = ai_cfg.phase3_threshold
+
+    if total >= p3:
         phase = "Phase 3 — YOLO primary, Claude fallback"
-    elif total >= 100:
+    elif total >= p2:
         phase = "Phase 2 — Hybrid YOLO + Claude"
     else:
-        phase = f"Phase 1 — Claude only ({100 - total} more samples needed for Phase 2)"
+        phase = f"Phase 1 — Claude only ({p2 - total} more samples needed for Phase 2)"
 
     return {
         "total_samples": total,
@@ -46,7 +51,12 @@ def training_stats(db: Session = Depends(get_db), current_user: User = Depends(r
         "total_corrections": corrections,
         "unreviewed": total - verified - corrected,
         "phase": phase,
-        "ready_for_training": total >= 100,
+        "ready_for_training": total >= p2,
+        "current_mode": ai_cfg.mode,
+        "yolo_model_path": ai_cfg.yolo_model_path or "(not configured)",
+        "yolo_confidence_threshold": ai_cfg.yolo_confidence,
+        "phase2_threshold": p2,
+        "phase3_threshold": p3,
     }
 
 
