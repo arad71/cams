@@ -16,6 +16,7 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
   const rc = ROLE_CONFIG[role];
 
   const baseNav = [
+    { id: "exec_dashboard", icon: "📊", label: "Dashboard", roles: ["viewer"] },
     { id: "dashboard", icon: "📊", label: "Dashboard", roles: ["admin", "manager", "engineer"] },
     { id: "map", icon: "🗺️", label: "Property Map", roles: ["admin", "manager", "engineer"] },
     { id: "applications", icon: "📋", label: role === "engineer" ? "My Cases" : "All Applications", badge: apps.length, roles: ["admin", "manager", "engineer"] },

@@ -28,6 +28,7 @@ export const ROLE_CONFIG = {
   admin: { label: "Administrator", icon: "🛡️", color: "#e74c3c", permissions: ["all"] },
   manager: { label: "Manager", icon: "👔", color: "#2980b9", permissions: ["view_all", "assign", "approve", "refer", "reject"] },
   engineer: { label: "Engineer", icon: "🔧", color: "#27ae60", permissions: ["view_assigned", "assess", "note", "inspect"] },
+  viewer: { label: "Viewer", icon: "👁", color: "#7f8c8d", permissions: ["view_all"] },
 };
 
 // ─── Sight Distance Table (AS 2890.1 / Austroads) ──────
