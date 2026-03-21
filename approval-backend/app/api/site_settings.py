@@ -54,12 +54,16 @@ DEFAULTS = [
 
 
 def _ensure_defaults(db: Session):
-    """Seed default settings if table is empty."""
-    if db.query(SiteSetting).count() > 0:
-        return
+    """Seed default settings — adds any missing keys (safe to run repeatedly)."""
+    existing_keys = {r.key for r in db.query(SiteSetting.key).all()}
+    added = 0
     for key, value, cat, label, public in DEFAULTS:
-        db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
-    db.commit()
+        if key not in existing_keys:
+            db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
+            added += 1
+    if added:
+        db.commit()
+        print(f"  ✓ Added {added} new site settings")
 
 
 @router.get("/public")
