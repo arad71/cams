@@ -2,80 +2,107 @@ import { useState, useMemo } from "react";
 import { STATUS_CONFIG } from '../data/constants';
 import StatusBadge from '../components/ui/StatusBadge';
 
-// ─── Helpers ─────────────────────────────────────────────
 const daysBetween = (d1, d2) => Math.max(0, Math.round((d2 - d1) / 86400000));
 const parseDate = (s) => s ? new Date(s) : null;
 const NOW = new Date();
-const fmtNum = (n) => n.toLocaleString("en-AU");
+const fmtNum = (n) => typeof n === "number" ? n.toLocaleString("en-AU") : n;
+const pct = (n, d) => d > 0 ? Math.round((n / d) * 100) : 0;
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-function MiniDonut({ segments, size = 120 }) {
+// ─── SVG Charts ──────────────────────────────────────────
+function Donut({ segments, size = 150, label }) {
   const total = segments.reduce((s, g) => s + g.value, 0);
-  if (total === 0) return <svg width={size} height={size}><circle cx={size/2} cy={size/2} r={size/2-4} fill="none" stroke="#e4e9ec" strokeWidth={14}/></svg>;
+  if (!total) return <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", color: "#bdc3c7", fontSize: 11 }}>No data</div>;
   let cum = 0;
-  const r = size / 2 - 10;
+  const r = size / 2 - 14;
   const circ = 2 * Math.PI * r;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
-      {segments.filter(s => s.value > 0).map((seg, i) => {
-        const pct = seg.value / total;
-        const dash = pct * circ;
-        const offset = cum * circ;
-        cum += pct;
-        return <circle key={i} cx={size/2} cy={size/2} r={r} fill="none" stroke={seg.color} strokeWidth={14} strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-offset} strokeLinecap="round" />;
-      })}
-      <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central" style={{ transform: "rotate(90deg)", transformOrigin: "center", fontSize: 22, fontWeight: 800, fill: "#1a3a4a" }}>{total}</text>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <g style={{ transform: "rotate(-90deg)", transformOrigin: "center" }}>
+        {segments.filter(s => s.value > 0).map((seg, i) => {
+          const p = seg.value / total, dash = p * circ, offset = cum * circ;
+          cum += p;
+          return <circle key={i} cx={size/2} cy={size/2} r={r} fill="none" stroke={seg.color} strokeWidth={18} strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-offset} style={{ transition: "stroke-dasharray 0.5s ease" }} />;
+        })}
+      </g>
+      <text x={size/2} y={size/2 - 6} textAnchor="middle" style={{ fontSize: 28, fontWeight: 800, fill: "#1a3a4a" }}>{total}</text>
+      {label && <text x={size/2} y={size/2 + 14} textAnchor="middle" style={{ fontSize: 9, fill: "#95a5a6", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>{label}</text>}
     </svg>
   );
 }
 
-function HBar({ label, value, max, color }) {
-  const pct = max > 0 ? (value / max) * 100 : 0;
+function GaugeArc({ value, max, target, size = 110, color, label }) {
+  const angle = max > 0 ? Math.min((value / max) * 180, 180) : 0;
+  const tAngle = max > 0 ? (target / max) * 180 : 0;
+  const r = size / 2 - 10;
+  const arc = (deg) => {
+    const rad = (Math.PI * deg) / 180;
+    return `${size/2 + r * Math.cos(Math.PI - rad)},${size/2 - r * Math.sin(Math.PI - rad)}`;
+  };
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-      <span style={{ fontSize: 11, color: "#5a6a74", width: 80, textAlign: "right", fontWeight: 600 }}>{label}</span>
-      <div style={{ flex: 1, height: 22, background: "#f0f3f5", borderRadius: 6, overflow: "hidden", position: "relative" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${color}, ${color}cc)`, borderRadius: 6, transition: "width 0.4s ease" }} />
-        <span style={{ position: "absolute", right: 8, top: 3, fontSize: 10, fontWeight: 700, color: pct > 60 ? "#fff" : "#5a6a74" }}>{value}</span>
-      </div>
+    <div style={{ textAlign: "center" }}>
+      <svg width={size} height={size / 2 + 20} viewBox={`0 0 ${size} ${size / 2 + 20}`}>
+        <path d={`M ${size/2 - r},${size/2} A ${r},${r} 0 0,1 ${size/2 + r},${size/2}`} fill="none" stroke="#eef2f4" strokeWidth={12} strokeLinecap="round" />
+        {angle > 0 && <path d={`M ${size/2 - r},${size/2} A ${r},${r} 0 ${angle > 90 ? 1 : 0},1 ${arc(angle)}`} fill="none" stroke={color} strokeWidth={12} strokeLinecap="round" style={{ transition: "d 0.5s ease" }} />}
+        <text x={size/2} y={size/2 - 4} textAnchor="middle" style={{ fontSize: 20, fontWeight: 800, fill: "#1a3a4a" }}>{value}{typeof max === "number" && max <= 100 ? "%" : ""}</text>
+        <text x={size/2} y={size/2 + 12} textAnchor="middle" style={{ fontSize: 8, fill: "#95a5a6", fontWeight: 600, textTransform: "uppercase" }}>{label}</text>
+      </svg>
     </div>
   );
 }
 
-function BarChart({ data, height = 160 }) {
-  const max = Math.max(...data.map(d => d.value), 1);
-  const barW = Math.min(36, Math.max(16, Math.floor(300 / data.length)));
+function SparkBars({ data, color, height = 40 }) {
+  const max = Math.max(...data.map(d => d.v), 1);
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height, padding: "0 4px" }}>
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height }}>
       {data.map((d, i) => (
-        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
-          <span style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", marginBottom: 2 }}>{d.value}</span>
-          <div style={{ width: barW, height: `${(d.value / max) * (height - 30)}px`, background: `linear-gradient(180deg, ${d.color || "#2980b9"}, ${d.color || "#2980b9"}99)`, borderRadius: "4px 4px 0 0", transition: "height 0.3s ease", minHeight: 2 }} />
-          <span style={{ fontSize: 8, color: "#95a5a6", marginTop: 3, whiteSpace: "nowrap" }}>{d.label}</span>
-        </div>
+        <div key={i} title={`${d.l}: ${d.v}`} style={{ flex: 1, height: `${(d.v / max) * 100}%`, background: i === data.length - 1 ? color : `${color}55`, borderRadius: "2px 2px 0 0", minHeight: 2, transition: "height 0.3s" }} />
       ))}
     </div>
   );
 }
 
-// ─── Card Components ─────────────────────────────────────
-const Card = ({ children, title, icon, span = 1, style = {} }) => (
-  <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e4e9ec", overflow: "hidden", gridColumn: `span ${span}`, ...style }}>
-    {title && <div style={{ padding: "12px 18px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 8 }}>
-      {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
-      <span style={{ fontWeight: 800, fontSize: 13, color: "#1a3a4a" }}>{title}</span>
-    </div>}
-    <div style={{ padding: 18 }}>{children}</div>
+function HBar({ label, value, max, color, sub }) {
+  const p = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+      <span style={{ fontSize: 11, color: "#5a6a74", width: 90, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+      <div style={{ flex: 1, height: 20, background: "#f0f3f5", borderRadius: 5, overflow: "hidden", position: "relative" }}>
+        <div style={{ width: `${p}%`, height: "100%", background: `linear-gradient(90deg, ${color}, ${color}bb)`, borderRadius: 5, transition: "width 0.4s" }} />
+        <span style={{ position: "absolute", right: 8, top: 2, fontSize: 10, fontWeight: 700, color: p > 50 ? "#fff" : "#5a6a74" }}>{value}{sub ? ` ${sub}` : ""}</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Layout Primitives ───────────────────────────────────
+const Card = ({ children, title, icon, sub, span = 1, style = {}, headerRight }) => (
+  <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e4e9ec", overflow: "hidden", gridColumn: `span ${span}`, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", ...style }}>
+    {title && (
+      <div style={{ padding: "14px 20px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
+          <div>
+            <span style={{ fontWeight: 800, fontSize: 13, color: "#1a3a4a", letterSpacing: "-0.01em" }}>{title}</span>
+            {sub && <div style={{ fontSize: 9, color: "#95a5a6", marginTop: 1 }}>{sub}</div>}
+          </div>
+        </div>
+        {headerRight}
+      </div>
+    )}
+    <div style={{ padding: 20 }}>{children}</div>
   </div>
 );
 
-const KPI = ({ label, value, sub, color, icon }) => (
-  <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 140 }}>
-    <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{icon}</div>
-    <div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: "#1a3a4a", lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 10, color: "#7a8a94", fontWeight: 600, marginTop: 2 }}>{label}</div>
-      {sub && <div style={{ fontSize: 9, color }}>{sub}</div>}
+const BigKPI = ({ label, value, sub, color, icon, trend }) => (
+  <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e4e9ec", padding: "20px 22px", flex: 1, minWidth: 155, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", position: "relative", overflow: "hidden" }}>
+    <div style={{ position: "absolute", top: -8, right: -8, width: 60, height: 60, borderRadius: "50%", background: `${color}08` }} />
+    <div style={{ fontSize: 10, color: "#7a8a94", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</div>
+    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+      <span style={{ fontSize: 32, fontWeight: 800, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</span>
+      {trend && <span style={{ fontSize: 11, fontWeight: 700, color: trend.startsWith("+") || trend.startsWith("↑") ? "#27ae60" : trend.startsWith("-") || trend.startsWith("↓") ? "#e74c3c" : "#95a5a6" }}>{trend}</span>}
     </div>
+    {sub && <div style={{ fontSize: 10, color: "#95a5a6", marginTop: 4 }}>{sub}</div>}
   </div>
 );
 
@@ -84,7 +111,6 @@ const KPI = ({ label, value, sub, color, icon }) => (
 //  EXECUTIVE DASHBOARD
 // ═══════════════════════════════════════════════════════════
 export default function ExecutiveDashboard({ apps, branding = {} }) {
-  const [period, setPeriod] = useState("all");
   const [search, setSearch] = useState("");
   const [sortCol, setSortCol] = useState("submitted");
   const [sortDir, setSortDir] = useState("desc");
@@ -94,308 +120,257 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
   const orgName = branding.orgName || "Council";
   const systemName = branding.systemShort || "CAMS";
 
-  // ─── Derived Data ────────────────────────────────────────
   const stats = useMemo(() => {
     const all = apps || [];
-    const now = new Date();
+    const now = NOW;
     const active = all.filter(a => !["approved", "rejected"].includes(a.status));
     const approved = all.filter(a => a.status === "approved");
     const rejected = all.filter(a => a.status === "rejected");
     const pending = all.filter(a => a.status === "pending_review");
     const completed = [...approved, ...rejected];
 
-    // Days open for each app
-    const daysOpen = all.map(a => {
-      const sub = parseDate(a.submittedDate);
-      return sub ? daysBetween(sub, now) : 0;
-    });
+    // SLA: % completed within 21 days
+    const completedDays = completed.map(a => { const s = parseDate(a.submittedDate); return s ? daysBetween(s, now) : 0; });
+    const avgDays = completedDays.length ? Math.round(completedDays.reduce((a, b) => a + b, 0) / completedDays.length) : 0;
+    const within21 = completedDays.filter(d => d <= 21).length;
+    const slaRate = pct(within21, completed.length);
+    const approvalRate = pct(approved.length, completed.length);
 
-    // Average processing time for completed
-    const completedDays = completed.map(a => {
-      const sub = parseDate(a.submittedDate);
-      return sub ? daysBetween(sub, now) : 0;
-    });
-    const avgDays = completedDays.length > 0 ? Math.round(completedDays.reduce((a, b) => a + b, 0) / completedDays.length) : 0;
-
-    // Status breakdown
+    // Status counts
     const statusCounts = {};
     Object.keys(STATUS_CONFIG).forEach(s => { statusCounts[s] = all.filter(a => a.status === s).length; });
 
-    // Monthly submissions
-    const months = {};
-    const completedMonths = {};
-    all.forEach(a => {
-      const d = parseDate(a.submittedDate);
-      if (d) {
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        months[key] = (months[key] || 0) + 1;
-      }
-    });
-    completed.forEach(a => {
-      const d = parseDate(a.submittedDate);
-      if (d) {
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        completedMonths[key] = (completedMonths[key] || 0) + 1;
-      }
-    });
+    // Monthly data (last 12 months)
+    const months = {}, compMonths = {};
+    all.forEach(a => { const d = parseDate(a.submittedDate); if (d) { const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; months[k] = (months[k]||0)+1; } });
+    completed.forEach(a => { const d = parseDate(a.submittedDate); if (d) { const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; compMonths[k] = (compMonths[k]||0)+1; } });
 
-    // Aging buckets
-    const aging = { "0–7 days": 0, "8–14 days": 0, "15–30 days": 0, "30+ days": 0 };
-    active.forEach(a => {
-      const sub = parseDate(a.submittedDate);
-      if (!sub) return;
-      const d = daysBetween(sub, now);
-      if (d <= 7) aging["0–7 days"]++;
-      else if (d <= 14) aging["8–14 days"]++;
-      else if (d <= 30) aging["15–30 days"]++;
-      else aging["30+ days"]++;
-    });
+    // Aging
+    const aging = [0, 0, 0, 0, 0]; // 0-7, 8-14, 15-21, 22-30, 30+
+    active.forEach(a => { const s = parseDate(a.submittedDate); if (!s) return; const d = daysBetween(s, now); if (d<=7) aging[0]++; else if (d<=14) aging[1]++; else if (d<=21) aging[2]++; else if (d<=30) aging[3]++; else aging[4]++; });
 
     // Officer workload
     const officers = {};
-    active.forEach(a => {
-      const off = a.assessment?.officer || "Unassigned";
-      officers[off] = (officers[off] || 0) + 1;
-    });
+    active.forEach(a => { const o = a.assessment?.officer || "Unassigned"; officers[o] = (officers[o]||0)+1; });
 
-    return {
-      total: all.length, active: active.length, approved: approved.length,
-      rejected: rejected.length, pending: pending.length, completed: completed.length,
-      avgDays, statusCounts, months, completedMonths, aging, officers, daysOpen,
-    };
+    // This month vs last month
+    const thisMo = all.filter(a => { const d = parseDate(a.submittedDate); return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); }).length;
+    const lastMo = all.filter(a => { const d = parseDate(a.submittedDate); if (!d) return false; const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1); return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear(); }).length;
+
+    // Unassigned
+    const unassigned = active.filter(a => !a.assessment?.officer).length;
+
+    return { total: all.length, active: active.length, approved: approved.length, rejected: rejected.length, pending: pending.length, completed: completed.length, avgDays, slaRate, approvalRate, statusCounts, months, compMonths, aging, officers, thisMo, lastMo, unassigned, within21 };
   }, [apps]);
 
-  // ─── Filtered + Sorted Table ─────────────────────────────
+  // Month keys for charts
+  const allMonthKeys = Object.keys({ ...stats.months, ...stats.compMonths }).sort().slice(-12);
+  const monthLabels = allMonthKeys.map(k => { const [y, m] = k.split("-"); return `${MONTHS[+m-1]} '${y.slice(2)}`; });
+
+  // Donut segments
+  const donutSegs = Object.entries(stats.statusCounts).filter(([,v]) => v > 0).map(([k,v]) => ({ value: v, color: STATUS_CONFIG[k]?.color || "#bdc3c7", label: STATUS_CONFIG[k]?.label || k }));
+
+  // Table
   const tableData = useMemo(() => {
-    let data = (apps || []).map(a => {
-      const sub = parseDate(a.submittedDate);
-      const d = sub ? daysBetween(sub, NOW) : 0;
-      const sla = d > 30 ? "overdue" : d > 14 ? "at_risk" : "on_track";
-      return { ...a, daysOpen: d, sla };
-    });
-    if (search) {
-      const s = search.toLowerCase();
-      data = data.filter(a =>
-        a.id?.toLowerCase().includes(s) ||
-        a.owner?.name?.toLowerCase().includes(s) ||
-        a.property?.address?.toLowerCase().includes(s) ||
-        a.assessment?.officer?.toLowerCase().includes(s)
-      );
-    }
-    data.sort((a, b) => {
-      let va, vb;
-      switch (sortCol) {
-        case "id": va = a.id; vb = b.id; break;
-        case "owner": va = a.owner?.name || ""; vb = b.owner?.name || ""; break;
-        case "status": va = a.status; vb = b.status; break;
-        case "officer": va = a.assessment?.officer || ""; vb = b.assessment?.officer || ""; break;
-        case "days": va = a.daysOpen; vb = b.daysOpen; break;
-        default: va = a.submittedDate || ""; vb = b.submittedDate || "";
-      }
-      if (typeof va === "number") return sortDir === "asc" ? va - vb : vb - va;
-      return sortDir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
-    });
+    let data = (apps||[]).map(a => { const s = parseDate(a.submittedDate); const d = s ? daysBetween(s, NOW) : 0; return { ...a, daysOpen: d, sla: d > 30 ? "overdue" : d > 21 ? "at_risk" : d > 14 ? "monitor" : "on_track" }; });
+    if (search) { const q = search.toLowerCase(); data = data.filter(a => a.id?.toLowerCase().includes(q) || a.owner?.name?.toLowerCase().includes(q) || a.property?.address?.toLowerCase().includes(q) || a.assessment?.officer?.toLowerCase().includes(q)); }
+    data.sort((a, b) => { let va, vb; switch(sortCol) { case "id": va=a.id; vb=b.id; break; case "owner": va=a.owner?.name||""; vb=b.owner?.name||""; break; case "status": va=a.status; vb=b.status; break; case "officer": va=a.assessment?.officer||""; vb=b.assessment?.officer||""; break; case "days": va=a.daysOpen; vb=b.daysOpen; break; default: va=a.submittedDate||""; vb=b.submittedDate||""; } if (typeof va==="number") return sortDir==="asc"?va-vb:vb-va; return sortDir==="asc"?String(va).localeCompare(String(vb)):String(vb).localeCompare(String(va)); });
     return data;
   }, [apps, search, sortCol, sortDir]);
-
   const pageCount = Math.ceil(tableData.length / PAGE_SIZE);
-  const pageData = tableData.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageData = tableData.slice(page * PAGE_SIZE, (page+1) * PAGE_SIZE);
+  const toggleSort = (c) => { if (sortCol===c) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(c); setSortDir("asc"); } };
+  const sortArrow = (c) => sortCol===c ? (sortDir==="asc"?" ▲":" ▼") : "";
+  const SlaBadge = ({ sla }) => { const c = { on_track:{l:"On Track",c:"#27ae60",b:"#eafaf1"}, monitor:{l:"Monitor",c:"#3498db",b:"#ebf5fb"}, at_risk:{l:"At Risk",c:"#e67e22",b:"#fef5e7"}, overdue:{l:"Overdue",c:"#e74c3c",b:"#fdedec"} }[sla]||{l:sla,c:"#95a5a6",b:"#f0f3f5"}; return <span style={{padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,background:c.b,color:c.c}}>{c.l}</span>; };
 
-  const toggleSort = (col) => {
-    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
-    else { setSortCol(col); setSortDir("asc"); }
-  };
-  const sortArrow = (col) => sortCol === col ? (sortDir === "asc" ? " ▲" : " ▼") : "";
-
-  // Month labels for charts
-  const monthKeys = Object.keys({ ...stats.months, ...stats.completedMonths }).sort();
-  const monthLabels = monthKeys.map(k => { const [y, m] = k.split("-"); return `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m - 1]} ${y.slice(2)}`; });
-
-  // SLA badge
-  const SlaBadge = ({ sla }) => {
-    const cfg = { on_track: { label: "On Track", color: "#27ae60", bg: "#eafaf1" }, at_risk: { label: "At Risk", color: "#e67e22", bg: "#fef5e7" }, overdue: { label: "Overdue", color: "#e74c3c", bg: "#fdedec" } };
-    const c = cfg[sla] || cfg.on_track;
-    return <span style={{ padding: "2px 8px", borderRadius: 4, fontSize: 9, fontWeight: 700, background: c.bg, color: c.color }}>{c.label}</span>;
-  };
-
-  // Export CSV
   const exportCSV = () => {
-    const headers = ["ID", "Applicant", "Address", "Status", "Assigned To", "Days Open", "SLA", "Submitted"];
-    const rows = tableData.map(a => [a.id, a.owner?.name, a.property?.address, a.status, a.assessment?.officer || "", a.daysOpen, a.sla, a.submittedDate]);
-    const csv = [headers.join(","), ...rows.map(r => r.map(v => `"${String(v || "").replace(/"/g, '""')}"`).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `${systemName}_applications_${new Date().toISOString().split("T")[0]}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    const h = ["ID","Applicant","Address","Status","Assigned To","Days Open","SLA","Submitted"];
+    const rows = tableData.map(a => [a.id, a.owner?.name, a.property?.address, a.status, a.assessment?.officer||"", a.daysOpen, a.sla, a.submittedDate]);
+    const csv = [h.join(","), ...rows.map(r => r.map(v => `"${String(v||"").replace(/"/g,'""')}"`).join(","))].join("\n");
+    const b = new Blob([csv],{type:"text/csv"}); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href=u; a.download=`${systemName}_report_${new Date().toISOString().split("T")[0]}.csv`; a.click(); URL.revokeObjectURL(u);
   };
 
-  // Status donut segments
-  const donutSegs = Object.entries(stats.statusCounts).filter(([, v]) => v > 0).map(([k, v]) => ({ value: v, color: STATUS_CONFIG[k]?.color || "#bdc3c7", label: STATUS_CONFIG[k]?.label || k }));
+  const moTrend = stats.lastMo > 0 ? (stats.thisMo > stats.lastMo ? `↑ ${stats.thisMo - stats.lastMo} vs last mo` : stats.thisMo < stats.lastMo ? `↓ ${stats.lastMo - stats.thisMo} vs last mo` : "Same as last mo") : "";
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#1abc9c", textTransform: "uppercase", letterSpacing: "0.08em" }}>{orgName}</div>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: "#1a3a4a", margin: "2px 0 4px" }}>Crossover Management Dashboard</h1>
-        <p style={{ color: "#7a8a94", fontSize: 12, margin: 0 }}>{new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      {/* ═══ HEADER ═══ */}
+      <div style={{ marginBottom: 24, borderBottom: "2px solid #e4e9ec", paddingBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "#1abc9c", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{orgName}</div>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#1a3a4a", margin: 0, letterSpacing: "-0.02em" }}>Crossover Management</h1>
+            <h2 style={{ fontSize: 16, fontWeight: 400, color: "#7a8a94", margin: "2px 0 0" }}>Executive Performance Dashboard</h2>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a" }}>{new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}</div>
+            <div style={{ fontSize: 10, color: "#95a5a6" }}>Data as of today · Auto-refreshed</div>
+          </div>
+        </div>
       </div>
 
-      {/* KPI Row */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <KPI icon="📋" label="Total Applications" value={fmtNum(stats.total)} color="#2980b9" />
-        <KPI icon="🆕" label="New / Pending" value={fmtNum(stats.pending)} color="#e67e22" sub={stats.pending > 5 ? "⚠ High backlog" : ""} />
-        <KPI icon="✅" label="Completed" value={fmtNum(stats.completed)} color="#27ae60" />
-        <KPI icon="⏱" label="Avg Processing" value={`${stats.avgDays}d`} color="#8e44ad" sub={stats.avgDays > 21 ? "Above 21-day target" : "Within target"} />
-        <KPI icon="⚡" label="Active / In Progress" value={fmtNum(stats.active)} color="#2c3e50" />
+      {/* ═══ KPI ROW ═══ */}
+      <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
+        <BigKPI icon="📋" label="Total Applications" value={fmtNum(stats.total)} color="#1a3a4a" sub={`${stats.completed} completed · ${stats.active} active`} />
+        <BigKPI icon="⏱" label="Avg Processing Time" value={`${stats.avgDays}d`} color={stats.avgDays > 21 ? "#e74c3c" : stats.avgDays > 14 ? "#e67e22" : "#27ae60"} sub="Target: 21 days" trend={stats.avgDays <= 21 ? "✓ On target" : "⚠ Above target"} />
+        <BigKPI icon="📊" label="SLA Compliance" value={`${stats.slaRate}%`} color={stats.slaRate >= 80 ? "#27ae60" : stats.slaRate >= 60 ? "#e67e22" : "#e74c3c"} sub={`${stats.within21} of ${stats.completed} within 21 days`} />
+        <BigKPI icon="✅" label="Approval Rate" value={`${stats.approvalRate}%`} color="#2980b9" sub={`${stats.approved} approved · ${stats.rejected} rejected`} />
+        <BigKPI icon="🆕" label="This Month" value={fmtNum(stats.thisMo)} color="#8e44ad" trend={moTrend} />
       </div>
 
-      {/* Charts Row 1 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <Card title="Application Status" icon="🍩">
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <MiniDonut segments={donutSegs} size={130} />
+      {/* ═══ ROW: Status + Gauges + Capacity ═══ */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: 14 }}>
+        <Card title="Application Status" icon="🍩" sub="Current distribution">
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <Donut segments={donutSegs} size={140} label="Applications" />
             <div style={{ flex: 1 }}>
               {donutSegs.map((s, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
                   <span style={{ fontSize: 11, color: "#5a6a74", flex: 1 }}>{s.label}</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>{s.value}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a" }}>{s.value}</span>
+                  <span style={{ fontSize: 9, color: "#95a5a6" }}>{pct(s.value, stats.total)}%</span>
                 </div>
               ))}
             </div>
           </div>
         </Card>
 
-        <Card title="New Submissions by Month" icon="📈">
-          <BarChart data={monthKeys.map((k, i) => ({
-            label: monthLabels[i], value: stats.months[k] || 0, color: "#2980b9",
-          }))} />
+        <Card title="Performance Gauges" icon="🎯" sub="Key targets">
+          <div style={{ display: "flex", justifyContent: "space-around" }}>
+            <GaugeArc value={stats.slaRate} max={100} target={80} size={100} color={stats.slaRate >= 80 ? "#27ae60" : "#e67e22"} label="SLA %" />
+            <GaugeArc value={stats.approvalRate} max={100} target={90} size={100} color="#2980b9" label="Approval %" />
+          </div>
+          <div style={{ textAlign: "center", fontSize: 9, color: "#95a5a6", marginTop: 8 }}>SLA target: 80% within 21 days · Approval benchmark: 90%</div>
+        </Card>
+
+        <Card title="Capacity & Backlog" icon="⚡" sub="Resource utilisation">
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: stats.unassigned > 3 ? "#fdedec" : "#f8fafb", borderRadius: 8, border: `1px solid ${stats.unassigned > 3 ? "#e74c3c20" : "#eef2f4"}` }}>
+              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Unassigned</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: stats.unassigned > 3 ? "#e74c3c" : "#1a3a4a" }}>{stats.unassigned}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafb", borderRadius: 8, border: "1px solid #eef2f4" }}>
+              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Pending Review</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: stats.pending > 5 ? "#e67e22" : "#1a3a4a" }}>{stats.pending}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafb", borderRadius: 8, border: "1px solid #eef2f4" }}>
+              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Active Officers</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#1a3a4a" }}>{Object.keys(stats.officers).filter(k => k !== "Unassigned").length}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafb", borderRadius: 8, border: "1px solid #eef2f4" }}>
+              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Avg per Officer</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "#1a3a4a" }}>{(() => { const offs = Object.entries(stats.officers).filter(([k]) => k!=="Unassigned"); return offs.length ? Math.round(offs.reduce((s,[,v])=>s+v,0)/offs.length) : 0; })()}</span>
+            </div>
+          </div>
         </Card>
       </div>
 
-      {/* Charts Row 2 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-        <Card title="Completed by Month" icon="✅">
-          <BarChart data={monthKeys.map((k, i) => ({
-            label: monthLabels[i], value: stats.completedMonths[k] || 0, color: "#27ae60",
-          }))} />
-        </Card>
-
-        <Card title="Aging Report — Pending Workload" icon="⏳">
-          {(() => {
-            const maxAging = Math.max(...Object.values(stats.aging), 1);
-            const agingColors = ["#27ae60", "#e67e22", "#e74c3c", "#c0392b"];
-            return Object.entries(stats.aging).map(([label, value], i) => (
-              <HBar key={label} label={label} value={value} max={maxAging} color={agingColors[i]} />
-            ));
-          })()}
-        </Card>
-      </div>
-
-      {/* Monthly Trend Comparison */}
-      <Card title="Monthly Trend — Submissions vs Completions" icon="📊" style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 140, padding: "0 4px" }}>
-          {monthKeys.map((k, i) => {
-            const sub = stats.months[k] || 0;
-            const comp = stats.completedMonths[k] || 0;
-            const max = Math.max(...monthKeys.map(mk => Math.max(stats.months[mk] || 0, stats.completedMonths[mk] || 0)), 1);
-            return (
-              <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, gap: 1 }}>
-                <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 110 }}>
-                  <div style={{ width: 14, height: `${(sub / max) * 100}px`, background: "#2980b9", borderRadius: "3px 3px 0 0", minHeight: 2 }} title={`Submitted: ${sub}`} />
-                  <div style={{ width: 14, height: `${(comp / max) * 100}px`, background: "#27ae60", borderRadius: "3px 3px 0 0", minHeight: 2 }} title={`Completed: ${comp}`} />
+      {/* ═══ ROW: Monthly Trends + Aging ═══ */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14, marginBottom: 14 }}>
+        <Card title="Monthly Trend" icon="📈" sub="Submissions vs completions (last 12 months)">
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 160, padding: "0 4px" }}>
+            {allMonthKeys.map((k, i) => {
+              const sub = stats.months[k] || 0;
+              const comp = stats.compMonths[k] || 0;
+              const max = Math.max(...allMonthKeys.map(mk => Math.max(stats.months[mk]||0, stats.compMonths[mk]||0)), 1);
+              return (
+                <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, gap: 1 }}>
+                  <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 130 }}>
+                    <div title={`Submitted: ${sub}`} style={{ width: 12, height: `${(sub/max)*120}px`, background: "linear-gradient(180deg,#2980b9,#3498db)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
+                    <div title={`Completed: ${comp}`} style={{ width: 12, height: `${(comp/max)*120}px`, background: "linear-gradient(180deg,#27ae60,#2ecc71)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
+                  </div>
+                  <span style={{ fontSize: 7, color: "#95a5a6", whiteSpace: "nowrap" }}>{monthLabels[i]}</span>
                 </div>
-                <span style={{ fontSize: 7, color: "#95a5a6" }}>{monthLabels[i]}</span>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 10, fontSize: 10 }}>
+            <span style={{ color: "#2980b9", fontWeight: 700 }}>■ Submitted</span>
+            <span style={{ color: "#27ae60", fontWeight: 700 }}>■ Completed</span>
+          </div>
+        </Card>
+
+        <Card title="Aging Report" icon="⏳" sub="Active applications by age">
+          {[
+            { l: "0–7 days", v: stats.aging[0], c: "#27ae60" },
+            { l: "8–14 days", v: stats.aging[1], c: "#f1c40f" },
+            { l: "15–21 days", v: stats.aging[2], c: "#e67e22" },
+            { l: "22–30 days", v: stats.aging[3], c: "#e74c3c" },
+            { l: "30+ days", v: stats.aging[4], c: "#c0392b" },
+          ].map(({ l, v, c }) => (
+            <HBar key={l} label={l} value={v} max={Math.max(...stats.aging, 1)} color={c} />
+          ))}
+          <div style={{ marginTop: 8, padding: "6px 10px", background: "#f8fafb", borderRadius: 6, fontSize: 10, color: "#7a8a94", textAlign: "center" }}>
+            {stats.aging[3] + stats.aging[4] > 0 ? `⚠ ${stats.aging[3] + stats.aging[4]} application${stats.aging[3]+stats.aging[4]>1?"s":""} beyond 21-day SLA target` : "✓ All within SLA target"}
+          </div>
+        </Card>
+      </div>
+
+      {/* ═══ Officer Workload ═══ */}
+      <Card title="Officer Workload Distribution" icon="👤" sub="Active cases per officer" style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          {Object.entries(stats.officers).sort((a, b) => b[1] - a[1]).map(([name, count]) => {
+            const maxOff = Math.max(...Object.values(stats.officers), 1);
+            const isHigh = count > 5;
+            return (
+              <div key={name} style={{ flex: "1 1 180px", maxWidth: 260, padding: "12px 14px", background: isHigh ? "#fdedec" : "#f8fafb", borderRadius: 10, border: `1px solid ${isHigh ? "#e74c3c20" : "#eef2f4"}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a" }}>{name}</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: isHigh ? "#e74c3c" : "#2980b9" }}>{count}</span>
+                </div>
+                <div style={{ height: 6, background: "#e4e9ec", borderRadius: 3, overflow: "hidden" }}>
+                  <div style={{ width: `${(count/maxOff)*100}%`, height: "100%", background: isHigh ? "#e74c3c" : "#2980b9", borderRadius: 3, transition: "width 0.4s" }} />
+                </div>
               </div>
             );
           })}
         </div>
-        <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 10 }}>
-          <span style={{ fontSize: 10, color: "#2980b9", fontWeight: 700 }}>■ Submitted</span>
-          <span style={{ fontSize: 10, color: "#27ae60", fontWeight: 700 }}>■ Completed</span>
-        </div>
       </Card>
 
-      {/* Officer Workload */}
-      {Object.keys(stats.officers).length > 0 && (
-        <Card title="Officer Workload" icon="👤" style={{ marginBottom: 14 }}>
-          {(() => {
-            const maxOff = Math.max(...Object.values(stats.officers), 1);
-            return Object.entries(stats.officers).sort((a, b) => b[1] - a[1]).map(([name, count]) => (
-              <HBar key={name} label={name} value={count} max={maxOff} color="#2980b9" />
-            ));
-          })()}
-        </Card>
-      )}
-
-      {/* Data Table */}
-      <Card title="Application Register" icon="📋" style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search by ID, applicant, address, officer..."
-            style={{ padding: "7px 12px", borderRadius: 6, border: "1.5px solid #d5dde2", fontSize: 11, width: 280, fontFamily: "inherit", outline: "none" }} />
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={exportCSV} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: "#5a6a74" }}>📥 Export CSV</button>
-            <span style={{ fontSize: 10, color: "#95a5a6", lineHeight: "28px" }}>{tableData.length} records</span>
+      {/* ═══ DATA TABLE ═══ */}
+      <Card title="Application Register" icon="📋" sub={`${tableData.length} total records`}
+        headerRight={
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
+              placeholder="Search ID, applicant, address..."
+              style={{ padding: "6px 12px", borderRadius: 6, border: "1.5px solid #d5dde2", fontSize: 10, width: 200, fontFamily: "inherit", outline: "none" }} />
+            <button onClick={exportCSV} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: "#5a6a74", whiteSpace: "nowrap" }}>📥 Export CSV</button>
           </div>
-        </div>
-
+        }
+        style={{ marginBottom: 14 }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
             <thead>
               <tr style={{ borderBottom: "2px solid #e4e9ec" }}>
-                {[
-                  { col: "id", label: "Ref" }, { col: "owner", label: "Applicant" },
-                  { col: "status", label: "Status" }, { col: "officer", label: "Assigned To" },
-                  { col: "submitted", label: "Submitted" }, { col: "days", label: "Days Open" },
-                  { col: "sla", label: "SLA" },
-                ].map(h => (
-                  <th key={h.col} onClick={() => toggleSort(h.col)}
-                    style={{ padding: "8px 10px", textAlign: "left", fontWeight: 800, color: "#5a6a74", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    {h.label}{sortArrow(h.col)}
-                  </th>
+                {[{c:"id",l:"Ref"},{c:"owner",l:"Applicant"},{c:"status",l:"Status"},{c:"officer",l:"Assigned To"},{c:"submitted",l:"Submitted"},{c:"days",l:"Days"},{c:"sla",l:"SLA"}].map(h => (
+                  <th key={h.c} onClick={() => toggleSort(h.c)} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 800, color: "#5a6a74", cursor: "pointer", userSelect: "none", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h.l}{sortArrow(h.c)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pageData.map(a => (
-                <tr key={a.id} style={{ borderBottom: "1px solid #f5f7f8" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                <tr key={a.id} style={{ borderBottom: "1px solid #f5f7f8" }} onMouseEnter={e=>e.currentTarget.style.background="#f8fafb"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                   <td style={{ padding: "8px 10px", fontWeight: 700, color: "#1a3a4a" }}>{a.id}</td>
-                  <td style={{ padding: "8px 10px" }}>
-                    <div style={{ fontWeight: 600, color: "#1a3a4a" }}>{a.owner?.name}</div>
-                    <div style={{ fontSize: 9, color: "#95a5a6" }}>{a.property?.address?.split(",")[0]}</div>
-                  </td>
+                  <td style={{ padding: "8px 10px" }}><div style={{ fontWeight: 600, color: "#1a3a4a" }}>{a.owner?.name}</div><div style={{ fontSize: 9, color: "#95a5a6" }}>{a.property?.address?.split(",")[0]}</div></td>
                   <td style={{ padding: "8px 10px" }}><StatusBadge status={a.status} /></td>
-                  <td style={{ padding: "8px 10px", color: "#5a6a74" }}>{a.assessment?.officer || "—"}</td>
+                  <td style={{ padding: "8px 10px", color: "#5a6a74" }}>{a.assessment?.officer || <span style={{ color: "#e74c3c", fontSize: 10, fontWeight: 600 }}>Unassigned</span>}</td>
                   <td style={{ padding: "8px 10px", color: "#7a8a94", fontSize: 10 }}>{a.submittedDate}</td>
-                  <td style={{ padding: "8px 10px", fontWeight: 700, color: a.daysOpen > 30 ? "#e74c3c" : a.daysOpen > 14 ? "#e67e22" : "#1a3a4a" }}>{a.daysOpen}</td>
+                  <td style={{ padding: "8px 10px", fontWeight: 700, color: a.daysOpen > 21 ? "#e74c3c" : a.daysOpen > 14 ? "#e67e22" : "#1a3a4a" }}>{a.daysOpen}</td>
                   <td style={{ padding: "8px 10px" }}><SlaBadge sla={a.sla} /></td>
                 </tr>
               ))}
-              {pageData.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: "#95a5a6", fontSize: 12 }}>No matching applications</td></tr>
-              )}
+              {!pageData.length && <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: "#95a5a6" }}>No matching records</td></tr>}
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
         {pageCount > 1 && (
-          <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 12 }}>
-            <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
-              style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, cursor: page > 0 ? "pointer" : "default", color: page > 0 ? "#1a3a4a" : "#d5dde2" }}>‹ Prev</button>
-            {Array.from({ length: Math.min(pageCount, 7) }, (_, i) => {
-              const p = pageCount <= 7 ? i : (page < 3 ? i : page > pageCount - 4 ? pageCount - 7 + i : page - 3 + i);
-              return (
-                <button key={p} onClick={() => setPage(p)}
-                  style={{ padding: "4px 10px", borderRadius: 4, border: p === page ? "1.5px solid #1abc9c" : "1px solid #d5dde2", background: p === page ? "#1abc9c12" : "#fff", fontSize: 10, fontWeight: p === page ? 800 : 400, cursor: "pointer", color: p === page ? "#1abc9c" : "#5a6a74" }}>{p + 1}</button>
-              );
-            })}
-            <button onClick={() => setPage(Math.min(pageCount - 1, page + 1))} disabled={page >= pageCount - 1}
-              style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, cursor: page < pageCount - 1 ? "pointer" : "default", color: page < pageCount - 1 ? "#1a3a4a" : "#d5dde2" }}>Next ›</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 12, borderTop: "1px solid #eef2f4" }}>
+            <span style={{ fontSize: 10, color: "#95a5a6" }}>Showing {page*PAGE_SIZE+1}–{Math.min((page+1)*PAGE_SIZE, tableData.length)} of {tableData.length}</span>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={()=>setPage(Math.max(0,page-1))} disabled={page===0} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, cursor: page>0?"pointer":"default", color: page>0?"#1a3a4a":"#d5dde2" }}>‹ Prev</button>
+              <button onClick={()=>setPage(Math.min(pageCount-1,page+1))} disabled={page>=pageCount-1} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, cursor: page<pageCount-1?"pointer":"default", color: page<pageCount-1?"#1a3a4a":"#d5dde2" }}>Next ›</button>
+            </div>
           </div>
         )}
       </Card>
