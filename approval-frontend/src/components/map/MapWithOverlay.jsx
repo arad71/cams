@@ -442,7 +442,8 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
-        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult} />
+        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
+        forceLayer={sightTriangle ? "satellite" : null} />
 
       {/* ═══ Sight Triangle Analysis Panel ═══ */}
       {sightTriangle && sightTriangle.analysis && (
@@ -534,6 +535,51 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
           </div>
           <div style={{ padding: "0 16px 12px", fontSize: 9, color: "#b0bdb2" }}>
             AS 2890.1:2004 §3.2.4 | Eye 1.15m | Object 0.65–1.5m | Left = abs_min÷10 | Right = ssd_min÷10
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Street View + Satellite Context ═══ */}
+      {sightTriangle && sightTriangle.ptA && (
+        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {/* Google Street View from Point A looking toward road */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+            <div style={{ padding: "8px 14px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12 }}>🚗</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Street View — Driveway (Point A)</span>
+            </div>
+            <div style={{ height: 280 }}>
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${sightTriangle.ptA[0]},${sightTriangle.ptA[1]}&heading=${sightTriangle.ptB ? Math.round(Math.atan2(sightTriangle.ptB[1] - sightTriangle.ptA[1], sightTriangle.ptB[0] - sightTriangle.ptA[0]) * 180 / Math.PI + 90) : 0}&pitch=0&fov=90`}
+                width="100%" height="280" style={{ border: "none" }}
+                allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                title="Street View from driveway"
+                onError={(e) => { e.target.style.display = "none"; e.target.parentNode.innerHTML = '<div style="padding:40px;text-align:center;color:#95a5a6;font-size:11px">Street View unavailable for this location.<br/>Coverage may be limited in residential areas.</div>'; }}
+              />
+            </div>
+            <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4" }}>
+              📍 {sightTriangle.ptA[0].toFixed(6)}, {sightTriangle.ptA[1].toFixed(6)} · Looking toward road centreline
+            </div>
+          </div>
+
+          {/* Satellite context — zoomed aerial view of the sight triangle */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+            <div style={{ padding: "8px 14px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12 }}>🛰️</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Satellite Context — Sight Triangle Area</span>
+            </div>
+            <div style={{ height: 280 }}>
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${sightTriangle.ptA[0]},${sightTriangle.ptA[1]}&zoom=19&maptype=satellite`}
+                width="100%" height="280" style={{ border: "none" }}
+                allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                title="Satellite view of sight triangle"
+              />
+            </div>
+            <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4", display: "flex", justifyContent: "space-between" }}>
+              <span>🛰️ Satellite imagery · Zoom level 19</span>
+              <a href={`https://www.google.com/maps/@${sightTriangle.ptA[0]},${sightTriangle.ptA[1]},19z/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9", textDecoration: "none", fontWeight: 600 }}>Open in Google Maps ↗</a>
+            </div>
           </div>
         </div>
       )}
