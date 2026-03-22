@@ -612,15 +612,14 @@ Respond with JSON only:
             </div>
             <div style={{ height: 280 }}>
               <iframe
-                src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${sightTriangle.ptA[0]},${sightTriangle.ptA[1]}&heading=${sightTriangle.ptB ? Math.round(Math.atan2(sightTriangle.ptB[1] - sightTriangle.ptA[1], sightTriangle.ptB[0] - sightTriangle.ptA[0]) * 180 / Math.PI + 90) : 0}&pitch=0&fov=90`}
+                src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${sightTriangle.ptA.lat},${sightTriangle.ptA.lng}&heading=${sightTriangle.ptB ? Math.round(Math.atan2(sightTriangle.ptB.lng - sightTriangle.ptA.lng, sightTriangle.ptB.lat - sightTriangle.ptA.lat) * 180 / Math.PI) : 0}&pitch=0&fov=90`}
                 width="100%" height="280" style={{ border: "none" }}
                 allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
                 title="Street View from driveway"
-                onError={(e) => { e.target.style.display = "none"; e.target.parentNode.innerHTML = '<div style="padding:40px;text-align:center;color:#95a5a6;font-size:11px">Street View unavailable for this location.<br/>Coverage may be limited in residential areas.</div>'; }}
               />
             </div>
             <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4" }}>
-              📍 {sightTriangle.ptA[0].toFixed(6)}, {sightTriangle.ptA[1].toFixed(6)} · Looking toward road centreline
+              📍 {sightTriangle.ptA.lat.toFixed(6)}, {sightTriangle.ptA.lng.toFixed(6)} · Looking toward road centreline
             </div>
           </div>
 
@@ -632,7 +631,7 @@ Respond with JSON only:
             </div>
             <div style={{ height: 280 }}>
               <iframe
-                src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${sightTriangle.ptA[0]},${sightTriangle.ptA[1]}&zoom=19&maptype=satellite`}
+                src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${sightTriangle.ptA.lat},${sightTriangle.ptA.lng}&zoom=19&maptype=satellite`}
                 width="100%" height="280" style={{ border: "none" }}
                 allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
                 title="Satellite view of sight triangle"
@@ -640,7 +639,7 @@ Respond with JSON only:
             </div>
             <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4", display: "flex", justifyContent: "space-between" }}>
               <span>🛰️ Satellite imagery · Zoom level 19</span>
-              <a href={`https://www.google.com/maps/@${sightTriangle.ptA[0]},${sightTriangle.ptA[1]},19z/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9", textDecoration: "none", fontWeight: 600 }}>Open in Google Maps ↗</a>
+              <a href={`https://www.google.com/maps/@${sightTriangle.ptA.lat},${sightTriangle.ptA.lng},19z/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9", textDecoration: "none", fontWeight: 600 }}>Open in Google Maps ↗</a>
             </div>
           </div>
         </div>
