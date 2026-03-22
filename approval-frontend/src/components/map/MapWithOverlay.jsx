@@ -106,96 +106,158 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
 
   const aiClassify3D = async (A, C, D, obs, feats, ei) => {
   try {
-    // ---- AI MODE (no change) ----
-    const prompt = `You are a 3D geospatial line-of-sight analyst. 
-    Observer A at ${ei.elevA.toFixed(1)}m ASL + ${ei.eyeH}m eye. 
-    Line C→D: ${havDist3D(C, D).toFixed(0)}m span at ${ei.elevCD.toFixed(1)}m ASL + ${ei.tgtH}m. 
-    ${obs.length} obstructions exceed sight ray. 
-    Features: ${feats.length}. 
-    Classify visibility. 
-    JSON only: {"overall_rating":"CLEAR|PARTIALLY_OBSTRUCTED|SEVERELY_OBSTRUCTED|BLOCKED","visibility_pct":0,"analysis_summary":"","critical_low_obstructions":[],"recommendations":[],"elevation_insight":""}`;
+    // ── Step 1: Capture satellite + street view images ──
+    const heading = Math.round(Math.atan2(
+      (sightTriangle?.ptB?.lng || D.lng) - A.lng,
+      (sightTriangle?.ptB?.lat || D.lat) - A.lat
+    ) * 180 / Math.PI + 90) || 0;
 
-        const resp = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 1000,
-            messages: [{ role: "user", content: prompt }]
-          })
+    const imgContent = [];
+
+    // Satellite static image (640x400, zoom 19)
+    try {
+      const satUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${A.lat},${A.lng}&zoom=19&size=640x400&maptype=satellite&markers=color:red|label:A|${A.lat},${A.lng}&markers=color:blue|label:C|${C.lat},${C.lng}&markers=color:blue|label:D|${D.lat},${D.lng}&path=color:0xff000088|weight:2|${A.lat},${A.lng}|${C.lat},${C.lng}|${D.lat},${D.lng}|${A.lat},${A.lng}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
+      const satResp = await fetch(satUrl);
+      if (satResp.ok) {
+        const satBlob = await satResp.blob();
+        const satB64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(satBlob); });
+        imgContent.push({
+          type: "image",
+          source: { type: "base64", media_type: "image/png", data: satB64 }
         });
-
-        const data = await resp.json();
-        return JSON.parse(
-          (data.content || [])
-            .map(c => c.text || "")
-            .join("")
-            .replace(/```json|```/g, "")
-            .trim()
-        );
-
-      } catch (err) {
-
-        // ---- NEW LOS FALLBACK RULE ----
-
-        // No obstructions at all
-        if (obs.length === 0) {
-          return {
-            overall_rating: "CLEAR",
-            visibility_pct: 100,
-            analysis_summary: "No obstructions detected along the sight-line.",
-            critical_low_obstructions: [],
-            recommendations: [],
-            elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, target at ${ei.elevCD.toFixed(1)}m.`
-          };
-        }
-
-        // Highest amount the obstruction exceeds the ray
-        const highestBlock = Math.max(
-          ...obs.map(o => o.excessHeight || 0),
-          0
-        );
-
-        // Lowest vertical clearance among all obstruction intersections
-        const lowestClearance = Math.min(
-          ...obs.map(o => o.clearance ?? Infinity),
-          Infinity
-        );
-
-        // Visibility % based on physical obstruction height
-        let vis = 100;
-
-        if (highestBlock > 0) {
-          // Strong penalty for physical exceedance
-          vis = Math.max(0, 100 - (highestBlock * 25));
-        }
-
-        // Rating thresholds tied to real LOS engineering logic
-        let rating = "CLEAR";
-        if (vis < 20) rating = "BLOCKED";
-        else if (vis < 45) rating = "SEVERELY_OBSTRUCTED";
-        else if (vis < 75) rating = "PARTIALLY_OBSTRUCTED";
-
-        return {
-          overall_rating: rating,
-          visibility_pct: vis,
-          analysis_summary: `${obs.length} obstructions found. Highest exceedance: ${highestBlock.toFixed(2)}m. Lowest clearance: ${lowestClearance === Infinity ? "No clearance intersections" : lowestClearance.toFixed(2) + "m"}.`,
-          critical_low_obstructions: obs
-            .filter(o => o.isCritical)
-            .map(c => ({
-              name: c.feature.name,
-              height_range: `${c.feature.estimatedHeight.toFixed(1)}m`,
-              impact: `Exceeds ray by ${c.excessHeight?.toFixed(2)}m`
-            })),
-          recommendations: [
-            highestBlock > 0
-              ? "Increase observer height or relocate to clear physical obstructions."
-              : "LOS is mostly clear; minor clearance considerations only."
-          ],
-          elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, target at ${ei.elevCD.toFixed(1)}m.`
-        };
+        imgContent.push({ type: "text", text: "[SATELLITE IMAGE] Aerial satellite view of the sight triangle area. Red marker A = driveway/observer. Blue markers C, D = sight line endpoints along road. Red triangle outline = required clear sight zone." });
       }
+    } catch (e) { console.log("Satellite image capture skipped:", e.message); }
+
+    // Street View static image (640x400, from point A looking toward road)
+    try {
+      const svUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x400&location=${A.lat},${A.lng}&heading=${heading}&pitch=0&fov=90&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
+      const svResp = await fetch(svUrl);
+      if (svResp.ok && svResp.headers.get("content-type")?.includes("image")) {
+        const svBlob = await svResp.blob();
+        const svB64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(svBlob); });
+        imgContent.push({
+          type: "image",
+          source: { type: "base64", media_type: "image/jpeg", data: svB64 }
+        });
+        imgContent.push({ type: "text", text: "[STREET VIEW IMAGE] Ground-level view from the driveway (Point A) looking toward the road. This shows what the driver sees when exiting. Identify any vegetation, fences, walls, signs, parked vehicles, or structures that could obstruct the driver's view of approaching traffic." });
+      }
+    } catch (e) { console.log("Street view image capture skipped:", e.message); }
+
+    // ── Step 2: Build the analysis prompt with images ──
+    const prompt = `You are a senior traffic engineer conducting a sight triangle compliance assessment for a residential crossover (driveway) in Western Australia.
+
+GEOSPATIAL DATA:
+- Observer (A): ${A.lat.toFixed(6)}, ${A.lng.toFixed(6)} at ${ei.elevA.toFixed(1)}m ASL + ${ei.eyeH}m eye height = ${(ei.elevA + ei.eyeH).toFixed(1)}m
+- Sight line C: ${C.lat.toFixed(6)}, ${C.lng.toFixed(6)} 
+- Sight line D: ${D.lat.toFixed(6)}, ${D.lng.toFixed(6)}
+- Sight line span C→D: ${havDist3D(C, D).toFixed(0)}m at ${ei.elevCD.toFixed(1)}m ASL + ${ei.tgtH}m target height
+- Elevation advantage A over road: ${ei.advantage?.toFixed(1) || "0"}m
+- ${obs.length} geospatial obstructions exceed sight ray (from OSM/DEM data)
+- ${feats.length} total features in area
+
+${imgContent.length > 0 ? `IMAGERY ANALYSIS:
+Examine the satellite and street view images provided. Identify:
+1. Trees, hedges, dense vegetation within or near the sight triangle
+2. Fences, walls, retaining walls above 0.65m that could block driver vision
+3. Signs, poles, utility boxes, parked vehicles
+4. Any structure between 0.65m-1.5m height in the triangle zone
+5. Verge condition — is it clear or obstructed?
+6. Road geometry — curves, intersections, median islands affecting sight lines` : "No imagery available — assess based on geospatial data only."}
+
+ASSESSMENT STANDARD: AS 2890.1:2004 §3.2.4 / Austroads Guide to Road Design Part 4A
+- Clear zone: nothing between 0.65m-1.5m height within the sight triangle
+- Eye height: 1.15m (seated driver)
+- Object height: 0.65m (child) to 1.5m (pedestrian)
+
+Respond with JSON only:
+{
+  "overall_rating": "CLEAR|PARTIALLY_OBSTRUCTED|SEVERELY_OBSTRUCTED|BLOCKED",
+  "visibility_pct": 0,
+  "analysis_summary": "...",
+  "satellite_findings": "What the aerial image reveals about obstructions...",
+  "streetview_findings": "What the street-level image reveals about driver sight lines...",
+  "vegetation_assessment": "Trees/hedges status...",
+  "infrastructure_assessment": "Fences/walls/signs...",
+  "critical_low_obstructions": [{"name":"...","height_range":"...","impact":"..."}],
+  "recommendations": ["..."],
+  "elevation_insight": "..."
+}`;
+
+    const messages = [{
+      role: "user",
+      content: imgContent.length > 0
+        ? [...imgContent, { type: "text", text: prompt }]
+        : prompt
+    }];
+
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1500,
+        messages
+      })
+    });
+
+    const data = await resp.json();
+    return JSON.parse(
+      (data.content || [])
+        .map(c => c.text || "")
+        .join("")
+        .replace(/```json|```/g, "")
+        .trim()
+    );
+
+  } catch (err) {
+    console.warn("AI vision analysis failed, using LOS fallback:", err.message);
+
+    // ── Fallback: rule-based LOS analysis ──
+    if (obs.length === 0) {
+      return {
+        overall_rating: "CLEAR",
+        visibility_pct: 100,
+        analysis_summary: "No obstructions detected along the sight-line.",
+        satellite_findings: "Imagery analysis unavailable — using geospatial data only.",
+        streetview_findings: "Street view analysis unavailable.",
+        vegetation_assessment: "No vegetation obstructions detected in geospatial data.",
+        infrastructure_assessment: "No infrastructure obstructions detected.",
+        critical_low_obstructions: [],
+        recommendations: [],
+        elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, target at ${ei.elevCD.toFixed(1)}m.`
+      };
+    }
+
+    const highestBlock = Math.max(...obs.map(o => o.excessHeight || 0), 0);
+    const lowestClearance = Math.min(...obs.map(o => o.clearance ?? Infinity), Infinity);
+    let vis = 100;
+    if (highestBlock > 0) vis = Math.max(0, 100 - (highestBlock * 25));
+    let rating = "CLEAR";
+    if (vis < 20) rating = "BLOCKED";
+    else if (vis < 45) rating = "SEVERELY_OBSTRUCTED";
+    else if (vis < 75) rating = "PARTIALLY_OBSTRUCTED";
+
+    return {
+      overall_rating: rating,
+      visibility_pct: vis,
+      analysis_summary: `${obs.length} obstructions found. Highest exceedance: ${highestBlock.toFixed(2)}m. Lowest clearance: ${lowestClearance === Infinity ? "N/A" : lowestClearance.toFixed(2) + "m"}.`,
+      satellite_findings: "Imagery analysis unavailable — using geospatial data only.",
+      streetview_findings: "Street view analysis unavailable.",
+      vegetation_assessment: `${obs.filter(o => o.feature?.type === "tree" || o.feature?.tags?.natural).length} vegetation obstructions detected.`,
+      infrastructure_assessment: `${obs.filter(o => o.feature?.tags?.barrier || o.feature?.tags?.["man_made"]).length} infrastructure obstructions detected.`,
+      critical_low_obstructions: obs.filter(o => o.isCritical).map(c => ({
+        name: c.feature.name,
+        height_range: `${c.feature.estimatedHeight.toFixed(1)}m`,
+        impact: `Exceeds ray by ${c.excessHeight?.toFixed(2)}m`
+      })),
+      recommendations: [
+        highestBlock > 0 ? "Review and potentially remove physical obstructions within the sight triangle." : "LOS mostly clear; verify on-site conditions."
+      ],
+      elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, target at ${ei.elevCD.toFixed(1)}m.`
     };
+  }
+};
 
   // Run the full 3D analysis using existing A/B and derived C/D points
   const run3DSightAnalysis = async () => {
@@ -203,7 +265,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
     const A = sightTriangle.ptA, C = sightTriangle.triLeft, D = sightTriangle.triRight;
     const eyeH = eyeHeight, tgtH = objectHeight;
     setAnalysisRunning(true); setAnalysisResult(null);
-    const steps = ['Querying OSM Overpass...', 'Processing features...', 'Fetching elevation (DEM)...', 'Ground elevations...', '3D line-of-sight (40 rays)...', 'AI classification...', 'Done!'];
+    const steps = ['Querying OSM Overpass...', 'Processing features...', 'Fetching elevation (DEM)...', 'Ground elevations...', '3D line-of-sight (40 rays)...', 'Capturing satellite + street view...', 'AI Vision classification...', 'Done!'];
     const ss = (n) => setAnalysisSteps(steps.map((s, i) => ({ text: s, status: i < n ? 'done' : i === n ? 'active' : 'pending' })));
     let feats = [], mode = 'live';
     try { ss(0); const ctr = { lat: (A.lat + C.lat + D.lat) / 3, lng: (A.lng + C.lng + D.lng) / 3 }; const r = Math.max(havDist3D(A, C), havDist3D(A, D), havDist3D(C, D)) + 80; const data = await fetchOSM3D(ctr, r); ss(1); feats = procOSM3D(data); if (!feats.length) mode = 'no_data'; } catch { mode = 'error'; }
@@ -442,7 +504,8 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
-        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult} />
+        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
+        forceLayer={sightTriangle ? "satellite" : null} />
 
       {/* ═══ Sight Triangle Analysis Panel ═══ */}
       {sightTriangle && sightTriangle.analysis && (
@@ -534,6 +597,51 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
           </div>
           <div style={{ padding: "0 16px 12px", fontSize: 9, color: "#b0bdb2" }}>
             AS 2890.1:2004 §3.2.4 | Eye 1.15m | Object 0.65–1.5m | Left = abs_min÷10 | Right = ssd_min÷10
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Street View + Satellite Context ═══ */}
+      {sightTriangle && sightTriangle.ptA && (
+        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {/* Google Street View from Point A looking toward road */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+            <div style={{ padding: "8px 14px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12 }}>🚗</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Street View — Driveway (Point A)</span>
+            </div>
+            <div style={{ height: 280 }}>
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${sightTriangle.ptA[0]},${sightTriangle.ptA[1]}&heading=${sightTriangle.ptB ? Math.round(Math.atan2(sightTriangle.ptB[1] - sightTriangle.ptA[1], sightTriangle.ptB[0] - sightTriangle.ptA[0]) * 180 / Math.PI + 90) : 0}&pitch=0&fov=90`}
+                width="100%" height="280" style={{ border: "none" }}
+                allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                title="Street View from driveway"
+                onError={(e) => { e.target.style.display = "none"; e.target.parentNode.innerHTML = '<div style="padding:40px;text-align:center;color:#95a5a6;font-size:11px">Street View unavailable for this location.<br/>Coverage may be limited in residential areas.</div>'; }}
+              />
+            </div>
+            <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4" }}>
+              📍 {sightTriangle.ptA[0].toFixed(6)}, {sightTriangle.ptA[1].toFixed(6)} · Looking toward road centreline
+            </div>
+          </div>
+
+          {/* Satellite context — zoomed aerial view of the sight triangle */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+            <div style={{ padding: "8px 14px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12 }}>🛰️</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Satellite Context — Sight Triangle Area</span>
+            </div>
+            <div style={{ height: 280 }}>
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${sightTriangle.ptA[0]},${sightTriangle.ptA[1]}&zoom=19&maptype=satellite`}
+                width="100%" height="280" style={{ border: "none" }}
+                allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                title="Satellite view of sight triangle"
+              />
+            </div>
+            <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4", display: "flex", justifyContent: "space-between" }}>
+              <span>🛰️ Satellite imagery · Zoom level 19</span>
+              <a href={`https://www.google.com/maps/@${sightTriangle.ptA[0]},${sightTriangle.ptA[1]},19z/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9", textDecoration: "none", fontWeight: 600 }}>Open in Google Maps ↗</a>
+            </div>
           </div>
         </div>
       )}
@@ -641,8 +749,36 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
                   <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700, background: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).color }}>
                     {analysisResult.ai.overall_rating?.replace(/_/g, ' ')}
                   </span>
+                  <span style={{ marginLeft: 8, fontSize: 10, color: "#95a5a6" }}>Visibility: {analysisResult.ai.visibility_pct}%</span>
                 </div>
                 <div style={{ fontSize: 11, lineHeight: 1.6, color: "#1a3a4a", marginBottom: 10 }}>{analysisResult.ai.analysis_summary}</div>
+
+                {/* Imagery-based findings */}
+                {analysisResult.ai.satellite_findings && analysisResult.ai.satellite_findings !== "Imagery analysis unavailable — using geospatial data only." && (
+                  <div style={{ background: "#ebf5fb", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #2980b920" }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#2980b9", marginBottom: 3, textTransform: "uppercase" }}>🛰️ Satellite Imagery Analysis</div>
+                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.satellite_findings}</div>
+                  </div>
+                )}
+                {analysisResult.ai.streetview_findings && analysisResult.ai.streetview_findings !== "Street view analysis unavailable." && (
+                  <div style={{ background: "#fef5e7", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #e67e2220" }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#e67e22", marginBottom: 3, textTransform: "uppercase" }}>🚗 Street View Analysis</div>
+                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.streetview_findings}</div>
+                  </div>
+                )}
+                {analysisResult.ai.vegetation_assessment && (
+                  <div style={{ background: "#eafaf1", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #27ae6020" }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#27ae60", marginBottom: 3, textTransform: "uppercase" }}>🌳 Vegetation Assessment</div>
+                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.vegetation_assessment}</div>
+                  </div>
+                )}
+                {analysisResult.ai.infrastructure_assessment && (
+                  <div style={{ background: "#f4ecf7", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #8e44ad20" }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#8e44ad", marginBottom: 3, textTransform: "uppercase" }}>🧱 Infrastructure Assessment</div>
+                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.infrastructure_assessment}</div>
+                  </div>
+                )}
+
                 {analysisResult.ai.critical_low_obstructions?.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
                     <div style={{ fontSize: 9, fontWeight: 700, color: "#e67e22", marginBottom: 3 }}>⚠ CRITICAL LOW (0.5–1.0m)</div>

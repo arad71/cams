@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -44,9 +44,10 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
     const L = window.L;
+    const layer = forceLayer || activeLayer;
     mapInstanceRef.current.removeLayer(tileLayerRef.current);
-    tileLayerRef.current = L.tileLayer(TILE_LAYERS[activeLayer].url, { attribution: TILE_LAYERS[activeLayer].attr, maxZoom: 19 }).addTo(mapInstanceRef.current);
-  }, [activeLayer]);
+    tileLayerRef.current = L.tileLayer(TILE_LAYERS[layer].url, { attribution: TILE_LAYERS[layer].attr, maxZoom: 19 }).addTo(mapInstanceRef.current);
+  }, [activeLayer, forceLayer]);
 
   // Add markers for applications
   useEffect(() => {
