@@ -163,7 +163,13 @@ Examine the satellite and street view images provided. Identify:
 3. Signs, poles, utility boxes, parked vehicles
 4. Any structure between 0.65m-1.5m height in the triangle zone
 5. Verge condition — is it clear or obstructed?
-6. Road geometry — curves, intersections, median islands affecting sight lines` : "No imagery available — assess based on geospatial data only."}
+6. Road geometry — curves, intersections, median islands affecting sight lines
+7. ROAD CROSSINGS & JUNCTIONS: Look carefully at both satellite and street view for:
+   - Pedestrian crossings (marked or unmarked) within 30m of Point A
+   - Road intersections / T-junctions / roundabouts within 30m
+   - Give way signs, stop signs, traffic signals
+   - Other driveways / crossovers within 30m
+   Report the estimated distance from Point A to each crossing found.` : "No imagery available — assess based on geospatial data only."}
 
 ASSESSMENT STANDARD: AS 2890.1:2004 §3.2.4 / Austroads Guide to Road Design Part 4A
 - Clear zone: nothing between 0.65m-1.5m height within the sight triangle
@@ -179,6 +185,7 @@ Respond with JSON only:
   "streetview_findings": "What the street-level image reveals about driver sight lines...",
   "vegetation_assessment": "Trees/hedges status...",
   "infrastructure_assessment": "Fences/walls/signs...",
+  "nearby_crossings": [{"type":"pedestrian_crossing|intersection|stop_sign|give_way|traffic_signals|driveway|roundabout","name":"...","estimated_distance_m":0,"impact":"How this affects sight requirements"}],
   "critical_low_obstructions": [{"name":"...","height_range":"...","impact":"..."}],
   "recommendations": ["..."],
   "elevation_insight": "..."
@@ -223,6 +230,7 @@ Respond with JSON only:
         streetview_findings: "Street view analysis unavailable.",
         vegetation_assessment: "No vegetation obstructions detected in geospatial data.",
         infrastructure_assessment: "No infrastructure obstructions detected.",
+        nearby_crossings: [],
         critical_low_obstructions: [],
         recommendations: [],
         elevation_insight: `Observer at ${ei.elevA.toFixed(1)}m, target at ${ei.elevCD.toFixed(1)}m.`
@@ -246,6 +254,7 @@ Respond with JSON only:
       streetview_findings: "Street view analysis unavailable.",
       vegetation_assessment: `${obs.filter(o => o.feature?.type === "tree" || o.feature?.tags?.natural).length} vegetation obstructions detected.`,
       infrastructure_assessment: `${obs.filter(o => o.feature?.tags?.barrier || o.feature?.tags?.["man_made"]).length} infrastructure obstructions detected.`,
+      nearby_crossings: [],
       critical_low_obstructions: obs.filter(o => o.isCritical).map(c => ({
         name: c.feature.name,
         height_range: `${c.feature.estimatedHeight.toFixed(1)}m`,
@@ -397,10 +406,8 @@ Respond with JSON only:
     else if (drawMode === "ptB") { setPtB({ lat: latlng.lat, lng: latlng.lng }); setDrawMode(null); }
   }, [drawMode]);
 
-  const [nearbyCrossings, setNearbyCrossings] = useState([]);
-
   useEffect(() => {
-    if (!ptA || !ptB) { setSightTriangle(null); setNearbyCrossings([]); return; }
+    if (!ptA || !ptB) { setSightTriangle(null); return; }
     const nearestRoad = findNearestRoadSpeed(ptB.lat, ptB.lng, speedRoadsData);
     const sd = getSightDistances(nearestRoad.speed);
     const leftDistM = sd.leftM, rightDistM = sd.rightM, baseTotal = leftDistM + rightDistM;
@@ -448,69 +455,7 @@ Respond with JSON only:
       },
     });
 
-    // Async: fetch nearby road crossings/junctions from Overpass
-    (async () => {
-      try {
-        const radius = 50; // search 50m around point A
-        const q = `[out:json][timeout:10];(
-          node["highway"="crossing"](around:${radius},${ptA.lat},${ptA.lng});
-          node["highway"="give_way"](around:${radius},${ptA.lat},${ptA.lng});
-          node["highway"="stop"](around:${radius},${ptA.lat},${ptA.lng});
-          node["highway"="traffic_signals"](around:${radius},${ptA.lat},${ptA.lng});
-          node["railway"="crossing"](around:${radius},${ptA.lat},${ptA.lng});
-          way["highway"]["junction"](around:${radius},${ptA.lat},${ptA.lng});
-          way["highway"="secondary"](around:${radius},${ptA.lat},${ptA.lng});
-          way["highway"="tertiary"](around:${radius},${ptA.lat},${ptA.lng});
-          way["highway"="residential"](around:${radius},${ptA.lat},${ptA.lng});
-        );out body geom;`;
-        const resp = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
-        if (!resp.ok) { setNearbyCrossings([]); return; }
-        const data = await resp.json();
-        const crossings = [];
-        for (const el of (data.elements || [])) {
-          const tags = el.tags || {};
-          let type = null, name = "";
-          if (tags.highway === "crossing" || tags.railway === "crossing") { type = "pedestrian_crossing"; name = tags.name || "Pedestrian Crossing"; }
-          else if (tags.highway === "give_way") { type = "give_way"; name = "Give Way"; }
-          else if (tags.highway === "stop") { type = "stop_sign"; name = "Stop Sign"; }
-          else if (tags.highway === "traffic_signals") { type = "traffic_signals"; name = tags.name || "Traffic Signals"; }
-          else if (tags.junction) { type = "junction"; name = tags.name || `${tags.junction} junction`; }
-          else if (tags.highway && el.type === "way") {
-            // Road — find nearest point on this road to ptA
-            if (!el.geometry || el.geometry.length < 2) continue;
-            // Check if this road intersects another road nearby (junction node)
-            type = "road"; name = tags.name || `${tags.highway} road`;
-          }
-          if (!type) continue;
-
-          let lat, lng;
-          if (el.lat && el.lon) { lat = el.lat; lng = el.lon; }
-          else if (el.geometry && el.geometry.length > 0) {
-            // For ways, find closest point to ptA
-            let minD = Infinity, closestPt = null;
-            for (const nd of el.geometry) {
-              const d = geoDistMetres(ptA.lat, ptA.lng, nd.lat, nd.lon);
-              if (d < minD) { minD = d; closestPt = { lat: nd.lat, lng: nd.lon }; }
-            }
-            if (closestPt) { lat = closestPt.lat; lng = closestPt.lng; }
-          }
-          if (!lat) continue;
-
-          const dist = geoDistMetres(ptA.lat, ptA.lng, lat, lng);
-          if (dist <= 30) {
-            crossings.push({ type, name, lat, lng, dist: dist.toFixed(1), tags });
-          }
-        }
-        crossings.sort((a, b) => parseFloat(a.dist) - parseFloat(b.dist));
-        // Deduplicate by type+proximity (within 3m)
-        const deduped = [];
-        for (const c of crossings) {
-          const dup = deduped.find(d => d.type === c.type && Math.abs(parseFloat(d.dist) - parseFloat(c.dist)) < 3);
-          if (!dup) deduped.push(c);
-        }
-        setNearbyCrossings(deduped);
-      } catch (e) { console.warn("Road crossing query failed:", e); setNearbyCrossings([]); }
-    })();
+    // Async road crossing detection removed — handled by AI 3D Sight Analysis instead
   }, [ptA, ptB, coords, lotPoly, sightLotPoly]);
 
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); reset3DAnalysis(); };
@@ -687,41 +632,6 @@ Respond with JSON only:
                   </div>
               </div>
           </div> */}
-
-          {/* Nearby road crossings within 30m of Point A */}
-          {nearbyCrossings.length > 0 && (
-            <div style={{ padding: "0 16px 12px" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#e74c3c", marginBottom: 4, textTransform: "uppercase" }}>⚠ Road Crossings / Junctions within 30m of Driveway</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                {nearbyCrossings.map((c, i) => {
-                  const icons = { pedestrian_crossing: "🚶", give_way: "🔺", stop_sign: "🛑", traffic_signals: "🚦", junction: "🔀", road: "🛣️" };
-                  const d = parseFloat(c.dist);
-                  return (
-                    <div key={i} style={{ flex: "1 1 130px", padding: "6px 10px", borderRadius: 6, minWidth: 120,
-                      background: d < 10 ? "#fdedec" : d < 20 ? "#fef5e7" : "#f8fafb",
-                      border: d < 10 ? "2px solid #e74c3c" : d < 20 ? "1.5px solid #e67e22" : "1px solid #eef2f4" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                        <span style={{ fontSize: 14 }}>{icons[c.type] || "📍"}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, color: "#1a3a4a" }}>{c.name}</span>
-                      </div>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: d < 10 ? "#e74c3c" : d < 20 ? "#e67e22" : "#2980b9" }}>{c.dist}m</div>
-                      <div style={{ fontSize: 8, color: "#95a5a6" }}>from Point A{c.tags?.name ? ` · ${c.tags.name}` : ""}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ marginTop: 4, fontSize: 9, color: "#c0392b", fontStyle: "italic" }}>
-                ⚠ Crossings within 30m may affect sight distance requirements per AS 2890.1 §3.2.4
-              </div>
-            </div>
-          )}
-          {nearbyCrossings.length === 0 && sightTriangle && (
-            <div style={{ padding: "0 16px 8px" }}>
-              <div style={{ padding: "6px 10px", background: "#eafaf1", borderRadius: 6, fontSize: 10, color: "#27ae60", fontWeight: 600 }}>
-                ✓ No road crossings, junctions, or traffic controls found within 30m of driveway
-              </div>
-            </div>
-          )}
 
           {/* Reference table */}
           <div style={{ padding: "0 16px 10px" }}>
@@ -919,6 +829,37 @@ Respond with JSON only:
                   <div style={{ background: "#f4ecf7", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #8e44ad20" }}>
                     <div style={{ fontSize: 9, fontWeight: 800, color: "#8e44ad", marginBottom: 3, textTransform: "uppercase" }}>🧱 Infrastructure Assessment</div>
                     <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.infrastructure_assessment}</div>
+                  </div>
+                )}
+
+                {/* AI-detected road crossings */}
+                {analysisResult.ai.nearby_crossings?.length > 0 && (
+                  <div style={{ background: "#fdedec", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #e74c3c20" }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, color: "#e74c3c", marginBottom: 6, textTransform: "uppercase" }}>🚦 Road Crossings & Junctions within 30m</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {analysisResult.ai.nearby_crossings.map((c, i) => {
+                        const icons = { pedestrian_crossing: "🚶", intersection: "🔀", stop_sign: "🛑", give_way: "🔺", traffic_signals: "🚦", driveway: "🚗", roundabout: "🔄" };
+                        const d = c.estimated_distance_m;
+                        return (
+                          <div key={i} style={{ flex: "1 1 140px", padding: "6px 10px", borderRadius: 6, background: d < 10 ? "#fce4e4" : d < 20 ? "#fef5e7" : "#fff", border: `1px solid ${d < 10 ? "#e74c3c40" : "#e4e9ec"}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <span style={{ fontSize: 13 }}>{icons[c.type] || "📍"}</span>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: "#1a3a4a" }}>{c.name}</span>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: d < 15 ? "#e74c3c" : "#e67e22", marginTop: 2 }}>~{d}m</div>
+                            {c.impact && <div style={{ fontSize: 9, color: "#7a8a94", marginTop: 1 }}>{c.impact}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 9, color: "#c0392b", fontStyle: "italic" }}>
+                      ⚠ Crossings within 30m may require extended sight distance per AS 2890.1 §3.2.4
+                    </div>
+                  </div>
+                )}
+                {analysisResult.ai.nearby_crossings && analysisResult.ai.nearby_crossings.length === 0 && (
+                  <div style={{ background: "#eafaf1", borderRadius: 8, padding: "6px 12px", marginBottom: 8, border: "1px solid #27ae6020", fontSize: 10, color: "#27ae60", fontWeight: 600 }}>
+                    ✓ No road crossings or junctions detected within 30m of driveway
                   </div>
                 )}
 
