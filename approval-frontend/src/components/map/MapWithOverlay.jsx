@@ -359,13 +359,48 @@ Respond with JSON only:
     ];
   }, [app?.lot_polygon, derivedLotFromAddress, coords, app?.property]);
 
+  // Find the lot polygon that CONTAINS point A (from the 23k lots GeoJSON)
+  const ptALotPoly = useMemo(() => {
+    if (!ptA || !lotsData?.features) return null;
+    // Ray-casting point-in-polygon
+    const ptInPolyLngLat = (lat, lng, ring) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i], [xj, yj] = ring[j];
+        if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    };
+    for (const f of lotsData.features) {
+      const geom = f.geometry;
+      if (!geom) continue;
+      let rings = [];
+      if (geom.type === "Polygon") rings = [geom.coordinates[0]];
+      else if (geom.type === "MultiPolygon") rings = geom.coordinates.map(p => p[0]);
+      for (const ring of rings) {
+        // GeoJSON rings are [lng, lat]
+        if (ptInPolyLngLat(ptA.lat, ptA.lng, ring)) {
+          // Convert [lng, lat] → [lat, lng] for our polygon format
+          const poly = ring.map(([lng, lat]) => [lat, lng]);
+          return { poly, properties: f.properties };
+        }
+      }
+    }
+    return null;
+  }, [ptA, lotsData]);
+
+  // Use ptA's lot for boundary distances (priority over application lot)
+  const sightLotPoly = ptALotPoly?.poly || lotPoly;
+
   const handleMapClick = useCallback((latlng) => {
     if (drawMode === "ptA") { setPtA({ lat: latlng.lat, lng: latlng.lng }); setDrawMode("ptB"); }
     else if (drawMode === "ptB") { setPtB({ lat: latlng.lat, lng: latlng.lng }); setDrawMode(null); }
   }, [drawMode]);
 
+  const [nearbyCrossings, setNearbyCrossings] = useState([]);
+
   useEffect(() => {
-    if (!ptA || !ptB) { setSightTriangle(null); return; }
+    if (!ptA || !ptB) { setSightTriangle(null); setNearbyCrossings([]); return; }
     const nearestRoad = findNearestRoadSpeed(ptB.lat, ptB.lng, speedRoadsData);
     const sd = getSightDistances(nearestRoad.speed);
     const leftDistM = sd.leftM, rightDistM = sd.rightM, baseTotal = leftDistM + rightDistM;
@@ -375,14 +410,15 @@ Respond with JSON only:
     const triRight = geoOffset(ptB.lat, ptB.lng, rightDistM, (bearing + 90) % 360);
     const depthM = geoDistMetres(ptA.lat, ptA.lng, ptB.lat, ptB.lng);
 
-    // Distance from ptA to EACH side of lot polygon (if available)
+    // Distance from ptA to EACH side of the lot polygon where point A is located
     const boundaryDists = [];
-    if (lotPoly && lotPoly.length > 1) {
-      for (let i = 0; i < lotPoly.length - 1; i++) {
-        const seg = nearestPointOnSegment(ptA.lat, ptA.lng, lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
+    const bPoly = sightLotPoly || lotPoly;
+    if (bPoly && bPoly.length > 1) {
+      for (let i = 0; i < bPoly.length - 1; i++) {
+        const seg = nearestPointOnSegment(ptA.lat, ptA.lng, bPoly[i][0], bPoly[i][1], bPoly[i+1][0], bPoly[i+1][1]);
         const d = geoDistMetres(ptA.lat, ptA.lng, seg.lat, seg.lng);
-        const sideLen = geoDistMetres(lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
-        boundaryDists.push({ idx: i, dist: d, distLabel: d.toFixed(1), nearPt: seg, sideLen: sideLen.toFixed(1), from: lotPoly[i], to: lotPoly[i+1] });
+        const sideLen = geoDistMetres(bPoly[i][0], bPoly[i][1], bPoly[i+1][0], bPoly[i+1][1]);
+        boundaryDists.push({ idx: i, dist: d, distLabel: d.toFixed(1), nearPt: seg, sideLen: sideLen.toFixed(1), from: bPoly[i], to: bPoly[i+1] });
       }
       boundaryDists.sort((a, b) => a.dist - b.dist);
     }
@@ -399,7 +435,8 @@ Respond with JSON only:
     setSightTriangle({
       ptA, ptB, triLeft, triRight,
       lineAB: [[ptA.lat, ptA.lng], [ptB.lat, ptB.lng]],
-      lotPoly, boundaryDists,
+      lotPoly: bPoly, boundaryDists,
+      ptALotInfo: ptALotPoly?.properties || null,
       speedInfo: { detected: nearestRoad.speed, roadName: nearestRoad.roadName, networkType: nearestRoad.networkType, absMin: sd.absMin, ssdMin: sd.ssdMin, leftM: leftDistM, rightM: rightDistM, baseTotal },
       analysis: {
         depth: depthM.toFixed(1), area: (baseTotal * depthM / 2).toFixed(1), baseWidth: baseTotal.toFixed(1),
@@ -410,7 +447,71 @@ Respond with JSON only:
         grade, elevDiff, compliant: depthM >= 2.0, heightClear: true,
       },
     });
-  }, [ptA, ptB, coords, lotPoly]);
+
+    // Async: fetch nearby road crossings/junctions from Overpass
+    (async () => {
+      try {
+        const radius = 50; // search 50m around point A
+        const q = `[out:json][timeout:10];(
+          node["highway"="crossing"](around:${radius},${ptA.lat},${ptA.lng});
+          node["highway"="give_way"](around:${radius},${ptA.lat},${ptA.lng});
+          node["highway"="stop"](around:${radius},${ptA.lat},${ptA.lng});
+          node["highway"="traffic_signals"](around:${radius},${ptA.lat},${ptA.lng});
+          node["railway"="crossing"](around:${radius},${ptA.lat},${ptA.lng});
+          way["highway"]["junction"](around:${radius},${ptA.lat},${ptA.lng});
+          way["highway"="secondary"](around:${radius},${ptA.lat},${ptA.lng});
+          way["highway"="tertiary"](around:${radius},${ptA.lat},${ptA.lng});
+          way["highway"="residential"](around:${radius},${ptA.lat},${ptA.lng});
+        );out body geom;`;
+        const resp = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+        if (!resp.ok) { setNearbyCrossings([]); return; }
+        const data = await resp.json();
+        const crossings = [];
+        for (const el of (data.elements || [])) {
+          const tags = el.tags || {};
+          let type = null, name = "";
+          if (tags.highway === "crossing" || tags.railway === "crossing") { type = "pedestrian_crossing"; name = tags.name || "Pedestrian Crossing"; }
+          else if (tags.highway === "give_way") { type = "give_way"; name = "Give Way"; }
+          else if (tags.highway === "stop") { type = "stop_sign"; name = "Stop Sign"; }
+          else if (tags.highway === "traffic_signals") { type = "traffic_signals"; name = tags.name || "Traffic Signals"; }
+          else if (tags.junction) { type = "junction"; name = tags.name || `${tags.junction} junction`; }
+          else if (tags.highway && el.type === "way") {
+            // Road — find nearest point on this road to ptA
+            if (!el.geometry || el.geometry.length < 2) continue;
+            // Check if this road intersects another road nearby (junction node)
+            type = "road"; name = tags.name || `${tags.highway} road`;
+          }
+          if (!type) continue;
+
+          let lat, lng;
+          if (el.lat && el.lon) { lat = el.lat; lng = el.lon; }
+          else if (el.geometry && el.geometry.length > 0) {
+            // For ways, find closest point to ptA
+            let minD = Infinity, closestPt = null;
+            for (const nd of el.geometry) {
+              const d = geoDistMetres(ptA.lat, ptA.lng, nd.lat, nd.lon);
+              if (d < minD) { minD = d; closestPt = { lat: nd.lat, lng: nd.lon }; }
+            }
+            if (closestPt) { lat = closestPt.lat; lng = closestPt.lng; }
+          }
+          if (!lat) continue;
+
+          const dist = geoDistMetres(ptA.lat, ptA.lng, lat, lng);
+          if (dist <= 30) {
+            crossings.push({ type, name, lat, lng, dist: dist.toFixed(1), tags });
+          }
+        }
+        crossings.sort((a, b) => parseFloat(a.dist) - parseFloat(b.dist));
+        // Deduplicate by type+proximity (within 3m)
+        const deduped = [];
+        for (const c of crossings) {
+          const dup = deduped.find(d => d.type === c.type && Math.abs(parseFloat(d.dist) - parseFloat(c.dist)) < 3);
+          if (!dup) deduped.push(c);
+        }
+        setNearbyCrossings(deduped);
+      } catch (e) { console.warn("Road crossing query failed:", e); setNearbyCrossings([]); }
+    })();
+  }, [ptA, ptB, coords, lotPoly, sightLotPoly]);
 
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
@@ -545,7 +646,15 @@ Respond with JSON only:
 
           {/* Boundary distances from A to each lot side */}
           <div style={{ padding: "0 16px 12px" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>📐 Distance from Point A to each lot boundary side</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>
+              📐 Distance from Point A to lot boundary
+              {sightTriangle.ptALotInfo && (
+                <span style={{ fontWeight: 400, textTransform: "none", marginLeft: 6, color: "#2980b9" }}>
+                  — {[sightTriangle.ptALotInfo.road_number_1, sightTriangle.ptALotInfo.road_name, sightTriangle.ptALotInfo.road_type, sightTriangle.ptALotInfo.locality].filter(Boolean).join(" ")}
+                  {sightTriangle.ptALotInfo.lot_number && ` (Lot ${sightTriangle.ptALotInfo.lot_number})`}
+                </span>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {(sightTriangle.boundaryDists || []).map((bd, i) => (
                 <div key={i} style={{ flex: "1 1 110px", padding: "6px 10px", borderRadius: 6, fontSize: 11, minWidth: 100,
@@ -578,6 +687,41 @@ Respond with JSON only:
                   </div>
               </div>
           </div> */}
+
+          {/* Nearby road crossings within 30m of Point A */}
+          {nearbyCrossings.length > 0 && (
+            <div style={{ padding: "0 16px 12px" }}>
+              <div style={{ fontSize: 9, fontWeight: 700, color: "#e74c3c", marginBottom: 4, textTransform: "uppercase" }}>⚠ Road Crossings / Junctions within 30m of Driveway</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {nearbyCrossings.map((c, i) => {
+                  const icons = { pedestrian_crossing: "🚶", give_way: "🔺", stop_sign: "🛑", traffic_signals: "🚦", junction: "🔀", road: "🛣️" };
+                  const d = parseFloat(c.dist);
+                  return (
+                    <div key={i} style={{ flex: "1 1 130px", padding: "6px 10px", borderRadius: 6, minWidth: 120,
+                      background: d < 10 ? "#fdedec" : d < 20 ? "#fef5e7" : "#f8fafb",
+                      border: d < 10 ? "2px solid #e74c3c" : d < 20 ? "1.5px solid #e67e22" : "1px solid #eef2f4" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                        <span style={{ fontSize: 14 }}>{icons[c.type] || "📍"}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#1a3a4a" }}>{c.name}</span>
+                      </div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: d < 10 ? "#e74c3c" : d < 20 ? "#e67e22" : "#2980b9" }}>{c.dist}m</div>
+                      <div style={{ fontSize: 8, color: "#95a5a6" }}>from Point A{c.tags?.name ? ` · ${c.tags.name}` : ""}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 9, color: "#c0392b", fontStyle: "italic" }}>
+                ⚠ Crossings within 30m may affect sight distance requirements per AS 2890.1 §3.2.4
+              </div>
+            </div>
+          )}
+          {nearbyCrossings.length === 0 && sightTriangle && (
+            <div style={{ padding: "0 16px 8px" }}>
+              <div style={{ padding: "6px 10px", background: "#eafaf1", borderRadius: 6, fontSize: 10, color: "#27ae60", fontWeight: 600 }}>
+                ✓ No road crossings, junctions, or traffic controls found within 30m of driveway
+              </div>
+            </div>
+          )}
 
           {/* Reference table */}
           <div style={{ padding: "0 16px 10px" }}>
