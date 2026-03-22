@@ -40,8 +40,8 @@ async def extract(
         
         # --- demo ------------------------------------------------------------------------
 
-     
-        path = Path("source_file/lot.geojson")
+        addr=result['values']['property_address']
+        path = Path("app/source_file/lot.geojson")
 
         # Example queries that should match your sample rows:
         # - "54 Stirling Cr High Wycombe"
