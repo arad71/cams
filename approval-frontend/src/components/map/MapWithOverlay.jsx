@@ -359,6 +359,39 @@ Respond with JSON only:
     ];
   }, [app?.lot_polygon, derivedLotFromAddress, coords, app?.property]);
 
+  // Find the lot polygon that CONTAINS point A (from the 23k lots GeoJSON)
+  const ptALotPoly = useMemo(() => {
+    if (!ptA || !lotsData?.features) return null;
+    // Ray-casting point-in-polygon
+    const ptInPolyLngLat = (lat, lng, ring) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const [xi, yi] = ring[i], [xj, yj] = ring[j];
+        if ((yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+      }
+      return inside;
+    };
+    for (const f of lotsData.features) {
+      const geom = f.geometry;
+      if (!geom) continue;
+      let rings = [];
+      if (geom.type === "Polygon") rings = [geom.coordinates[0]];
+      else if (geom.type === "MultiPolygon") rings = geom.coordinates.map(p => p[0]);
+      for (const ring of rings) {
+        // GeoJSON rings are [lng, lat]
+        if (ptInPolyLngLat(ptA.lat, ptA.lng, ring)) {
+          // Convert [lng, lat] → [lat, lng] for our polygon format
+          const poly = ring.map(([lng, lat]) => [lat, lng]);
+          return { poly, properties: f.properties };
+        }
+      }
+    }
+    return null;
+  }, [ptA, lotsData]);
+
+  // Use ptA's lot for boundary distances (priority over application lot)
+  const sightLotPoly = ptALotPoly?.poly || lotPoly;
+
   const handleMapClick = useCallback((latlng) => {
     if (drawMode === "ptA") { setPtA({ lat: latlng.lat, lng: latlng.lng }); setDrawMode("ptB"); }
     else if (drawMode === "ptB") { setPtB({ lat: latlng.lat, lng: latlng.lng }); setDrawMode(null); }
@@ -377,14 +410,15 @@ Respond with JSON only:
     const triRight = geoOffset(ptB.lat, ptB.lng, rightDistM, (bearing + 90) % 360);
     const depthM = geoDistMetres(ptA.lat, ptA.lng, ptB.lat, ptB.lng);
 
-    // Distance from ptA to EACH side of lot polygon (if available)
+    // Distance from ptA to EACH side of the lot polygon where point A is located
     const boundaryDists = [];
-    if (lotPoly && lotPoly.length > 1) {
-      for (let i = 0; i < lotPoly.length - 1; i++) {
-        const seg = nearestPointOnSegment(ptA.lat, ptA.lng, lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
+    const bPoly = sightLotPoly || lotPoly;
+    if (bPoly && bPoly.length > 1) {
+      for (let i = 0; i < bPoly.length - 1; i++) {
+        const seg = nearestPointOnSegment(ptA.lat, ptA.lng, bPoly[i][0], bPoly[i][1], bPoly[i+1][0], bPoly[i+1][1]);
         const d = geoDistMetres(ptA.lat, ptA.lng, seg.lat, seg.lng);
-        const sideLen = geoDistMetres(lotPoly[i][0], lotPoly[i][1], lotPoly[i+1][0], lotPoly[i+1][1]);
-        boundaryDists.push({ idx: i, dist: d, distLabel: d.toFixed(1), nearPt: seg, sideLen: sideLen.toFixed(1), from: lotPoly[i], to: lotPoly[i+1] });
+        const sideLen = geoDistMetres(bPoly[i][0], bPoly[i][1], bPoly[i+1][0], bPoly[i+1][1]);
+        boundaryDists.push({ idx: i, dist: d, distLabel: d.toFixed(1), nearPt: seg, sideLen: sideLen.toFixed(1), from: bPoly[i], to: bPoly[i+1] });
       }
       boundaryDists.sort((a, b) => a.dist - b.dist);
     }
@@ -401,7 +435,8 @@ Respond with JSON only:
     setSightTriangle({
       ptA, ptB, triLeft, triRight,
       lineAB: [[ptA.lat, ptA.lng], [ptB.lat, ptB.lng]],
-      lotPoly, boundaryDists,
+      lotPoly: bPoly, boundaryDists,
+      ptALotInfo: ptALotPoly?.properties || null,
       speedInfo: { detected: nearestRoad.speed, roadName: nearestRoad.roadName, networkType: nearestRoad.networkType, absMin: sd.absMin, ssdMin: sd.ssdMin, leftM: leftDistM, rightM: rightDistM, baseTotal },
       analysis: {
         depth: depthM.toFixed(1), area: (baseTotal * depthM / 2).toFixed(1), baseWidth: baseTotal.toFixed(1),
@@ -476,7 +511,7 @@ Respond with JSON only:
         setNearbyCrossings(deduped);
       } catch (e) { console.warn("Road crossing query failed:", e); setNearbyCrossings([]); }
     })();
-  }, [ptA, ptB, coords, lotPoly]);
+  }, [ptA, ptB, coords, lotPoly, sightLotPoly]);
 
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
@@ -611,7 +646,15 @@ Respond with JSON only:
 
           {/* Boundary distances from A to each lot side */}
           <div style={{ padding: "0 16px 12px" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>📐 Distance from Point A to each lot boundary side</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>
+              📐 Distance from Point A to lot boundary
+              {sightTriangle.ptALotInfo && (
+                <span style={{ fontWeight: 400, textTransform: "none", marginLeft: 6, color: "#2980b9" }}>
+                  — {[sightTriangle.ptALotInfo.road_number_1, sightTriangle.ptALotInfo.road_name, sightTriangle.ptALotInfo.road_type, sightTriangle.ptALotInfo.locality].filter(Boolean).join(" ")}
+                  {sightTriangle.ptALotInfo.lot_number && ` (Lot ${sightTriangle.ptALotInfo.lot_number})`}
+                </span>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {(sightTriangle.boundaryDists || []).map((bd, i) => (
                 <div key={i} style={{ flex: "1 1 110px", padding: "6px 10px", borderRadius: 6, fontSize: 11, minWidth: 100,
