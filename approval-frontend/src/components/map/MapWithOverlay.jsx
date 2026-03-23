@@ -551,7 +551,11 @@ Respond with JSON only:
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
         showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
-        forceLayer={null} />
+        forceLayer={null}
+        onSightPointDrag={(point, latlng) => {
+          if (point === 'A') setPtA(latlng);
+          else if (point === 'B') setPtB(latlng);
+        }} />
 
       {/* ═══ Sight Triangle Analysis Panel ═══ */}
       {sightTriangle && sightTriangle.analysis && (
