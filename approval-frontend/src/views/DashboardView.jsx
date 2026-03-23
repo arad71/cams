@@ -24,6 +24,8 @@ export default function DashboardView({ apps, allApps, onSelectApp, globalLotsDa
   const [sortCol, setSortCol] = useState("submitted");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(0);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [recentOpen, setRecentOpen] = useState(false);
   const PAGE_SIZE = 12;
 
   const sc = {};
@@ -212,16 +214,24 @@ export default function DashboardView({ apps, allApps, onSelectApp, globalLotsDa
             </div>
           </div>
 
-          {/* ═══ APPLICATION REGISTER (manager only) ═══ */}
+          {/* ═══ APPLICATION REGISTER (manager only) — collapsible ═══ */}
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e4e9ec", overflow: "hidden", marginBottom: 14 }}>
-            <div style={{ padding: "12px 18px", borderBottom: "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 800, fontSize: 14, color: "#1a3a4a" }}>📋 Application Register</span>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Search ID, applicant, officer..." style={{ padding: "5px 10px", borderRadius: 6, border: "1.5px solid #d5dde2", fontSize: 10, width: 200, fontFamily: "inherit", outline: "none" }} />
-                <button onClick={exportCSV} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: "#5a6a74" }}>📥 CSV</button>
-                <span style={{ fontSize: 10, color: "#95a5a6" }}>{tableData.length} total</span>
+            <div onClick={() => setRegisterOpen(!registerOpen)} style={{ padding: "12px 18px", borderBottom: registerOpen ? "1px solid #eef2f4" : "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 10, color: "#95a5a6", transition: "transform 0.2s", transform: registerOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                <span style={{ fontWeight: 800, fontSize: 14, color: "#1a3a4a" }}>📋 Application Register</span>
+                <span style={{ fontSize: 10, color: "#95a5a6", fontWeight: 600 }}>{tableData.length} records</span>
               </div>
+              {registerOpen && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+                  <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Search ID, applicant, officer..." style={{ padding: "5px 10px", borderRadius: 6, border: "1.5px solid #d5dde2", fontSize: 10, width: 200, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={exportCSV} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", color: "#5a6a74" }}>📥 CSV</button>
+                </div>
+              )}
             </div>
+            {registerOpen && (
+              <>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                 <thead>
@@ -255,6 +265,8 @@ export default function DashboardView({ apps, allApps, onSelectApp, globalLotsDa
                   <button onClick={()=>setPage(Math.min(pageCount-1,page+1))} disabled={page>=pageCount-1} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, cursor: page<pageCount-1?"pointer":"default", color: page<pageCount-1?"#1a3a4a":"#d5dde2" }}>Next ›</button>
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         </>
@@ -304,26 +316,33 @@ export default function DashboardView({ apps, allApps, onSelectApp, globalLotsDa
         <LeafletMap apps={apps} onSelectApp={onSelectApp} height={380} allLotsData={globalLotsData} />
       </div>
 
-      {/* ═══ RECENT APPLICATIONS ═══ */}
+      {/* ═══ RECENT APPLICATIONS — collapsible ═══ */}
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-        <div style={{ padding: "12px 18px", borderBottom: "1px solid #eef2f4", fontWeight: 700, fontSize: 14, color: "#1a3a4a" }}>
-          {role === "engineer" ? "My Recent Cases" : "Recent Applications"}
+        <div onClick={() => setRecentOpen(!recentOpen)} style={{ padding: "12px 18px", borderBottom: recentOpen ? "1px solid #eef2f4" : "none", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+          onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+          <span style={{ fontSize: 10, color: "#95a5a6", transition: "transform 0.2s", transform: recentOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#1a3a4a" }}>{role === "engineer" ? "My Recent Cases" : "Recent Applications"}</span>
+          <span style={{ fontSize: 10, color: "#95a5a6", fontWeight: 600 }}>{Math.min(apps.length, 8)} of {apps.length}</span>
         </div>
-        {apps.slice(0, 8).map(app => {
-          const sub = parseDate(app.submittedDate); const days = sub ? daysBetween(sub, NOW) : 0;
-          return (
-            <div key={app.id} onClick={() => onSelectApp(app)} style={{ padding: "10px 18px", borderBottom: "1px solid #f5f7f8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: "#1a3a4a" }}>{app.id}</div><div style={{ fontSize: 11, color: "#7a8a94" }}>{app.owner?.name} — {app.property?.address?.split(",")[0]}</div></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                {app.assessment?.officer && role !== "engineer" && <span style={{ fontSize: 9, color: "#95a5a6" }}>{app.assessment.officer}</span>}
-                <span style={{ fontSize: 9, color: days > 21 ? "#e74c3c" : "#95a5a6", fontWeight: days > 21 ? 700 : 400 }}>{days}d</span>
-                <StatusBadge status={app.status} />
-              </div>
-            </div>
-          );
-        })}
-        {apps.length === 0 && <div style={{ padding: 20, textAlign: "center", color: "#95a5a6", fontSize: 12 }}>No applications</div>}
+        {recentOpen && (
+          <>
+            {apps.slice(0, 8).map(app => {
+              const sub = parseDate(app.submittedDate); const days = sub ? daysBetween(sub, NOW) : 0;
+              return (
+                <div key={app.id} onClick={() => onSelectApp(app)} style={{ padding: "10px 18px", borderBottom: "1px solid #f5f7f8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 700, color: "#1a3a4a" }}>{app.id}</div><div style={{ fontSize: 11, color: "#7a8a94" }}>{app.owner?.name} — {app.property?.address?.split(",")[0]}</div></div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    {app.assessment?.officer && role !== "engineer" && <span style={{ fontSize: 9, color: "#95a5a6" }}>{app.assessment.officer}</span>}
+                    <span style={{ fontSize: 9, color: days > 21 ? "#e74c3c" : "#95a5a6", fontWeight: days > 21 ? 700 : 400 }}>{days}d</span>
+                    <StatusBadge status={app.status} />
+                  </div>
+                </div>
+              );
+            })}
+            {apps.length === 0 && <div style={{ padding: 20, textAlign: "center", color: "#95a5a6", fontSize: 12 }}>No applications</div>}
+          </>
+        )}
       </div>
     </div>
   );
