@@ -398,9 +398,6 @@ Respond with JSON only:
     return null;
   }, [ptA, lotsData]);
 
-  // Use ptA's lot for boundary distances (priority over application lot)
-  const sightLotPoly = ptALotPoly?.poly || lotPoly;
-
   const handleMapClick = useCallback((latlng) => {
     if (drawMode === "ptA") { setPtA({ lat: latlng.lat, lng: latlng.lng }); setDrawMode("ptB"); }
     else if (drawMode === "ptB") { setPtB({ lat: latlng.lat, lng: latlng.lng }); setDrawMode(null); }
@@ -419,7 +416,7 @@ Respond with JSON only:
 
     // Distance from ptA to EACH side of the lot polygon where point A is located
     const boundaryDists = [];
-    const bPoly = sightLotPoly || lotPoly;
+    const bPoly = ptALotPoly?.poly || lotPoly;
     if (bPoly && bPoly.length > 1) {
       for (let i = 0; i < bPoly.length - 1; i++) {
         const seg = nearestPointOnSegment(ptA.lat, ptA.lng, bPoly[i][0], bPoly[i][1], bPoly[i+1][0], bPoly[i+1][1]);
@@ -456,7 +453,7 @@ Respond with JSON only:
     });
 
     // Async road crossing detection removed — handled by AI 3D Sight Analysis instead
-  }, [ptA, ptB, coords, lotPoly, sightLotPoly]);
+  }, [ptA, ptB, coords, lotPoly, ptALotPoly]);
 
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
