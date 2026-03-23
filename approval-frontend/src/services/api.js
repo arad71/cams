@@ -87,11 +87,13 @@ const api = {
 
   // Document AI analysis
   async analyseDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}/analyse`, { method: "POST" }); },
+  async correctSitePlan(appId, corrections) { return this._fetch(`/applications/${appId}/site-plan-correction`, { method: "PATCH", body: corrections }); },
 
   // AI Training data
   async trainingStats() { return this._fetch("/training/stats"); },
   async trainingVerify(sampleId) { return this._fetch(`/training/samples/${sampleId}/verify`, { method: "POST" }); },
   async trainingCorrect(sampleId, corrections) { return this._fetch(`/training/samples/${sampleId}/correct`, { method: "POST", body: corrections }); },
+  async applySitePlanCorrections(appId, corrections) { return this._fetch(`/applications/${appId}/site-plan-corrections`, { method: "PATCH", body: corrections }); },
   async trainingSamples(appId) { return this._fetch(`/training/samples?limit=50&offset=0`); },
   // Verification (category-specific)
   async verifyApplicationDoc(appId, docId) {

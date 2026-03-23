@@ -341,7 +341,9 @@ def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
 
     if findings and "error" not in findings:
         clean = {k: v for k, v in findings.items() if not k.startswith("_")}
-        app.site_plan_data = clean
+        app.org_site_plan_data = clean   # Original AI extraction — never modified
+        app.site_plan_data = clean       # Active copy — assessment reads this
+        # cor_site_plan_data stays null until officer corrects
         db.commit()
 
         try:
@@ -470,6 +472,184 @@ async def analyse_document_endpoint(
         "summary": comp.get("summary", {}),
         "assessment_updated": len(results),
     }
+
+
+@router.patch("/{app_id}/site-plan-correction")
+def correct_site_plan(
+    app_id: int,
+    corrections: dict,  # {"crossover_dimensions.width_at_boundary_m": "3.8", ...}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager", "engineer")),
+    request: Request = None,
+):
+    """
+    Officer corrects AI extraction values.
+    Updates cor_site_plan_data and site_plan_data (active copy used by assessment).
+    Then re-runs auto-assess on all checklist items.
+
+    Body: {"field.path": "corrected_value", ...}
+    e.g. {"crossover_dimensions.width_at_boundary_m": "3.8", "construction.material": "Concrete"}
+    """
+    from app.services.audit import log_audit
+    from app.api.assessments import _ensure_case_rows, _auto_assess_item
+    from app.models.assessment import CaseAssessment
+    from sqlalchemy.orm import joinedload as jl
+
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+
+    # Start from current corrected data, or original, or current active
+    import copy
+    base = copy.deepcopy(app.cor_site_plan_data or app.org_site_plan_data or app.site_plan_data or {})
+    extraction = base.get("extraction", {})
+
+    # Apply corrections to extraction using dot-path keys
+    changes = {}
+    for field_path, new_value in corrections.items():
+        parts = field_path.split(".")
+        obj = extraction
+        for part in parts[:-1]:
+            if part not in obj or not isinstance(obj[part], dict):
+                obj[part] = {}
+            obj = obj[part]
+        old_value = obj.get(parts[-1])
+        # Try to preserve type
+        if isinstance(old_value, (int, float)) and new_value not in (None, "", "null"):
+            try:
+                new_value = float(new_value)
+                if new_value == int(new_value):
+                    new_value = int(new_value)
+            except (ValueError, TypeError):
+                pass
+        elif isinstance(old_value, bool):
+            new_value = str(new_value).lower() in ("true", "1", "yes")
+        obj[parts[-1]] = new_value
+        changes[field_path] = {"old": str(old_value), "new": str(new_value)}
+
+    base["extraction"] = extraction
+
+    # Re-run compliance check with corrected data
+    from app.services.ai_analyser import check_compliance
+    base["compliance"] = check_compliance(extraction)
+    base["corrected_by"] = current_user.name
+    base["corrected_at"] = datetime.now(timezone.utc).isoformat()
+
+    # Save corrected version and update active copy
+    app.cor_site_plan_data = base
+    app.site_plan_data = base  # Assessment engine reads this
+    db.commit()
+
+    # Re-run auto-assess
+    _ensure_case_rows(db, app_id)
+    results = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
+    now = datetime.now(timezone.utc)
+    assessed = 0
+    for ca in results:
+        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
+        ca.ai_result = ai_result
+        ca.ai_confidence = confidence
+        ca.ai_reason = reason
+        ca.ai_assessed_at = now
+        assessed += 1
+    db.commit()
+
+    log_audit(db=db, action="correct_extraction", entity_type="application", user=current_user,
+              entity_id=str(app.id), entity_ref=app.ref_number,
+              description=f"Corrected {len(changes)} extraction value(s), re-ran assessment",
+              field_changes=changes, request=request)
+
+    return {
+        "success": True,
+        "corrections_applied": len(changes),
+        "assessment_items_updated": assessed,
+        "recommendation": base.get("compliance", {}).get("recommendation", "N/A"),
+    }
+
+
+@router.patch("/{app_id}/site-plan-corrections")
+def apply_site_plan_corrections(
+    app_id: int,
+    corrections: list[dict],  # [{"field_path": "crossover_dimensions.width_at_boundary_m", "value": "3.8"}]
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager", "engineer")),
+):
+    """
+    Officer corrects AI extraction values.
+    Updates cor_site_plan_data and site_plan_data (active copy used by assessment).
+    Then re-runs auto-assessment on all checklist items.
+    """
+    from app.services.audit import log_audit
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if not app.site_plan_data:
+        raise HTTPException(400, "No site plan data to correct")
+
+    # Start from current corrected data, or original if no corrections yet
+    import copy
+    corrected = copy.deepcopy(app.cor_site_plan_data or app.org_site_plan_data or app.site_plan_data)
+    extraction = corrected.get("extraction", {})
+
+    changes = {}
+    for c in corrections:
+        path = c.get("field_path", "")
+        new_val = c.get("value")
+        parts = path.split(".")
+        if len(parts) == 2:
+            group, field = parts
+            if group not in extraction:
+                extraction[group] = {}
+            old_val = extraction[group].get(field)
+            extraction[group][field] = _parse_correction_value(new_val)
+            changes[path] = {"old": str(old_val), "new": str(new_val)}
+
+    corrected["extraction"] = extraction
+    corrected["_corrected_by"] = current_user.name
+    corrected["_corrected_at"] = datetime.now(timezone.utc).isoformat()
+
+    app.cor_site_plan_data = corrected
+    app.site_plan_data = corrected  # Active copy — assessment reads this
+    db.commit()
+
+    # Re-run auto-assessment
+    from app.api.assessments import _ensure_case_rows, _auto_assess_item
+    from app.models.assessment import CaseAssessment
+    from sqlalchemy.orm import joinedload as jl
+    _ensure_case_rows(db, app_id)
+    results = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
+    now = datetime.now(timezone.utc)
+    for ca in results:
+        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
+        ca.ai_result = ai_result
+        ca.ai_confidence = confidence
+        ca.ai_reason = reason
+        ca.ai_assessed_at = now
+    db.commit()
+
+    log_audit(db=db, action="correct_extraction", entity_type="application", user=current_user,
+              entity_id=str(app.id), entity_ref=app.ref_number,
+              description=f"Corrected {len(changes)} extraction values, re-ran assessment",
+              field_changes=changes)
+
+    return {"corrected_fields": len(changes), "assessment_updated": len(results)}
+
+
+def _parse_correction_value(val):
+    """Parse a correction value string into the appropriate type."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float, bool)):
+        return val
+    s = str(val).strip()
+    if s.lower() in ("true", "yes"):
+        return True
+    if s.lower() in ("false", "no"):
+        return False
+    try:
+        return float(s)
+    except ValueError:
+        return s
 
 
 @router.get("/{app_id}/documents/{doc_id}/file")
