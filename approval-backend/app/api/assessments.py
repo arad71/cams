@@ -340,7 +340,8 @@ def _resolve_field_value(source: str, field: str, app: Application):
     if source == "app":
         return getattr(app, field, None)
     elif source == "sp":
-        spd = app.site_plan_data or {}
+        # Read from corrected data first, fall back to original
+        spd = app.cor_site_plan_data or app.site_plan_data or {}
         ext = spd.get("extraction", {})
         # Walk dot-separated path
         obj = ext

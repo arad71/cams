@@ -609,7 +609,7 @@ def apply_site_plan_corrections(
     corrected["_corrected_at"] = datetime.now(timezone.utc).isoformat()
 
     app.cor_site_plan_data = corrected
-    app.site_plan_data = corrected  # Active copy — assessment reads this
+    # site_plan_data keeps the original AI extraction — assessment reads cor first
     db.commit()
 
     # Re-run auto-assessment
