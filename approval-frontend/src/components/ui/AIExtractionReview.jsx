@@ -72,7 +72,9 @@ function formatValue(val, type) {
 }
 
 export default function AIExtractionReview({ app, currentUser, onReload }) {
-  const spd = app?.site_plan_data;
+  const hasCorrected = !!app?.cor_site_plan_data;
+  const spd = app?.cor_site_plan_data || app?.site_plan_data;
+  const orgSpd = app?.org_site_plan_data || app?.site_plan_data;
   const extraction = spd?.extraction || {};
   const compliance = spd?.compliance || {};
   const [collapsed, setCollapsed] = useState(true);
@@ -193,6 +195,7 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
             <div style={{ fontSize: 13, fontWeight: 800, color: "#1a3a4a" }}>🤖 AI Site Plan Analysis</div>
             <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 2 }}>
               {spd.ai_model || "Claude"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
+              {hasCorrected && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 3, background: "#fef5e7", color: "#e67e22", fontWeight: 700, fontSize: 9 }}>✎ Officer Corrected</span>}
             </div>
           </div>
         </div>
