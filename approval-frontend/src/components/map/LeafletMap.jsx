@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -206,16 +206,22 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (!sightTriangle) return;
     const L = window.L;
     const { ptA, ptB, triLeft, triRight, lineAB, propertyLine, intersections, analysis } = sightTriangle;
-    // Point A marker (driveway)
+    // Point A marker (driveway) — draggable
     if (ptA) {
-      const mA = L.circleMarker([ptA.lat, ptA.lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#e74c3c', fillOpacity: 1, pane: 'markerPane' }).addTo(mapInstanceRef.current);
+      const iconA = L.divIcon({ className: '', html: '<div style="width:20px;height:20px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">A</div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+      const mA = L.marker([ptA.lat, ptA.lng], { icon: iconA, draggable: true, pane: 'markerPane', zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
+      mA.on('dragend', () => { const ll = mA.getLatLng(); if (onSightPointDrag) onSightPointDrag('A', { lat: ll.lat, lng: ll.lng }); });
+      mA.bindTooltip('A — Drag to reposition driveway', { direction: 'top', offset: [0, -12] });
       triLayersRef.current.push(mA);
     }
-    // Point B marker (road)
+    // Point B marker (road) — draggable
     if (ptB) {
-      const mB = L.circleMarker([ptB.lat, ptB.lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#2980b9', fillOpacity: 1, pane: 'markerPane' }).addTo(mapInstanceRef.current);
+      const iconB = L.divIcon({ className: '', html: '<div style="width:20px;height:20px;border-radius:50%;background:#2980b9;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">B</div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+      const mB = L.marker([ptB.lat, ptB.lng], { icon: iconB, draggable: true, pane: 'markerPane', zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
+      mB.on('dragend', () => { const ll = mB.getLatLng(); if (onSightPointDrag) onSightPointDrag('B', { lat: ll.lat, lng: ll.lng }); });
+      mB.bindTooltip('B — Drag to reposition road point', { direction: 'top', offset: [0, -12] });
       triLayersRef.current.push(mB);
-  }
+    }
     // Triangle polygon (A, triLeft, triRight)
     if (triLeft && triRight && ptA) {
       const compliant = analysis?.compliant !== false;
