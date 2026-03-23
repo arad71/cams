@@ -530,3 +530,50 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db),
         raise HTTPException(404, "Rule not found")
     db.delete(rule)
     db.commit()
+
+
+@router.post("/assessment/reseed-rules")
+def reseed_rules(db: Session = Depends(get_db),
+                 current_user: User = Depends(require_role("admin"))):
+    """Delete all assessment rules and re-seed from latest code. Admin only."""
+    from app.services.audit import log_audit
+    old_count = db.query(AssessmentRule).count()
+
+    # Delete all existing rules
+    db.query(AssessmentRule).delete()
+    db.commit()
+
+    # Re-seed rules (the seed code checks count == 0, which is now true)
+    item_map = {i.code: i.id for i in db.query(AssessmentItem).all()}
+
+    def R(code, priority, source, field, operator, value, result, confidence, reason):
+        iid = item_map.get(code)
+        if not iid:
+            return
+        db.add(AssessmentRule(
+            item_id=iid, priority=priority, source=source, field=field,
+            operator=operator, value=value, result=result,
+            confidence=confidence, reason_template=reason,
+        ))
+
+    # Import and execute the rules from seed module
+    import importlib
+    import app.seed as seed_module
+    importlib.reload(seed_module)  # Pick up latest code changes
+
+    # Execute the seed by calling run_seed which will seed rules since count is 0
+    from app.core.database import SessionLocal
+    seed_db = SessionLocal()
+    try:
+        # Rules are seeded inside run_seed when AssessmentRule count == 0
+        # Since we just deleted them, this will re-create them
+        seed_module.run_seed()
+    except Exception as e:
+        print(f"Reseed error: {e}")
+    finally:
+        seed_db.close()
+
+    new_count = db.query(AssessmentRule).count()
+    log_audit(db=db, action="reseed_rules", entity_type="assessment", user=current_user,
+              description=f"Re-seeded assessment rules: {old_count} deleted, {new_count} created")
+    return {"message": f"Re-seeded: {old_count} old rules deleted, {new_count} new rules created"}
