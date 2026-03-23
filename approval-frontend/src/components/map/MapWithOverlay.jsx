@@ -687,67 +687,61 @@ Respond with JSON only:
               <span style={{ fontSize: 12 }}>🛰️</span>
               <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Satellite — Measurements & Sight Triangle</span>
             </div>
-            <div style={{ height: 340, position: "relative", overflow: "hidden", background: "#1a2a3a" }}>
-              {/* Satellite base image with markers and paths */}
-              <img
-                src={(() => {
-                  const A = sightTriangle.ptA, B = sightTriangle.ptB;
-                  const C = sightTriangle.triLeft, D = sightTriangle.triRight;
-                  const poly = sightTriangle.lotPoly || [];
-                  // Build path strings
-                  let paths = "";
-                  // Sight triangle (red)
-                  if (C && D) paths += `&path=color:0xff000099|weight:2|fillcolor:0xff000022|${A.lat},${A.lng}|${C.lat},${C.lng}|${D.lat},${D.lng}|${A.lat},${A.lng}`;
-                  // Line A→B (yellow dashed)
-                  if (B) paths += `&path=color:0xffff00cc|weight:3|${A.lat},${A.lng}|${B.lat},${B.lng}`;
-                  // Lot boundary (cyan)
-                  if (poly.length > 2) paths += `&path=color:0x00ffffaa|weight:2|` + poly.map(p => `${p[0]},${p[1]}`).join("|");
-                  // Boundary distance lines (top 3)
-                  const bds = (sightTriangle.boundaryDists || []).slice(0, 3);
-                  bds.forEach((bd, i) => {
-                    const clrs = ["0xff4444cc", "0xff8800aa", "0x44aaff88"];
-                    paths += `&path=color:${clrs[i]}|weight:2|${A.lat},${A.lng}|${bd.nearPt.lat},${bd.nearPt.lng}`;
-                  });
-                  // Markers
-                  let markers = `&markers=color:red|label:A|${A.lat},${A.lng}`;
-                  if (B) markers += `&markers=color:blue|label:B|${B.lat},${B.lng}`;
-                  if (C) markers += `&markers=size:small|color:green|label:C|${C.lat},${C.lng}`;
-                  if (D) markers += `&markers=size:small|color:green|label:D|${D.lat},${D.lng}`;
-                  return `https://maps.googleapis.com/maps/api/staticmap?center=${A.lat},${A.lng}&zoom=19&size=640x340&scale=2&maptype=satellite${markers}${paths}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
-                })()}
-                alt="Satellite with measurements"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            <div style={{ height: 340, position: "relative", overflow: "hidden" }}>
+              {/* Satellite base */}
+              <iframe
+                src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${sightTriangle.ptA.lat},${sightTriangle.ptA.lng}&zoom=19&maptype=satellite`}
+                width="100%" height="340" style={{ border: "none" }}
+                allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                title="Satellite with measurements"
               />
-              {/* Measurement overlay labels */}
-              <div style={{ position: "absolute", top: 8, left: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-                <div style={{ background: "rgba(0,0,0,0.75)", color: "#fff", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
-                  A→B: {sightTriangle.analysis?.depth}m (verge)
+              {/* Measurement overlay */}
+              <div style={{ position: "absolute", top: 8, left: 8, display: "flex", flexDirection: "column", gap: 3, pointerEvents: "none" }}>
+                <div style={{ background: "rgba(0,0,0,0.8)", color: "#ffff00", padding: "4px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 14, height: 3, background: "#ffff00", display: "inline-block", borderRadius: 1 }}></span>
+                  A→B Verge: {sightTriangle.analysis?.depth}m
                 </div>
-                <div style={{ background: "rgba(0,0,0,0.75)", color: "#4fc3f7", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
-                  C→D: {sightTriangle.analysis?.baseWidth}m (sight base)
+                <div style={{ background: "rgba(0,0,0,0.8)", color: "#4fc3f7", padding: "4px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 14, height: 3, background: "#4fc3f7", display: "inline-block", borderRadius: 1 }}></span>
+                  C→D Base: {sightTriangle.analysis?.baseWidth}m
                 </div>
-                <div style={{ background: "rgba(0,0,0,0.75)", color: "#ff5252", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
-                  Left: {sightTriangle.analysis?.leftDist}m | Right: {sightTriangle.analysis?.rightDist}m
+                <div style={{ background: "rgba(0,0,0,0.8)", color: "#ff5252", padding: "4px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderBottom: "10px solid #ff5252", display: "inline-block" }}></span>
+                  Sight Triangle: L={sightTriangle.analysis?.leftDist}m R={sightTriangle.analysis?.rightDist}m
                 </div>
                 {sightTriangle.boundaryDists?.[0] && (
-                  <div style={{ background: "rgba(0,0,0,0.75)", color: "#ffab40", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
-                    → Nearest boundary: {sightTriangle.boundaryDists[0].distLabel}m
+                  <div style={{ background: "rgba(0,0,0,0.8)", color: "#ffab40", padding: "4px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 14, height: 3, background: "#ffab40", display: "inline-block", borderRadius: 1, borderTop: "1px dashed #ffab40" }}></span>
+                    Nearest Boundary: {sightTriangle.boundaryDists[0].distLabel}m
                   </div>
                 )}
-                <div style={{ background: "rgba(0,0,0,0.75)", color: "#69f0ae", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
-                  ▲ Area: {sightTriangle.analysis?.area}m² | {sightTriangle.speedInfo?.detected}km/h
+                {sightTriangle.boundaryDists?.[1] && (
+                  <div style={{ background: "rgba(0,0,0,0.8)", color: "#81d4fa", padding: "4px 10px", borderRadius: 5, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 14, height: 3, background: "#81d4fa", display: "inline-block", borderRadius: 1 }}></span>
+                    Side 2: {sightTriangle.boundaryDists[1].distLabel}m
+                  </div>
+                )}
+              </div>
+              {/* Summary box bottom-right */}
+              <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.85)", padding: "8px 12px", borderRadius: 8, pointerEvents: "none" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "#69f0ae", marginBottom: 3 }}>📐 Sight Triangle Summary</div>
+                <div style={{ display: "grid", gridTemplateColumns: "auto auto", gap: "2px 12px", fontSize: 10 }}>
+                  <span style={{ color: "#999" }}>Speed:</span><span style={{ color: "#fff", fontWeight: 700 }}>{sightTriangle.speedInfo?.detected} km/h</span>
+                  <span style={{ color: "#999" }}>Road:</span><span style={{ color: "#fff", fontWeight: 700 }}>{sightTriangle.speedInfo?.roadName || "—"}</span>
+                  <span style={{ color: "#999" }}>Area:</span><span style={{ color: "#fff", fontWeight: 700 }}>{sightTriangle.analysis?.area} m²</span>
+                  <span style={{ color: "#999" }}>Depth:</span><span style={{ color: "#fff", fontWeight: 700 }}>{sightTriangle.analysis?.depth} m</span>
                 </div>
               </div>
-              {/* Legend */}
-              <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.7)", padding: "6px 10px", borderRadius: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-                <div style={{ fontSize: 8, color: "#ff5252", fontWeight: 600 }}>━━ Sight triangle</div>
-                <div style={{ fontSize: 8, color: "#ffff00", fontWeight: 600 }}>━━ Driveway → Road</div>
-                <div style={{ fontSize: 8, color: "#00ffff", fontWeight: 600 }}>━━ Lot boundary</div>
-                <div style={{ fontSize: 8, color: "#ff8800", fontWeight: 600 }}>━━ Boundary distances</div>
+              {/* Point labels */}
+              <div style={{ position: "absolute", top: "42%", left: "46%", pointerEvents: "none" }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e74c3c", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }}>A</div>
+              </div>
+              <div style={{ position: "absolute", top: "58%", left: "46%", pointerEvents: "none" }}>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#2980b9", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }}>B</div>
               </div>
             </div>
             <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4", display: "flex", justifyContent: "space-between" }}>
-              <span>🛰️ Satellite with sight triangle overlay · Zoom 19</span>
+              <span>🛰️ Satellite with measurement overlay · Zoom 19</span>
               <a href={`https://www.google.com/maps/@${sightTriangle.ptA.lat},${sightTriangle.ptA.lng},19z/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9", textDecoration: "none", fontWeight: 600 }}>Open in Google Maps ↗</a>
             </div>
           </div>
