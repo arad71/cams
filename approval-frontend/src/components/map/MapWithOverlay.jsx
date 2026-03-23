@@ -681,22 +681,73 @@ Respond with JSON only:
             </div>
           </div>
 
-          {/* Satellite context — zoomed aerial view of the sight triangle */}
+          {/* Satellite context — annotated with measurements */}
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
             <div style={{ padding: "8px 14px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 12 }}>🛰️</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Satellite Context — Sight Triangle Area</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Satellite — Measurements & Sight Triangle</span>
             </div>
-            <div style={{ height: 280 }}>
-              <iframe
-                src={`https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${sightTriangle.ptA.lat},${sightTriangle.ptA.lng}&zoom=19&maptype=satellite`}
-                width="100%" height="280" style={{ border: "none" }}
-                allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                title="Satellite view of sight triangle"
+            <div style={{ height: 340, position: "relative", overflow: "hidden", background: "#1a2a3a" }}>
+              {/* Satellite base image with markers and paths */}
+              <img
+                src={(() => {
+                  const A = sightTriangle.ptA, B = sightTriangle.ptB;
+                  const C = sightTriangle.triLeft, D = sightTriangle.triRight;
+                  const poly = sightTriangle.lotPoly || [];
+                  // Build path strings
+                  let paths = "";
+                  // Sight triangle (red)
+                  if (C && D) paths += `&path=color:0xff000099|weight:2|fillcolor:0xff000022|${A.lat},${A.lng}|${C.lat},${C.lng}|${D.lat},${D.lng}|${A.lat},${A.lng}`;
+                  // Line A→B (yellow dashed)
+                  if (B) paths += `&path=color:0xffff00cc|weight:3|${A.lat},${A.lng}|${B.lat},${B.lng}`;
+                  // Lot boundary (cyan)
+                  if (poly.length > 2) paths += `&path=color:0x00ffffaa|weight:2|` + poly.map(p => `${p[0]},${p[1]}`).join("|");
+                  // Boundary distance lines (top 3)
+                  const bds = (sightTriangle.boundaryDists || []).slice(0, 3);
+                  bds.forEach((bd, i) => {
+                    const clrs = ["0xff4444cc", "0xff8800aa", "0x44aaff88"];
+                    paths += `&path=color:${clrs[i]}|weight:2|${A.lat},${A.lng}|${bd.nearPt.lat},${bd.nearPt.lng}`;
+                  });
+                  // Markers
+                  let markers = `&markers=color:red|label:A|${A.lat},${A.lng}`;
+                  if (B) markers += `&markers=color:blue|label:B|${B.lat},${B.lng}`;
+                  if (C) markers += `&markers=size:small|color:green|label:C|${C.lat},${C.lng}`;
+                  if (D) markers += `&markers=size:small|color:green|label:D|${D.lat},${D.lng}`;
+                  return `https://maps.googleapis.com/maps/api/staticmap?center=${A.lat},${A.lng}&zoom=19&size=640x340&scale=2&maptype=satellite${markers}${paths}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
+                })()}
+                alt="Satellite with measurements"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
+              {/* Measurement overlay labels */}
+              <div style={{ position: "absolute", top: 8, left: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ background: "rgba(0,0,0,0.75)", color: "#fff", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                  A→B: {sightTriangle.analysis?.depth}m (verge)
+                </div>
+                <div style={{ background: "rgba(0,0,0,0.75)", color: "#4fc3f7", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                  C→D: {sightTriangle.analysis?.baseWidth}m (sight base)
+                </div>
+                <div style={{ background: "rgba(0,0,0,0.75)", color: "#ff5252", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                  Left: {sightTriangle.analysis?.leftDist}m | Right: {sightTriangle.analysis?.rightDist}m
+                </div>
+                {sightTriangle.boundaryDists?.[0] && (
+                  <div style={{ background: "rgba(0,0,0,0.75)", color: "#ffab40", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                    → Nearest boundary: {sightTriangle.boundaryDists[0].distLabel}m
+                  </div>
+                )}
+                <div style={{ background: "rgba(0,0,0,0.75)", color: "#69f0ae", padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                  ▲ Area: {sightTriangle.analysis?.area}m² | {sightTriangle.speedInfo?.detected}km/h
+                </div>
+              </div>
+              {/* Legend */}
+              <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.7)", padding: "6px 10px", borderRadius: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ fontSize: 8, color: "#ff5252", fontWeight: 600 }}>━━ Sight triangle</div>
+                <div style={{ fontSize: 8, color: "#ffff00", fontWeight: 600 }}>━━ Driveway → Road</div>
+                <div style={{ fontSize: 8, color: "#00ffff", fontWeight: 600 }}>━━ Lot boundary</div>
+                <div style={{ fontSize: 8, color: "#ff8800", fontWeight: 600 }}>━━ Boundary distances</div>
+              </div>
             </div>
             <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4", display: "flex", justifyContent: "space-between" }}>
-              <span>🛰️ Satellite imagery · Zoom level 19</span>
+              <span>🛰️ Satellite with sight triangle overlay · Zoom 19</span>
               <a href={`https://www.google.com/maps/@${sightTriangle.ptA.lat},${sightTriangle.ptA.lng},19z/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9", textDecoration: "none", fontWeight: 600 }}>Open in Google Maps ↗</a>
             </div>
           </div>
