@@ -199,44 +199,60 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);
-  const onSightPointDragRef = useRef(onSightPointDrag);
-  onSightPointDragRef.current = onSightPointDrag;
-  const isDraggingRef = useRef(false);
+  const sightMarkerA = useRef(null);
+  const sightMarkerB = useRef(null);
+  const onDragRef = useRef(onSightPointDrag);
+  onDragRef.current = onSightPointDrag;
 
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
-    // Don't rebuild while user is dragging a marker
-    if (isDraggingRef.current) return;
+    const L = window.L;
+
+    // Remove non-marker layers (triangle, lines, labels)
     triLayersRef.current.forEach(l => mapInstanceRef.current.removeLayer(l));
     triLayersRef.current = [];
-    if (!sightTriangle) return;
-    const L = window.L;
-    const { ptA, ptB, triLeft, triRight, lineAB, propertyLine, intersections, analysis } = sightTriangle;
-    // Point A marker (driveway) — draggable
-    if (ptA) {
-      const iconA = L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:sans-serif">A</div>', iconSize: [22, 22], iconAnchor: [11, 11] });
-      const mA = L.marker([ptA.lat, ptA.lng], { icon: iconA, draggable: true, pane: 'markerPane', zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
-      mA.on('dragstart', () => { isDraggingRef.current = true; });
-      mA.on('dragend', () => {
-        isDraggingRef.current = false;
-        const ll = mA.getLatLng();
-        if (onSightPointDragRef.current) onSightPointDragRef.current('A', { lat: ll.lat, lng: ll.lng });
-      });
-      mA.bindTooltip('Drag to move driveway point', { direction: 'top', offset: [0, -14] });
-      triLayersRef.current.push(mA);
+
+    if (!sightTriangle) {
+      // Clear markers
+      if (sightMarkerA.current) { mapInstanceRef.current.removeLayer(sightMarkerA.current); sightMarkerA.current = null; }
+      if (sightMarkerB.current) { mapInstanceRef.current.removeLayer(sightMarkerB.current); sightMarkerB.current = null; }
+      return;
     }
-    // Point B marker (road) — draggable
+
+    const { ptA, ptB, triLeft, triRight, lineAB, propertyLine, intersections, analysis } = sightTriangle;
+
+    const makeIcon = (label, color) => L.divIcon({
+      className: '',
+      html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:sans-serif;pointer-events:none">${label}</div>`,
+      iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+
+    // Point A — create once, then just update position
+    if (ptA) {
+      if (!sightMarkerA.current) {
+        sightMarkerA.current = L.marker([ptA.lat, ptA.lng], { icon: makeIcon('A', '#e74c3c'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
+        sightMarkerA.current.bindTooltip('Drag to reposition (A)', { direction: 'top', offset: [0, -14] });
+        sightMarkerA.current.on('dragend', () => {
+          const ll = sightMarkerA.current.getLatLng();
+          if (onDragRef.current) onDragRef.current('A', { lat: ll.lat, lng: ll.lng });
+        });
+      } else {
+        sightMarkerA.current.setLatLng([ptA.lat, ptA.lng]);
+      }
+    }
+
+    // Point B — create once, then just update position
     if (ptB) {
-      const iconB = L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50%;background:#2980b9;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:sans-serif">B</div>', iconSize: [22, 22], iconAnchor: [11, 11] });
-      const mB = L.marker([ptB.lat, ptB.lng], { icon: iconB, draggable: true, pane: 'markerPane', zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
-      mB.on('dragstart', () => { isDraggingRef.current = true; });
-      mB.on('dragend', () => {
-        isDraggingRef.current = false;
-        const ll = mB.getLatLng();
-        if (onSightPointDragRef.current) onSightPointDragRef.current('B', { lat: ll.lat, lng: ll.lng });
-      });
-      mB.bindTooltip('Drag to move road point', { direction: 'top', offset: [0, -14] });
-      triLayersRef.current.push(mB);
+      if (!sightMarkerB.current) {
+        sightMarkerB.current = L.marker([ptB.lat, ptB.lng], { icon: makeIcon('B', '#2980b9'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
+        sightMarkerB.current.bindTooltip('Drag to reposition (B)', { direction: 'top', offset: [0, -14] });
+        sightMarkerB.current.on('dragend', () => {
+          const ll = sightMarkerB.current.getLatLng();
+          if (onDragRef.current) onDragRef.current('B', { lat: ll.lat, lng: ll.lng });
+        });
+      } else {
+        sightMarkerB.current.setLatLng([ptB.lat, ptB.lng]);
+      }
     }
     // Triangle polygon (A, triLeft, triRight)
     if (triLeft && triRight && ptA) {
