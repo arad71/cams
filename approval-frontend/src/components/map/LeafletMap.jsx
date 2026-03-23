@@ -199,8 +199,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);
+  const onSightPointDragRef = useRef(onSightPointDrag);
+  onSightPointDragRef.current = onSightPointDrag;
+  const isDraggingRef = useRef(false);
+
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
+    // Don't rebuild while user is dragging a marker
+    if (isDraggingRef.current) return;
     triLayersRef.current.forEach(l => mapInstanceRef.current.removeLayer(l));
     triLayersRef.current = [];
     if (!sightTriangle) return;
@@ -208,18 +214,28 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     const { ptA, ptB, triLeft, triRight, lineAB, propertyLine, intersections, analysis } = sightTriangle;
     // Point A marker (driveway) — draggable
     if (ptA) {
-      const iconA = L.divIcon({ className: '', html: '<div style="width:20px;height:20px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">A</div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+      const iconA = L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:sans-serif">A</div>', iconSize: [22, 22], iconAnchor: [11, 11] });
       const mA = L.marker([ptA.lat, ptA.lng], { icon: iconA, draggable: true, pane: 'markerPane', zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
-      mA.on('dragend', () => { const ll = mA.getLatLng(); if (onSightPointDrag) onSightPointDrag('A', { lat: ll.lat, lng: ll.lng }); });
-      mA.bindTooltip('A — Drag to reposition driveway', { direction: 'top', offset: [0, -12] });
+      mA.on('dragstart', () => { isDraggingRef.current = true; });
+      mA.on('dragend', () => {
+        isDraggingRef.current = false;
+        const ll = mA.getLatLng();
+        if (onSightPointDragRef.current) onSightPointDragRef.current('A', { lat: ll.lat, lng: ll.lng });
+      });
+      mA.bindTooltip('Drag to move driveway point', { direction: 'top', offset: [0, -14] });
       triLayersRef.current.push(mA);
     }
     // Point B marker (road) — draggable
     if (ptB) {
-      const iconB = L.divIcon({ className: '', html: '<div style="width:20px;height:20px;border-radius:50%;background:#2980b9;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">B</div>', iconSize: [20, 20], iconAnchor: [10, 10] });
+      const iconB = L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50%;background:#2980b9;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);cursor:grab;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:sans-serif">B</div>', iconSize: [22, 22], iconAnchor: [11, 11] });
       const mB = L.marker([ptB.lat, ptB.lng], { icon: iconB, draggable: true, pane: 'markerPane', zIndexOffset: 1000 }).addTo(mapInstanceRef.current);
-      mB.on('dragend', () => { const ll = mB.getLatLng(); if (onSightPointDrag) onSightPointDrag('B', { lat: ll.lat, lng: ll.lng }); });
-      mB.bindTooltip('B — Drag to reposition road point', { direction: 'top', offset: [0, -12] });
+      mB.on('dragstart', () => { isDraggingRef.current = true; });
+      mB.on('dragend', () => {
+        isDraggingRef.current = false;
+        const ll = mB.getLatLng();
+        if (onSightPointDragRef.current) onSightPointDragRef.current('B', { lat: ll.lat, lng: ll.lng });
+      });
+      mB.bindTooltip('Drag to move road point', { direction: 'top', offset: [0, -14] });
       triLayersRef.current.push(mB);
     }
     // Triangle polygon (A, triLeft, triRight)
