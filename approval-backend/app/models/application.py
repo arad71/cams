@@ -65,7 +65,9 @@ class Application(Base):
     lot_polygon = Column(JSON, nullable=True)  # [[lat,lng], ...]
 
     # Site plan AI extraction data
-    site_plan_data = Column(JSON, nullable=True)  # Full AI extraction JSON from site plan analysis
+    site_plan_data = Column(JSON, nullable=True)          # Active data used by assessment (= corrected if corrections exist, else original)
+    org_site_plan_data = Column(JSON, nullable=True)      # Original AI extraction (never modified after initial analysis)
+    cor_site_plan_data = Column(JSON, nullable=True)      # Officer-corrected extraction (updated when officer corrects values)
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

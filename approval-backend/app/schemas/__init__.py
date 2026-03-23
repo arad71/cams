@@ -220,6 +220,8 @@ class ApplicationOut(BaseModel):
     contribution_amount: float = 0
     lot_polygon: Optional[list] = None
     site_plan_data: Optional[dict] = None
+    org_site_plan_data: Optional[dict] = None
+    cor_site_plan_data: Optional[dict] = None
     notes: list[NoteOut] = []
     documents: list[DocumentOut] = []
     inspections: list[InspectionOut] = []

@@ -22,6 +22,7 @@ export function apiAppToFrontend(a) {
     checklist_data: a.checklist_data || {},
     lot_polygon: a.lot_polygon || null,
     site_plan_data: a.site_plan_data || null,
+    org_site_plan_data: a.org_site_plan_data || null,
   };
 }
 

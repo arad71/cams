@@ -142,14 +142,21 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
     if (corrections.length === 0) return;
     setSaving(true);
     try {
-      // Find the training sample for this application
-      const samplesResp = await api.trainingSamples(app._dbId);
-      const sample = (samplesResp?.samples || []).find(s => s.application_id === app._dbId);
-      if (sample) {
-        await api.trainingCorrect(sample.id, corrections);
-      }
+      // 1. Apply corrections to site_plan_data → updates cor_site_plan_data + re-runs assessment
+      const correctionMap = {};
+      corrections.forEach(c => { correctionMap[c.field_path] = c.correct_value; });
+      await api.correctSitePlan(app._dbId, correctionMap);
+
+      // 2. Also save to training data for model improvement
+      try {
+        const samplesResp = await api.trainingSamples(app._dbId);
+        const sample = (samplesResp?.samples || []).find(s => s.application_id === app._dbId);
+        if (sample) await api.trainingCorrect(sample.id, corrections);
+      } catch (e) { console.warn("Training save skipped:", e); }
+
       setCorrections([]);
       setSaved(true);
+      if (onReload) onReload(); // Reload app to reflect updated site_plan_data + assessment
       setTimeout(() => setSaved(false), 3000);
     } catch (e) { console.error("Save corrections failed:", e); }
     setSaving(false);
