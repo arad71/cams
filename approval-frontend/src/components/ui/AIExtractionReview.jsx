@@ -75,9 +75,10 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
   const spd = app?.site_plan_data;
   const extraction = spd?.extraction || {};
   const compliance = spd?.compliance || {};
-  const [editingField, setEditingField] = useState(null); // "group.field"
+  const [collapsed, setCollapsed] = useState(true);
+  const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
-  const [corrections, setCorrections] = useState([]); // pending corrections
+  const [corrections, setCorrections] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [analysing, setAnalysing] = useState(false);
@@ -175,12 +176,17 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
 
   return (
     <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-      {/* Header */}
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafb" }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#1a3a4a" }}>🤖 AI Site Plan Analysis</div>
-          <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 2 }}>
-            {spd.ai_model || "Claude"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
+      {/* Header — clickable to expand/collapse */}
+      <div onClick={() => setCollapsed(!collapsed)}
+        style={{ padding: "12px 16px", borderBottom: collapsed ? "none" : "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafb", cursor: "pointer", userSelect: "none" }}
+        onMouseEnter={e => e.currentTarget.style.background = "#eef2f4"} onMouseLeave={e => e.currentTarget.style.background = "#f8fafb"}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 10, color: "#95a5a6", transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)" }}>▶</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#1a3a4a" }}>🤖 AI Site Plan Analysis</div>
+            <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 2 }}>
+              {spd.ai_model || "Claude"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
+            </div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -195,6 +201,7 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
         </div>
       </div>
 
+      {!collapsed && (<>
       {/* Field groups */}
       {FIELD_GROUPS.map(group => {
         const groupData = extraction[group.key] || {};
@@ -264,6 +271,7 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
           )}
         </div>
       </div>
+      </>)}
     </div>
   );
 }
