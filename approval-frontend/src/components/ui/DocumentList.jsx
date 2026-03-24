@@ -178,34 +178,100 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
 }
 
 
-// ─── Document List with Review + Viewer ─────────────
+// Upload categories available in assessment view
+const UPLOAD_CATEGORIES = [
+  { id: "Site Plan", icon: "📐", accept: ".pdf,.jpg,.jpeg,.png" },
+  { id: "Building Application", icon: "🏗️", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
+  { id: "Certificate of Title", icon: "📜", accept: ".pdf,.jpg,.jpeg,.png" },
+  { id: "Engineering Drawing", icon: "📏", accept: ".pdf,.jpg,.jpeg,.png,.dwg" },
+  { id: "Site Photos", icon: "📷", accept: ".jpg,.jpeg,.png,.webp" },
+  { id: "Arborist Report", icon: "🌳", accept: ".pdf,.doc,.docx" },
+  { id: "Stormwater Plan", icon: "💧", accept: ".pdf,.jpg,.jpeg,.png" },
+  { id: "Dial Before You Dig", icon: "⚡", accept: ".pdf" },
+  { id: "Inspection Report", icon: "🔍", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
+  { id: "Other Documents", icon: "📎", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
+];
+
+
+// ─── Document List with Review + Viewer + Upload ─────
 export default function DocumentList({ documents, appDbId, currentUser, onDocUpdated }) {
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [viewerDoc, setViewerDoc] = useState(null);
   const [filter, setFilter] = useState("All");
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadCat, setUploadCat] = useState(UPLOAD_CATEGORIES[0].id);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(null);
+  const fileInputRef = useRef(null);
 
-  if (!documents || documents.length === 0) return <div style={{ padding: 16, color: "#95a5a6", fontSize: 12 }}>No documents submitted.</div>;
+  const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
 
-  const categories = ["All", ...new Set(documents.map(d => d.category))];
-  const filtered = filter === "All" ? documents : documents.filter(d => d.category === filter);
-  const selectedDoc = documents.find(d => d.id === selectedDocId);
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !appDbId) return;
+    setUploading(true);
+    setUploadSuccess(null);
+    try {
+      await api.uploadDocument(appDbId, file, uploadCat);
+      setUploadSuccess(file.name);
+      if (onDocUpdated) onDocUpdated();
+      setTimeout(() => { setUploadSuccess(null); setShowUpload(false); }, 2000);
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setUploadSuccess(null);
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
-  const verified = documents.filter(d => d.status === "verified").length;
-  const rejected = documents.filter(d => d.status === "rejected").length;
-  const pending = documents.length - verified - rejected;
+  const docs = documents || [];
+  const categories = ["All", ...new Set(docs.map(d => d.category))];
+  const filtered = filter === "All" ? docs : docs.filter(d => d.category === filter);
+  const selectedDoc = docs.find(d => d.id === selectedDocId);
+
+  const verified = docs.filter(d => d.status === "verified").length;
+  const rejected = docs.filter(d => d.status === "rejected").length;
+  const pending = docs.length - verified - rejected;
 
   return (
     <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
       {/* Header */}
       <div style={{ padding: "12px 16px", borderBottom: "1px solid #f0f3f5", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: 0 }}>📎 Documents ({documents.length})</h4>
-        <div style={{ display: "flex", gap: 2 }}>
+        <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: 0 }}>📎 Documents ({docs.length})</h4>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           {categories.map(c => (
             <button key={c} onClick={() => setFilter(c)} style={{ padding: "3px 8px", borderRadius: 4, border: "none", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
               background: filter === c ? "#1a3a4a" : "#f5f8fa", color: filter === c ? "#fff" : "#7a8a94" }}>{c}</button>
           ))}
+          {canUpload && (
+            <button onClick={() => setShowUpload(!showUpload)}
+              style={{ padding: "3px 10px", borderRadius: 4, border: showUpload ? "2px solid #1abc9c" : "1px solid #d5dde2", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                background: showUpload ? "#e8f8f5" : "#fff", color: showUpload ? "#1abc9c" : "#7a8a94", marginLeft: 4 }}>
+              {showUpload ? "✕ Close" : "＋ Upload"}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Upload panel */}
+      {showUpload && canUpload && (
+        <div style={{ padding: "10px 16px", background: "#f0faf7", borderBottom: "1px solid #d5f5e3" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#1abc9c", marginBottom: 6, textTransform: "uppercase" }}>Upload New Document</div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select value={uploadCat} onChange={e => setUploadCat(e.target.value)}
+              style={{ padding: "6px 10px", borderRadius: 6, border: "1.5px solid #d5dde2", fontSize: 11, fontFamily: "inherit", background: "#fff", color: "#1a3a4a", outline: "none", cursor: "pointer" }}>
+              {UPLOAD_CATEGORIES.map(c => (
+                <option key={c.id} value={c.id}>{c.icon} {c.id}</option>
+              ))}
+            </select>
+            <label style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: uploading ? "default" : "pointer", fontFamily: "inherit", opacity: uploading ? 0.6 : 1 }}>
+              {uploading ? "⟳ Uploading..." : "📤 Choose File"}
+              <input ref={fileInputRef} type="file" accept={UPLOAD_CATEGORIES.find(c => c.id === uploadCat)?.accept || "*"} onChange={handleUpload} disabled={uploading} style={{ display: "none" }} />
+            </label>
+            {uploadSuccess && <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 600 }}>✅ {uploadSuccess} uploaded</span>}
+          </div>
+        </div>
+      )}
 
       {/* Summary bar */}
       <div style={{ padding: "6px 16px", background: "#f8fafb", borderBottom: "1px solid #f0f3f5", display: "flex", gap: 14, fontSize: 10 }}>

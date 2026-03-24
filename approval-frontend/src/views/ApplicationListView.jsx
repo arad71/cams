@@ -122,9 +122,14 @@ function extractPolygon(feature) {
 const DOC_CATEGORIES = [
   { id: "application_form", label: "Application Form", icon: "📄", accept: ".pdf", hint: "Upload the crossover application form PDF — fields will be auto-extracted", extract: "form" },
   { id: "site_plan", label: "Site Plan", icon: "📐", accept: ".pdf,.jpg,.jpeg,.png", hint: "Site plan — AI will extract dimensions, materials, and compliance data", extract: "siteplan" },
+  { id: "building_application", label: "Building Application", icon: "🏗️", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx", hint: "Building application / development approval documents" },
   { id: "certificate_of_title", label: "Certificate of Title", icon: "📜", accept: ".pdf,.jpg,.jpeg,.png", hint: "Current Certificate of Title" },
+  { id: "engineering_drawing", label: "Engineering Drawing", icon: "📏", accept: ".pdf,.jpg,.jpeg,.png,.dwg", hint: "Engineering/structural drawings for non-standard crossovers" },
   { id: "photos", label: "Site Photos", icon: "📷", accept: ".jpg,.jpeg,.png,.webp", hint: "Photos of the verge, existing crossover, and street frontage" },
-  { id: "other", label: "Other Documents", icon: "📎", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx", hint: "Arborist reports, stormwater plans, or other supporting documents" },
+  { id: "arborist_report", label: "Arborist Report", icon: "🌳", accept: ".pdf,.doc,.docx", hint: "Arborist report if trees within 3m of proposed crossover" },
+  { id: "stormwater_plan", label: "Stormwater/Drainage Plan", icon: "💧", accept: ".pdf,.jpg,.jpeg,.png", hint: "Stormwater management or drainage plan" },
+  { id: "dbyd_report", label: "Dial Before You Dig", icon: "⚡", accept: ".pdf", hint: "DBYD search results for underground services" },
+  { id: "other", label: "Other Documents", icon: "📎", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx", hint: "Any other supporting documents" },
 ];
 
 const blankForm = {
