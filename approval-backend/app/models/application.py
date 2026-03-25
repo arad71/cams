@@ -69,6 +69,11 @@ class Application(Base):
     org_site_plan_data = Column(JSON, nullable=True)      # Original AI extraction (never modified after initial analysis)
     cor_site_plan_data = Column(JSON, nullable=True)      # Officer-corrected extraction (updated when officer corrects values)
 
+    # Officer-drawn boundaries from site plan image
+    site_lot_boundary = Column(JSON, nullable=True)         # [[x,y], ...] polygon points on site plan image
+    site_building_boundary = Column(JSON, nullable=True)    # [[x,y], ...] building footprint on site plan
+    site_crossover = Column(JSON, nullable=True)            # [[x,y], ...] crossover/driveway on site plan
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

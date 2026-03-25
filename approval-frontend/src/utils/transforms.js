@@ -24,6 +24,9 @@ export function apiAppToFrontend(a) {
     site_plan_data: a.site_plan_data || null,
     org_site_plan_data: a.org_site_plan_data || null,
     cor_site_plan_data: a.cor_site_plan_data || null,
+    site_lot_boundary: a.site_lot_boundary || null,
+    site_building_boundary: a.site_building_boundary || null,
+    site_crossover: a.site_crossover || null,
   };
 }
 

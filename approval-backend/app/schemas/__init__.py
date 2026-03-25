@@ -222,6 +222,9 @@ class ApplicationOut(BaseModel):
     site_plan_data: Optional[dict] = None
     org_site_plan_data: Optional[dict] = None
     cor_site_plan_data: Optional[dict] = None
+    site_lot_boundary: Optional[list] = None
+    site_building_boundary: Optional[list] = None
+    site_crossover: Optional[list] = None
     notes: list[NoteOut] = []
     documents: list[DocumentOut] = []
     inspections: list[InspectionOut] = []
