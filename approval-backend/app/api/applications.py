@@ -904,14 +904,12 @@ def save_boundaries(
 
         # ── Remove collinear mid-side points from lot polygon ──
         def remove_collinear(poly):
-            """Remove points that lie on the straight line between their neighbours."""
+            """Remove points that lie on the straight line between their neighbours.
+            Uses gap detection: mid-side points have dramatically smaller deviation than real corners."""
             if len(poly) <= 4:
                 return poly
             n = len(poly)
-            # Calculate perimeter for relative threshold
-            perimeter = sum(math.sqrt((poly[i][0]-poly[(i+1)%n][0])**2 + (poly[i][1]-poly[(i+1)%n][1])**2) for i in range(n))
-            threshold = perimeter * 0.001  # 0.1% of perimeter
-            result = []
+            deviations = []
             for i in range(n):
                 prev = poly[(i-1) % n]
                 curr = poly[i]
@@ -919,16 +917,26 @@ def save_boundaries(
                 dx, dy = nxt[0]-prev[0], nxt[1]-prev[1]
                 seg_len = math.sqrt(dx*dx + dy*dy)
                 if seg_len < 1e-12:
-                    result.append(curr)
+                    deviations.append((i, float('inf')))
                     continue
                 cross = abs((curr[0]-prev[0])*dy - (curr[1]-prev[1])*dx)
-                dist_to_line = cross / seg_len
-                if dist_to_line > threshold:
-                    result.append(curr)
+                deviations.append((i, cross / seg_len))
+            # Sort by deviation ascending
+            sorted_devs = sorted(deviations, key=lambda x: x[1])
+            # Find gap: where ratio jumps > 10x
+            keep = set(range(n))
+            for k in range(len(sorted_devs) - 1):
+                curr_d = sorted_devs[k][1]
+                next_d = sorted_devs[k+1][1]
+                if curr_d < 1e-10 or (next_d > 0 and next_d / max(curr_d, 1e-15) > 10):
+                    for j in range(k+1):
+                        keep.discard(sorted_devs[j][0])
+                    break
+            result = [poly[i] for i in sorted(keep)]
             return result if len(result) >= 3 else poly
 
         re_corners = remove_collinear(re_open)
-        print(f"  → Lot polygon: {len(re_open)} points → {len(re_corners)} true corners (collinearity filter)")
+        print(f"  → Lot polygon: {len(re_open)} points → {len(re_corners)} true corners")
 
         n_px = len(px_open)
         n_re = len(re_corners)
