@@ -206,6 +206,8 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
   const [extractPages, setExtractPages] = useState("");
   const [extracting, setExtracting] = useState(false);
   const [extractResult, setExtractResult] = useState(null);
+  const [deleteDoc, setDeleteDoc] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef(null);
 
   const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
@@ -346,12 +348,7 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
                 )}
                 {/* Delete button */}
                 {canUpload && (
-                  <button onClick={(e) => {
-                    e.stopPropagation();
-                    if (window.confirm(`Delete "${doc.name}"? This cannot be undone.`)) {
-                      api.deleteDocument(appDbId, doc.id).then(() => { if (onDocUpdated) onDocUpdated(); }).catch(err => console.error("Delete failed:", err));
-                    }
-                  }}
+                  <button onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
                     title="Delete document"
                     style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #e4e9ec", background: "#fff", color: "#e74c3c", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     🗑
@@ -379,6 +376,67 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
       {/* Floating document viewer */}
       {viewerDoc && (
         <DocViewer doc={viewerDoc} appDbId={appDbId} onClose={() => setViewerDoc(null)} />
+      )}
+
+      {/* Delete confirmation popup */}
+      {deleteDoc && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setDeleteDoc(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, width: 400, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #fde8e8", background: "#fef5f5" }}>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#e74c3c" }}>🗑 Delete Document</div>
+            </div>
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a", marginBottom: 8 }}>{deleteDoc.name}</div>
+              <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 12 }}>{deleteDoc.category} · {deleteDoc.type?.toUpperCase()} · {deleteDoc.size}</div>
+
+              <div style={{ background: "#fef5e7", borderRadius: 8, padding: "10px 12px", marginBottom: 12, border: "1px solid #f9e79f" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "#b7950b", marginBottom: 4 }}>⚠ Warning — This action cannot be undone</div>
+                <div style={{ fontSize: 10, color: "#7d6608", lineHeight: 1.5 }}>
+                  The following will be permanently deleted:
+                </div>
+                <ul style={{ fontSize: 10, color: "#7d6608", margin: "4px 0 0 16px", padding: 0, lineHeight: 1.6 }}>
+                  <li>The document file from server storage</li>
+                  {deleteDoc.category?.toLowerCase().includes("site") && (
+                    <>
+                      <li><strong>AI site plan analysis data</strong> for this application</li>
+                      <li>AI training samples and officer corrections linked to this document</li>
+                      <li>Assessment results that relied on this analysis will need re-evaluation</li>
+                    </>
+                  )}
+                  {!deleteDoc.category?.toLowerCase().includes("site") && (
+                    <li>AI training samples linked to this document (if any)</li>
+                  )}
+                </ul>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => setDeleteDoc(null)}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  Cancel
+                </button>
+                <button onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await api.deleteDocument(appDbId, deleteDoc.id);
+                    if (onDocUpdated) onDocUpdated();
+                    setDeleteDoc(null);
+                  } catch (err) {
+                    console.error("Delete failed:", err);
+                    alert("Delete failed: " + (err.message || "Unknown error"));
+                  }
+                  setDeleting(false);
+                }} disabled={deleting}
+                  style={{ padding: "8px 20px", borderRadius: 8, border: "none",
+                    background: deleting ? "#d5dde2" : "linear-gradient(135deg, #e74c3c, #c0392b)",
+                    color: deleting ? "#95a5a6" : "#fff",
+                    fontWeight: 700, fontSize: 12, cursor: deleting ? "default" : "pointer", fontFamily: "inherit" }}>
+                  {deleting ? "⟳ Deleting..." : "🗑 Delete Permanently"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Extract Site Plan popup */}

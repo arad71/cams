@@ -802,33 +802,60 @@ def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session 
     return _build_doc_out(doc)
 
 
-@router.delete("/{app_id}/documents/{doc_id}", status_code=204)
+@router.delete("/{app_id}/documents/{doc_id}")
 def delete_document(app_id: int, doc_id: int, db: Session = Depends(get_db),
                     current_user: User = Depends(require_role("admin", "manager", "engineer"))):
-    """Delete a document record and its file from disk."""
+    """Delete a document, its file, and all related data (training samples, site plan data)."""
     doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    # Delete file from disk
+    doc_name = doc.name
+    doc_category = doc.category
+    cleaned = []
+
+    # 1. Delete AI training samples referencing this document
+    from app.models.ai_training import AITrainingSample, AITrainingCorrection
+    training_samples = db.query(AITrainingSample).filter(AITrainingSample.document_id == doc_id).all()
+    if training_samples:
+        for ts in training_samples:
+            # Delete corrections for each sample
+            db.query(AITrainingCorrection).filter(AITrainingCorrection.sample_id == ts.id).delete()
+            # Delete training image from disk
+            if ts.image_path:
+                img_path = Path(ts.image_path)
+                if img_path.exists():
+                    img_path.unlink()
+        count = db.query(AITrainingSample).filter(AITrainingSample.document_id == doc_id).delete()
+        cleaned.append(f"{count} training sample(s)")
+
+    # 2. If this is a site plan, clear site_plan_data on the application
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if doc_category and "site" in doc_category.lower():
+        if app:
+            app.site_plan_data = None
+            app.org_site_plan_data = None
+            app.cor_site_plan_data = None
+            cleaned.append("site plan analysis data")
+
+    # 3. Delete file from disk
     if doc.file_path:
         file_path = Path(doc.file_path)
         if file_path.exists():
             file_path.unlink()
+            cleaned.append("file from disk")
 
-    doc_name = doc.name
-    doc_category = doc.category
-
-    # Delete from database
+    # 4. Delete document record
     db.delete(doc)
     db.commit()
 
     # Audit
     from app.services.audit import log_audit
-    app = db.query(Application).filter(Application.id == app_id).first()
     log_audit(db=db, action="delete", entity_type="document", user=current_user,
               entity_id=str(doc_id), entity_ref=app.ref_number if app else None,
-              description=f"Deleted document {doc_name} ({doc_category})")
+              description=f"Deleted document {doc_name} ({doc_category}). Cleaned: {', '.join(cleaned) if cleaned else 'none'}")
+
+    return {"deleted": doc_name, "cleaned": cleaned}
 
 
 # ─── Inspections ─────────────────────────────────────────
