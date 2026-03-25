@@ -94,32 +94,54 @@ If NO pages are site plans, return: {"site_plan_pages": [], "reasoning": "No sit
 
 def extract_pdf_pages(file_bytes: bytes, pages: List[int]) -> bytes:
     """Extract specific pages from a PDF and return as new PDF bytes."""
+    # Try PyMuPDF
     try:
-        import fitz  # PyMuPDF
+        import fitz
         src = fitz.open(stream=file_bytes, filetype="pdf")
         dst = fitz.open()
         for p in sorted(pages):
             if 1 <= p <= len(src):
                 dst.insert_pdf(src, from_page=p - 1, to_page=p - 1)
-        out = dst.tobytes()
-        dst.close()
-        src.close()
+        out = dst.tobytes(); dst.close(); src.close()
         return out
     except ImportError:
-        # Fallback: use pikepdf
-        try:
-            import pikepdf
-            src = pikepdf.Pdf.open(io.BytesIO(file_bytes))
-            dst = pikepdf.Pdf.new()
-            for p in sorted(pages):
-                if 1 <= p <= len(src.pages):
-                    dst.pages.append(src.pages[p - 1])
+        pass
+    # Try pikepdf
+    try:
+        import pikepdf
+        src = pikepdf.Pdf.open(io.BytesIO(file_bytes))
+        dst = pikepdf.Pdf.new()
+        for p in sorted(pages):
+            if 1 <= p <= len(src.pages):
+                dst.pages.append(src.pages[p - 1])
+        buf = io.BytesIO(); dst.save(buf)
+        return buf.getvalue()
+    except ImportError:
+        pass
+    # Try pypdf
+    try:
+        from pypdf import PdfReader, PdfWriter
+        reader = PdfReader(io.BytesIO(file_bytes))
+        writer = PdfWriter()
+        for p in sorted(pages):
+            if 1 <= p <= len(reader.pages):
+                writer.add_page(reader.pages[p - 1])
+        buf = io.BytesIO(); writer.write(buf)
+        return buf.getvalue()
+    except ImportError:
+        pass
+    # Fallback: pdf2image — render pages as images, save as PDF
+    try:
+        from pdf2image import convert_from_bytes
+        all_imgs = convert_from_bytes(file_bytes, dpi=200)
+        selected = [all_imgs[p - 1] for p in sorted(pages) if 1 <= p <= len(all_imgs)]
+        if selected:
             buf = io.BytesIO()
-            dst.save(buf)
+            selected[0].save(buf, format="PDF", save_all=True, append_images=selected[1:])
             return buf.getvalue()
-        except ImportError:
-            print("  ⚠ Neither PyMuPDF nor pikepdf available — cannot extract pages")
-            return file_bytes  # Return original
+    except Exception as e:
+        print(f"  ⚠ pdf2image extract fallback failed: {e}")
+    return file_bytes
 
 
 def process_building_application(
@@ -210,17 +232,34 @@ def process_building_application(
 
 
 def _count_pdf_pages(file_bytes: bytes) -> int:
-    """Count pages in a PDF."""
+    """Count pages in a PDF using whatever library is available."""
     try:
         import fitz
-        doc = fitz.open(stream=file_bytes, filetype="pdf")
-        n = len(doc)
-        doc.close()
+        doc = fitz.open(stream=file_bytes, filetype="pdf"); n = len(doc); doc.close()
         return n
     except ImportError:
-        try:
-            import pikepdf
-            pdf = pikepdf.Pdf.open(io.BytesIO(file_bytes))
-            return len(pdf.pages)
-        except ImportError:
-            return 1
+        pass
+    try:
+        import pikepdf
+        return len(pikepdf.Pdf.open(io.BytesIO(file_bytes)).pages)
+    except ImportError:
+        pass
+    try:
+        from pypdf import PdfReader
+        return len(PdfReader(io.BytesIO(file_bytes)).pages)
+    except ImportError:
+        pass
+    try:
+        from pdf2image import convert_from_bytes
+        return len(convert_from_bytes(file_bytes, dpi=72))
+    except Exception:
+        pass
+    # Last resort: parse PDF for /Count
+    try:
+        import re as _re
+        matches = _re.findall(rb"/Count\s+(\d+)", file_bytes)
+        if matches:
+            return max(int(m) for m in matches)
+    except Exception:
+        pass
+    return 1
