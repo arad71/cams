@@ -98,6 +98,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(true);
   const [showStreetNames, setShowStreetNames] = useState(true);
+  const [showBoundaries, setShowBoundaries] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const [drawMode, setDrawMode] = useState(null);
@@ -587,6 +588,12 @@ Respond with JSON only:
             style={{ padding: "6px 12px", borderRadius: 6, border: showStreetNames ? "2px solid #16a085" : "1px solid #d5dde2", background: showStreetNames ? "#e8f8f5" : "#fff", color: showStreetNames ? "#16a085" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
             🏷️ Street Names
           </button>
+          {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon) && (
+            <button onClick={() => setShowBoundaries(!showBoundaries)}
+              style={{ padding: "6px 12px", borderRadius: 6, border: showBoundaries ? "2px solid #8e44ad" : "1px solid #d5dde2", background: showBoundaries ? "#f4ecf7" : "#fff", color: showBoundaries ? "#8e44ad" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+              📐 Boundaries
+            </button>
+          )}
           {!drawMode && !sightTriangle && (
             <button onClick={startDraw} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>🔺 Sight Triangle</button>
           )}
@@ -636,6 +643,8 @@ Respond with JSON only:
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
         showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
         forceLayer={null}
+        showBoundaries={showBoundaries}
+        boundaryData={showBoundaries ? { lot: app?.site_lot_boundary_latlon, building: app?.site_building_boundary_latlon, crossover: app?.site_crossover_latlon } : null}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);

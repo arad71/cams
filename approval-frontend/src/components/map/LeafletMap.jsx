@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -313,6 +313,51 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       obsLayerRef.current.push(marker);
     });
   }, [analysisResult, leafletLoaded]);
+
+  // ── Render site boundaries (lot, building, crossover) from latlon data ──
+  const boundaryLayerRef = useRef([]);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    boundaryLayerRef.current.forEach(m => mapInstanceRef.current.removeLayer(m));
+    boundaryLayerRef.current = [];
+    if (!showBoundaries || !boundaryData) return;
+
+    const layers = [
+      { key: "lot", data: boundaryData.lot, color: "#00ffff", label: "Lot Boundary", dash: "6,4", fill: 0.05, weight: 2.5 },
+      { key: "building", data: boundaryData.building, color: "#ff6600", label: "Building", dash: null, fill: 0.15, weight: 2 },
+      { key: "crossover", data: boundaryData.crossover, color: "#ffff00", label: "Crossover", dash: null, fill: 0.25, weight: 2.5 },
+    ];
+
+    layers.forEach(cfg => {
+      if (!cfg.data || cfg.data.length < 3) return;
+      const poly = L.polygon(cfg.data, {
+        color: cfg.color, weight: cfg.weight, fillColor: cfg.color, fillOpacity: cfg.fill,
+        dashArray: cfg.dash || null,
+      }).addTo(mapInstanceRef.current);
+      boundaryLayerRef.current.push(poly);
+
+      // Label at centroid
+      const cLat = cfg.data.reduce((s, p) => s + p[0], 0) / cfg.data.length;
+      const cLng = cfg.data.reduce((s, p) => s + p[1], 0) / cfg.data.length;
+      const lbl = L.marker([cLat, cLng], {
+        icon: L.divIcon({
+          className: "",
+          html: `<div style="background:rgba(0,0,0,0.75);color:${cfg.color};padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;border:1px solid ${cfg.color}40">${cfg.label}</div>`,
+          iconAnchor: [30, 10],
+        }),
+      }).addTo(mapInstanceRef.current);
+      boundaryLayerRef.current.push(lbl);
+
+      // Corner dots
+      cfg.data.forEach((pt, i) => {
+        const dot = L.circleMarker(pt, { radius: 3, color: cfg.color, fillColor: "#fff", fillOpacity: 1, weight: 2 })
+          .bindTooltip(`${cfg.label} pt ${i + 1}`, { direction: "top" })
+          .addTo(mapInstanceRef.current);
+        boundaryLayerRef.current.push(dot);
+      });
+    });
+  }, [showBoundaries, boundaryData, leafletLoaded]);
 
 
   return (
