@@ -152,19 +152,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     }).addTo(mapInstanceRef.current);
   }, [showLots, lotsData, selectedApp, leafletLoaded, onLotClick]);
 
-  // Render selected app lot polygon (derived from lotsData)
-  const appLotRef = useRef(null);
-  useEffect(() => {
-    if (!mapInstanceRef.current || !leafletLoaded) return;
-    if (appLotRef.current) { mapInstanceRef.current.removeLayer(appLotRef.current); appLotRef.current = null; }
-    if (!selectedApp) return;
-    const coords = getAppCoords(allLotsData, selectedApp, speedRoadsData);
-    if (!coords?.lotPoly) return;
-    const L = window.L;
-    appLotRef.current = L.polygon(coords.lotPoly, {
-      color: '#e74c3c', weight: 3, fillColor: '#e74c3c', fillOpacity: 0.15, dashArray: '6,3',
-    }).addTo(mapInstanceRef.current);
-  }, [selectedApp, leafletLoaded, allLotsData]);
+  // (Selected app lot polygon highlight removed — use 📐 Boundaries toggle instead)
 
   // Highlight clicked lot boundary
   const clickedLotRef = useRef(null);
