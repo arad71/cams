@@ -85,7 +85,8 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "client_name": "string or null",
     "date": "string or null",
     "drawing_title": "string or null",
-    "prepared_by": "string or null"
+    "prepared_by": "string or null",
+    "is_corner_lot": "boolean or null — true if lot is on a corner of two roads"
   },
   "crossover_dimensions": {
     "width_at_boundary_m": "number or null — width at property boundary",
@@ -93,7 +94,14 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "splay_right_m": "number or null — right wing/flare",
     "total_width_at_road_m": "number or null — total where it meets road",
     "verge_depth_m": "number or null — property boundary to road edge",
-    "crossover_length_m": "number or null"
+    "crossover_length_m": "number or null",
+    "driveway_centreline_point_2_5m": "string or null — position 2.5m back from verge on driveway centreline (for sight triangle Point A), describe location",
+    "distance_to_left_boundary_m": "number or null — driveway edge to left side boundary",
+    "distance_to_right_boundary_m": "number or null — driveway edge to right side boundary",
+    "distance_to_nearest_lot_corner_m": "number or null — driveway edge to nearest lot corner",
+    "nearest_lot_corner": "string or null — which corner (e.g. 'SW corner', 'front-left')",
+    "distance_to_building_corner_m": "number or null — driveway to nearest building corner",
+    "nearest_building_corner": "string or null — which building corner"
   },
   "construction": {
     "material": "string or null — Concrete, Asphalt, Brick paving, etc.",
@@ -108,9 +116,35 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "existing_driveway_width_m": "number or null",
     "road_name": "string or null",
     "lot_frontage_m": "number or null",
+    "lot_depth_m": "number or null",
     "lot_areas_m2": "object — e.g. {\"Lot 20\": 350}",
     "total_area_m2": "number or null",
+    "building_setback_front_m": "number or null — building to front boundary",
+    "building_setback_left_m": "number or null — building to left boundary",
+    "building_setback_right_m": "number or null — building to right boundary",
+    "building_setback_rear_m": "number or null — building to rear boundary",
     "all_dimensions_found": "array of strings — every measurement on the drawings"
+  },
+  "utilities": {
+    "power_line_shown": "boolean or null — overhead or underground power shown",
+    "power_conflict": "boolean or null — power line/pole conflicts with crossover",
+    "power_notes": "string or null",
+    "water_main_shown": "boolean or null",
+    "water_conflict": "boolean or null — water main/meter conflicts with crossover",
+    "water_notes": "string or null",
+    "gas_main_shown": "boolean or null",
+    "gas_conflict": "boolean or null — gas pipe conflicts with crossover",
+    "gas_notes": "string or null",
+    "telco_shown": "boolean or null — phone/NBN/fibre shown",
+    "telco_conflict": "boolean or null — telco conflicts with crossover",
+    "telco_notes": "string or null",
+    "sewer_shown": "boolean or null",
+    "sewer_conflict": "boolean or null — sewer main/manhole conflicts",
+    "sewer_notes": "string or null",
+    "stormwater_drain_shown": "boolean or null",
+    "stormwater_conflict": "boolean or null",
+    "stormwater_notes": "string or null",
+    "utility_summary": "string or null — overall assessment of utility conflicts"
   },
   "drainage": {
     "drainage_plan_included": "boolean",
@@ -126,6 +160,10 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "is_subdivision": "boolean",
     "is_development_application": "boolean",
     "vegetation_on_verge": "boolean or null",
+    "trees_on_verge": "boolean or null — specific trees visible on verge area",
+    "street_light_near_crossover": "boolean or null",
+    "fire_hydrant_near_crossover": "boolean or null",
+    "letterbox_relocation_needed": "boolean or null",
     "notes": "string or null"
   }
 }
@@ -135,9 +173,13 @@ RULES:
 - Use numeric values (not strings) for measurements.
 - Verge depth = distance from property boundary line to road edge.
 - Distinguish crossover width (at boundary) from total width (at road, includes splays).
+- UTILITIES: Look for any utility symbols, labels, or lines (power poles, water meters, gas mains, telco pits, sewer manholes, stormwater drains). Report conflicts if any utility is within or crosses the proposed crossover area.
+- SETBACKS: Measure distance from driveway edge to left boundary, right boundary, nearest lot corner, and nearest building corner.
+- CORNER LOT: Identify if the lot is on a corner (two road frontages). Corner lots have special sight triangle requirements.
+- DRIVEWAY CENTRELINE POINT: The point 2.5m back from the verge/road edge along the driveway centreline is the standard Point A for sight triangle analysis.
 - Return ONLY valid JSON. Nothing else."""
 
-USER_PROMPT = "Analyse the attached document page(s). Extract all crossover dimensions, construction specs, site plan measurements, drainage details, and property info. Return structured JSON."
+USER_PROMPT = "Analyse the attached document page(s). Extract all crossover dimensions, construction specs, site plan measurements, utility locations and conflicts, drainage details, setbacks, and property info. Return structured JSON."
 
 
 # ═════════════════════════════════════════════════════════════════════════════
