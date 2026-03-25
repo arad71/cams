@@ -202,9 +202,28 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
   const [uploadCat, setUploadCat] = useState(UPLOAD_CATEGORIES[0].id);
   const [uploading, setUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(null);
+  const [extractDoc, setExtractDoc] = useState(null); // doc to extract pages from
+  const [extractPages, setExtractPages] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [extractResult, setExtractResult] = useState(null);
   const fileInputRef = useRef(null);
 
   const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
+
+  const handleExtractSiteplan = async () => {
+    if (!extractDoc || !extractPages.trim() || !appDbId) return;
+    setExtracting(true);
+    setExtractResult(null);
+    try {
+      const result = await api.extractSiteplan(appDbId, extractDoc.id, extractPages.trim());
+      setExtractResult(result);
+      if (onDocUpdated) onDocUpdated();
+      setTimeout(() => { setExtractDoc(null); setExtractPages(""); setExtractResult(null); }, 3000);
+    } catch (err) {
+      setExtractResult({ success: false, message: err.message || "Extraction failed" });
+    }
+    setExtracting(false);
+  };
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -304,6 +323,14 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
                   style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                   👁 View
                 </button>
+                {/* Extract Site Plan button — only for PDFs */}
+                {canUpload && doc.type === "pdf" && (
+                  <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); }}
+                    title="Extract site plan pages from this document"
+                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    📐 Extract
+                  </button>
+                )}
                 {/* Delete button */}
                 {canUpload && (
                   <button onClick={(e) => {
@@ -339,6 +366,62 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
       {/* Floating document viewer */}
       {viewerDoc && (
         <DocViewer doc={viewerDoc} appDbId={appDbId} onClose={() => setViewerDoc(null)} />
+      )}
+
+      {/* Extract Site Plan popup */}
+      {extractDoc && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setExtractDoc(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#1a3a4a" }}>📐 Extract Site Plan Pages</div>
+                <div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>From: {extractDoc.name}</div>
+              </div>
+              <button onClick={() => setExtractDoc(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#95a5a6" }}>✕</button>
+            </div>
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ fontSize: 11, color: "#5a6a74", marginBottom: 10, lineHeight: 1.5 }}>
+                Enter the page number(s) that contain the site plan. The selected pages will be extracted as a separate Site Plan document and automatically analysed by AI.
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Site Plan Page Number(s)</label>
+                <input
+                  value={extractPages}
+                  onChange={e => setExtractPages(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleExtractSiteplan()}
+                  placeholder="e.g. 3 or 3,4"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", color: "#1a3a4a", fontWeight: 700 }}
+                  autoFocus
+                />
+                <div style={{ fontSize: 9, color: "#95a5a6", marginTop: 4 }}>
+                  Separate multiple pages with commas. Open the document viewer to identify the site plan page(s).
+                </div>
+              </div>
+              {extractResult && (
+                <div style={{ padding: "8px 12px", borderRadius: 8, marginBottom: 12,
+                  background: extractResult.success ? "#eafaf1" : "#fdedec",
+                  color: extractResult.success ? "#27ae60" : "#e74c3c",
+                  fontSize: 11, fontWeight: 600 }}>
+                  {extractResult.success ? `✅ ${extractResult.message}` : `⚠ ${extractResult.message}`}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => setExtractDoc(null)}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  Cancel
+                </button>
+                <button onClick={handleExtractSiteplan} disabled={extracting || !extractPages.trim()}
+                  style={{ padding: "8px 20px", borderRadius: 8, border: "none",
+                    background: extractPages.trim() ? "linear-gradient(135deg, #8e44ad, #6c3483)" : "#d5dde2",
+                    color: extractPages.trim() ? "#fff" : "#95a5a6",
+                    fontWeight: 700, fontSize: 12, cursor: extractPages.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
+                  {extracting ? "⟳ Extracting & Analysing..." : "📐 Extract & Analyse"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

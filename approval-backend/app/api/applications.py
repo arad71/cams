@@ -302,18 +302,97 @@ async def upload_document(
             except Exception as e:
                 print(f"  ⚠ Auto site plan AI failed: {e}")
 
-    # Auto-process building application — extract site plan pages + analyse
-    if "building" in category.lower():
-        try:
-            from app.services.building_app_processor import process_building_application
-            result = process_building_application(app, doc, file_bytes, db, current_user.id)
-            print(f"  ✓ Building app processed: {result}")
-        except Exception as e:
-            print(f"  ⚠ Building app processing failed: {e}")
-
     from app.services.audit import log_audit
     log_audit(db=db, action="upload", entity_type="document", user=current_user, entity_id=str(doc.id), entity_ref=app.ref_number, description=f"Uploaded {safe_name} ({size_str}) to {app.ref_number}, category={category}")
     return _build_doc_out(doc)
+
+
+@router.post("/{app_id}/documents/{doc_id}/extract-siteplan")
+async def extract_siteplan_pages(
+    app_id: int, doc_id: int,
+    pages: str = Query(..., description="Comma-separated page numbers, e.g. '3,4'"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Extract specific pages from a document as a new Site Plan, then run AI analysis."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(404, "Document not found")
+
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+
+    # Parse page numbers
+    try:
+        page_nums = [int(p.strip()) for p in pages.split(",") if p.strip()]
+    except ValueError:
+        raise HTTPException(400, "Invalid page numbers — use comma-separated integers e.g. '3,4'")
+    if not page_nums:
+        raise HTTPException(400, "No page numbers provided")
+
+    file_bytes = file_path.read_bytes()
+
+    from app.services.building_app_processor import extract_pdf_pages, _count_pdf_pages
+    total_pages = _count_pdf_pages(file_bytes)
+    invalid = [p for p in page_nums if p < 1 or p > total_pages]
+    if invalid:
+        raise HTTPException(400, f"Invalid pages {invalid} — document has {total_pages} pages")
+
+    # Extract pages
+    sp_bytes = extract_pdf_pages(file_bytes, page_nums)
+    sp_filename = f"SitePlan_p{'_'.join(str(p) for p in page_nums)}_{doc.name}"
+
+    settings = get_settings()
+    app_dir = Path(settings.DOCUMENT_DIR) / app.ref_number
+    app_dir.mkdir(parents=True, exist_ok=True)
+    sp_path = app_dir / sp_filename
+    counter = 1
+    while sp_path.exists():
+        sp_path = app_dir / f"SitePlan_{counter}_p{'_'.join(str(p) for p in page_nums)}_{doc.name}"
+        counter += 1
+
+    with open(sp_path, "wb") as f:
+        f.write(sp_bytes)
+
+    sp_size = len(sp_bytes)
+    size_str = f"{sp_size / 1024:.1f} KB" if sp_size < 1048576 else f"{sp_size / 1048576:.1f} MB"
+
+    sp_doc = Document(
+        application_id=app_id,
+        uploaded_by_id=current_user.id,
+        name=sp_filename,
+        file_type="pdf",
+        file_size=size_str,
+        category="Site Plan",
+        file_path=str(sp_path),
+    )
+    db.add(sp_doc)
+    db.commit()
+    db.refresh(sp_doc)
+
+    # Run AI analysis on extracted site plan
+    try:
+        _run_site_plan_ai(app, sp_doc, sp_bytes, db)
+    except Exception as e:
+        print(f"  ⚠ Site plan analysis failed: {e}")
+
+    from app.services.audit import log_audit
+    log_audit(db=db, action="extract_siteplan", entity_type="document", user=current_user,
+              entity_id=str(sp_doc.id), entity_ref=app.ref_number,
+              description=f"Extracted pages {page_nums} from {doc.name} as site plan, AI analysis triggered")
+
+    return {
+        "success": True,
+        "site_plan_doc_id": sp_doc.id,
+        "filename": sp_filename,
+        "pages_extracted": page_nums,
+        "total_pages": total_pages,
+        "message": f"Extracted page(s) {', '.join(str(p) for p in page_nums)} as site plan. AI analysis running.",
+    }
 
 
 def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
