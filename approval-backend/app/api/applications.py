@@ -302,6 +302,15 @@ async def upload_document(
             except Exception as e:
                 print(f"  ⚠ Auto site plan AI failed: {e}")
 
+    # Auto-process building application — extract site plan pages + analyse
+    if "building" in category.lower():
+        try:
+            from app.services.building_app_processor import process_building_application
+            result = process_building_application(app, doc, file_bytes, db, current_user.id)
+            print(f"  ✓ Building app processed: {result}")
+        except Exception as e:
+            print(f"  ⚠ Building app processing failed: {e}")
+
     from app.services.audit import log_audit
     log_audit(db=db, action="upload", entity_type="document", user=current_user, entity_id=str(doc.id), entity_ref=app.ref_number, description=f"Uploaded {safe_name} ({size_str}) to {app.ref_number}, category={category}")
     return _build_doc_out(doc)
