@@ -832,7 +832,7 @@ def save_boundaries(
     return {"saved": saved}
 
 
-@router.delete("/{app_id}/documents/{doc_id}")
+@router.delete("/{app_id}/documents/{doc_id}", status_code=200)
 def delete_document(app_id: int, doc_id: int, db: Session = Depends(get_db),
                     current_user: User = Depends(require_role("admin", "manager", "engineer"))):
     """Delete a document, its file, and all related data (training samples, site plan data)."""
