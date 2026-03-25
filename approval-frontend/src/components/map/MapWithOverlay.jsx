@@ -95,7 +95,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
 function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null }) {
-  const [showLots, setShowLots] = useState(true);
+  const [showLots, setShowLots] = useState(false);
   const [showSpeedRoads, setShowSpeedRoads] = useState(true);
   const [showStreetNames, setShowStreetNames] = useState(true);
   const [showBoundaries, setShowBoundaries] = useState(false);

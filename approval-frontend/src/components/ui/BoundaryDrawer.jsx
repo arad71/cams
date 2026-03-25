@@ -136,13 +136,21 @@ export default function BoundaryDrawer({ appDbId, app, sitePlanDoc, onClose, onS
     setPoints(updated);
   };
 
+  // Close polygon: ensure last point == first point
+  const closePoly = (poly) => {
+    if (!poly || poly.length < 3) return poly;
+    const first = poly[0], last = poly[poly.length - 1];
+    if (first[0] === last[0] && first[1] === last[1]) return poly; // already closed
+    return [...poly, [first[0], first[1]]];
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       await api.saveBoundaries(appDbId, {
-        site_lot_boundary: points[0],
-        site_building_boundary: points[1],
-        site_crossover: points[2],
+        site_lot_boundary: closePoly(points[0]),
+        site_building_boundary: closePoly(points[1]),
+        site_crossover: closePoly(points[2]),
       });
       setSaved(true);
       if (onSaved) onSaved();
