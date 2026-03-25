@@ -218,9 +218,22 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
       const result = await api.extractSiteplan(appDbId, extractDoc.id, extractPages.trim());
       setExtractResult(result);
       if (onDocUpdated) onDocUpdated();
-      setTimeout(() => { setExtractDoc(null); setExtractPages(""); setExtractResult(null); }, 3000);
     } catch (err) {
       setExtractResult({ success: false, message: err.message || "Extraction failed" });
+    }
+    setExtracting(false);
+  };
+
+  const handleAnalyseExtracted = async () => {
+    if (!extractResult?.site_plan_doc_id || !appDbId) return;
+    setExtracting(true);
+    try {
+      await api.analyseDocument(appDbId, extractResult.site_plan_doc_id);
+      setExtractResult(prev => ({ ...prev, analysed: true, message: prev.message + " AI analysis complete." }));
+      if (onDocUpdated) onDocUpdated();
+      setTimeout(() => { setExtractDoc(null); setExtractPages(""); setExtractResult(null); }, 2500);
+    } catch (err) {
+      setExtractResult(prev => ({ ...prev, analyseError: err.message || "Analysis failed" }));
     }
     setExtracting(false);
   };
@@ -326,9 +339,9 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
                 {/* Extract Site Plan button — only for PDFs */}
                 {canUpload && doc.type === "pdf" && (
                   <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); }}
-                    title="Extract site plan pages from this document"
+                    title="Extract pages from this document"
                     style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                    📐 Extract
+                    ✂ Extract
                   </button>
                 )}
                 {/* Delete button */}
@@ -404,20 +417,34 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
                   color: extractResult.success ? "#27ae60" : "#e74c3c",
                   fontSize: 11, fontWeight: 600 }}>
                   {extractResult.success ? `✅ ${extractResult.message}` : `⚠ ${extractResult.message}`}
+                  {extractResult.analyseError && <div style={{ color: "#e74c3c", marginTop: 4 }}>⚠ {extractResult.analyseError}</div>}
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button onClick={() => setExtractDoc(null)}
                   style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-                  Cancel
+                  {extractResult?.success ? "Close" : "Cancel"}
                 </button>
-                <button onClick={handleExtractSiteplan} disabled={extracting || !extractPages.trim()}
-                  style={{ padding: "8px 20px", borderRadius: 8, border: "none",
-                    background: extractPages.trim() ? "linear-gradient(135deg, #8e44ad, #6c3483)" : "#d5dde2",
-                    color: extractPages.trim() ? "#fff" : "#95a5a6",
-                    fontWeight: 700, fontSize: 12, cursor: extractPages.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
-                  {extracting ? "⟳ Extracting & Analysing..." : "📐 Extract & Analyse"}
-                </button>
+                {/* Extract button — shown before extraction */}
+                {!extractResult?.success && (
+                  <button onClick={handleExtractSiteplan} disabled={extracting || !extractPages.trim()}
+                    style={{ padding: "8px 20px", borderRadius: 8, border: "none",
+                      background: extractPages.trim() && !extracting ? "linear-gradient(135deg, #8e44ad, #6c3483)" : "#d5dde2",
+                      color: extractPages.trim() && !extracting ? "#fff" : "#95a5a6",
+                      fontWeight: 700, fontSize: 12, cursor: extractPages.trim() && !extracting ? "pointer" : "default", fontFamily: "inherit" }}>
+                    {extracting ? "⟳ Extracting..." : "✂ Extract Pages"}
+                  </button>
+                )}
+                {/* Analyse button — shown after successful extraction */}
+                {extractResult?.success && !extractResult?.analysed && (
+                  <button onClick={handleAnalyseExtracted} disabled={extracting}
+                    style={{ padding: "8px 20px", borderRadius: 8, border: "none",
+                      background: extracting ? "#d5dde2" : "linear-gradient(135deg, #27ae60, #1e8449)",
+                      color: extracting ? "#95a5a6" : "#fff",
+                      fontWeight: 700, fontSize: 12, cursor: extracting ? "default" : "pointer", fontFamily: "inherit" }}>
+                    {extracting ? "⟳ Analysing..." : "🤖 Analyse Site Plan"}
+                  </button>
+                )}
               </div>
             </div>
           </div>
