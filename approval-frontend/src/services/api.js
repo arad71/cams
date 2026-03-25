@@ -83,6 +83,10 @@ const api = {
     const token = this._getToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/file?token=${encodeURIComponent(token || "")}`;
   },
+  getDocumentRenderUrl(appId, docId, page = 1) {
+    const token = this._getToken();
+    return `${API_BASE}/applications/${appId}/documents/${docId}/render?page=${page}&token=${encodeURIComponent(token || "")}`;
+  },
   async deleteDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "DELETE" }); },
   async extractSiteplan(appId, docId, pages) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-siteplan?pages=${encodeURIComponent(pages)}`, { method: "POST" }); },
   async saveBoundaries(appId, data) { return this._fetch(`/applications/${appId}/boundaries`, { method: "PUT", body: data }); },

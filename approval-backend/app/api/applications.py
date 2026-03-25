@@ -779,6 +779,62 @@ def download_document(
     return FileResponse(file_path, media_type=media_type, filename=doc.name)
 
 
+@router.get("/{app_id}/documents/{doc_id}/render")
+def render_document_as_image(
+    app_id: int, doc_id: int,
+    page: int = Query(1, description="Page number (1-based)"),
+    token: str = Query(None, description="Bearer token"),
+    db: Session = Depends(get_db),
+):
+    """Render a document page as PNG image (for PDF → image conversion)."""
+    from fastapi.responses import Response
+    from jose import jwt as jose_jwt
+
+    # Auth
+    if not token:
+        raise HTTPException(401, "Token required")
+    try:
+        settings = get_settings()
+        payload = jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user = db.query(User).filter(User.id == int(payload.get("sub", 0)), User.is_active == True).first()
+        if not user:
+            raise HTTPException(401, "Invalid token")
+    except Exception:
+        raise HTTPException(401, "Invalid token")
+
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(404, "Document not found")
+
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+
+    ext = (doc.file_type or "").lower()
+
+    # If already an image, serve directly
+    if ext in ("jpg", "jpeg", "png", "gif", "webp"):
+        return Response(content=file_path.read_bytes(), media_type=f"image/{ext}")
+
+    # PDF → render page as PNG
+    if ext == "pdf":
+        try:
+            from pdf2image import convert_from_bytes
+            images = convert_from_bytes(file_path.read_bytes(), dpi=150, first_page=page, last_page=page)
+            if not images:
+                raise HTTPException(404, f"Page {page} not found")
+            import io
+            buf = io.BytesIO()
+            images[0].save(buf, format="PNG")
+            return Response(content=buf.getvalue(), media_type="image/png")
+        except ImportError:
+            raise HTTPException(500, "pdf2image not installed")
+        except Exception as e:
+            raise HTTPException(500, f"Render failed: {e}")
+
+    raise HTTPException(400, f"Cannot render .{ext} files as images")
+
+
 @router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)
 def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     doc = db.query(Document).options(joinedload(Document.reviewed_by)).filter(Document.id == doc_id, Document.application_id == app_id).first()
