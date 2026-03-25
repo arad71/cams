@@ -117,52 +117,58 @@ function extractPolygon(feature) {
   if (!ring || ring.length < 3) return null;
   // Convert [lng, lat] → [lat, lng]
   let poly = ring.map(([lng, lat]) => [lat, lng]);
-  // Remove closing point for simplification
+  // Remove closing point
   if (poly.length > 3 && poly[0][0] === poly[poly.length-1][0] && poly[0][1] === poly[poly.length-1][1]) poly = poly.slice(0, -1);
-  // Remove collinear mid-side points (Douglas-Peucker)
-  poly = simplifyPolygon(poly);
+  // Remove collinear mid-side points only
+  poly = removeCollinearPoints(poly);
   // Re-close
   if (poly.length >= 3) poly.push([poly[0][0], poly[0][1]]);
   return poly;
 }
 
-// Douglas-Peucker polygon simplification — removes mid-side points
-function simplifyPolygon(points, epsilon) {
+// Remove points that lie ON the line between their neighbours (collinear).
+// Uses cross product: if the triangle formed by prev→curr→next has near-zero area,
+// the point is on the line (mid-side junction point from adjacent lot).
+function removeCollinearPoints(points) {
   if (points.length <= 4) return points;
-  // Auto epsilon: 1% of bounding box diagonal
-  if (!epsilon) {
-    const lats = points.map(p => p[0]), lngs = points.map(p => p[1]);
-    const diag = Math.sqrt(Math.pow(Math.max(...lats) - Math.min(...lats), 2) + Math.pow(Math.max(...lngs) - Math.min(...lngs), 2));
-    epsilon = diag * 0.01;
+  const n = points.length;
+  
+  // For each point, compute how much it deviates from the line prev→next
+  const deviations = [];
+  for (let i = 0; i < n; i++) {
+    const prev = points[(i - 1 + n) % n];
+    const curr = points[i];
+    const next = points[(i + 1) % n];
+    const dx = next[0] - prev[0], dy = next[1] - prev[1];
+    const segLen = Math.sqrt(dx * dx + dy * dy);
+    if (segLen < 1e-12) { deviations.push({ i, dist: Infinity }); continue; }
+    const cross = Math.abs((curr[0] - prev[0]) * dy - (curr[1] - prev[1]) * dx);
+    const distToLine = cross / segLen;
+    deviations.push({ i, dist: distToLine });
   }
-  function perpDist(pt, a, b) {
-    const dx = b[0] - a[0], dy = b[1] - a[1];
-    const lenSq = dx * dx + dy * dy;
-    if (lenSq === 0) return Math.sqrt(Math.pow(pt[0]-a[0], 2) + Math.pow(pt[1]-a[1], 2));
-    const t = Math.max(0, Math.min(1, ((pt[0]-a[0])*dx + (pt[1]-a[1])*dy) / lenSq));
-    return Math.sqrt(Math.pow(pt[0] - (a[0]+t*dx), 2) + Math.pow(pt[1] - (a[1]+t*dy), 2));
-  }
-  function dp(pts, eps) {
-    if (pts.length <= 2) return pts;
-    let dmax = 0, idx = 0;
-    for (let i = 1; i < pts.length - 1; i++) {
-      const d = perpDist(pts[i], pts[0], pts[pts.length-1]);
-      if (d > dmax) { dmax = d; idx = i; }
+  
+  // Sort by deviation — points with smallest deviation are most collinear (mid-side)
+  const sorted = [...deviations].sort((a, b) => a.dist - b.dist);
+  
+  // The mid-side points should have dramatically smaller deviation than real corners.
+  // Find the gap: if ratio between consecutive deviations > 5x, that's the cutoff.
+  const keepSet = new Set();
+  for (let i = 0; i < n; i++) keepSet.add(i);
+  
+  for (let k = 0; k < sorted.length - 2; k++) {
+    const currDist = sorted[k].dist;
+    const nextDist = sorted[k + 1].dist;
+    // If this point's deviation is tiny AND next point's deviation is much larger, remove this one
+    if (currDist < 1e-10 || (nextDist > 0 && nextDist / Math.max(currDist, 1e-15) > 10)) {
+      // Remove all points up to and including k — they're collinear
+      for (let j = 0; j <= k; j++) keepSet.delete(sorted[j].i);
+      break;
     }
-    if (dmax > eps) {
-      const left = dp(pts.slice(0, idx + 1), eps);
-      const right = dp(pts.slice(idx), eps);
-      return left.slice(0, -1).concat(right);
-    }
-    return [pts[0], pts[pts.length-1]];
   }
-  // For closed polygon: run on the open ring
-  const simplified = dp([...points, points[0]], epsilon);
-  // Remove re-added closing point
-  if (simplified.length > 1 && simplified[0][0] === simplified[simplified.length-1][0] && simplified[0][1] === simplified[simplified.length-1][1]) {
-    return simplified.slice(0, -1);
-  }
-  return simplified;
+  
+  const result = points.filter((_, i) => keepSet.has(i));
+  console.log(`Lot simplification: ${n} points → ${result.length} corners`);
+  return result.length >= 3 ? result : points;
 }
 
 // ─── Document categories ───────────────────────────────
