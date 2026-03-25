@@ -902,56 +902,86 @@ def save_boundaries(
         if len(re_open) > 3 and re_open[0] == re_open[-1]:
             re_open = re_open[:-1]
 
-        # ── Extract TRUE CORNERS from lot polygon ──
-        # Mid-side points (collinear with neighbours) are NOT corners.
-        # A corner has a significant angle change (> threshold degrees).
-        def extract_corners(poly, angle_threshold=15):
-            """Keep only vertices where direction changes by more than threshold degrees."""
-            if len(poly) <= 4:
-                return poly  # Already minimal
-            corners = []
-            n = len(poly)
-            for i in range(n):
-                p_prev = poly[(i - 1) % n]
-                p_curr = poly[i]
-                p_next = poly[(i + 1) % n]
-                # Vectors
-                dx1 = p_curr[0] - p_prev[0]
-                dy1 = p_curr[1] - p_prev[1]
-                dx2 = p_next[0] - p_curr[0]
-                dy2 = p_next[1] - p_curr[1]
-                # Angle between vectors
-                len1 = math.sqrt(dx1*dx1 + dy1*dy1)
-                len2 = math.sqrt(dx2*dx2 + dy2*dy2)
-                if len1 < 1e-10 or len2 < 1e-10:
-                    continue
-                cos_angle = (dx1*dx2 + dy1*dy2) / (len1 * len2)
-                cos_angle = max(-1, min(1, cos_angle))  # clamp
-                angle_deg = math.degrees(math.acos(cos_angle))
-                # If angle deviates from 180° (straight line) by more than threshold, it's a corner
-                if abs(180 - angle_deg) > angle_threshold:
-                    corners.append(p_curr)
-            return corners if len(corners) >= 3 else poly
+        # ── Extract TRUE CORNERS using Douglas-Peucker simplification ──
+        # This removes mid-side points while preserving actual shape corners.
+        # We iteratively simplify until we reach the target point count.
+        def perpendicular_distance(point, line_start, line_end):
+            """Distance from point to line segment."""
+            x0, y0 = point[0], point[1]
+            x1, y1 = line_start[0], line_start[1]
+            x2, y2 = line_end[0], line_end[1]
+            dx, dy = x2 - x1, y2 - y1
+            if dx == 0 and dy == 0:
+                return math.sqrt((x0 - x1)**2 + (y0 - y1)**2)
+            t = max(0, min(1, ((x0 - x1) * dx + (y0 - y1) * dy) / (dx * dx + dy * dy)))
+            px, py = x1 + t * dx, y1 + t * dy
+            return math.sqrt((x0 - px)**2 + (y0 - py)**2)
 
-        re_corners = extract_corners(re_open)
-        print(f"  → Lot polygon: {len(re_open)} points → {len(re_corners)} true corners")
+        def douglas_peucker(points, epsilon):
+            """Simplify polygon using Douglas-Peucker algorithm."""
+            if len(points) <= 2:
+                return points
+            # Find point with max distance from line between first and last
+            dmax = 0
+            idx = 0
+            for i in range(1, len(points) - 1):
+                d = perpendicular_distance(points[i], points[0], points[-1])
+                if d > dmax:
+                    dmax = d
+                    idx = i
+            if dmax > epsilon:
+                left = douglas_peucker(points[:idx + 1], epsilon)
+                right = douglas_peucker(points[idx:], epsilon)
+                return left[:-1] + right
+            else:
+                return [points[0], points[-1]]
+
+        def simplify_to_count(poly, target_count):
+            """Simplify polygon to approximately target_count points."""
+            if len(poly) <= target_count:
+                return poly
+            # Binary search for the right epsilon
+            # Compute bounding box diagonal for scale reference
+            lats = [p[0] for p in poly]
+            lngs = [p[1] for p in poly]
+            diag = math.sqrt((max(lats) - min(lats))**2 + (max(lngs) - min(lngs))**2)
+            lo, hi = 0, diag * 0.5
+            best = poly
+            for _ in range(30):  # binary search iterations
+                mid = (lo + hi) / 2
+                simplified = douglas_peucker(poly + [poly[0]], mid)
+                # Remove closing point added for algorithm
+                if len(simplified) > 1 and simplified[0] == simplified[-1]:
+                    simplified = simplified[:-1]
+                if len(simplified) <= target_count:
+                    hi = mid
+                    best = simplified
+                else:
+                    lo = mid
+                    best = simplified
+            # If we still have too many, take evenly spaced
+            if len(best) > target_count:
+                indices = [round(i * (len(best) - 1) / (target_count - 1)) for i in range(target_count)]
+                best = [best[i] for i in indices]
+            return best
 
         n_px = len(px_open)
-        n_re = len(re_corners)
+        n_re = len(re_open)
 
         if n_px >= 3 and n_re >= 3:
-            # Match corners: resample to same count
             if n_px < n_re:
-                # Officer drew fewer corners — pick evenly spaced from real corners
-                indices = [round(i * (n_re - 1) / (n_px - 1)) for i in range(n_px)]
-                real_pts = [re_corners[i] for i in indices]
+                # Simplify real polygon to match officer's drawn point count
+                real_pts = simplify_to_count(re_open, n_px)
+                print(f"  → Lot polygon: {n_re} points → simplified to {len(real_pts)} corners (target {n_px})")
             elif n_px > n_re:
-                # Officer drew more points — sample pixel polygon to match
+                # Officer drew more points — simplify pixel polygon
                 indices = [round(i * (n_px - 1) / (n_re - 1)) for i in range(n_re)]
                 px_open = [px_open[i] for i in indices]
-                real_pts = re_corners
+                real_pts = re_open
+                print(f"  → Pixel polygon: {n_px} points → sampled to {len(px_open)} (target {n_re})")
             else:
-                real_pts = re_corners
+                real_pts = re_open
+                print(f"  → Point counts match: {n_px}")
 
             pixel_pts = [(p[0], p[1]) for p in px_open[:len(real_pts)]]
             real_pts = [(p[0], p[1]) for p in real_pts[:len(pixel_pts)]]
