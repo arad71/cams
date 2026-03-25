@@ -311,12 +311,22 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     boundaryLayerRef.current = [];
     if (!showBoundaries || !boundaryData) return;
 
-    console.log("Rendering boundaries:", JSON.stringify(boundaryData).substring(0, 200));
+    // Auto-detect [lng, lat] vs [lat, lng] — Perth area: lat ~ -31 to -32, lng ~ 115 to 116
+    // If first coord's absolute value is > 90, it's likely longitude in position 0
+    const fixOrder = (poly) => {
+      if (!poly || poly.length < 1) return poly;
+      const first = poly[0];
+      if (Math.abs(first[0]) > 90) {
+        // [lng, lat] → swap to [lat, lng]
+        return poly.map(p => [p[1], p[0]]);
+      }
+      return poly;
+    };
 
     const layers = [
-      { key: "lot", data: boundaryData.lot, color: "#00ffff", label: "Lot Boundary", dash: "6,4", fill: 0.05, weight: 2.5 },
-      { key: "building", data: boundaryData.building, color: "#ff6600", label: "Building", dash: null, fill: 0.15, weight: 2 },
-      { key: "crossover", data: boundaryData.crossover, color: "#ffff00", label: "Crossover", dash: null, fill: 0.25, weight: 2.5 },
+      { key: "lot", data: fixOrder(boundaryData.lot), color: "#00ffff", label: "Lot Boundary", dash: "6,4", fill: 0.05, weight: 2.5 },
+      { key: "building", data: fixOrder(boundaryData.building), color: "#ff6600", label: "Building", dash: null, fill: 0.15, weight: 2 },
+      { key: "crossover", data: fixOrder(boundaryData.crossover), color: "#ffff00", label: "Crossover", dash: null, fill: 0.25, weight: 2.5 },
     ];
 
     layers.forEach(cfg => {
