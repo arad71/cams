@@ -115,7 +115,54 @@ function extractPolygon(feature) {
   if (!g) return null;
   let ring = g.type === "Polygon" ? g.coordinates?.[0] : g.type === "MultiPolygon" ? g.coordinates?.[0]?.[0] : null;
   if (!ring || ring.length < 3) return null;
-  return ring.map(([lng, lat]) => [lat, lng]);
+  // Convert [lng, lat] → [lat, lng]
+  let poly = ring.map(([lng, lat]) => [lat, lng]);
+  // Remove closing point for simplification
+  if (poly.length > 3 && poly[0][0] === poly[poly.length-1][0] && poly[0][1] === poly[poly.length-1][1]) poly = poly.slice(0, -1);
+  // Remove collinear mid-side points (Douglas-Peucker)
+  poly = simplifyPolygon(poly);
+  // Re-close
+  if (poly.length >= 3) poly.push([poly[0][0], poly[0][1]]);
+  return poly;
+}
+
+// Douglas-Peucker polygon simplification — removes mid-side points
+function simplifyPolygon(points, epsilon) {
+  if (points.length <= 4) return points;
+  // Auto epsilon: 1% of bounding box diagonal
+  if (!epsilon) {
+    const lats = points.map(p => p[0]), lngs = points.map(p => p[1]);
+    const diag = Math.sqrt(Math.pow(Math.max(...lats) - Math.min(...lats), 2) + Math.pow(Math.max(...lngs) - Math.min(...lngs), 2));
+    epsilon = diag * 0.01;
+  }
+  function perpDist(pt, a, b) {
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.sqrt(Math.pow(pt[0]-a[0], 2) + Math.pow(pt[1]-a[1], 2));
+    const t = Math.max(0, Math.min(1, ((pt[0]-a[0])*dx + (pt[1]-a[1])*dy) / lenSq));
+    return Math.sqrt(Math.pow(pt[0] - (a[0]+t*dx), 2) + Math.pow(pt[1] - (a[1]+t*dy), 2));
+  }
+  function dp(pts, eps) {
+    if (pts.length <= 2) return pts;
+    let dmax = 0, idx = 0;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const d = perpDist(pts[i], pts[0], pts[pts.length-1]);
+      if (d > dmax) { dmax = d; idx = i; }
+    }
+    if (dmax > eps) {
+      const left = dp(pts.slice(0, idx + 1), eps);
+      const right = dp(pts.slice(idx), eps);
+      return left.slice(0, -1).concat(right);
+    }
+    return [pts[0], pts[pts.length-1]];
+  }
+  // For closed polygon: run on the open ring
+  const simplified = dp([...points, points[0]], epsilon);
+  // Remove re-added closing point
+  if (simplified.length > 1 && simplified[0][0] === simplified[simplified.length-1][0] && simplified[0][1] === simplified[simplified.length-1][1]) {
+    return simplified.slice(0, -1);
+  }
+  return simplified;
 }
 
 // ─── Document categories ───────────────────────────────
