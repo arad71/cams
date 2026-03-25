@@ -588,8 +588,8 @@ Respond with JSON only:
             style={{ padding: "6px 12px", borderRadius: 6, border: showStreetNames ? "2px solid #16a085" : "1px solid #d5dde2", background: showStreetNames ? "#e8f8f5" : "#fff", color: showStreetNames ? "#16a085" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
             🏷️ Street Names
           </button>
-          {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon) && (
-            <button onClick={() => setShowBoundaries(!showBoundaries)}
+          {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary || app?.site_building_boundary || app?.site_crossover) && (
+            <button onClick={() => { console.log("Boundary data:", { lot: app?.site_lot_boundary_latlon, building: app?.site_building_boundary_latlon, crossover: app?.site_crossover_latlon, lot_px: app?.site_lot_boundary, lotPoly: app?.lot_polygon }); setShowBoundaries(!showBoundaries); }}
               style={{ padding: "6px 12px", borderRadius: 6, border: showBoundaries ? "2px solid #8e44ad" : "1px solid #d5dde2", background: showBoundaries ? "#f4ecf7" : "#fff", color: showBoundaries ? "#8e44ad" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
               📐 Boundaries
             </button>
@@ -644,7 +644,11 @@ Respond with JSON only:
         showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
         forceLayer={null}
         showBoundaries={showBoundaries}
-        boundaryData={showBoundaries ? { lot: app?.site_lot_boundary_latlon, building: app?.site_building_boundary_latlon, crossover: app?.site_crossover_latlon } : null}
+        boundaryData={showBoundaries ? {
+          lot: app?.site_lot_boundary_latlon || app?.lot_polygon || null,
+          building: app?.site_building_boundary_latlon || null,
+          crossover: app?.site_crossover_latlon || null
+        } : null}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);

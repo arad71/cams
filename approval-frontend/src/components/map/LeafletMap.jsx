@@ -311,6 +311,8 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     boundaryLayerRef.current = [];
     if (!showBoundaries || !boundaryData) return;
 
+    console.log("Rendering boundaries:", JSON.stringify(boundaryData).substring(0, 200));
+
     const layers = [
       { key: "lot", data: boundaryData.lot, color: "#00ffff", label: "Lot Boundary", dash: "6,4", fill: 0.05, weight: 2.5 },
       { key: "building", data: boundaryData.building, color: "#ff6600", label: "Building", dash: null, fill: 0.15, weight: 2 },
