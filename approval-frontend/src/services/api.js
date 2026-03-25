@@ -84,6 +84,7 @@ const api = {
     return `${API_BASE}/applications/${appId}/documents/${docId}/file?token=${encodeURIComponent(token || "")}`;
   },
   async deleteDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "DELETE" }); },
+  async extractSiteplan(appId, docId, pages) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-siteplan?pages=${encodeURIComponent(pages)}`, { method: "POST" }); },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
 
   // Document AI analysis
