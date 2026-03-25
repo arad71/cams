@@ -304,6 +304,19 @@ export default function DocumentList({ documents, appDbId, currentUser, onDocUpd
                   style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                   👁 View
                 </button>
+                {/* Delete button */}
+                {canUpload && (
+                  <button onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm(`Delete "${doc.name}"? This cannot be undone.`)) {
+                      api.deleteDocument(appDbId, doc.id).then(() => { if (onDocUpdated) onDocUpdated(); }).catch(err => console.error("Delete failed:", err));
+                    }
+                  }}
+                    title="Delete document"
+                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #e4e9ec", background: "#fff", color: "#e74c3c", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    🗑
+                  </button>
+                )}
                 {/* Status badge */}
                 <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
                   {sc.icon} {sc.label}
