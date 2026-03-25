@@ -870,13 +870,18 @@ def save_boundaries(
     if not app:
         raise HTTPException(404, "Application not found")
 
-    # Save pixel coordinates
+    # Save pixel coordinates (ensure plain Python types)
+    def clean_poly(poly):
+        if not poly:
+            return poly
+        return [[round(float(p[0])), round(float(p[1]))] for p in poly]
+
     if "site_lot_boundary" in data:
-        app.site_lot_boundary = data["site_lot_boundary"]
+        app.site_lot_boundary = clean_poly(data["site_lot_boundary"])
     if "site_building_boundary" in data:
-        app.site_building_boundary = data["site_building_boundary"]
+        app.site_building_boundary = clean_poly(data["site_building_boundary"])
     if "site_crossover" in data:
-        app.site_crossover = data["site_crossover"]
+        app.site_crossover = clean_poly(data["site_crossover"])
 
     # ── Geo-reference: map pixel lot boundary → real lot_polygon → affine transform ──
     pixel_lot = data.get("site_lot_boundary", app.site_lot_boundary) or []
@@ -927,10 +932,10 @@ def save_boundaries(
                 lng_params, _, _, _ = np.linalg.lstsq(A, lng_vec, rcond=None)
 
                 def px_to_latlon(px_point):
-                    x, y = px_point[0], px_point[1]
-                    lat = lat_params[0] * x + lat_params[1] * y + lat_params[2]
-                    lng = lng_params[0] * x + lng_params[1] * y + lng_params[2]
-                    return [round(float(lat), 7), round(float(lng), 7)]
+                    x, y = float(px_point[0]), float(px_point[1])
+                    lat = float(lat_params[0]) * x + float(lat_params[1]) * y + float(lat_params[2])
+                    lng = float(lng_params[0]) * x + float(lng_params[1]) * y + float(lng_params[2])
+                    return [round(lat, 7), round(lng, 7)]
 
                 # Convert all boundaries to latlon
                 for key in ["site_lot_boundary", "site_building_boundary", "site_crossover"]:
@@ -938,16 +943,16 @@ def save_boundaries(
                     if len(px_poly) >= 3:
                         ll_poly = [px_to_latlon(p) for p in px_poly]
                         # Ensure closed polygon
-                        if ll_poly[0] != ll_poly[-1]:
-                            ll_poly.append(ll_poly[0])
+                        if len(ll_poly) >= 3 and ll_poly[0] != ll_poly[-1]:
+                            ll_poly.append([ll_poly[0][0], ll_poly[0][1]])
                         setattr(app, f"{key}_latlon", ll_poly)
                         latlon_results[f"{key}_latlon"] = ll_poly
 
                 # For lot boundary latlon, use the sampled real polygon points (most accurate)
                 if "site_lot_boundary_latlon" in latlon_results:
-                    lot_closed = [list(p) for p in real_pts]
+                    lot_closed = [[round(float(p[0]), 7), round(float(p[1]), 7)] for p in real_pts]
                     if lot_closed and lot_closed[0] != lot_closed[-1]:
-                        lot_closed.append(lot_closed[0])
+                        lot_closed.append([lot_closed[0][0], lot_closed[0][1]])
                     app.site_lot_boundary_latlon = lot_closed
 
             except Exception as e:
