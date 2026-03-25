@@ -830,6 +830,9 @@ def save_boundaries(
               description=f"Saved boundary data: {', '.join(saved)}")
 
     return {"saved": saved}
+
+
+@router.delete("/{app_id}/documents/{doc_id}")
 def delete_document(app_id: int, doc_id: int, db: Session = Depends(get_db),
                     current_user: User = Depends(require_role("admin", "manager", "engineer"))):
     """Delete a document, its file, and all related data (training samples, site plan data)."""
