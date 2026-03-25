@@ -85,6 +85,7 @@ const api = {
   },
   async deleteDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "DELETE" }); },
   async extractSiteplan(appId, docId, pages) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-siteplan?pages=${encodeURIComponent(pages)}`, { method: "POST" }); },
+  async saveBoundaries(appId, data) { return this._fetch(`/applications/${appId}/boundaries`, { method: "PUT", body: data }); },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
 
   // Document AI analysis

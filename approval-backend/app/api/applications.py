@@ -802,7 +802,34 @@ def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session 
     return _build_doc_out(doc)
 
 
-@router.delete("/{app_id}/documents/{doc_id}")
+@router.put("/{app_id}/boundaries")
+def save_boundaries(
+    app_id: int,
+    data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Save officer-drawn boundaries from site plan image."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+
+    if "site_lot_boundary" in data:
+        app.site_lot_boundary = data["site_lot_boundary"]
+    if "site_building_boundary" in data:
+        app.site_building_boundary = data["site_building_boundary"]
+    if "site_crossover" in data:
+        app.site_crossover = data["site_crossover"]
+
+    db.commit()
+
+    from app.services.audit import log_audit
+    saved = [k for k in ["site_lot_boundary", "site_building_boundary", "site_crossover"] if k in data]
+    log_audit(db=db, action="save_boundaries", entity_type="application", user=current_user,
+              entity_id=str(app_id), entity_ref=app.ref_number,
+              description=f"Saved boundary data: {', '.join(saved)}")
+
+    return {"saved": saved}
 def delete_document(app_id: int, doc_id: int, db: Session = Depends(get_db),
                     current_user: User = Depends(require_role("admin", "manager", "engineer"))):
     """Delete a document, its file, and all related data (training samples, site plan data)."""

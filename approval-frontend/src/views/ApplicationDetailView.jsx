@@ -78,7 +78,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
       {/* ★ DOCUMENTS ★ */}
       <div style={{ marginBottom: 14 }}>
-        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} currentUser={currentUser} onDocUpdated={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} />
+        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} app={localApp} currentUser={currentUser} onDocUpdated={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} />
       </div>
 
       {/* ★ AI SITE PLAN EXTRACTION — officer review + corrections ★ */}
