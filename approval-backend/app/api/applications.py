@@ -891,6 +891,7 @@ def save_boundaries(
 
     if len(pixel_lot) >= 3 and len(real_lot) >= 3:
         import numpy as np
+        import math
 
         # Remove closing points (first == last) for matching
         px_open = list(pixel_lot)
@@ -901,23 +902,56 @@ def save_boundaries(
         if len(re_open) > 3 and re_open[0] == re_open[-1]:
             re_open = re_open[:-1]
 
+        # ── Extract TRUE CORNERS from lot polygon ──
+        # Mid-side points (collinear with neighbours) are NOT corners.
+        # A corner has a significant angle change (> threshold degrees).
+        def extract_corners(poly, angle_threshold=15):
+            """Keep only vertices where direction changes by more than threshold degrees."""
+            if len(poly) <= 4:
+                return poly  # Already minimal
+            corners = []
+            n = len(poly)
+            for i in range(n):
+                p_prev = poly[(i - 1) % n]
+                p_curr = poly[i]
+                p_next = poly[(i + 1) % n]
+                # Vectors
+                dx1 = p_curr[0] - p_prev[0]
+                dy1 = p_curr[1] - p_prev[1]
+                dx2 = p_next[0] - p_curr[0]
+                dy2 = p_next[1] - p_curr[1]
+                # Angle between vectors
+                len1 = math.sqrt(dx1*dx1 + dy1*dy1)
+                len2 = math.sqrt(dx2*dx2 + dy2*dy2)
+                if len1 < 1e-10 or len2 < 1e-10:
+                    continue
+                cos_angle = (dx1*dx2 + dy1*dy2) / (len1 * len2)
+                cos_angle = max(-1, min(1, cos_angle))  # clamp
+                angle_deg = math.degrees(math.acos(cos_angle))
+                # If angle deviates from 180° (straight line) by more than threshold, it's a corner
+                if abs(180 - angle_deg) > angle_threshold:
+                    corners.append(p_curr)
+            return corners if len(corners) >= 3 else poly
+
+        re_corners = extract_corners(re_open)
+        print(f"  → Lot polygon: {len(re_open)} points → {len(re_corners)} true corners")
+
         n_px = len(px_open)
-        n_re = len(re_open)
+        n_re = len(re_corners)
 
         if n_px >= 3 and n_re >= 3:
-            # Resample: pick n_px evenly-spaced points from real polygon
-            # This handles officer drawing 4 corners when lot has 20+ points
+            # Match corners: resample to same count
             if n_px < n_re:
-                # Officer drew fewer points — sample real polygon at matching intervals
+                # Officer drew fewer corners — pick evenly spaced from real corners
                 indices = [round(i * (n_re - 1) / (n_px - 1)) for i in range(n_px)]
-                real_pts = [re_open[i] for i in indices]
+                real_pts = [re_corners[i] for i in indices]
             elif n_px > n_re:
                 # Officer drew more points — sample pixel polygon to match
                 indices = [round(i * (n_px - 1) / (n_re - 1)) for i in range(n_re)]
                 px_open = [px_open[i] for i in indices]
-                real_pts = re_open
+                real_pts = re_corners
             else:
-                real_pts = re_open
+                real_pts = re_corners
 
             pixel_pts = [(p[0], p[1]) for p in px_open[:len(real_pts)]]
             real_pts = [(p[0], p[1]) for p in real_pts[:len(pixel_pts)]]
