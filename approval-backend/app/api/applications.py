@@ -941,12 +941,18 @@ def save_boundaries(
                     px_poly = data.get(key, getattr(app, key, None)) or []
                     if len(px_poly) >= 3:
                         ll_poly = [px_to_latlon(p) for p in px_poly]
+                        # Ensure closed polygon
+                        if ll_poly[0] != ll_poly[-1]:
+                            ll_poly.append(ll_poly[0])
                         setattr(app, f"{key}_latlon", ll_poly)
                         latlon_results[f"{key}_latlon"] = ll_poly
 
                 # Also save the lot boundary latlon as the actual geojson lot polygon
                 if "site_lot_boundary_latlon" in latlon_results:
-                    app.site_lot_boundary_latlon = real_lot  # Use exact geojson polygon
+                    lot_closed = list(real_lot)
+                    if lot_closed and lot_closed[0] != lot_closed[-1]:
+                        lot_closed.append(lot_closed[0])
+                    app.site_lot_boundary_latlon = lot_closed
             except Exception as e:
                 print(f"  ⚠ Affine transform failed: {e}")
 
