@@ -865,11 +865,12 @@ def save_boundaries(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Save officer-drawn boundaries from site plan image."""
+    """Save officer-drawn boundaries and compute lat/lng using lot_polygon as geo-reference."""
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:
         raise HTTPException(404, "Application not found")
 
+    # Save pixel coordinates
     if "site_lot_boundary" in data:
         app.site_lot_boundary = data["site_lot_boundary"]
     if "site_building_boundary" in data:
@@ -877,15 +878,87 @@ def save_boundaries(
     if "site_crossover" in data:
         app.site_crossover = data["site_crossover"]
 
+    # ── Geo-reference: map pixel lot boundary → real lot_polygon → affine transform ──
+    pixel_lot = data.get("site_lot_boundary", app.site_lot_boundary) or []
+    real_lot = app.lot_polygon or []  # [[lat,lng], ...] from lot.geojson
+
+    latlon_results = {}
+
+    if len(pixel_lot) >= 3 and len(real_lot) >= 3:
+        # Build affine transform from pixel lot → real lot
+        # Use least-squares fit for the 6-param affine: lat = a*x + b*y + c, lng = d*x + e*y + f
+        import numpy as np
+
+        # Match point counts — use min of both, sample evenly if different
+        n_px = len(pixel_lot)
+        n_re = len(real_lot)
+        # Remove closing point if it duplicates the first
+        if n_re > 3 and real_lot[0] == real_lot[-1]:
+            real_lot = real_lot[:-1]
+            n_re = len(real_lot)
+
+        if n_px >= 3 and n_re >= 3:
+            # Resample to match counts
+            if n_px != n_re:
+                # Interpolate the shorter one to match the longer
+                from numpy import interp
+                t_px = np.linspace(0, 1, n_px)
+                t_re = np.linspace(0, 1, n_re)
+                t_common = np.linspace(0, 1, max(n_px, n_re))
+                if n_px < n_re:
+                    px_x = interp(t_common, t_px, [p[0] for p in pixel_lot])
+                    px_y = interp(t_common, t_px, [p[1] for p in pixel_lot])
+                    pixel_pts = list(zip(px_x, px_y))
+                    real_pts = [(p[0], p[1]) for p in real_lot]
+                else:
+                    pixel_pts = [(p[0], p[1]) for p in pixel_lot]
+                    re_lat = interp(t_common, t_re, [p[0] for p in real_lot])
+                    re_lng = interp(t_common, t_re, [p[1] for p in real_lot])
+                    real_pts = list(zip(re_lat, re_lng))
+            else:
+                pixel_pts = [(p[0], p[1]) for p in pixel_lot]
+                real_pts = [(p[0], p[1]) for p in real_lot]
+
+            n = len(pixel_pts)
+            # Build matrices for least-squares: [x, y, 1] * [a, b, c]^T = lat
+            A = np.array([[px[0], px[1], 1] for px in pixel_pts])
+            lat_vec = np.array([rp[0] for rp in real_pts])
+            lng_vec = np.array([rp[1] for rp in real_pts])
+
+            try:
+                # Solve for affine params
+                lat_params, _, _, _ = np.linalg.lstsq(A, lat_vec, rcond=None)
+                lng_params, _, _, _ = np.linalg.lstsq(A, lng_vec, rcond=None)
+
+                def px_to_latlon(px_point):
+                    x, y = px_point[0], px_point[1]
+                    lat = lat_params[0] * x + lat_params[1] * y + lat_params[2]
+                    lng = lng_params[0] * x + lng_params[1] * y + lng_params[2]
+                    return [round(float(lat), 7), round(float(lng), 7)]
+
+                # Convert all boundaries
+                for key in ["site_lot_boundary", "site_building_boundary", "site_crossover"]:
+                    px_poly = data.get(key, getattr(app, key, None)) or []
+                    if len(px_poly) >= 3:
+                        ll_poly = [px_to_latlon(p) for p in px_poly]
+                        setattr(app, f"{key}_latlon", ll_poly)
+                        latlon_results[f"{key}_latlon"] = ll_poly
+
+                # Also save the lot boundary latlon as the actual geojson lot polygon
+                if "site_lot_boundary_latlon" in latlon_results:
+                    app.site_lot_boundary_latlon = real_lot  # Use exact geojson polygon
+            except Exception as e:
+                print(f"  ⚠ Affine transform failed: {e}")
+
     db.commit()
 
     from app.services.audit import log_audit
     saved = [k for k in ["site_lot_boundary", "site_building_boundary", "site_crossover"] if k in data]
     log_audit(db=db, action="save_boundaries", entity_type="application", user=current_user,
               entity_id=str(app_id), entity_ref=app.ref_number,
-              description=f"Saved boundary data: {', '.join(saved)}")
+              description=f"Saved boundary data: {', '.join(saved)}. Latlon computed: {bool(latlon_results)}")
 
-    return {"saved": saved}
+    return {"saved": saved, "latlon_computed": bool(latlon_results), "latlon_keys": list(latlon_results.keys())}
 
 
 @router.delete("/{app_id}/documents/{doc_id}", status_code=200)

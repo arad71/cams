@@ -73,6 +73,9 @@ class Application(Base):
     site_lot_boundary = Column(JSON, nullable=True)         # [[x,y], ...] polygon points on site plan image
     site_building_boundary = Column(JSON, nullable=True)    # [[x,y], ...] building footprint on site plan
     site_crossover = Column(JSON, nullable=True)            # [[x,y], ...] crossover/driveway on site plan
+    site_lot_boundary_latlon = Column(JSON, nullable=True)        # [[lat,lng], ...] geo-referenced
+    site_building_boundary_latlon = Column(JSON, nullable=True)   # [[lat,lng], ...] geo-referenced
+    site_crossover_latlon = Column(JSON, nullable=True)           # [[lat,lng], ...] geo-referenced
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
