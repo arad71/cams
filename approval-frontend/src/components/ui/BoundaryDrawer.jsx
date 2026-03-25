@@ -27,7 +27,11 @@ export default function BoundaryDrawer({ appDbId, app, sitePlanDoc, onClose, onS
     if (existing.some(e => e.length > 0)) setPoints(existing);
   }, [app]);
 
-  const imgUrl = sitePlanDoc ? api.getDocumentFileUrl(appDbId, sitePlanDoc.id) : null;
+  const imgUrl = sitePlanDoc
+    ? (sitePlanDoc.type === "pdf"
+      ? api.getDocumentRenderUrl(appDbId, sitePlanDoc.id, 1)
+      : api.getDocumentFileUrl(appDbId, sitePlanDoc.id))
+    : null;
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
