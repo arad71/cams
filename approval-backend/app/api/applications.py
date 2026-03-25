@@ -729,6 +729,35 @@ def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session 
     return _build_doc_out(doc)
 
 
+@router.delete("/{app_id}/documents/{doc_id}", status_code=204)
+def delete_document(app_id: int, doc_id: int, db: Session = Depends(get_db),
+                    current_user: User = Depends(require_role("admin", "manager", "engineer"))):
+    """Delete a document record and its file from disk."""
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Delete file from disk
+    if doc.file_path:
+        file_path = Path(doc.file_path)
+        if file_path.exists():
+            file_path.unlink()
+
+    doc_name = doc.name
+    doc_category = doc.category
+
+    # Delete from database
+    db.delete(doc)
+    db.commit()
+
+    # Audit
+    from app.services.audit import log_audit
+    app = db.query(Application).filter(Application.id == app_id).first()
+    log_audit(db=db, action="delete", entity_type="document", user=current_user,
+              entity_id=str(doc_id), entity_ref=app.ref_number if app else None,
+              description=f"Deleted document {doc_name} ({doc_category})")
+
+
 # ─── Inspections ─────────────────────────────────────────
 @router.post("/{app_id}/inspections", response_model=InspectionOut, status_code=status.HTTP_201_CREATED)
 def schedule_inspection(app_id: int, data: InspectionCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role("admin", "manager"))):
