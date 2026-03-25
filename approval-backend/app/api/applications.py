@@ -374,16 +374,10 @@ async def extract_siteplan_pages(
     db.commit()
     db.refresh(sp_doc)
 
-    # Run AI analysis on extracted site plan
-    try:
-        _run_site_plan_ai(app, sp_doc, sp_bytes, db)
-    except Exception as e:
-        print(f"  ⚠ Site plan analysis failed: {e}")
-
     from app.services.audit import log_audit
     log_audit(db=db, action="extract_siteplan", entity_type="document", user=current_user,
               entity_id=str(sp_doc.id), entity_ref=app.ref_number,
-              description=f"Extracted pages {page_nums} from {doc.name} as site plan, AI analysis triggered")
+              description=f"Extracted pages {page_nums} from {doc.name} as site plan")
 
     return {
         "success": True,
@@ -391,7 +385,7 @@ async def extract_siteplan_pages(
         "filename": sp_filename,
         "pages_extracted": page_nums,
         "total_pages": total_pages,
-        "message": f"Extracted page(s) {', '.join(str(p) for p in page_nums)} as site plan. AI analysis running.",
+        "message": f"Extracted page(s) {', '.join(str(p) for p in page_nums)} as site plan.",
     }
 
 
