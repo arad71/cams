@@ -885,48 +885,44 @@ def save_boundaries(
     latlon_results = {}
 
     if len(pixel_lot) >= 3 and len(real_lot) >= 3:
-        # Build affine transform from pixel lot → real lot
-        # Use least-squares fit for the 6-param affine: lat = a*x + b*y + c, lng = d*x + e*y + f
         import numpy as np
 
-        # Match point counts — use min of both, sample evenly if different
-        n_px = len(pixel_lot)
-        n_re = len(real_lot)
-        # Remove closing point if it duplicates the first
-        if n_re > 3 and real_lot[0] == real_lot[-1]:
-            real_lot = real_lot[:-1]
-            n_re = len(real_lot)
+        # Remove closing points (first == last) for matching
+        px_open = list(pixel_lot)
+        if len(px_open) > 3 and px_open[0][0] == px_open[-1][0] and px_open[0][1] == px_open[-1][1]:
+            px_open = px_open[:-1]
+
+        re_open = list(real_lot)
+        if len(re_open) > 3 and re_open[0] == re_open[-1]:
+            re_open = re_open[:-1]
+
+        n_px = len(px_open)
+        n_re = len(re_open)
 
         if n_px >= 3 and n_re >= 3:
-            # Resample to match counts
-            if n_px != n_re:
-                # Interpolate the shorter one to match the longer
-                from numpy import interp
-                t_px = np.linspace(0, 1, n_px)
-                t_re = np.linspace(0, 1, n_re)
-                t_common = np.linspace(0, 1, max(n_px, n_re))
-                if n_px < n_re:
-                    px_x = interp(t_common, t_px, [p[0] for p in pixel_lot])
-                    px_y = interp(t_common, t_px, [p[1] for p in pixel_lot])
-                    pixel_pts = list(zip(px_x, px_y))
-                    real_pts = [(p[0], p[1]) for p in real_lot]
-                else:
-                    pixel_pts = [(p[0], p[1]) for p in pixel_lot]
-                    re_lat = interp(t_common, t_re, [p[0] for p in real_lot])
-                    re_lng = interp(t_common, t_re, [p[1] for p in real_lot])
-                    real_pts = list(zip(re_lat, re_lng))
+            # Resample: pick n_px evenly-spaced points from real polygon
+            # This handles officer drawing 4 corners when lot has 20+ points
+            if n_px < n_re:
+                # Officer drew fewer points — sample real polygon at matching intervals
+                indices = [round(i * (n_re - 1) / (n_px - 1)) for i in range(n_px)]
+                real_pts = [re_open[i] for i in indices]
+            elif n_px > n_re:
+                # Officer drew more points — sample pixel polygon to match
+                indices = [round(i * (n_px - 1) / (n_re - 1)) for i in range(n_re)]
+                px_open = [px_open[i] for i in indices]
+                real_pts = re_open
             else:
-                pixel_pts = [(p[0], p[1]) for p in pixel_lot]
-                real_pts = [(p[0], p[1]) for p in real_lot]
+                real_pts = re_open
 
-            n = len(pixel_pts)
-            # Build matrices for least-squares: [x, y, 1] * [a, b, c]^T = lat
+            pixel_pts = [(p[0], p[1]) for p in px_open[:len(real_pts)]]
+            real_pts = [(p[0], p[1]) for p in real_pts[:len(pixel_pts)]]
+
+            # Build least-squares affine: lat = a*x + b*y + c, lng = d*x + e*y + f
             A = np.array([[px[0], px[1], 1] for px in pixel_pts])
             lat_vec = np.array([rp[0] for rp in real_pts])
             lng_vec = np.array([rp[1] for rp in real_pts])
 
             try:
-                # Solve for affine params
                 lat_params, _, _, _ = np.linalg.lstsq(A, lat_vec, rcond=None)
                 lng_params, _, _, _ = np.linalg.lstsq(A, lng_vec, rcond=None)
 
@@ -936,7 +932,7 @@ def save_boundaries(
                     lng = lng_params[0] * x + lng_params[1] * y + lng_params[2]
                     return [round(float(lat), 7), round(float(lng), 7)]
 
-                # Convert all boundaries
+                # Convert all boundaries to latlon
                 for key in ["site_lot_boundary", "site_building_boundary", "site_crossover"]:
                     px_poly = data.get(key, getattr(app, key, None)) or []
                     if len(px_poly) >= 3:
@@ -947,12 +943,13 @@ def save_boundaries(
                         setattr(app, f"{key}_latlon", ll_poly)
                         latlon_results[f"{key}_latlon"] = ll_poly
 
-                # Also save the lot boundary latlon as the actual geojson lot polygon
+                # For lot boundary latlon, use the sampled real polygon points (most accurate)
                 if "site_lot_boundary_latlon" in latlon_results:
-                    lot_closed = list(real_lot)
+                    lot_closed = [list(p) for p in real_pts]
                     if lot_closed and lot_closed[0] != lot_closed[-1]:
                         lot_closed.append(lot_closed[0])
                     app.site_lot_boundary_latlon = lot_closed
+
             except Exception as e:
                 print(f"  ⚠ Affine transform failed: {e}")
 
