@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -340,6 +340,131 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       boundaryLayerRef.current.push(poly);
     });
   }, [showBoundaries, boundaryData, leafletLoaded]);
+
+  // ── WA Government WMS overlay layers ──
+  const waLayerRefs = useRef({});
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    const WA_WMS = {
+      contour: { url: "https://services.slip.wa.gov.au/public/services/SLIP_Public_Services/Topography/MapServer/WMSServer", layers: "0", label: "Contour Lines" },
+      cadastral: { url: "https://services.slip.wa.gov.au/public/services/SLIP_Public_Services/Cadastre/MapServer/WMSServer", layers: "0", label: "Cadastral" },
+      zoning: { url: "https://services.slip.wa.gov.au/public/services/SLIP_Public_Services/Planning/MapServer/WMSServer", layers: "0", label: "Zoning" },
+      hazard: { url: "https://services.slip.wa.gov.au/public/services/SLIP_Public_Services/Bushfire_Prone_Areas/MapServer/WMSServer", layers: "0", label: "Bushfire" },
+    };
+    Object.entries(waLayers).forEach(([key, enabled]) => {
+      if (enabled && !waLayerRefs.current[key] && WA_WMS[key]) {
+        try {
+          const wms = L.tileLayer.wms(WA_WMS[key].url, {
+            layers: WA_WMS[key].layers, transparent: true, format: "image/png", opacity: 0.6, maxZoom: 20,
+          }).addTo(mapInstanceRef.current);
+          waLayerRefs.current[key] = wms;
+        } catch (e) { console.warn(`WMS ${key} failed:`, e); }
+      } else if (!enabled && waLayerRefs.current[key]) {
+        mapInstanceRef.current.removeLayer(waLayerRefs.current[key]);
+        delete waLayerRefs.current[key];
+      }
+    });
+  }, [waLayers, leafletLoaded]);
+
+  // ── Measure tool ──
+  const measureRef = useRef({ pts: [], layers: [] });
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    // Clean up old measure
+    measureRef.current.layers.forEach(l => mapInstanceRef.current.removeLayer(l));
+    measureRef.current = { pts: [], layers: [] };
+    if (mapTool !== "measure") return;
+
+    const onClick = (e) => {
+      const pts = measureRef.current.pts;
+      pts.push(e.latlng);
+      const dot = L.circleMarker(e.latlng, { radius: 4, color: "#3498db", fillColor: "#fff", fillOpacity: 1, weight: 2 }).addTo(mapInstanceRef.current);
+      measureRef.current.layers.push(dot);
+
+      if (pts.length === 2) {
+        const d = pts[0].distanceTo(pts[1]);
+        const line = L.polyline([pts[0], pts[1]], { color: "#3498db", weight: 2, dashArray: "6,4" }).addTo(mapInstanceRef.current);
+        const mid = L.latLng((pts[0].lat + pts[1].lat) / 2, (pts[0].lng + pts[1].lng) / 2);
+        const label = L.marker(mid, { icon: L.divIcon({ className: "", html: `<div style="background:#3498db;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;font-family:sans-serif">${d.toFixed(1)}m</div>`, iconAnchor: [25, 10] }) }).addTo(mapInstanceRef.current);
+        measureRef.current.layers.push(line, label);
+        if (setMeasureDist) setMeasureDist(`${d.toFixed(1)}m`);
+        // Reset for next measurement
+        measureRef.current.pts = [];
+      }
+    };
+    mapInstanceRef.current.on("click", onClick);
+    mapInstanceRef.current.getContainer().style.cursor = "crosshair";
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.off("click", onClick);
+        mapInstanceRef.current.getContainer().style.cursor = "";
+      }
+    };
+  }, [mapTool, leafletLoaded]);
+
+  // ── Draw tool (freehand markers + lines) ──
+  const drawRef = useRef({ layers: [], lastPt: null });
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (mapTool !== "draw") {
+      if (drawRef.current.layers.length > 0) {
+        drawRef.current.layers.forEach(l => mapInstanceRef.current.removeLayer(l));
+        drawRef.current = { layers: [], lastPt: null };
+      }
+      return;
+    }
+    const L = window.L;
+    const onClick = (e) => {
+      const marker = L.circleMarker(e.latlng, { radius: 5, color: "#e91e63", fillColor: "#e91e63", fillOpacity: 0.8, weight: 2 }).addTo(mapInstanceRef.current);
+      drawRef.current.layers.push(marker);
+      if (drawRef.current.lastPt) {
+        const line = L.polyline([drawRef.current.lastPt, e.latlng], { color: "#e91e63", weight: 2 }).addTo(mapInstanceRef.current);
+        drawRef.current.layers.push(line);
+      }
+      drawRef.current.lastPt = e.latlng;
+    };
+    mapInstanceRef.current.on("click", onClick);
+    mapInstanceRef.current.getContainer().style.cursor = "crosshair";
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.off("click", onClick);
+        mapInstanceRef.current.getContainer().style.cursor = "";
+      }
+    };
+  }, [mapTool, leafletLoaded]);
+
+  // ── Zoom and Print commands ──
+  useEffect(() => {
+    if (!mapInstanceRef.current || !mapTool) return;
+    if (mapTool === "zoomProperty" && selectedApp) {
+      const c = getAppCoords(allLotsData, selectedApp);
+      if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 19, { duration: 0.8 });
+      if (setMapTool) setMapTool(null);
+    }
+    if (mapTool === "zoomKalamunda") {
+      mapInstanceRef.current.flyTo([-31.97, 116.06], 13, { duration: 1 });
+      if (setMapTool) setMapTool(null);
+    }
+    if (mapTool === "print") {
+      try {
+        const container = mapInstanceRef.current.getContainer();
+        import("html2canvas").then(mod => {
+          mod.default(container).then(canvas => {
+            const link = document.createElement("a");
+            link.download = `map_${new Date().toISOString().split("T")[0]}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+          });
+        }).catch(() => {
+          // Fallback: simple screenshot via window.print
+          window.print();
+        });
+      } catch (e) { window.print(); }
+      if (setMapTool) setMapTool(null);
+    }
+  }, [mapTool, selectedApp, allLotsData, leafletLoaded]);
 
 
   return (

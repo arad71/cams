@@ -100,6 +100,9 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showStreetNames, setShowStreetNames] = useState(true);
   const [showBoundaries, setShowBoundaries] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
+  const [mapTool, setMapTool] = useState(null); // "measure" | "draw" | null
+  const [measureDist, setMeasureDist] = useState(null);
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
@@ -573,70 +576,125 @@ Respond with JSON only:
 
   return (
     <div style={fullscreenContainerStyle}>
-      {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isFullscreen ? 0 : 8, flexWrap: "wrap", gap: 6, ...(isFullscreen ? { padding: "8px 12px", background: "#f8fafb", borderBottom: "1px solid #e4e9ec" } : {}) }}>
-        <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
-          <button onClick={() => setShowLots(!showLots)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: showLots ? "2px solid #2980b9" : "1px solid #d5dde2", background: showLots ? "#ebf5fb" : "#fff", color: showLots ? "#2980b9" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-            🏘️ Lots
-          </button>
-          <button onClick={() => setShowSpeedRoads(!showSpeedRoads)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: showSpeedRoads ? "2px solid #e67e22" : "1px solid #d5dde2", background: showSpeedRoads ? "#fef5e7" : "#fff", color: showSpeedRoads ? "#e67e22" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-            🚗 Speed
-          </button>
-          <button onClick={() => setShowStreetNames(!showStreetNames)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: showStreetNames ? "2px solid #16a085" : "1px solid #d5dde2", background: showStreetNames ? "#e8f8f5" : "#fff", color: showStreetNames ? "#16a085" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-            🏷️ Street Names
-          </button>
-          {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary || app?.site_building_boundary || app?.site_crossover) && (
-            <button onClick={() => { console.log("Boundary data:", { lot: app?.site_lot_boundary_latlon, building: app?.site_building_boundary_latlon, crossover: app?.site_crossover_latlon, lot_px: app?.site_lot_boundary, lotPoly: app?.lot_polygon }); setShowBoundaries(!showBoundaries); }}
-              style={{ padding: "6px 12px", borderRadius: 6, border: showBoundaries ? "2px solid #8e44ad" : "1px solid #d5dde2", background: showBoundaries ? "#f4ecf7" : "#fff", color: showBoundaries ? "#8e44ad" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-              📐 Boundaries
+      {/* Toolbar — Row 1: Layers & Tools */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isFullscreen ? 0 : 4, flexWrap: "wrap", gap: 4, ...(isFullscreen ? { padding: "6px 12px", background: "#f8fafb", borderBottom: "1px solid #e4e9ec" } : {}) }}>
+        <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Layer toggles */}
+          {[
+            { key: "lots", state: showLots, set: () => setShowLots(!showLots), icon: "🏘️", label: "Lots", color: "#2980b9" },
+            { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), icon: "🚗", label: "Speed", color: "#e67e22" },
+            { key: "streets", state: showStreetNames, set: () => setShowStreetNames(!showStreetNames), icon: "🏷️", label: "Streets", color: "#16a085" },
+          ].map(l => (
+            <button key={l.key} onClick={l.set}
+              style={{ padding: "4px 8px", borderRadius: 5, border: l.state ? `2px solid ${l.color}` : "1px solid #d5dde2", background: l.state ? `${l.color}15` : "#fff", color: l.state ? l.color : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+              {l.icon} {l.label}
+            </button>
+          ))}
+          {/* Boundaries */}
+          {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary) && (
+            <button onClick={() => setShowBoundaries(!showBoundaries)}
+              style={{ padding: "4px 8px", borderRadius: 5, border: showBoundaries ? "2px solid #8e44ad" : "1px solid #d5dde2", background: showBoundaries ? "#f4ecf7" : "#fff", color: showBoundaries ? "#8e44ad" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+              📐 Bounds
             </button>
           )}
+          {/* WA Layers */}
+          {[
+            { key: "contour", label: "Contour", icon: "⛰️", color: "#795548" },
+            { key: "cadastral", label: "Cadastral", icon: "📏", color: "#607d8b" },
+            { key: "zoning", label: "Zoning", icon: "🏗️", color: "#9c27b0" },
+            { key: "hazard", label: "Hazard", icon: "🔥", color: "#f44336" },
+          ].map(l => (
+            <button key={l.key} onClick={() => setWaLayers(prev => ({ ...prev, [l.key]: !prev[l.key] }))}
+              style={{ padding: "4px 8px", borderRadius: 5, border: waLayers[l.key] ? `2px solid ${l.color}` : "1px solid #d5dde2", background: waLayers[l.key] ? `${l.color}15` : "#fff", color: waLayers[l.key] ? l.color : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+              {l.icon} {l.label}
+            </button>
+          ))}
+          <div style={{ width: 1, height: 20, background: "#e4e9ec", margin: "0 2px" }} />
+          {/* Tools */}
+          <button onClick={() => setMapTool(mapTool === "measure" ? null : "measure")}
+            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "measure" ? "2px solid #3498db" : "1px solid #d5dde2", background: mapTool === "measure" ? "#ebf5fb" : "#fff", color: mapTool === "measure" ? "#3498db" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            📏 Measure
+          </button>
+          <button onClick={() => setMapTool(mapTool === "draw" ? null : "draw")}
+            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "draw" ? "2px solid #e91e63" : "1px solid #d5dde2", background: mapTool === "draw" ? "#fce4ec" : "#fff", color: mapTool === "draw" ? "#e91e63" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            ✏️ Draw
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+          <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
+            style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            🎯 Property
+          </button>
+          <button onClick={() => setMapTool("zoomKalamunda")} title="Zoom to Kalamunda"
+            style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            🗺️ Kalamunda
+          </button>
+          <button onClick={() => setMapTool("print")} title="Export map as image"
+            style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            🖨️ Print
+          </button>
+          <button onClick={() => setIsFullscreen(!isFullscreen)}
+            style={{ padding: "4px 8px", borderRadius: 5, border: isFullscreen ? "2px solid #1a3a4a" : "1px solid #d5dde2", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            {isFullscreen ? "✕" : "⛶"}
+          </button>
+        </div>
+      </div>
+      {/* Toolbar — Row 2: Sight triangle (only when active) */}
+      {(drawMode || sightTriangle) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: isFullscreen ? 0 : 4, flexWrap: "wrap", ...(isFullscreen ? { padding: "4px 12px", background: "#fef5f5", borderBottom: "1px solid #e4e9ec" } : {}) }}>
           {!drawMode && !sightTriangle && (
-            <button onClick={startDraw} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>🔺 Sight Triangle</button>
+            <button onClick={startDraw} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>🔺 Sight Triangle</button>
           )}
           {drawMode && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, background: drawMode === "ptA" ? "#fdf2f2" : "#ebf5fb", padding: "5px 12px", borderRadius: 6, border: `1px solid ${drawMode === "ptA" ? "#e74c3c40" : "#2980b940"}` }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: drawMode === "ptA" ? "#e74c3c" : "#2980b9", animation: "pulse 1.2s infinite" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: drawMode === "ptA" ? "#c0392b" : "#2980b9" }}>
-                {drawMode === "ptA" ? "Click: DRIVEWAY point (A)" : "Click: ROAD centreline (B)"}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: drawMode === "ptA" ? "#fdf2f2" : "#ebf5fb", padding: "4px 10px", borderRadius: 6, border: `1px solid ${drawMode === "ptA" ? "#e74c3c40" : "#2980b940"}` }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: drawMode === "ptA" ? "#e74c3c" : "#2980b9", animation: "pulse 1.2s infinite" }} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: drawMode === "ptA" ? "#c0392b" : "#2980b9" }}>
+                {drawMode === "ptA" ? "Click: DRIVEWAY (A)" : "Click: ROAD (B)"}
               </span>
-              <button onClick={resetTriangle} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 10, cursor: "pointer" }}>Cancel</button>
+              <button onClick={resetTriangle} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 9, cursor: "pointer" }}>Cancel</button>
             </div>
           )}
           {sightTriangle && !drawMode && (
-            <button onClick={resetTriangle} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>↺ Clear</button>
+            <>
+              <button onClick={resetTriangle} style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>↺ Clear</button>
+              {!analysisRunning && (
+                <button onClick={run3DSightAnalysis} style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #8e44ad, #6c3483)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>🔬 3D Analysis</button>
+              )}
+              {analysisRunning && <span style={{ fontSize: 10, fontWeight: 700, color: "#8e44ad", padding: "4px 10px", background: "#f4ecf7", borderRadius: 5 }}>⟳ Analysing...</span>}
+            </>
           )}
-          {sightTriangle && !drawMode && !analysisRunning && (
-            <button onClick={run3DSightAnalysis} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #8e44ad, #6c3483)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 6px rgba(142,68,173,0.3)" }}>🔬 3D Sight Analysis</button>
-          )}
-          {analysisRunning && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#8e44ad", padding: "6px 12px", background: "#f4ecf7", borderRadius: 6 }}>⟳ Running 3D Analysis...</span>
-          )}
-          <button onClick={() => setIsFullscreen(!isFullscreen)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: isFullscreen ? "2px solid #1a3a4a" : "1px solid #d5dde2", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : "#7a8a94", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit", marginLeft: 4 }}>
-            {isFullscreen ? "✕ Exit Fullscreen" : "⛶ Fullscreen"}
-          </button>
-        </div>
-        {/* Observer & Object height — shown when sight triangle exists */}
-        {(sightTriangle || drawMode) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#f8fafb", padding: "5px 10px", borderRadius: 6, border: "1px solid #e4e9ec" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#e74c3c" }}>👁</span>
+          {(sightTriangle || drawMode) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f8fafb", padding: "3px 8px", borderRadius: 5, border: "1px solid #e4e9ec", marginLeft: "auto" }}>
+              <span style={{ fontSize: 9, color: "#e74c3c", fontWeight: 700 }}>👁</span>
               <input type="number" value={eyeHeight} onChange={e => setEyeHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
-              <span style={{ fontSize: 9, color: "#7a8a94" }}>m</span>
-            </div>
-            <div style={{ width: 1, height: 14, background: "#d5dde2" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#2980b9" }}>◎</span>
+              <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
+              <div style={{ width: 1, height: 12, background: "#d5dde2" }} />
+              <span style={{ fontSize: 9, color: "#2980b9", fontWeight: 700 }}>◎</span>
               <input type="number" value={objectHeight} onChange={e => setObjectHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
-              <span style={{ fontSize: 9, color: "#7a8a94" }}>m</span>
+              <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+      {/* Sight triangle start button when not active */}
+      {!drawMode && !sightTriangle && (
+        <div style={{ display: "flex", gap: 4, marginBottom: isFullscreen ? 0 : 4, ...(isFullscreen ? { padding: "4px 12px", borderBottom: "1px solid #e4e9ec" } : {}) }}>
+          <button onClick={startDraw} style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>🔺 Sight Triangle</button>
+        </div>
+      )}
+      {/* Measure/Draw info bar */}
+      {mapTool === "measure" && (
+        <div style={{ padding: "4px 12px", background: "#ebf5fb", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: "#2980b9", fontWeight: 600 }}>
+          📏 Click two points on the map to measure distance. {measureDist && `Distance: ${measureDist}`}
+          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 3, border: "1px solid #2980b940", background: "#fff", color: "#2980b9", fontSize: 9, cursor: "pointer" }}>Done</button>
+        </div>
+      )}
+      {mapTool === "draw" && (
+        <div style={{ padding: "4px 12px", background: "#fce4ec", borderBottom: "1px solid #f8bbd0", fontSize: 10, color: "#e91e63", fontWeight: 600 }}>
+          ✏️ Click to place markers, draw lines, or annotate on the map.
+          <button onClick={() => setMapTool(null)} style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 3, border: "1px solid #e91e6340", background: "#fff", color: "#e91e63", fontSize: 9, cursor: "pointer" }}>Done</button>
+        </div>
+      )}
 
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
@@ -649,6 +707,9 @@ Respond with JSON only:
           building: app?.site_building_boundary_latlon || null,
           crossover: app?.site_crossover_latlon || null,
         } : null}
+        waLayers={waLayers}
+        mapTool={mapTool} setMapTool={setMapTool}
+        measureDist={measureDist} setMeasureDist={setMeasureDist}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);
