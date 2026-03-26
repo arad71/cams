@@ -426,12 +426,12 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       measureRef.current.total = 0;
     };
 
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = "";
@@ -491,13 +491,13 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
     };
 
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.on("contextmenu", onRightClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.off("contextmenu", onRightClick);
       map.doubleClickZoom.enable();
@@ -631,12 +631,12 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       centrelineRef.current.total = 0;
     };
 
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = "";
@@ -678,7 +678,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           if (d < bestDist) { bestDist = d; best = { point: snap, road: f.properties }; }
         }
       }
-      return bestDist < 100 ? best : null;
+      return bestDist < 200 ? best : null; // 200m snap for road
     };
 
     // Find nearest lot boundary segment
@@ -711,33 +711,49 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           }
         }
       }
-      return bestDist < 50 ? best : null;
+      return bestDist < 200 ? best : null; // 200m snap for boundary
     };
 
     const onClick = (e) => {
       L.DomEvent.stopPropagation(e);
       if (!setOffsetState) return;
 
+      // Always show where user clicked (red X)
+      const clickDot = L.circleMarker(e.latlng, { radius: 4, color: "#ff0000", fillColor: "#ff0000", fillOpacity: 0.5, weight: 1 }).addTo(map);
+      offsetRef.current.layers.push(clickDot);
+
       if (offsetState.step === 0) {
         // Step 1: snap to road
         const snap = snapToRoad(e.latlng);
         if (snap) {
-          const dot = L.circleMarker(snap.point, { radius: 6, color: "#4caf50", fillColor: "#4caf50", fillOpacity: 0.8, weight: 2 })
-            .bindTooltip(`Road: ${snap.road?.rd || "?"} · ${snap.road?.sp || "?"}km/h`, { permanent: true, direction: "top", offset: [0, -10] })
+          const dot = L.circleMarker(snap.point, { radius: 7, color: "#4caf50", fillColor: "#4caf50", fillOpacity: 0.8, weight: 2, pane: "markerPane" })
+            .bindTooltip(`Road: ${snap.road?.rd || "?"} · ${snap.road?.sp || "?"}km/h<br/>Snapped ${e.latlng.distanceTo(snap.point).toFixed(1)}m`, { permanent: true, direction: "top", offset: [0, -10] })
             .addTo(map);
-          offsetRef.current.layers.push(dot);
+          // Line from click to snap point
+          const snapLine = L.polyline([e.latlng, snap.point], { color: "#ff000060", weight: 1, dashArray: "3,3" }).addTo(map);
+          offsetRef.current.layers.push(dot, snapLine);
           setOffsetState(s => ({ ...s, step: 1, road: snap }));
+        } else {
+          // No road found — show message
+          const noSnap = L.marker(e.latlng, { interactive: false, icon: L.divIcon({ className: "", html: '<div style="background:#f44336;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:sans-serif">No road nearby</div>', iconAnchor: [30, -5] }) }).addTo(map);
+          offsetRef.current.layers.push(noSnap);
+          setTimeout(() => { if (map.hasLayer(noSnap)) map.removeLayer(noSnap); }, 2000);
         }
       } else if (offsetState.step === 1) {
         // Step 2: snap to lot boundary
         const snap = snapToBoundary(e.latlng);
         if (snap) {
-          const line = L.polyline([snap.a, snap.b], { color: "#4caf50", weight: 3, dashArray: "6,3" }).addTo(map);
-          const dot = L.circleMarker(snap.point, { radius: 6, color: "#66bb6a", fillColor: "#66bb6a", fillOpacity: 0.8, weight: 2 })
-            .bindTooltip("Boundary", { permanent: true, direction: "top", offset: [0, -10] })
+          const line = L.polyline([snap.a, snap.b], { color: "#66bb6a", weight: 3, dashArray: "6,3" }).addTo(map);
+          const dot = L.circleMarker(snap.point, { radius: 7, color: "#66bb6a", fillColor: "#66bb6a", fillOpacity: 0.8, weight: 2, pane: "markerPane" })
+            .bindTooltip(`Boundary side<br/>Snapped ${e.latlng.distanceTo(snap.point).toFixed(1)}m`, { permanent: true, direction: "top", offset: [0, -10] })
             .addTo(map);
-          offsetRef.current.layers.push(line, dot);
+          const snapLine = L.polyline([e.latlng, snap.point], { color: "#ff000060", weight: 1, dashArray: "3,3" }).addTo(map);
+          offsetRef.current.layers.push(line, dot, snapLine);
           setOffsetState(s => ({ ...s, step: 2, boundary: snap }));
+        } else {
+          const noSnap = L.marker(e.latlng, { interactive: false, icon: L.divIcon({ className: "", html: '<div style="background:#f44336;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:sans-serif">No boundary nearby</div>', iconAnchor: [35, -5] }) }).addTo(map);
+          offsetRef.current.layers.push(noSnap);
+          setTimeout(() => { if (map.hasLayer(noSnap)) map.removeLayer(noSnap); }, 2000);
         }
       }
     };
@@ -890,18 +906,10 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const midAB = L.latLng((finalPt.lat + bestB.lat)/2, (finalPt.lng + bestB.lng)/2);
       const abLabel = L.marker(midAB, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#1a3a4a;color:#ffff00;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:sans-serif">${abDist.toFixed(1)}m</div>`, iconAnchor: [20, 8] }) }).addTo(map);
       offsetRef.current.layers.push(abLabel);
-
-      // Trigger sight triangle with A and B
-      if (onOffsetSightTriangle) {
-        onOffsetSightTriangle(
-          { lat: finalPt.lat, lng: finalPt.lng },
-          { lat: bestB.lat, lng: bestB.lng }
-        );
-      }
     }
 
-    map.on("click", onClick);
-    return () => { map.off("click", onClick); map.getContainer().style.cursor = ""; };
+    map.on("preclick", onClick);
+    return () => { map.off("preclick", onClick); map.getContainer().style.cursor = ""; };
   }, [mapTool, offsetState, leafletLoaded, speedRoadsData, allLotsData]);
 
   // ── Clear draw annotations ──
@@ -1069,7 +1077,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     map.on("mousedown", onMouseDown);
     map.on("mousemove", onMouseMove);
     map.on("mouseup", onMouseUp);
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
@@ -1077,7 +1085,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       map.off("mousedown", onMouseDown);
       map.off("mousemove", onMouseMove);
       map.off("mouseup", onMouseUp);
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.dragging.enable();
