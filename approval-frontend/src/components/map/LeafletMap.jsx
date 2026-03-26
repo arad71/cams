@@ -593,20 +593,20 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     map.getContainer().style.cursor = "crosshair";
 
-    // Find nearest road from speedRoadsData
+    // Find nearest road from speed data OR road network
     const findNearestRoad = (latlng) => {
-      if (!speedRoadsData?.features) return null;
       let best = null, bestDist = Infinity;
-      for (const f of speedRoadsData.features) {
-        const coords = f.geometry?.coordinates;
-        if (!coords) continue;
-        for (const c of coords) {
-          // coords are [lng, lat]
-          const d = Math.sqrt(Math.pow(c[1] - latlng.lat, 2) + Math.pow(c[0] - latlng.lng, 2));
-          if (d < bestDist) { bestDist = d; best = f; }
+      const sources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
+      for (const src of sources) {
+        for (const f of src.features) {
+          const coords = f.geometry?.coordinates;
+          if (!coords || f.geometry?.type !== "LineString") continue;
+          for (const c of coords) {
+            const d = Math.sqrt(Math.pow(c[1] - latlng.lat, 2) + Math.pow(c[0] - latlng.lng, 2));
+            if (d < bestDist) { bestDist = d; best = f; }
+          }
         }
       }
-      // ~50m threshold in degrees (~0.0005)
       return bestDist < 0.0005 ? best : null;
     };
 
@@ -715,7 +715,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = "";
     };
-  }, [mapTool, leafletLoaded, speedRoadsData]);
+  }, [mapTool, leafletLoaded, speedRoadsData, roadNetworkData]);
 
   // ── Offset Point tool — place point X m from road, Y m from boundary ──
   const offsetRef = useRef({ layers: [] });
@@ -731,24 +731,27 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     map.getContainer().style.cursor = "crosshair";
 
-    // Find nearest point on road segment (within 30m only)
+    // Find nearest point on road segment — searches BOTH speed data and road network
     const snapToRoad = (latlng) => {
-      if (!speedRoadsData?.features) return null;
       let best = null, bestDist = Infinity;
-      for (const f of speedRoadsData.features) {
-        const coords = f.geometry?.coordinates;
-        if (!coords) continue;
-        for (let i = 0; i < coords.length - 1; i++) {
-          const a = L.latLng(coords[i][1], coords[i][0]);
-          const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-          const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = latlng.lng, py = latlng.lat;
-          const dx = bx-ax, dy = by-ay;
-          const lenSq = dx*dx + dy*dy;
-          if (lenSq < 1e-20) continue;
-          const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
-          const snap = L.latLng(ay + t*dy, ax + t*dx);
-          const d = latlng.distanceTo(snap);
-          if (d < bestDist) { bestDist = d; best = { point: snap, road: f.properties }; }
+      const sources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
+      if (sources.length === 0) return null;
+      for (const src of sources) {
+        for (const f of src.features) {
+          const coords = f.geometry?.coordinates;
+          if (!coords || f.geometry?.type !== "LineString") continue;
+          for (let i = 0; i < coords.length - 1; i++) {
+            const a = L.latLng(coords[i][1], coords[i][0]);
+            const b = L.latLng(coords[i+1][1], coords[i+1][0]);
+            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = latlng.lng, py = latlng.lat;
+            const dx = bx-ax, dy = by-ay;
+            const lenSq = dx*dx + dy*dy;
+            if (lenSq < 1e-20) continue;
+            const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
+            const snap = L.latLng(ay + t*dy, ax + t*dx);
+            const d = latlng.distanceTo(snap);
+            if (d < bestDist) { bestDist = d; best = { point: snap, road: f.properties }; }
+          }
         }
       }
       return bestDist < 30 ? best : null;
@@ -841,17 +844,20 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
       // Find the road segment near the clicked road point
       let roadA = null, roadB = null;
-      if (speedRoadsData?.features) {
+      const rdSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
+      if (rdSources.length > 0) {
         let bestDist = Infinity;
-        for (const f of speedRoadsData.features) {
-          const coords = f.geometry?.coordinates;
-          if (!coords) continue;
-          for (let i = 0; i < coords.length - 1; i++) {
-            const a = L.latLng(coords[i][1], coords[i][0]);
-            const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-            const mid = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
-            const d = roadPt.distanceTo(mid);
-            if (d < bestDist) { bestDist = d; roadA = a; roadB = b; }
+        for (const src of rdSources) {
+          for (const f of src.features) {
+            const coords = f.geometry?.coordinates;
+            if (!coords || f.geometry?.type !== "LineString") continue;
+            for (let i = 0; i < coords.length - 1; i++) {
+              const a = L.latLng(coords[i][1], coords[i][0]);
+              const b = L.latLng(coords[i+1][1], coords[i+1][0]);
+              const mid = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
+              const d = roadPt.distanceTo(mid);
+              if (d < bestDist) { bestDist = d; roadA = a; roadB = b; }
+            }
           }
         }
       }
@@ -940,14 +946,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
       // Compute Point B: project finalPt perpendicularly onto nearest road centreline (within 50m)
       let bestB = roadPt, bestBDist = Infinity;
-      if (speedRoadsData?.features) {
-        for (const f of speedRoadsData.features) {
+      const roadSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
+      for (const src of roadSources) {
+        for (const f of src.features) {
           const coords = f.geometry?.coordinates;
-          if (!coords) continue;
+          if (!coords || f.geometry?.type !== "LineString") continue;
           for (let i = 0; i < coords.length - 1; i++) {
             const a = L.latLng(coords[i][1], coords[i][0]);
             const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-            // Quick distance check — skip segments far from finalPt
             const midSeg = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
             if (finalPt.distanceTo(midSeg) > 100) continue;
             const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat;
@@ -982,7 +988,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     map.on("preclick", onClick);
     return () => { map.off("preclick", onClick); map.getContainer().style.cursor = ""; };
-  }, [mapTool, offsetState, leafletLoaded, speedRoadsData, allLotsData]);
+  }, [mapTool, offsetState, leafletLoaded, speedRoadsData, roadNetworkData, allLotsData]);
 
   // ── Clear draw annotations ──
   const clearDrawAnnotations = () => {
