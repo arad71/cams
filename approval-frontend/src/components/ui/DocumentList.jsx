@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import api from '../../services/api';
 import BoundaryDrawer from './BoundaryDrawer';
+import SitePlanMeasure from './SitePlanMeasure';
 
 const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
 const STATUS_OPTIONS = [
@@ -210,6 +211,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
   const [deleteDoc, setDeleteDoc] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [showBoundaryDrawer, setShowBoundaryDrawer] = useState(false);
+  const [showMeasure, setShowMeasure] = useState(false);
   const fileInputRef = useRef(null);
 
   const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
@@ -291,6 +293,13 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
               style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid #8e44ad40", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                 background: "#f4ecf7", color: "#8e44ad" }}>
               📐 Boundary
+            </button>
+          )}
+          {canUpload && (
+            <button onClick={() => setShowMeasure(true)}
+              style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid #00838f40", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                background: "#e0f7fa", color: "#00838f" }}>
+              📏 Measure
             </button>
           )}
         </div>
@@ -528,6 +537,45 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
           onSaved={() => { if (onDocUpdated) onDocUpdated(); }}
         />
       )}
+
+      {/* Site Plan Measure Tool */}
+      {showMeasure && (() => {
+        const spDoc = docs.find(d => d.category?.toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes(d.type));
+        const imgUrl = spDoc ? `/api/applications/${appDbId}/documents/${spDoc.id}/render` : null;
+        return imgUrl ? (
+          <SitePlanMeasure
+            imgUrl={imgUrl}
+            appRef={app?.ref_number || app?.id}
+            onClose={() => setShowMeasure(false)}
+            onSaveField={(fieldKey, value, unit) => {
+              // Save the measured value to the corrected site plan data
+              const parts = fieldKey.split('.');
+              const corData = app?.cor_site_plan_data || app?.site_plan_data || {};
+              let target = { ...corData };
+              let ptr = target;
+              for (let i = 0; i < parts.length - 1; i++) {
+                if (!ptr[parts[i]]) ptr[parts[i]] = {};
+                else ptr[parts[i]] = { ...ptr[parts[i]] };
+                ptr = ptr[parts[i]];
+              }
+              ptr[parts[parts.length - 1]] = value;
+              // Call API to save corrected data
+              api.updateApp(appDbId, { cor_site_plan_data: target }).then(() => {
+                if (onDocUpdated) onDocUpdated();
+                alert(`✅ Saved ${value}${unit} to ${fieldKey}`);
+              }).catch(err => alert('Save failed: ' + err.message));
+            }}
+          />
+        ) : (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10001, display: 'grid', placeItems: 'center' }}
+            onClick={() => setShowMeasure(false)}>
+            <div style={{ background: '#1a2a3a', color: '#fff', padding: 24, borderRadius: 12, textAlign: 'center' }}>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>No Site Plan Found</div>
+              <div style={{ fontSize: 12, color: '#7a8a94' }}>Upload a Site Plan document first.</div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
