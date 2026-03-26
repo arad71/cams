@@ -887,6 +887,12 @@ def save_boundaries(
     pixel_lot = data.get("site_lot_boundary", app.site_lot_boundary) or []
     real_lot = app.lot_polygon or []  # [[lat,lng], ...] from lot.geojson
 
+    # Normalize coordinate order — ensure [lat, lng] (lat ~ -31, lng ~ 116 for Perth)
+    if real_lot and len(real_lot) >= 3:
+        first = real_lot[0]
+        if abs(first[0]) > 90:  # First value is lng (>90), need to swap
+            real_lot = [[p[1], p[0]] for p in real_lot]
+
     latlon_results = {}
 
     if len(pixel_lot) >= 3 and len(real_lot) >= 3:
