@@ -143,17 +143,21 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         };
       },
       onEachFeature: (feature, layer) => {
-        const p = feature.properties;
-        const addr = [p.n, p.rd, p.rt].filter(Boolean).join(' ');
-        layer.bindTooltip(`<b>${addr}</b><br/>${p.loc}`, { sticky: true, className: 'lot-tooltip' });
+        const p = feature.properties || {};
+        const parts = [p.road_number_1 || p.n, p.road_name || p.rd, p.road_type || p.rt].filter(Boolean);
+        const addr = parts.join(' ');
+        const loc = p.locality || p.loc || "";
+        // Only show tooltip if there's something to display
+        if (addr || loc) {
+          layer.bindTooltip(`${addr ? '<b>' + addr + '</b>' : ''}${addr && loc ? '<br/>' : ''}${loc}`, { sticky: true, className: 'lot-tooltip' });
+        }
         layer.on('click', (e) => {
-          // During draw mode or tool use, don't intercept — let tool handlers take it
           if (drawModeRef.current || mapToolRef.current) return;
           L.DomEvent.stopPropagation(e);
           const coords = feature.geometry.coordinates;
           const ring = coords[0] || coords;
           const poly = ring.map(c => [c[1], c[0]]);
-          if (onLotClick) onLotClick({ properties: p, polygon: poly, address: addr });
+          if (onLotClick) onLotClick({ properties: p, polygon: poly, address: addr || loc || "Unknown lot" });
         });
       },
     }).addTo(mapInstanceRef.current);
