@@ -49,14 +49,16 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     tileLayerRef.current = L.tileLayer(TILE_LAYERS[layer].url, { attribution: TILE_LAYERS[layer].attr, maxZoom: 19 }).addTo(mapInstanceRef.current);
   }, [activeLayer, forceLayer]);
 
-  // Add markers for applications
+  // Add markers for applications — if selectedApp exists, show only that one
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
     const L = window.L;
     markersRef.current.forEach(m => mapInstanceRef.current.removeLayer(m));
     markersRef.current = [];
 
-    apps.forEach(app => {
+    const appsToShow = selectedApp ? [selectedApp] : apps;
+
+    appsToShow.forEach(app => {
       const coords = getAppCoords(allLotsData, app, speedRoadsData);
       if (!coords) return;
       const sc = STATUS_CONFIG[app.status];
