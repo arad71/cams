@@ -60,17 +60,35 @@ export default function KalamundaApprovalPortal() {
     api.getPublicSettings().then(s => { if (s && Object.keys(s).length > 0) setSiteSettings(s); }).catch(() => {});
   }, []);
 
-  // Load lot.geojson and speed_roads.geojson once at app level
+  // Load lot.geojson and Legal_Speed_Limits.geojson once at app level
   useEffect(() => {
     let cancelled = false;
     async function loadGeoData() {
       try {
         const [lotsRes, roadsRes] = await Promise.all([
           fetch('/lot.geojson', { cache: 'no-cache' }),
-          fetch('/speed_roads.geojson', { cache: 'no-cache' }),
+          fetch('/Legal_Speed_Limits.geojson', { cache: 'no-cache' }),
         ]);
         if (!cancelled && lotsRes.ok) setGlobalLotsData(await lotsRes.json());
-        if (!cancelled && roadsRes.ok) setGlobalSpeedRoads(await roadsRes.json());
+        if (!cancelled && roadsRes.ok) {
+          const data = await roadsRes.json();
+          // Normalize properties to consistent format: rd, sp, nt
+          if (data?.features) {
+            data.features = data.features.map(f => {
+              const p = f.properties || {};
+              // Auto-detect field names and normalize
+              f.properties = {
+                rd: p.rd || p.road_name || p.ROAD_NAME || p.name || p.RD || p.road || "",
+                sp: parseInt(p.sp || p.speed_limit || p.SPEED_LIMIT || p.speed || p.SP || p.GAZETTED_S || 50),
+                nt: p.nt || p.road_type || p.ROAD_TYPE || p.type || p.NT || p.ROAD_CLASS || "Road",
+                // Keep original properties too
+                ...p,
+              };
+              return f;
+            });
+          }
+          setGlobalSpeedRoads(data);
+        }
       } catch (e) { console.error('Failed to load geojson data:', e); }
     }
     loadGeoData();
