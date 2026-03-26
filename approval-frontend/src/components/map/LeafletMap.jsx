@@ -71,19 +71,20 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const icon = L.divIcon({
         className: '',
         html: `<div style="position:relative;cursor:pointer;">
-          <svg width="${isSelected?32:24}" height="${isSelected?38:30}" viewBox="0 0 36 44">
+          <svg width="${isSelected?28:24}" height="${isSelected?34:30}" viewBox="0 0 36 44">
             <path d="M18,42 C18,42 2,26 2,16 C2,7.2 9.2,0 18,0 C26.8,0 34,7.2 34,16 C34,26 18,42 18,42Z" fill="${sc.mapColor}" stroke="#fff" stroke-width="2.5" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.3))"/>
             <circle cx="18" cy="16" r="7" fill="#fff"/>
             <text x="18" y="20" text-anchor="middle" font-size="11" font-weight="bold" fill="${sc.mapColor}">${sc.icon}</text>
           </svg>
-          ${isSelected ? '<div style="position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:#1a3a4a;color:#fff;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;white-space:nowrap;font-family:sans-serif;">' + app.id + '</div>' : ''}
         </div>`,
-        iconSize: [isSelected?32:24, isSelected?38:30],
-        iconAnchor: [isSelected?16:12, isSelected?38:30],
+        iconSize: [isSelected?28:24, isSelected?34:30],
+        iconAnchor: [isSelected?14:12, isSelected?34:30],
       });
 
-      const marker = L.marker([coords.lat, coords.lng], { icon })
-        .bindPopup(`
+      const marker = L.marker([coords.lat, coords.lng], { icon });
+      // Only show popup on dashboard (not assessment page)
+      if (!isSelected) {
+        marker.bindPopup(`
           <div style="font-family:'DM Sans',sans-serif;min-width:200px;">
             <div style="font-weight:800;font-size:14px;color:#1a3a4a;margin-bottom:4px;">${app.id || ""}</div>
             ${app.owner?.name ? `<div style="font-size:12px;color:#5a6a74;margin-bottom:6px;">${app.owner.name}</div>` : ""}
@@ -92,8 +93,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
             <div style="font-size:11px;margin-bottom:6px;"><span style="background:${sc.bg};color:${sc.color};padding:2px 8px;border-radius:4px;font-weight:700;">${sc.icon} ${sc.label}</span></div>
             ${app.crossover?.width ? `<div style="font-size:11px;color:#5a6a74;">Width: ${app.crossover.width}m${app.property?.frontage ? ' | Frontage: ' + app.property.frontage + 'm' : ''}</div>` : ""}
           </div>
-        `, { maxWidth: 280 })
-        .on('click', () => { if (!mapToolRef.current) onSelectApp(app); })
+        `, { maxWidth: 280 });
+      }
+      marker.on('click', () => { if (!mapToolRef.current) onSelectApp(app); })
         .addTo(mapInstanceRef.current);
       markersRef.current.push(marker);
     });
@@ -300,7 +302,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (ptA) {
       if (!sightMarkerA.current) {
         sightMarkerA.current = L.marker([ptA.lat, ptA.lng], { icon: makeIcon('A', '#e74c3c'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
-        sightMarkerA.current.bindTooltip('Drag to reposition (A)', { direction: 'top', offset: [0, -14] });
+
         sightMarkerA.current.on('dragend', () => {
           const ll = sightMarkerA.current.getLatLng();
           if (onDragRef.current) onDragRef.current('A', { lat: ll.lat, lng: ll.lng });
@@ -314,7 +316,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (ptB) {
       if (!sightMarkerB.current) {
         sightMarkerB.current = L.marker([ptB.lat, ptB.lng], { icon: makeIcon('B', '#2980b9'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
-        sightMarkerB.current.bindTooltip('Drag to reposition (B)', { direction: 'top', offset: [0, -14] });
+
         sightMarkerB.current.on('dragend', () => {
           const ll = sightMarkerB.current.getLatLng();
           if (onDragRef.current) onDragRef.current('B', { lat: ll.lat, lng: ll.lng });
@@ -791,58 +793,35 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       L.DomEvent.stopPropagation(e);
       if (!setOffsetState) return;
 
-      // Always show where user clicked (red X)
-      const clickDot = L.circleMarker(e.latlng, { radius: 4, color: "#ff0000", fillColor: "#ff0000", fillOpacity: 0.5, weight: 1 }).addTo(map);
-      offsetRef.current.layers.push(clickDot);
-
       if (offsetState.step === 0) {
-        // Step 1: snap to road
         const snap = snapToRoad(e.latlng);
         if (snap) {
-          const dot = L.circleMarker(snap.point, { radius: 7, color: "#4caf50", fillColor: "#4caf50", fillOpacity: 0.8, weight: 2, pane: "markerPane" })
-            .bindTooltip(`Road: ${snap.road?.rd || "?"} · ${snap.road?.sp || "?"}km/h<br/>Snapped ${e.latlng.distanceTo(snap.point).toFixed(1)}m`, { permanent: true, direction: "top", offset: [0, -10] })
-            .addTo(map);
-          // Line from click to snap point
-          const snapLine = L.polyline([e.latlng, snap.point], { color: "#ff000060", weight: 1, dashArray: "3,3" }).addTo(map);
-          offsetRef.current.layers.push(dot, snapLine);
+          const dot = L.circleMarker(snap.point, { radius: 5, color: "#4caf50", fillColor: "#4caf50", fillOpacity: 0.9, weight: 1.5, pane: "markerPane" }).addTo(map);
+          offsetRef.current.layers.push(dot);
           setOffsetState(s => ({ ...s, step: 1, road: snap }));
-        } else {
-          // No road found — show message
-          const noSnap = L.marker(e.latlng, { interactive: false, icon: L.divIcon({ className: "", html: '<div style="background:#f44336;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:sans-serif">No road nearby</div>', iconAnchor: [30, -5] }) }).addTo(map);
-          offsetRef.current.layers.push(noSnap);
-          setTimeout(() => { if (map.hasLayer(noSnap)) map.removeLayer(noSnap); }, 2000);
         }
       } else if (offsetState.step === 1) {
-        // Step 2: snap to lot boundary
         const snap = snapToBoundary(e.latlng);
         if (snap) {
-          const line = L.polyline([snap.a, snap.b], { color: "#66bb6a", weight: 3, dashArray: "6,3" }).addTo(map);
-          const dot = L.circleMarker(snap.point, { radius: 7, color: "#66bb6a", fillColor: "#66bb6a", fillOpacity: 0.8, weight: 2, pane: "markerPane" })
-            .bindTooltip(`Boundary side<br/>Snapped ${e.latlng.distanceTo(snap.point).toFixed(1)}m`, { permanent: true, direction: "top", offset: [0, -10] })
-            .addTo(map);
-          const snapLine = L.polyline([e.latlng, snap.point], { color: "#ff000060", weight: 1, dashArray: "3,3" }).addTo(map);
-          offsetRef.current.layers.push(line, dot, snapLine);
+          const dot = L.circleMarker(snap.point, { radius: 5, color: "#66bb6a", fillColor: "#66bb6a", fillOpacity: 0.9, weight: 1.5, pane: "markerPane" }).addTo(map);
+          offsetRef.current.layers.push(dot);
           setOffsetState(s => ({ ...s, step: 2, boundary: snap }));
-        } else {
-          const noSnap = L.marker(e.latlng, { interactive: false, icon: L.divIcon({ className: "", html: '<div style="background:#f44336;color:#fff;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;font-family:sans-serif">No boundary nearby</div>', iconAnchor: [35, -5] }) }).addTo(map);
-          offsetRef.current.layers.push(noSnap);
-          setTimeout(() => { if (map.hasLayer(noSnap)) map.removeLayer(noSnap); }, 2000);
         }
       }
     };
 
-    // Step 3: when step changes to 3, compute and place the offset point
+    // Step 3: compute offset point A, project B on road, just show points + triangle
     if (offsetState.step === 3 && offsetState.road && offsetState.boundary) {
       const roadPt = offsetState.road.point;
       const bndSnap = offsetState.boundary;
       const bndA = bndSnap.a, bndB = bndSnap.b;
-      const xM = offsetState.x; // metres from road (perpendicular inward)
-      const yM = offsetState.y; // metres from boundary (perpendicular inward)
+      const xM = offsetState.x;
+      const yM = offsetState.y;
 
       const mPerLat = 111320;
       const mPerLng = 111320 * Math.cos(roadPt.lat * Math.PI / 180);
 
-      // Find the road segment near the clicked road point
+      // Find road segment
       let roadA = null, roadB = null;
       const rdSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
       if (rdSources.length > 0) {
@@ -854,8 +833,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
             for (let i = 0; i < coords.length - 1; i++) {
               const a = L.latLng(coords[i][1], coords[i][0]);
               const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-              const mid = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
-              const d = roadPt.distanceTo(mid);
+              const d = roadPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2));
               if (d < bestDist) { bestDist = d; roadA = a; roadB = b; }
             }
           }
@@ -863,88 +841,38 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
       if (!roadA) { roadA = roadPt; roadB = L.latLng(roadPt.lat + 0.0001, roadPt.lng); }
 
-      // Road bearing and perpendicular
       const roadBearing = Math.atan2((roadB.lng - roadA.lng) * mPerLng, (roadB.lat - roadA.lat) * mPerLat);
       const roadPerp = roadBearing + Math.PI / 2;
-      // Determine which perpendicular direction goes toward the boundary
       const testR1 = L.latLng(roadPt.lat + Math.cos(roadPerp) * 0.0001, roadPt.lng + Math.sin(roadPerp) * 0.0001);
       const testR2 = L.latLng(roadPt.lat - Math.cos(roadPerp) * 0.0001, roadPt.lng - Math.sin(roadPerp) * 0.0001);
       const roadPerpDir = bndSnap.point.distanceTo(testR1) < bndSnap.point.distanceTo(testR2) ? roadPerp : roadPerp + Math.PI;
 
-      // Boundary bearing and perpendicular
       const bndBearing = Math.atan2((bndB.lng - bndA.lng) * mPerLng, (bndB.lat - bndA.lat) * mPerLat);
       const bndPerp = bndBearing + Math.PI / 2;
       const testB1 = L.latLng(bndSnap.point.lat + Math.cos(bndPerp) * 0.0001, bndSnap.point.lng + Math.sin(bndPerp) * 0.0001);
       const testB2 = L.latLng(bndSnap.point.lat - Math.cos(bndPerp) * 0.0001, bndSnap.point.lng - Math.sin(bndPerp) * 0.0001);
       const bndPerpDir = roadPt.distanceTo(testB1) > roadPt.distanceTo(testB2) ? bndPerp : bndPerp + Math.PI;
 
-      // LINE 1: Parallel to road, offset X metres toward lot
-      const l1Pt = L.latLng(
-        roadPt.lat + (xM * Math.cos(roadPerpDir)) / mPerLat,
-        roadPt.lng + (xM * Math.sin(roadPerpDir)) / mPerLng
-      );
-      const l1Dir = roadBearing;
+      const l1Pt = L.latLng(roadPt.lat + (xM * Math.cos(roadPerpDir)) / mPerLat, roadPt.lng + (xM * Math.sin(roadPerpDir)) / mPerLng);
+      const l2Pt = L.latLng(bndSnap.point.lat + (yM * Math.cos(bndPerpDir)) / mPerLat, bndSnap.point.lng + (yM * Math.sin(bndPerpDir)) / mPerLng);
+      const l1Dir = roadBearing, l2Dir = bndBearing;
 
-      // LINE 2: Parallel to boundary, offset Y metres toward lot interior
-      const l2Pt = L.latLng(
-        bndSnap.point.lat + (yM * Math.cos(bndPerpDir)) / mPerLat,
-        bndSnap.point.lng + (yM * Math.sin(bndPerpDir)) / mPerLng
-      );
-      const l2Dir = bndBearing;
-
-      // Draw the two offset lines (long extensions for visibility)
-      const extLen = 0.0005; // ~50m visual extension
-      const line1A = L.latLng(l1Pt.lat - Math.cos(l1Dir) * extLen, l1Pt.lng - Math.sin(l1Dir) * extLen);
-      const line1B = L.latLng(l1Pt.lat + Math.cos(l1Dir) * extLen, l1Pt.lng + Math.sin(l1Dir) * extLen);
-      const line2A = L.latLng(l2Pt.lat - Math.cos(l2Dir) * extLen, l2Pt.lng - Math.sin(l2Dir) * extLen);
-      const line2B = L.latLng(l2Pt.lat + Math.cos(l2Dir) * extLen, l2Pt.lng + Math.sin(l2Dir) * extLen);
-
-      const offsetLine1 = L.polyline([line1A, line1B], { color: "#4caf50", weight: 1.5, dashArray: "8,4", opacity: 0.7 }).addTo(map);
-      const offsetLine2 = L.polyline([line2A, line2B], { color: "#81c784", weight: 1.5, dashArray: "8,4", opacity: 0.7 }).addTo(map);
-      offsetRef.current.layers.push(offsetLine1, offsetLine2);
-
-      // Line 1 label
-      const l1Label = L.marker(l1Pt, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:600;font-family:sans-serif">${xM}m from road</div>`, iconAnchor: [30, -5] }) }).addTo(map);
-      const l2Label = L.marker(l2Pt, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#81c784;color:#fff;padding:1px 6px;border-radius:3px;font-size:8px;font-weight:600;font-family:sans-serif">${yM}m from boundary</div>`, iconAnchor: [35, -5] }) }).addTo(map);
-      offsetRef.current.layers.push(l1Label, l2Label);
-
-      // Intersect Line 1 and Line 2 to get Point A
-      // Line 1: l1Pt + t * (cos(l1Dir), sin(l1Dir))
-      // Line 2: l2Pt + s * (cos(l2Dir), sin(l2Dir))
+      // Intersect to get Point A
       const d1x = Math.sin(l1Dir), d1y = Math.cos(l1Dir);
       const d2x = Math.sin(l2Dir), d2y = Math.cos(l2Dir);
       const det = d1x * d2y - d1y * d2x;
 
       let finalPt;
       if (Math.abs(det) > 1e-10) {
-        // Lines intersect
         const dLat = (l2Pt.lat - l1Pt.lat) * mPerLat;
         const dLng = (l2Pt.lng - l1Pt.lng) * mPerLng;
         const t = (dLng * d2y - dLat * d2x) / (d1x * d2y - d1y * d2x);
-        finalPt = L.latLng(
-          l1Pt.lat + (t * d1y) / mPerLat,
-          l1Pt.lng + (t * d1x) / mPerLng
-        );
+        finalPt = L.latLng(l1Pt.lat + (t * d1y) / mPerLat, l1Pt.lng + (t * d1x) / mPerLng);
       } else {
-        // Lines parallel — fallback to simple offset
-        finalPt = L.latLng(
-          roadPt.lat + (xM * Math.cos(roadPerpDir)) / mPerLat,
-          roadPt.lng + (xM * Math.sin(roadPerpDir)) / mPerLng
-        );
+        finalPt = L.latLng(roadPt.lat + (xM * Math.cos(roadPerpDir)) / mPerLat, roadPt.lng + (xM * Math.sin(roadPerpDir)) / mPerLng);
       }
 
-      // Draw perpendicular connector lines from road and boundary to point
-      const lineFromRoad = L.polyline([roadPt, finalPt], { color: "#4caf50", weight: 2, dashArray: "4,4" }).addTo(map);
-      const lineFromBnd = L.polyline([bndSnap.point, finalPt], { color: "#81c784", weight: 2, dashArray: "4,4" }).addTo(map);
-      offsetRef.current.layers.push(lineFromRoad, lineFromBnd);
-
-      // Final point marker (Point A)
-      const marker = L.marker(finalPt, { icon: L.divIcon({ className: "", html: '<div style="width:20px;height:20px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">A</div>', iconSize: [20,20], iconAnchor: [10,10] }) })
-        .bindTooltip(`Point A: ${xM}m from verge, ${yM}m from boundary<br/>${finalPt.lat.toFixed(6)}, ${finalPt.lng.toFixed(6)}`, { permanent: false, direction: "top", offset: [0, -12] })
-        .addTo(map);
-      offsetRef.current.layers.push(marker);
-
-      // Compute Point B: project finalPt perpendicularly onto nearest road centreline (within 50m)
+      // Point B: perpendicular projection onto road centreline
       let bestB = roadPt, bestBDist = Infinity;
       const roadSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
       for (const src of roadSources) {
@@ -954,36 +882,22 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           for (let i = 0; i < coords.length - 1; i++) {
             const a = L.latLng(coords[i][1], coords[i][0]);
             const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-            const midSeg = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
-            if (finalPt.distanceTo(midSeg) > 100) continue;
-            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat;
-            const px = finalPt.lng, py = finalPt.lat;
-            const dx = bx-ax, dy = by-ay;
-            const lenSq = dx*dx + dy*dy;
+            if (finalPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2)) > 100) continue;
+            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = finalPt.lng, py = finalPt.lat;
+            const dx = bx-ax, dy = by-ay, lenSq = dx*dx + dy*dy;
             if (lenSq < 1e-20) continue;
-            const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
-            const snap = L.latLng(ay + t*dy, ax + t*dx);
+            const tt = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
+            const snap = L.latLng(ay + tt*dy, ax + tt*dx);
             const d = finalPt.distanceTo(snap);
             if (d < bestBDist) { bestBDist = d; bestB = snap; }
           }
         }
       }
 
-      // Draw A→B line (yellow)
-      const lineAB = L.polyline([finalPt, bestB], { color: "#ffff00", weight: 2.5, dashArray: "6,4" }).addTo(map);
-      offsetRef.current.layers.push(lineAB);
-
-      // Point B marker on road centreline
-      const markerB = L.marker(bestB, { icon: L.divIcon({ className: "", html: '<div style="width:20px;height:20px;border-radius:50%;background:#2980b9;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">B</div>', iconSize: [20,20], iconAnchor: [10,10] }) })
-        .bindTooltip(`Point B: Road centreline<br/>${bestB.lat.toFixed(6)}, ${bestB.lng.toFixed(6)}`, { permanent: false, direction: "top", offset: [0, -12] })
-        .addTo(map);
-      offsetRef.current.layers.push(markerB);
-
-      // A→B distance label
-      const abDist = finalPt.distanceTo(bestB);
-      const midAB = L.latLng((finalPt.lat + bestB.lat)/2, (finalPt.lng + bestB.lng)/2);
-      const abLabel = L.marker(midAB, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#1a3a4a;color:#ffff00;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:sans-serif">${abDist.toFixed(1)}m</div>`, iconAnchor: [20, 8] }) }).addTo(map);
-      offsetRef.current.layers.push(abLabel);
+      // Just show Point A (small red dot) and Point B (small blue dot)
+      const dotA = L.circleMarker(finalPt, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
+      const dotB = L.circleMarker(bestB, { radius: 6, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
+      offsetRef.current.layers.push(dotA, dotB);
     }
 
     map.on("preclick", onClick);
