@@ -104,6 +104,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [mapTool, setMapTool] = useState(null); // "measure" | "draw" | null
   const [measureDist, setMeasureDist] = useState(null);
   const [radiusResult, setRadiusResult] = useState(null);
+  const [centrelineDist, setCentrelineDist] = useState(null);
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
@@ -624,6 +625,10 @@ Respond with JSON only:
             style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "radius" ? "2px solid #ff9800" : "1px solid #d5dde2", background: mapTool === "radius" ? "#fff3e0" : "#fff", color: mapTool === "radius" ? "#ff9800" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
             ◎ Radius
           </button>
+          <button onClick={() => setMapTool(mapTool === "centreline" ? null : "centreline")}
+            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "centreline" ? "2px solid #00bcd4" : "1px solid #d5dde2", background: mapTool === "centreline" ? "#e0f7fa" : "#fff", color: mapTool === "centreline" ? "#00bcd4" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            ┃ Centreline
+          </button>
         </div>
         <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
@@ -709,6 +714,13 @@ Respond with JSON only:
           <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #ff980040", background: "#fff", color: "#ff9800", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
+      {mapTool === "centreline" && (
+        <div style={{ padding: "4px 12px", background: "#e0f7fa", borderBottom: "1px solid #b2ebf2", fontSize: 10, color: "#00838f", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>┃ Click along the centre of the road to draw centreline. Double-click to finish. Shows total length + offset lines.</span>
+          {centrelineDist && <span style={{ background: "#00bcd4", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{centrelineDist}</span>}
+          <button onClick={() => { setMapTool(null); setCentrelineDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #00bcd440", background: "#fff", color: "#00838f", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+        </div>
+      )}
 
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
@@ -725,6 +737,7 @@ Respond with JSON only:
         mapTool={mapTool} setMapTool={setMapTool}
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
+        centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);

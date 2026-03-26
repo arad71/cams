@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -500,6 +500,91 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       map.off("click", onClick);
       map.off("dblclick", onDblClick);
       map.off("contextmenu", onRightClick);
+      map.doubleClickZoom.enable();
+      map.getContainer().style.cursor = "";
+    };
+  }, [mapTool, leafletLoaded]);
+
+  // ── Centreline tool — draw road centreline with offset indicators ──
+  const centrelineRef = useRef({ pts: [], layers: [], total: 0 });
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    const map = mapInstanceRef.current;
+
+    centrelineRef.current.layers.forEach(l => map.removeLayer(l));
+    centrelineRef.current = { pts: [], layers: [], total: 0 };
+
+    if (mapTool !== "centreline") return;
+
+    map.getContainer().style.cursor = "crosshair";
+
+    const redraw = () => {
+      // Remove old lines/labels but keep dots
+      centrelineRef.current.layers.filter(l => l._isCL).forEach(l => map.removeLayer(l));
+      centrelineRef.current.layers = centrelineRef.current.layers.filter(l => !l._isCL);
+
+      const pts = centrelineRef.current.pts;
+      if (pts.length < 2) return;
+
+      let total = 0;
+      for (let i = 1; i < pts.length; i++) {
+        const seg = pts[i - 1].distanceTo(pts[i]);
+        total += seg;
+
+        // Centreline segment (solid cyan)
+        const line = L.polyline([pts[i - 1], pts[i]], { color: "#00bcd4", weight: 3, opacity: 0.9 });
+        line._isCL = true; line.addTo(map);
+        centrelineRef.current.layers.push(line);
+
+        // Perpendicular tick marks at each point (shows road width direction)
+        const bearing = Math.atan2(pts[i].lng - pts[i - 1].lng, pts[i].lat - pts[i - 1].lat);
+        const perpBearing = bearing + Math.PI / 2;
+        const tickLen = 0.00003; // ~3m visual tick
+        const tickA = L.latLng(pts[i].lat + Math.cos(perpBearing) * tickLen, pts[i].lng + Math.sin(perpBearing) * tickLen);
+        const tickB = L.latLng(pts[i].lat - Math.cos(perpBearing) * tickLen, pts[i].lng - Math.sin(perpBearing) * tickLen);
+        const tick = L.polyline([tickA, tickB], { color: "#00bcd4", weight: 1.5, opacity: 0.6 });
+        tick._isCL = true; tick.addTo(map);
+        centrelineRef.current.layers.push(tick);
+
+        // Segment distance
+        const mid = L.latLng((pts[i - 1].lat + pts[i].lat) / 2, (pts[i - 1].lng + pts[i].lng) / 2);
+        const segLabel = L.marker(mid, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#00838f;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:600;white-space:nowrap;font-family:sans-serif">${seg.toFixed(1)}m</div>`, iconAnchor: [15, 8] }) });
+        segLabel._isCL = true; segLabel.addTo(map);
+        centrelineRef.current.layers.push(segLabel);
+      }
+      centrelineRef.current.total = total;
+
+      // Total length at last point
+      const lastPt = pts[pts.length - 1];
+      const totalLabel = L.marker(lastPt, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#00bcd4;color:#fff;padding:2px 8px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 4px rgba(0,0,0,0.3);margin-top:-22px">Σ ${total.toFixed(1)}m</div>`, iconAnchor: [25, 30] }) });
+      totalLabel._isCL = true; totalLabel.addTo(map);
+      centrelineRef.current.layers.push(totalLabel);
+
+      if (setCentrelineDist) setCentrelineDist(`${total.toFixed(1)}m (${pts.length - 1} segments)`);
+    };
+
+    const onClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      centrelineRef.current.pts.push(e.latlng);
+      const dot = L.circleMarker(e.latlng, { radius: 4, color: "#00bcd4", fillColor: "#fff", fillOpacity: 1, weight: 2.5, pane: "markerPane" }).addTo(map);
+      centrelineRef.current.layers.push(dot);
+      redraw();
+    };
+
+    const onDblClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      centrelineRef.current.pts = [];
+      centrelineRef.current.total = 0;
+    };
+
+    map.on("click", onClick);
+    map.on("dblclick", onDblClick);
+    map.doubleClickZoom.disable();
+
+    return () => {
+      map.off("click", onClick);
+      map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = "";
     };
