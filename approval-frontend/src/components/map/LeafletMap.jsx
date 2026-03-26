@@ -685,66 +685,108 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     };
 
     const showResult = () => {
-      // Remove old circle/labels
-      radiusRef.current.layers.filter(l => l._isCircle || l._isLabel).forEach(l => map.removeLayer(l));
-      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isCircle && !l._isLabel);
+      // Remove old circle/labels/curve
+      radiusRef.current.layers.filter(l => l._isCircle || l._isLabel || l._isCurve).forEach(l => map.removeLayer(l));
+      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isCircle && !l._isLabel && !l._isCurve);
 
       const pts = radiusRef.current.pts;
-      if (pts.length < 5) return; // need enough points for good fit
+      if (pts.length < 5) return;
 
-      // Sample every Nth point to avoid overfitting noise
-      const sample = pts.length > 20 ? pts.filter((_,i) => i % Math.floor(pts.length/20) === 0) : pts;
+      const sample = pts.length > 30 ? pts.filter((_,i) => i % Math.floor(pts.length/30) === 0) : pts;
       const circle = fitCircle(sample);
       if (!circle || circle.radius <= 0 || circle.radius > 5000) return;
 
-      // Draw the best-fit circle
-      const c = L.circle([circle.lat, circle.lng], { radius: circle.radius, color: "#ff9800", weight: 2.5, fillColor: "#ff9800", fillOpacity: 0.06, dashArray: "8,4" });
+      const mPerLat = 111320;
+      const mPerLng = 111320 * Math.cos(circle.lat * Math.PI / 180);
+
+      // Compute start and end angles of the arc
+      const startPt = pts[0];
+      const endPt = pts[pts.length - 1];
+      let startAngle = Math.atan2((startPt.lng - circle.lng) * mPerLng, (startPt.lat - circle.lat) * mPerLat);
+      let endAngle = Math.atan2((endPt.lng - circle.lng) * mPerLng, (endPt.lat - circle.lat) * mPerLat);
+
+      // Determine arc direction (CW vs CCW) from the drawn points
+      const midPt = pts[Math.floor(pts.length / 2)];
+      const midAngle = Math.atan2((midPt.lng - circle.lng) * mPerLng, (midPt.lat - circle.lat) * mPerLat);
+      // Normalize angles
+      const normAngle = (a) => ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      let sa = normAngle(startAngle), ea = normAngle(endAngle), ma = normAngle(midAngle);
+      // Check if mid angle is between start and end going CW
+      const isBetweenCW = (sa <= ea) ? (ma >= sa && ma <= ea) : (ma >= sa || ma <= ea);
+      if (!isBetweenCW) { const tmp = sa; sa = ea; ea = tmp; } // Swap to ensure arc goes through mid
+
+      // Generate smooth arc points (64 segments)
+      const arcPts = [];
+      const steps = 64;
+      let sweep = ea - sa;
+      if (sweep <= 0) sweep += 2 * Math.PI;
+      for (let i = 0; i <= steps; i++) {
+        const angle = sa + (sweep * i / steps);
+        const lat = circle.lat + (circle.radius * Math.cos(angle)) / mPerLat;
+        const lng = circle.lng + (circle.radius * Math.sin(angle)) / mPerLng;
+        arcPts.push([lat, lng]);
+      }
+
+      // Draw smooth arc (solid orange)
+      const arcLine = L.polyline(arcPts, { color: "#ff9800", weight: 3, opacity: 0.9 });
+      arcLine._isCurve = true; arcLine.addTo(map); radiusRef.current.layers.push(arcLine);
+
+      // Best-fit circle (dashed, subtle)
+      const c = L.circle([circle.lat, circle.lng], { radius: circle.radius, color: "#ff9800", weight: 1, fillColor: "#ff9800", fillOpacity: 0.03, dashArray: "6,6" });
       c._isCircle = true; c.addTo(map); radiusRef.current.layers.push(c);
 
-      // Centre dot
-      const dot = L.circleMarker([circle.lat, circle.lng], { radius: 5, color: "#ff9800", fillColor: "#fff", fillOpacity: 1, weight: 2.5 });
-      dot._isCircle = true; dot.addTo(map); radiusRef.current.layers.push(dot);
+      // Start and end dots
+      const dotStart = L.circleMarker(arcPts[0], { radius: 5, color: "#ff9800", fillColor: "#fff", fillOpacity: 1, weight: 2.5 });
+      dotStart._isCurve = true; dotStart.addTo(map); radiusRef.current.layers.push(dotStart);
+      const dotEnd = L.circleMarker(arcPts[arcPts.length-1], { radius: 5, color: "#ff9800", fillColor: "#fff", fillOpacity: 1, weight: 2.5 });
+      dotEnd._isCurve = true; dotEnd.addTo(map); radiusRef.current.layers.push(dotEnd);
 
-      // Radius line from centre to curve midpoint
-      const midPt = pts[Math.floor(pts.length/2)];
-      const rLine = L.polyline([[circle.lat, circle.lng], [midPt.lat, midPt.lng]], { color: "#ff9800", weight: 1.5, dashArray: "4,4" });
+      // Centre dot
+      const cDot = L.circleMarker([circle.lat, circle.lng], { radius: 4, color: "#ff9800", fillColor: "#ff9800", fillOpacity: 1, weight: 1 });
+      cDot._isCircle = true; cDot.addTo(map); radiusRef.current.layers.push(cDot);
+
+      // Radius line from centre to arc midpoint
+      const arcMid = arcPts[Math.floor(arcPts.length / 2)];
+      const rLine = L.polyline([[circle.lat, circle.lng], arcMid], { color: "#ff9800", weight: 1.5, dashArray: "4,4" });
       rLine._isCircle = true; rLine.addTo(map); radiusRef.current.layers.push(rLine);
 
-      // Label
+      // R label at centre
       const label = L.marker([circle.lat, circle.lng], { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#ff9800;color:#fff;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.3)">R = ${circle.radius.toFixed(1)}m</div>`, iconAnchor: [35, -12] }) });
       label._isLabel = true; label.addTo(map); radiusRef.current.layers.push(label);
 
-      // Arc length label
-      const arcLen = pts.reduce((s, p, i) => i > 0 ? s + p.distanceTo(pts[i-1]) : s, 0);
-      const arcLabel = L.marker(midPt, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#e65100;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;white-space:nowrap;font-family:sans-serif">Arc: ${arcLen.toFixed(1)}m</div>`, iconAnchor: [25, 15] }) });
+      // Arc length
+      const arcLen = circle.radius * sweep;
+      const arcLabel = L.marker(arcMid, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#e65100;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;white-space:nowrap;font-family:sans-serif">Arc: ${arcLen.toFixed(1)}m</div>`, iconAnchor: [25, 15] }) });
       arcLabel._isLabel = true; arcLabel.addTo(map); radiusRef.current.layers.push(arcLabel);
 
-      if (setRadiusResult) setRadiusResult(`R = ${circle.radius.toFixed(1)}m · Arc = ${arcLen.toFixed(1)}m · ${sample.length} sample points`);
+      if (setRadiusResult) setRadiusResult(`R = ${circle.radius.toFixed(1)}m · Arc = ${arcLen.toFixed(1)}m`);
     };
 
-    // Freehand drawing — mousedown starts, mousemove collects, mouseup finishes
-    let curvePolyline = null;
+    // Freehand drawing — mousedown starts, mousemove collects, mouseup finishes + smooth
+    let rawPolyline = null;
 
     const onMouseDown = (e) => {
       L.DomEvent.stopPropagation(e);
       radiusRef.current.drawing = true;
       radiusRef.current.pts = [e.latlng];
       map.dragging.disable();
-      // Start orange curve
-      curvePolyline = L.polyline([e.latlng], { color: "#ff9800", weight: 3, opacity: 0.8 }).addTo(map);
-      radiusRef.current.layers.push(curvePolyline);
+      // Thin guide line while drawing
+      rawPolyline = L.polyline([e.latlng], { color: "#ff980060", weight: 2, dashArray: "3,3" }).addTo(map);
+      radiusRef.current.layers.push(rawPolyline);
     };
 
     const onMouseMove = (e) => {
       if (!radiusRef.current.drawing) return;
       radiusRef.current.pts.push(e.latlng);
-      if (curvePolyline) curvePolyline.addLatLng(e.latlng);
+      if (rawPolyline) rawPolyline.addLatLng(e.latlng);
     };
 
     const onMouseUp = (e) => {
       if (!radiusRef.current.drawing) return;
       radiusRef.current.drawing = false;
       map.dragging.enable();
+      // Remove raw guide line
+      if (rawPolyline) { map.removeLayer(rawPolyline); radiusRef.current.layers = radiusRef.current.layers.filter(l => l !== rawPolyline); rawPolyline = null; }
       showResult();
     };
 
