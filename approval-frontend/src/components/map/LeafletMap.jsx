@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetSightTriangle = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -786,11 +786,58 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const lblB = L.marker(midB, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#81c784;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:sans-serif">${yM}m</div>`, iconAnchor: [12, 8] }) }).addTo(map);
       offsetRef.current.layers.push(lblR, lblB);
 
-      // Final point marker
-      const marker = L.marker(finalPt, { icon: L.divIcon({ className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#4caf50;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff">⊕</div>', iconSize: [16,16], iconAnchor: [8,8] }) })
-        .bindTooltip(`${xM}m from verge, ${yM}m from boundary<br/>${finalPt.lat.toFixed(6)}, ${finalPt.lng.toFixed(6)}`, { permanent: true, direction: "top", offset: [0, -12] })
+      // Final point marker (Point A)
+      const marker = L.marker(finalPt, { icon: L.divIcon({ className: "", html: '<div style="width:20px;height:20px;border-radius:50%;background:#e74c3c;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">A</div>', iconSize: [20,20], iconAnchor: [10,10] }) })
+        .bindTooltip(`Point A: ${xM}m from verge, ${yM}m from boundary<br/>${finalPt.lat.toFixed(6)}, ${finalPt.lng.toFixed(6)}`, { permanent: false, direction: "top", offset: [0, -12] })
         .addTo(map);
       offsetRef.current.layers.push(marker);
+
+      // Compute Point B: project finalPt perpendicularly onto the road centreline
+      // Find nearest point on road centreline from finalPt
+      let bestB = roadPt, bestBDist = Infinity;
+      if (speedRoadsData?.features) {
+        for (const f of speedRoadsData.features) {
+          const coords = f.geometry?.coordinates;
+          if (!coords) continue;
+          for (let i = 0; i < coords.length - 1; i++) {
+            const a = L.latLng(coords[i][1], coords[i][0]);
+            const b = L.latLng(coords[i+1][1], coords[i+1][0]);
+            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat;
+            const px = finalPt.lng, py = finalPt.lat;
+            const dx = bx-ax, dy = by-ay;
+            const lenSq = dx*dx + dy*dy;
+            if (lenSq < 1e-20) continue;
+            const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
+            const snap = L.latLng(ay + t*dy, ax + t*dx);
+            const d = finalPt.distanceTo(snap);
+            if (d < bestBDist) { bestBDist = d; bestB = snap; }
+          }
+        }
+      }
+
+      // Draw A→B line (yellow)
+      const lineAB = L.polyline([finalPt, bestB], { color: "#ffff00", weight: 2.5, dashArray: "6,4" }).addTo(map);
+      offsetRef.current.layers.push(lineAB);
+
+      // Point B marker on road centreline
+      const markerB = L.marker(bestB, { icon: L.divIcon({ className: "", html: '<div style="width:20px;height:20px;border-radius:50%;background:#2980b9;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif">B</div>', iconSize: [20,20], iconAnchor: [10,10] }) })
+        .bindTooltip(`Point B: Road centreline<br/>${bestB.lat.toFixed(6)}, ${bestB.lng.toFixed(6)}`, { permanent: false, direction: "top", offset: [0, -12] })
+        .addTo(map);
+      offsetRef.current.layers.push(markerB);
+
+      // A→B distance label
+      const abDist = finalPt.distanceTo(bestB);
+      const midAB = L.latLng((finalPt.lat + bestB.lat)/2, (finalPt.lng + bestB.lng)/2);
+      const abLabel = L.marker(midAB, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#1a3a4a;color:#ffff00;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:sans-serif">${abDist.toFixed(1)}m</div>`, iconAnchor: [20, 8] }) }).addTo(map);
+      offsetRef.current.layers.push(abLabel);
+
+      // Trigger sight triangle with A and B
+      if (onOffsetSightTriangle) {
+        onOffsetSightTriangle(
+          { lat: finalPt.lat, lng: finalPt.lng },
+          { lat: bestB.lat, lng: bestB.lng }
+        );
+      }
     }
 
     map.on("click", onClick);
