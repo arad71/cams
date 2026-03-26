@@ -870,22 +870,23 @@ def save_boundaries(
     if not app:
         raise HTTPException(404, "Application not found")
 
-    # Save pixel coordinates (ensure plain Python types)
+    # Save pixel coordinates (ensure plain Python types), clear latlon if empty
     def clean_poly(poly):
-        if not poly:
-            return poly
+        if not poly or (isinstance(poly, list) and len(poly) < 3):
+            return None
         return [[round(float(p[0])), round(float(p[1]))] for p in poly]
 
-    if "site_lot_boundary" in data:
-        app.site_lot_boundary = clean_poly(data["site_lot_boundary"])
-    if "site_building_boundary" in data:
-        app.site_building_boundary = clean_poly(data["site_building_boundary"])
-    if "site_crossover" in data:
-        app.site_crossover = clean_poly(data["site_crossover"])
+    for key in ["site_lot_boundary", "site_building_boundary", "site_crossover"]:
+        if key in data:
+            cleaned = clean_poly(data[key])
+            setattr(app, key, cleaned)
+            # If cleared, also clear the latlon version
+            if cleaned is None:
+                setattr(app, f"{key}_latlon", None)
 
     # ── Geo-reference: map pixel lot boundary → real lot_polygon → affine transform ──
-    pixel_lot = data.get("site_lot_boundary", app.site_lot_boundary) or []
-    real_lot = app.lot_polygon or []  # [[lat,lng], ...] from lot.geojson
+    pixel_lot = app.site_lot_boundary or []  # Already cleaned and saved above
+    real_lot = app.lot_polygon or []
 
     # Normalize coordinate order — ensure [lat, lng] (lat ~ -31, lng ~ 116 for Perth)
     if real_lot and len(real_lot) >= 3:
@@ -979,7 +980,7 @@ def save_boundaries(
 
                 # Convert all boundaries to latlon
                 for key in ["site_lot_boundary", "site_building_boundary", "site_crossover"]:
-                    px_poly = data.get(key, getattr(app, key, None)) or []
+                    px_poly = getattr(app, key, None) or []
                     if len(px_poly) >= 3:
                         ll_poly = [px_to_latlon(p) for p in px_poly]
                         # Ensure closed polygon
