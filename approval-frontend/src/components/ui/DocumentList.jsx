@@ -540,15 +540,31 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
 
       {/* Site Plan Measure Tool */}
       {showMeasure && (() => {
-        const spDoc = docs.find(d => d.category?.toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes(d.type));
-        const imgUrl = spDoc ? `/api/applications/${appDbId}/documents/${spDoc.id}/render` : null;
-        return imgUrl ? (
+        // Find site plan doc: category contains "site" or "plan", supports pdf/images
+        const spDoc = docs.find(d => {
+          const cat = (d.category || "").toLowerCase();
+          const isSitePlan = cat.includes("site") || cat === "site_plan";
+          const isViewable = ["pdf","jpg","jpeg","png","gif","webp"].includes((d.type || "").toLowerCase());
+          return isSitePlan && isViewable;
+        });
+        if (!spDoc) {
+          return (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10001, display: 'grid', placeItems: 'center' }}
+              onClick={() => setShowMeasure(false)}>
+              <div style={{ background: '#1a2a3a', color: '#fff', padding: 24, borderRadius: 12, textAlign: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>No Site Plan Found</div>
+                <div style={{ fontSize: 12, color: '#7a8a94' }}>Upload a document with category "Site Plan" first.</div>
+              </div>
+            </div>
+          );
+        }
+        const imgUrl = `${window.location.origin}/api/applications/${appDbId}/documents/${spDoc.id}/render`;
+        return (
           <SitePlanMeasure
             imgUrl={imgUrl}
             appRef={app?.ref_number || app?.id}
             onClose={() => setShowMeasure(false)}
             onSaveField={(fieldKey, value, unit) => {
-              // Save the measured value to the corrected site plan data
               const parts = fieldKey.split('.');
               const corData = app?.cor_site_plan_data || app?.site_plan_data || {};
               let target = { ...corData };
@@ -559,21 +575,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 ptr = ptr[parts[i]];
               }
               ptr[parts[parts.length - 1]] = value;
-              // Call API to save corrected data
               api.updateApp(appDbId, { cor_site_plan_data: target }).then(() => {
                 if (onDocUpdated) onDocUpdated();
                 alert(`✅ Saved ${value}${unit} to ${fieldKey}`);
               }).catch(err => alert('Save failed: ' + err.message));
             }}
           />
-        ) : (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10001, display: 'grid', placeItems: 'center' }}
-            onClick={() => setShowMeasure(false)}>
-            <div style={{ background: '#1a2a3a', color: '#fff', padding: 24, borderRadius: 12, textAlign: 'center' }}>
-              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>No Site Plan Found</div>
-              <div style={{ fontSize: 12, color: '#7a8a94' }}>Upload a Site Plan document first.</div>
-            </div>
-          </div>
         );
       })()}
     </div>
