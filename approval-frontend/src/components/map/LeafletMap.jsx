@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetSightTriangle = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -85,12 +85,12 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const marker = L.marker([coords.lat, coords.lng], { icon })
         .bindPopup(`
           <div style="font-family:'DM Sans',sans-serif;min-width:200px;">
-            <div style="font-weight:800;font-size:14px;color:#1a3a4a;margin-bottom:4px;">${app.id}</div>
-            <div style="font-size:12px;color:#5a6a74;margin-bottom:6px;">${app.owner.name}</div>
-            <div style="font-size:11px;color:#7a8a94;margin-bottom:4px;">📍 ${app.property.address}</div>
-            <div style="font-size:11px;color:#7a8a94;margin-bottom:6px;">🛣 ${app.property.roadName} (${app.property.roadType})</div>
+            <div style="font-weight:800;font-size:14px;color:#1a3a4a;margin-bottom:4px;">${app.id || ""}</div>
+            ${app.owner?.name ? `<div style="font-size:12px;color:#5a6a74;margin-bottom:6px;">${app.owner.name}</div>` : ""}
+            ${app.property?.address ? `<div style="font-size:11px;color:#7a8a94;margin-bottom:4px;">📍 ${app.property.address}</div>` : ""}
+            ${app.property?.roadName ? `<div style="font-size:11px;color:#7a8a94;margin-bottom:6px;">🛣 ${app.property.roadName}${app.property.roadType ? ' (' + app.property.roadType + ')' : ''}</div>` : ""}
             <div style="font-size:11px;margin-bottom:6px;"><span style="background:${sc.bg};color:${sc.color};padding:2px 8px;border-radius:4px;font-weight:700;">${sc.icon} ${sc.label}</span></div>
-            <div style="font-size:11px;color:#5a6a74;">Width: ${app.crossover.width}m | Frontage: ${app.property.frontage}m</div>
+            ${app.crossover?.width ? `<div style="font-size:11px;color:#5a6a74;">Width: ${app.crossover.width}m${app.property?.frontage ? ' | Frontage: ' + app.property.frontage + 'm' : ''}</div>` : ""}
           </div>
         `, { maxWidth: 280 })
         .on('click', () => { if (!mapToolRef.current) onSelectApp(app); })
@@ -143,17 +143,28 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         };
       },
       onEachFeature: (feature, layer) => {
-        const p = feature.properties;
-        const addr = [p.n, p.rd, p.rt].filter(Boolean).join(' ');
-        layer.bindTooltip(`<b>${addr}</b><br/>${p.loc}`, { sticky: true, className: 'lot-tooltip' });
+        const p = feature.properties || {};
+        // Build address from various possible property names
+        const num = p.road_number_1 || p.n || p.ROAD_NUMBER || p.house_number || "";
+        const road = p.road_name || p.rd || p.ROAD_NAME || p.name || "";
+        const type = p.road_type || p.rt || p.ROAD_TYPE || "";
+        const loc = p.locality || p.loc || p.LOCALITY || p.suburb || "";
+        const lotNum = p.lot_number || p.LOT_NUMBER || "";
+        const parts = [num, road, type].filter(Boolean);
+        const addr = parts.join(' ').trim();
+        const fullLabel = [addr, loc, lotNum ? `Lot ${lotNum}` : ""].filter(Boolean).join(' · ');
+
+        // Only show tooltip if we have something meaningful
+        if (fullLabel) {
+          layer.bindTooltip(`<b>${addr || loc}</b>${loc && addr ? '<br/>' + loc : ''}${lotNum ? '<br/>Lot ' + lotNum : ''}`, { sticky: true, className: 'lot-tooltip' });
+        }
         layer.on('click', (e) => {
-          // During draw mode or tool use, don't intercept — let tool handlers take it
           if (drawModeRef.current || mapToolRef.current) return;
           L.DomEvent.stopPropagation(e);
           const coords = feature.geometry.coordinates;
           const ring = coords[0] || coords;
           const poly = ring.map(c => [c[1], c[0]]);
-          if (onLotClick) onLotClick({ properties: p, polygon: poly, address: addr });
+          if (onLotClick) onLotClick({ properties: p, polygon: poly, address: fullLabel || "Lot" });
         });
       },
     }).addTo(mapInstanceRef.current);
@@ -165,12 +176,29 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   const clickedLotRef = useRef(null);
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
-    if (clickedLotRef.current) { mapInstanceRef.current.removeLayer(clickedLotRef.current); clickedLotRef.current = null; }
+    if (clickedLotRef.current) {
+      if (Array.isArray(clickedLotRef.current)) clickedLotRef.current.forEach(l => mapInstanceRef.current.removeLayer(l));
+      else mapInstanceRef.current.removeLayer(clickedLotRef.current);
+      clickedLotRef.current = null;
+    }
     if (!clickedLot?.polygon || clickedLot.polygon.length < 3) return;
     const L = window.L;
-    clickedLotRef.current = L.polygon(clickedLot.polygon, {
+    const layers = [];
+    const poly = L.polygon(clickedLot.polygon, {
       color: '#f39c12', weight: 3, fillColor: '#f39c12', fillOpacity: 0.2, dashArray: '5,4',
     }).addTo(mapInstanceRef.current);
+    layers.push(poly);
+
+    // Show address label at centroid
+    if (clickedLot.address) {
+      const lats = clickedLot.polygon.map(p => p[0]);
+      const lngs = clickedLot.polygon.map(p => p[1]);
+      const cLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+      const cLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+      const label = L.marker([cLat, cLng], { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#f39c12;color:#fff;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 4px rgba(0,0,0,0.3)">${clickedLot.address}</div>`, iconAnchor: [40, 10] }) }).addTo(mapInstanceRef.current);
+      layers.push(label);
+    }
+    clickedLotRef.current = layers;
   }, [clickedLot, leafletLoaded]);
 
   // Render speed limit road network
@@ -191,6 +219,52 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
     }).addTo(mapInstanceRef.current);
   }, [showSpeedRoads, leafletLoaded]);
+
+  // Render road network with street names from Road_Network.geojson
+  const streetLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (streetLayerRef.current) { mapInstanceRef.current.removeLayer(streetLayerRef.current); streetLayerRef.current = null; }
+    if (!showStreetNames || !roadNetworkData?.features) return;
+    const L = window.L;
+    streetLayerRef.current = L.geoJSON(roadNetworkData, {
+      style: (feature) => {
+        const rt = (feature.properties.rt || "").toLowerCase();
+        const isMain = rt.includes("highway") || rt.includes("arterial") || rt.includes("distributor") || rt.includes("primary");
+        return {
+          color: isMain ? "#2c3e50" : "#7f8c8d",
+          weight: isMain ? 2.5 : 1.5,
+          opacity: isMain ? 0.7 : 0.4,
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties;
+        const name = p.rd || p.road_name || p.ROAD_NAME || p.name || "";
+        if (name) {
+          layer.bindTooltip(name, {
+            permanent: true, direction: "center", className: "street-label",
+            offset: [0, 0],
+          });
+          // Style the tooltip as a clean street name label
+          layer.on("tooltipopen", (e) => {
+            const el = e.tooltip.getElement();
+            if (el) {
+              el.style.background = "transparent";
+              el.style.border = "none";
+              el.style.boxShadow = "none";
+              el.style.color = "#34495e";
+              el.style.fontSize = "9px";
+              el.style.fontWeight = "600";
+              el.style.fontFamily = "sans-serif";
+              el.style.textShadow = "0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff";
+              el.style.whiteSpace = "nowrap";
+              el.style.padding = "0";
+            }
+          });
+        }
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showStreetNames, roadNetworkData, leafletLoaded]);
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);
