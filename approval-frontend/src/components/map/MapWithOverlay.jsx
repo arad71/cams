@@ -103,6 +103,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
   const [mapTool, setMapTool] = useState(null); // "measure" | "draw" | null
   const [measureDist, setMeasureDist] = useState(null);
+  const [radiusResult, setRadiusResult] = useState(null);
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
@@ -619,6 +620,10 @@ Respond with JSON only:
             style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "draw" ? "2px solid #e91e63" : "1px solid #d5dde2", background: mapTool === "draw" ? "#fce4ec" : "#fff", color: mapTool === "draw" ? "#e91e63" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
             ✏️ Draw
           </button>
+          <button onClick={() => setMapTool(mapTool === "radius" ? null : "radius")}
+            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "radius" ? "2px solid #ff9800" : "1px solid #d5dde2", background: mapTool === "radius" ? "#fff3e0" : "#fff", color: mapTool === "radius" ? "#ff9800" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            ◎ Radius
+          </button>
         </div>
         <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
@@ -697,6 +702,13 @@ Respond with JSON only:
           <button onClick={() => setMapTool(null)} style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid #e91e6340", background: "#fff", color: "#e91e63", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
+      {mapTool === "radius" && (
+        <div style={{ padding: "4px 12px", background: "#fff3e0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#ff9800", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>◎ Click 3+ points to define a curve, then the best-fit circle radius is calculated. Double-click to finish.</span>
+          {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{radiusResult}</span>}
+          <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #ff980040", background: "#fff", color: "#ff9800", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+        </div>
+      )}
 
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
@@ -712,6 +724,7 @@ Respond with JSON only:
         waLayers={waLayers}
         mapTool={mapTool} setMapTool={setMapTool}
         measureDist={measureDist} setMeasureDist={setMeasureDist}
+        radiusResult={radiusResult} setRadiusResult={setRadiusResult}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);
