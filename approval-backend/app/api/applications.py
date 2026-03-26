@@ -880,9 +880,12 @@ def save_boundaries(
         if key in data:
             cleaned = clean_poly(data[key])
             setattr(app, key, cleaned)
-            # If cleared, also clear the latlon version
             if cleaned is None:
                 setattr(app, f"{key}_latlon", None)
+
+    # Save cropped lot image
+    if "site_lot_image" in data:
+        app.site_lot_image = data["site_lot_image"] if data["site_lot_image"] else None
 
     # ── Geo-reference: map pixel lot boundary → real lot_polygon → affine transform ──
     pixel_lot = app.site_lot_boundary or []  # Already cleaned and saved above

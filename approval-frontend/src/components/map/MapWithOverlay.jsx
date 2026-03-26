@@ -647,7 +647,8 @@ Respond with JSON only:
         boundaryData={showBoundaries ? {
           lot: app?.site_lot_boundary_latlon || app?.lot_polygon || null,
           building: app?.site_building_boundary_latlon || null,
-          crossover: app?.site_crossover_latlon || null
+          crossover: app?.site_crossover_latlon || null,
+          lotImage: app?.site_lot_image || null,
         } : null}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
