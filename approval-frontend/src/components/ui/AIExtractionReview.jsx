@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from '../../services/api';
 
 /**
@@ -110,7 +110,9 @@ function formatValue(val, type) {
   return String(val);
 }
 
-export default function AIExtractionReview({ app, currentUser, onReload, measureCorrections = [], onMeasureCorrectionsApplied }) {
+const EMPTY_CORRECTIONS = [];
+
+export default function AIExtractionReview({ app, currentUser, onReload, measureCorrections, onMeasureCorrectionsApplied }) {
   const hasCorrected = !!app?.cor_site_plan_data;
   const spd = app?.cor_site_plan_data || app?.site_plan_data;
   const orgSpd = app?.org_site_plan_data || app?.site_plan_data;
@@ -122,17 +124,19 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
   const [corrections, setCorrections] = useState([]);
 
   // Merge incoming measure corrections into pending corrections
+  const prevMeasureLen = useRef(0);
   useEffect(() => {
-    if (measureCorrections.length > 0) {
+    const mc = measureCorrections || EMPTY_CORRECTIONS;
+    if (mc.length > 0 && mc.length !== prevMeasureLen.current) {
+      prevMeasureLen.current = mc.length;
       setCorrections(prev => {
         let merged = [...prev];
-        for (const mc of measureCorrections) {
-          merged = merged.filter(c => c.field_path !== mc.field_path);
-          merged.push(mc);
+        for (const c of mc) {
+          merged = merged.filter(x => x.field_path !== c.field_path);
+          merged.push(c);
         }
         return merged;
       });
-      // Auto-expand the section so officer sees the pending corrections
       setCollapsed(false);
     }
   }, [measureCorrections]);
