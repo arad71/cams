@@ -9,7 +9,7 @@ import ApprovalChecklist from '../components/ui/ApprovalChecklist';
 import AIExtractionReview from '../components/ui/AIExtractionReview';
 import ReportGenerator from '../components/ui/ReportGenerator';
 
-function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData }) {
+function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData, globalRoadNetwork }) {
   const [localApp, setLocalApp] = useState(JSON.parse(JSON.stringify(app)));
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
@@ -58,7 +58,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
       </div>
 
       {/* ★ MAP WITH OVERLAY ★ */}
-      <div style={{ marginBottom: 16 }}><MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp} speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} /></div>
+      <div style={{ marginBottom: 16 }}><MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp} speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork} /></div>
 
       {/* Info Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>

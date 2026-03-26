@@ -26,6 +26,7 @@ export default function KalamundaApprovalPortal() {
   const [loading, setLoading] = useState(true);
   const [globalLotsData, setGlobalLotsData] = useState(null);
   const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
+  const [globalRoadNetwork, setGlobalRoadNetwork] = useState(null);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [siteSettings, setSiteSettings] = useState({});
@@ -60,14 +61,15 @@ export default function KalamundaApprovalPortal() {
     api.getPublicSettings().then(s => { if (s && Object.keys(s).length > 0) setSiteSettings(s); }).catch(() => {});
   }, []);
 
-  // Load lot.geojson and Legal_Speed_Limits.geojson once at app level
+  // Load lot.geojson, Legal_Speed_Limits.geojson, and Road_Network.geojson
   useEffect(() => {
     let cancelled = false;
     async function loadGeoData() {
       try {
-        const [lotsRes, roadsRes] = await Promise.all([
+        const [lotsRes, roadsRes, networkRes] = await Promise.all([
           fetch('/lot.geojson', { cache: 'no-cache' }),
           fetch('/Legal_Speed_Limits.geojson', { cache: 'no-cache' }),
+          fetch('/Road_Network.geojson', { cache: 'no-cache' }),
         ]);
         if (!cancelled && lotsRes.ok) setGlobalLotsData(await lotsRes.json());
         if (!cancelled && roadsRes.ok) {
@@ -76,18 +78,33 @@ export default function KalamundaApprovalPortal() {
           if (data?.features) {
             data.features = data.features.map(f => {
               const p = f.properties || {};
-              // Auto-detect field names and normalize
               f.properties = {
                 rd: p.rd || p.road_name || p.ROAD_NAME || p.name || p.RD || p.road || "",
                 sp: parseInt(p.sp || p.speed_limit || p.SPEED_LIMIT || p.speed || p.SP || p.GAZETTED_S || 50),
                 nt: p.nt || p.road_type || p.ROAD_TYPE || p.type || p.NT || p.ROAD_CLASS || "Road",
-                // Keep original properties too
                 ...p,
               };
               return f;
             });
           }
           setGlobalSpeedRoads(data);
+        }
+        if (!cancelled && networkRes.ok) {
+          const data = await networkRes.json();
+          // Normalize road network properties
+          if (data?.features) {
+            data.features = data.features.map(f => {
+              const p = f.properties || {};
+              f.properties = {
+                rd: p.rd || p.road_name || p.ROAD_NAME || p.ROAD || p.name || p.NAME || p.RD || "",
+                rt: p.rt || p.road_type || p.ROAD_TYPE || p.type || p.TYPE || p.ROAD_CLASS || "",
+                locality: p.locality || p.LOCALITY || p.suburb || p.SUBURB || "",
+                ...p,
+              };
+              return f;
+            });
+          }
+          setGlobalRoadNetwork(data);
         }
       } catch (e) { console.error('Failed to load geojson data:', e); }
     }
@@ -263,7 +280,7 @@ export default function KalamundaApprovalPortal() {
     // Viewer role — only sees executive dashboard
     if (role === "viewer") return <ExecutiveDashboard apps={apps} branding={S} />;
 
-    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} />;
+    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} />;
     switch (activeView) {
       case "exec_dashboard": return <ExecutiveDashboard apps={apps} branding={S} />;
       case "dashboard": return <DashboardView apps={visibleApps} allApps={apps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} currentUser={currentUser} users={users} />;

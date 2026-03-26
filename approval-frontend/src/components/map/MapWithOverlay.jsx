@@ -94,7 +94,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null }) {
   const [showLots, setShowLots] = useState(false);
   const [showSpeedRoads, setShowSpeedRoads] = useState(true);
   const [showStreetNames, setShowStreetNames] = useState(true);
@@ -750,7 +750,9 @@ Respond with JSON only:
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
-        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads || showStreetNames} speedRoadsData={speedRoadsData} onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
+        showLots={showLots} lotsData={lotsData} showSpeedRoads={showSpeedRoads} speedRoadsData={speedRoadsData}
+        showStreetNames={showStreetNames} roadNetworkData={roadNetworkData}
+        onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
         forceLayer={null}
         showBoundaries={showBoundaries}
         boundaryData={showBoundaries ? {

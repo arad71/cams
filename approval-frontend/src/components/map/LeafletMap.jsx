@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetSightTriangle = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetSightTriangle = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -191,6 +191,52 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
     }).addTo(mapInstanceRef.current);
   }, [showSpeedRoads, leafletLoaded]);
+
+  // Render road network with street names from Road_Network.geojson
+  const streetLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (streetLayerRef.current) { mapInstanceRef.current.removeLayer(streetLayerRef.current); streetLayerRef.current = null; }
+    if (!showStreetNames || !roadNetworkData?.features) return;
+    const L = window.L;
+    streetLayerRef.current = L.geoJSON(roadNetworkData, {
+      style: (feature) => {
+        const rt = (feature.properties.rt || "").toLowerCase();
+        const isMain = rt.includes("highway") || rt.includes("arterial") || rt.includes("distributor") || rt.includes("primary");
+        return {
+          color: isMain ? "#2c3e50" : "#7f8c8d",
+          weight: isMain ? 2.5 : 1.5,
+          opacity: isMain ? 0.7 : 0.4,
+        };
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties;
+        const name = p.rd || p.road_name || p.ROAD_NAME || p.name || "";
+        if (name) {
+          layer.bindTooltip(name, {
+            permanent: true, direction: "center", className: "street-label",
+            offset: [0, 0],
+          });
+          // Style the tooltip as a clean street name label
+          layer.on("tooltipopen", (e) => {
+            const el = e.tooltip.getElement();
+            if (el) {
+              el.style.background = "transparent";
+              el.style.border = "none";
+              el.style.boxShadow = "none";
+              el.style.color = "#34495e";
+              el.style.fontSize = "9px";
+              el.style.fontWeight = "600";
+              el.style.fontFamily = "sans-serif";
+              el.style.textShadow = "0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff";
+              el.style.whiteSpace = "nowrap";
+              el.style.padding = "0";
+            }
+          });
+        }
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showStreetNames, roadNetworkData, leafletLoaded]);
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);
