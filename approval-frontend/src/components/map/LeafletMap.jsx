@@ -95,11 +95,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     });
   }, [apps, selectedApp, leafletLoaded, onSelectApp, allLotsData]);
 
-  // Fly to selected
+  // Fly to selected — zoom to property level
   useEffect(() => {
     if (!mapInstanceRef.current || !selectedApp) return;
     const c = getAppCoords(allLotsData, selectedApp, speedRoadsData);
-    if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 18, { duration: 1.2 });
+    if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 19, { duration: 1 });
   }, [selectedApp, allLotsData]);
 
   // Map click for draw mode
