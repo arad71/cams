@@ -684,15 +684,17 @@ Respond with JSON only:
       )}
       {/* Measure/Draw info bar */}
       {mapTool === "measure" && (
-        <div style={{ padding: "4px 12px", background: "#ebf5fb", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: "#2980b9", fontWeight: 600 }}>
-          📏 Click two points on the map to measure distance. {measureDist && `Distance: ${measureDist}`}
-          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 3, border: "1px solid #2980b940", background: "#fff", color: "#2980b9", fontSize: 9, cursor: "pointer" }}>Done</button>
+        <div style={{ padding: "4px 12px", background: "#ebf5fb", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: "#2980b9", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>📏 Click points to measure. Double-click to start new line.</span>
+          {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{measureDist}</span>}
+          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #2980b940", background: "#fff", color: "#2980b9", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
       {mapTool === "draw" && (
-        <div style={{ padding: "4px 12px", background: "#fce4ec", borderBottom: "1px solid #f8bbd0", fontSize: 10, color: "#e91e63", fontWeight: 600 }}>
-          ✏️ Click to place markers, draw lines, or annotate on the map.
-          <button onClick={() => setMapTool(null)} style={{ marginLeft: 8, padding: "2px 6px", borderRadius: 3, border: "1px solid #e91e6340", background: "#fff", color: "#e91e63", fontSize: 9, cursor: "pointer" }}>Done</button>
+        <div style={{ padding: "4px 12px", background: "#fce4ec", borderBottom: "1px solid #f8bbd0", fontSize: 10, color: "#e91e63", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>✏️ Click to draw lines + markers. Double-click to break line. Right-click to add text label.</span>
+          <button onClick={() => setMapTool("clearDraw")} style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid #e91e6340", background: "#fff", color: "#e91e63", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>🗑 Clear All</button>
+          <button onClick={() => setMapTool(null)} style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid #e91e6340", background: "#fff", color: "#e91e63", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
 
