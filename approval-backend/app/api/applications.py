@@ -814,7 +814,8 @@ def render_document_as_image(
 
     # If already an image, serve directly
     if ext in ("jpg", "jpeg", "png", "gif", "webp"):
-        return Response(content=file_path.read_bytes(), media_type=f"image/{ext}")
+        return Response(content=file_path.read_bytes(), media_type=f"image/{ext}",
+                        headers={"Access-Control-Allow-Origin": "*"})
 
     # PDF → render page as PNG
     if ext == "pdf":
@@ -826,7 +827,8 @@ def render_document_as_image(
             import io
             buf = io.BytesIO()
             images[0].save(buf, format="PNG")
-            return Response(content=buf.getvalue(), media_type="image/png")
+            return Response(content=buf.getvalue(), media_type="image/png",
+                            headers={"Access-Control-Allow-Origin": "*"})
         except ImportError:
             raise HTTPException(500, "pdf2image not installed")
         except Exception as e:
