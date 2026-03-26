@@ -228,7 +228,6 @@ class ApplicationOut(BaseModel):
     site_lot_boundary_latlon: Optional[list] = None
     site_building_boundary_latlon: Optional[list] = None
     site_crossover_latlon: Optional[list] = None
-    site_lot_image: Optional[str] = None
     notes: list[NoteOut] = []
     documents: list[DocumentOut] = []
     inspections: list[InspectionOut] = []

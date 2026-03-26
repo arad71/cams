@@ -76,7 +76,6 @@ class Application(Base):
     site_lot_boundary_latlon = Column(JSON, nullable=True)        # [[lat,lng], ...] geo-referenced
     site_building_boundary_latlon = Column(JSON, nullable=True)   # [[lat,lng], ...] geo-referenced
     site_crossover_latlon = Column(JSON, nullable=True)           # [[lat,lng], ...] geo-referenced
-    site_lot_image = Column(Text, nullable=True)                  # base64 PNG of cropped site plan at lot boundary
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
