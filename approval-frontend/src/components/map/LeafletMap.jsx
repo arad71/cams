@@ -22,6 +22,10 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   // Keep drawModeRef in sync so lot click handler can check without layer rebuild
   useEffect(() => { drawModeRef.current = drawMode; }, [drawMode]);
 
+  // Keep mapToolRef in sync
+  const mapToolRef = useRef(mapTool);
+  useEffect(() => { mapToolRef.current = mapTool; }, [mapTool]);
+
   // Invalidate map size when height changes (e.g. fullscreen toggle)
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -89,7 +93,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
             <div style="font-size:11px;color:#5a6a74;">Width: ${app.crossover.width}m | Frontage: ${app.property.frontage}m</div>
           </div>
         `, { maxWidth: 280 })
-        .on('click', () => onSelectApp(app))
+        .on('click', () => { if (!mapToolRef.current) onSelectApp(app); })
         .addTo(mapInstanceRef.current);
       markersRef.current.push(marker);
     });
@@ -143,8 +147,8 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         const addr = [p.n, p.rd, p.rt].filter(Boolean).join(' ');
         layer.bindTooltip(`<b>${addr}</b><br/>${p.loc}`, { sticky: true, className: 'lot-tooltip' });
         layer.on('click', (e) => {
-          // During draw mode, don't intercept — let the map click handler take it
-          if (drawModeRef.current) return;
+          // During draw mode or tool use, don't intercept — let tool handlers take it
+          if (drawModeRef.current || mapToolRef.current) return;
           L.DomEvent.stopPropagation(e);
           const coords = feature.geometry.coordinates;
           const ring = coords[0] || coords;
