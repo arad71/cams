@@ -339,6 +339,16 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }).addTo(mapInstanceRef.current);
       boundaryLayerRef.current.push(poly);
     });
+
+    // Overlay cropped site plan image on lot boundary
+    if (boundaryData.lotImage && boundaryData.lot && boundaryData.lot.length >= 3) {
+      const lotPts = fixOrder(boundaryData.lot);
+      const lats = lotPts.map(p => p[0]);
+      const lngs = lotPts.map(p => p[1]);
+      const bounds = [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]];
+      const overlay = L.imageOverlay(boundaryData.lotImage, bounds, { opacity: 0.7, interactive: false }).addTo(mapInstanceRef.current);
+      boundaryLayerRef.current.push(overlay);
+    }
   }, [showBoundaries, boundaryData, leafletLoaded]);
 
 

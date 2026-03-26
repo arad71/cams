@@ -144,13 +144,42 @@ export default function BoundaryDrawer({ appDbId, app, sitePlanDoc, onClose, onS
     return [...poly, [first[0], first[1]]];
   };
 
+  // Crop lot boundary area from the site plan image
+  const cropLotBoundary = () => {
+    const canvas = canvasRef.current;
+    const img = imgRef.current;
+    if (!canvas || !img || !imgLoaded || points[0].length < 3) return null;
+
+    const lotPts = points[0];
+    // Get bounding box in image coordinates
+    const xs = lotPts.map(p => p[0]);
+    const ys = lotPts.map(p => p[1]);
+    const minX = Math.max(0, Math.min(...xs) - 10);
+    const minY = Math.max(0, Math.min(...ys) - 10);
+    const maxX = Math.min(imgSize.w, Math.max(...xs) + 10);
+    const maxY = Math.min(imgSize.h, Math.max(...ys) + 10);
+    const cropW = maxX - minX;
+    const cropH = maxY - minY;
+    if (cropW < 10 || cropH < 10) return null;
+
+    // Create offscreen canvas and draw cropped area
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = cropW;
+    offCanvas.height = cropH;
+    const ctx = offCanvas.getContext("2d");
+    ctx.drawImage(img, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+    return offCanvas.toDataURL("image/png");
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      const lotImage = cropLotBoundary();
       await api.saveBoundaries(appDbId, {
         site_lot_boundary: closePoly(points[0]),
         site_building_boundary: closePoly(points[1]),
         site_crossover: closePoly(points[2]),
+        site_lot_image: lotImage,
       });
       setSaved(true);
       if (onSaved) onSaved();
