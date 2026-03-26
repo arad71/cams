@@ -212,6 +212,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
   const [deleting, setDeleting] = useState(false);
   const [showBoundaryDrawer, setShowBoundaryDrawer] = useState(false);
   const [showMeasure, setShowMeasure] = useState(false);
+  const [measureDocId, setMeasureDocId] = useState(null);
   const fileInputRef = useRef(null);
 
   const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
@@ -295,13 +296,6 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
               📐 Boundary
             </button>
           )}
-          {canUpload && (
-            <button onClick={() => setShowMeasure(true)}
-              style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid #00838f40", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                background: "#e0f7fa", color: "#00838f" }}>
-              📏 Measure
-            </button>
-          )}
         </div>
       </div>
 
@@ -356,6 +350,14 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                   👁 View
                 </button>
+                {/* Measure button — for site plan docs */}
+                {(doc.category || "").toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && (
+                  <button onClick={(e) => { e.stopPropagation(); setMeasureDocId(doc.id); setShowMeasure(true); }}
+                    title="Open measurement tool on this document"
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    📏 Measure
+                  </button>
+                )}
                 {/* Extract Site Plan button — only for PDFs */}
                 {canUpload && doc.type === "pdf" && (
                   <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); }}
@@ -540,17 +542,17 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
 
       {/* Site Plan Measure Tool */}
       {showMeasure && (() => {
-        // Find site plan doc: category contains "site" or "plan", supports pdf/images
-        const spDoc = docs.find(d => {
-          const cat = (d.category || "").toLowerCase();
-          const isSitePlan = cat.includes("site") || cat === "site_plan";
-          const isViewable = ["pdf","jpg","jpeg","png","gif","webp"].includes((d.type || "").toLowerCase());
-          return isSitePlan && isViewable;
-        });
+        // Use specific doc if clicked from row, otherwise find site plan
+        const spDoc = measureDocId
+          ? docs.find(d => String(d.id) === String(measureDocId))
+          : docs.find(d => {
+              const cat = (d.category || "").toLowerCase();
+              return (cat.includes("site") || cat === "site_plan") && ["pdf","jpg","jpeg","png","gif","webp"].includes((d.type || "").toLowerCase());
+            });
         if (!spDoc) {
           return (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10001, display: 'grid', placeItems: 'center' }}
-              onClick={() => setShowMeasure(false)}>
+              onClick={() => { setShowMeasure(false); setMeasureDocId(null); }}>
               <div style={{ background: '#1a2a3a', color: '#fff', padding: 24, borderRadius: 12, textAlign: 'center' }}>
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>No Site Plan Found</div>
                 <div style={{ fontSize: 12, color: '#7a8a94' }}>Upload a document with category "Site Plan" first.</div>
@@ -562,8 +564,8 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
         return (
           <SitePlanMeasure
             imgUrl={imgUrl}
-            appRef={app?.ref_number || app?.id}
-            onClose={() => setShowMeasure(false)}
+            appRef={`${app?.ref_number || app?.id} — ${spDoc.name}`}
+            onClose={() => { setShowMeasure(false); setMeasureDocId(null); }}
             onSaveField={(fieldKey, value, unit) => {
               const parts = fieldKey.split('.');
               const corData = app?.cor_site_plan_data || app?.site_plan_data || {};
