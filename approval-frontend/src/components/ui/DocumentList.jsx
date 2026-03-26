@@ -196,7 +196,7 @@ const UPLOAD_CATEGORIES = [
 
 
 // ─── Document List with Review + Viewer + Upload ─────
-export default function DocumentList({ documents, appDbId, app, currentUser, onDocUpdated }) {
+export default function DocumentList({ documents, appDbId, app, currentUser, onDocUpdated, onMeasureCorrection }) {
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [viewerDoc, setViewerDoc] = useState(null);
   const [filter, setFilter] = useState("All");
@@ -574,11 +574,10 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
               api.updateApp(appDbId, { site_plan_measures: measures }).catch(err => console.warn('Auto-save measures failed:', err));
             }}
             onSaveField={(fieldKey, value, unit) => {
-              // Save via the correction endpoint — updates cor_site_plan_data and re-runs assessment
-              api.correctSitePlan(appDbId, { [fieldKey]: value }).then(() => {
-                if (onDocUpdated) onDocUpdated();
-                alert(`✅ Saved ${value} ${unit} → ${fieldKey}\nAssessment re-run.`);
-              }).catch(err => alert('Save failed: ' + err.message));
+              if (onMeasureCorrection) {
+                onMeasureCorrection(fieldKey, value, unit);
+                alert(`📏 Measurement ${value} ${unit} added as pending correction for "${fieldKey}".\n\nGo to AI Site Plan Analysis section → Save Corrections → Verify.`);
+              }
             }}
           />
         );
