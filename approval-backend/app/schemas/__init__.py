@@ -146,6 +146,8 @@ class ApplicationUpdate(BaseModel):
     referral_authority: Optional[str] = None
     referral_status: Optional[str] = None
     site_plan_data: Optional[dict] = None
+    cor_site_plan_data: Optional[dict] = None
+    site_plan_measures: Optional[list] = None
 
 class NoteOut(BaseModel):
     id: int
@@ -228,6 +230,7 @@ class ApplicationOut(BaseModel):
     site_lot_boundary_latlon: Optional[list] = None
     site_building_boundary_latlon: Optional[list] = None
     site_crossover_latlon: Optional[list] = None
+    site_plan_measures: Optional[list] = None
     notes: list[NoteOut] = []
     documents: list[DocumentOut] = []
     inspections: list[InspectionOut] = []

@@ -76,6 +76,7 @@ class Application(Base):
     site_lot_boundary_latlon = Column(JSON, nullable=True)        # [[lat,lng], ...] geo-referenced
     site_building_boundary_latlon = Column(JSON, nullable=True)   # [[lat,lng], ...] geo-referenced
     site_crossover_latlon = Column(JSON, nullable=True)           # [[lat,lng], ...] geo-referenced
+    site_plan_measures = Column(JSON, nullable=True)              # [{id,type,p1,p2,pxDist,color,label,...}] from measure tool
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

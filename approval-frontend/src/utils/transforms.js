@@ -30,6 +30,7 @@ export function apiAppToFrontend(a) {
     site_lot_boundary_latlon: a.site_lot_boundary_latlon || null,
     site_building_boundary_latlon: a.site_building_boundary_latlon || null,
     site_crossover_latlon: a.site_crossover_latlon || null,
+    site_plan_measures: a.site_plan_measures || null,
   };
 }
 
