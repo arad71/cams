@@ -567,7 +567,11 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
           <SitePlanMeasure
             imgUrl={imgUrl}
             appRef={`${app?.ref_number || app?.id} — ${spDoc.name}`}
+            savedItems={app?.site_plan_measures || []}
             onClose={() => { setShowMeasure(false); setMeasureDocId(null); }}
+            onSaveMeasures={(measures) => {
+              api.updateApp(appDbId, { site_plan_measures: measures }).catch(err => console.warn('Auto-save measures failed:', err));
+            }}
             onSaveField={(fieldKey, value, unit) => {
               const parts = fieldKey.split('.');
               const corData = app?.cor_site_plan_data || app?.site_plan_data || {};

@@ -18,7 +18,7 @@ const AI_FIELDS = [
   { key: 'road.verge_width', label: 'Verge Width', unit: 'm' },
 ];
 
-export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, appRef }) {
+export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems }) {
   const wrapRef = useRef(null);
   const innerRef = useRef(null);
   const svgRef = useRef(null);
@@ -28,10 +28,10 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, appRef }
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [tool, setTool] = useState('measure');
   const [color, setColor] = useState(COLORS[0]);
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(initialItems || []);
   const [tempPt, setTempPt] = useState(null);
   const [areaPts, setAreaPts] = useState([]);
-  const [calPx, setCalPx] = useState(null); // px per unit
+  const [calPx, setCalPx] = useState(null);
   const [calVal, setCalVal] = useState(1);
   const [calUnit, setCalUnit] = useState('m');
   const [zoom, setZoom] = useState(1);
@@ -40,6 +40,33 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, appRef }
   const [saveModal, setSaveModal] = useState(null); // { itemId, value }
   const idSeq = useRef(0);
   const panState = useRef({ panning: false, ox: 0, oy: 0 });
+  const saveTimeout = useRef(null);
+
+  // Restore calibration and idSeq from initial items
+  useEffect(() => {
+    if (initialItems?.length) {
+      const maxId = Math.max(...initialItems.map(i => i.id || 0), 0);
+      idSeq.current = maxId;
+      const calItem = initialItems.find(i => i.type === 'cal');
+      if (calItem) {
+        setCalPx(calItem.pxDist / (calItem.calVal || 1));
+        if (calItem.calVal) setCalVal(calItem.calVal);
+        if (calItem.calUnit) setCalUnit(calItem.calUnit);
+      }
+    }
+  }, []);
+
+  // Auto-save measurements when items change (debounced)
+  useEffect(() => {
+    if (!onSaveMeasures) return;
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => {
+      // Include calibration state in cal items
+      const toSave = items.map(it => it.type === 'cal' ? { ...it, calVal, calUnit } : it);
+      onSaveMeasures(toSave);
+    }, 1000);
+    return () => { if (saveTimeout.current) clearTimeout(saveTimeout.current); };
+  }, [items, calVal, calUnit]);
 
   // Screen to image coords
   const s2i = useCallback((e) => {
