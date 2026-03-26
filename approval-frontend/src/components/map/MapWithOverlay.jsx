@@ -709,7 +709,7 @@ Respond with JSON only:
       )}
       {mapTool === "radius" && (
         <div style={{ padding: "4px 12px", background: "#fff3e0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#ff9800", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>◎ Click 3+ points to define a curve, then the best-fit circle radius is calculated. Double-click to finish.</span>
+          <span>◎ Draw a curve along the road bend (hold mouse + drag), or click 3+ points. Double-click to reset.</span>
           {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{radiusResult}</span>}
           <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #ff980040", background: "#fff", color: "#ff9800", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
