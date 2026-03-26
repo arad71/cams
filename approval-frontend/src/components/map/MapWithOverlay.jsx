@@ -105,6 +105,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [measureDist, setMeasureDist] = useState(null);
   const [radiusResult, setRadiusResult] = useState(null);
   const [centrelineDist, setCentrelineDist] = useState(null);
+  const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 1.0 });
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
@@ -629,6 +630,10 @@ Respond with JSON only:
             style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "centreline" ? "2px solid #00bcd4" : "1px solid #d5dde2", background: mapTool === "centreline" ? "#e0f7fa" : "#fff", color: mapTool === "centreline" ? "#00bcd4" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
             ┃ Centreline
           </button>
+          <button onClick={() => setMapTool(mapTool === "offset" ? null : "offset")}
+            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "offset" ? "2px solid #4caf50" : "1px solid #d5dde2", background: mapTool === "offset" ? "#e8f5e9" : "#fff", color: mapTool === "offset" ? "#4caf50" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            ⊕ Offset Pt
+          </button>
         </div>
         <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
@@ -721,6 +726,26 @@ Respond with JSON only:
           <button onClick={() => { setMapTool(null); setCentrelineDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #00bcd440", background: "#fff", color: "#00838f", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
+      {mapTool === "offset" && (
+        <div style={{ padding: "4px 12px", background: "#e8f5e9", borderBottom: "1px solid #c8e6c9", fontSize: 10, color: "#2e7d32", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {offsetState.step === 0 && <span>⊕ Step 1: Click on the <b>road/verge edge</b></span>}
+          {offsetState.step === 1 && <span>⊕ Step 2: Click on the <b>lot boundary side</b></span>}
+          {offsetState.step >= 2 && (
+            <>
+              <span>⊕ Offsets:</span>
+              <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                Verge: <input type="number" value={offsetState.x} onChange={e => setOffsetState(s => ({...s, x: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 45, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                Boundary: <input type="number" value={offsetState.y} onChange={e => setOffsetState(s => ({...s, y: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 45, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
+              </label>
+              <button onClick={() => setOffsetState(s => ({...s, step: 3}))} style={{ padding: "2px 10px", borderRadius: 4, border: "none", background: "#4caf50", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>📍 Place</button>
+            </>
+          )}
+          {offsetState.step === 3 && <span style={{ background: "#4caf50", color: "#fff", padding: "1px 8px", borderRadius: 4 }}>✅ {offsetState.x}m from verge, {offsetState.y}m from boundary</span>}
+          <button onClick={() => { setMapTool(null); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 1.0 }); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #4caf5040", background: "#fff", color: "#2e7d32", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+        </div>
+      )}
 
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
@@ -738,6 +763,7 @@ Respond with JSON only:
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
+        offsetState={offsetState} setOffsetState={setOffsetState}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);

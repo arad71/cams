@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -642,6 +642,160 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       map.getContainer().style.cursor = "";
     };
   }, [mapTool, leafletLoaded, speedRoadsData]);
+
+  // ── Offset Point tool — place point X m from road, Y m from boundary ──
+  const offsetRef = useRef({ layers: [] });
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    const map = mapInstanceRef.current;
+
+    offsetRef.current.layers.forEach(l => map.removeLayer(l));
+    offsetRef.current.layers = [];
+
+    if (mapTool !== "offset" || !offsetState) return;
+
+    map.getContainer().style.cursor = "crosshair";
+
+    // Find nearest point on any road segment from speedRoadsData
+    const snapToRoad = (latlng) => {
+      if (!speedRoadsData?.features) return latlng;
+      let best = null, bestDist = Infinity;
+      for (const f of speedRoadsData.features) {
+        const coords = f.geometry?.coordinates;
+        if (!coords) continue;
+        for (let i = 0; i < coords.length - 1; i++) {
+          const a = L.latLng(coords[i][1], coords[i][0]);
+          const b = L.latLng(coords[i+1][1], coords[i+1][0]);
+          // Project latlng onto segment a-b
+          const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = latlng.lng, py = latlng.lat;
+          const dx = bx-ax, dy = by-ay;
+          const lenSq = dx*dx + dy*dy;
+          if (lenSq < 1e-20) continue;
+          const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
+          const snap = L.latLng(ay + t*dy, ax + t*dx);
+          const d = latlng.distanceTo(snap);
+          if (d < bestDist) { bestDist = d; best = { point: snap, road: f.properties }; }
+        }
+      }
+      return bestDist < 100 ? best : null;
+    };
+
+    // Find nearest lot boundary segment
+    const snapToBoundary = (latlng) => {
+      if (!allLotsData?.features) return null;
+      let best = null, bestDist = Infinity;
+      for (const f of allLotsData.features) {
+        const geom = f.geometry;
+        if (!geom) continue;
+        let rings = [];
+        if (geom.type === "Polygon") rings = [geom.coordinates[0]];
+        else if (geom.type === "MultiPolygon") rings = geom.coordinates.map(p => p[0]);
+        for (const ring of rings) {
+          for (let i = 0; i < ring.length - 1; i++) {
+            const a = L.latLng(ring[i][1], ring[i][0]);
+            const b = L.latLng(ring[i+1][1], ring[i+1][0]);
+            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = latlng.lng, py = latlng.lat;
+            const dx = bx-ax, dy = by-ay;
+            const lenSq = dx*dx + dy*dy;
+            if (lenSq < 1e-20) continue;
+            const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
+            const snap = L.latLng(ay + t*dy, ax + t*dx);
+            const d = latlng.distanceTo(snap);
+            if (d < bestDist) {
+              bestDist = d;
+              // Compute bearing of this boundary segment
+              const bearing = Math.atan2(b.lng - a.lng, b.lat - a.lat);
+              best = { point: snap, a, b, bearing, properties: f.properties };
+            }
+          }
+        }
+      }
+      return bestDist < 50 ? best : null;
+    };
+
+    const onClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (!setOffsetState) return;
+
+      if (offsetState.step === 0) {
+        // Step 1: snap to road
+        const snap = snapToRoad(e.latlng);
+        if (snap) {
+          const dot = L.circleMarker(snap.point, { radius: 6, color: "#4caf50", fillColor: "#4caf50", fillOpacity: 0.8, weight: 2 })
+            .bindTooltip(`Road: ${snap.road?.rd || "?"} · ${snap.road?.sp || "?"}km/h`, { permanent: true, direction: "top", offset: [0, -10] })
+            .addTo(map);
+          offsetRef.current.layers.push(dot);
+          setOffsetState(s => ({ ...s, step: 1, road: snap }));
+        }
+      } else if (offsetState.step === 1) {
+        // Step 2: snap to lot boundary
+        const snap = snapToBoundary(e.latlng);
+        if (snap) {
+          const line = L.polyline([snap.a, snap.b], { color: "#4caf50", weight: 3, dashArray: "6,3" }).addTo(map);
+          const dot = L.circleMarker(snap.point, { radius: 6, color: "#66bb6a", fillColor: "#66bb6a", fillOpacity: 0.8, weight: 2 })
+            .bindTooltip("Boundary", { permanent: true, direction: "top", offset: [0, -10] })
+            .addTo(map);
+          offsetRef.current.layers.push(line, dot);
+          setOffsetState(s => ({ ...s, step: 2, boundary: snap }));
+        }
+      }
+    };
+
+    // Step 3: when step changes to 3, compute and place the offset point
+    if (offsetState.step === 3 && offsetState.road && offsetState.boundary) {
+      const roadPt = offsetState.road.point;
+      const bndPt = offsetState.boundary.point;
+      const bndBearing = offsetState.boundary.bearing;
+      const xM = offsetState.x; // metres from road
+      const yM = offsetState.y; // metres from boundary
+
+      const mPerLat = 111320;
+      const mPerLng = 111320 * Math.cos(roadPt.lat * Math.PI / 180);
+
+      // Direction from road toward lot interior (perpendicular to road)
+      const roadToClick = Math.atan2(bndPt.lng - roadPt.lng, bndPt.lat - roadPt.lat);
+      // Move X metres from road point toward interior
+      const ptFromRoad = L.latLng(
+        roadPt.lat + (xM * Math.cos(roadToClick)) / mPerLat,
+        roadPt.lng + (xM * Math.sin(roadToClick)) / mPerLng
+      );
+
+      // Move Y metres perpendicular from boundary (into lot)
+      const bndPerp = bndBearing + Math.PI / 2;
+      // Determine which side of boundary the road is on
+      const testPt = L.latLng(bndPt.lat + Math.cos(bndPerp) * 0.0001, bndPt.lng + Math.sin(bndPerp) * 0.0001);
+      const otherPt = L.latLng(bndPt.lat - Math.cos(bndPerp) * 0.0001, bndPt.lng - Math.sin(bndPerp) * 0.0001);
+      const usePerp = roadPt.distanceTo(testPt) < roadPt.distanceTo(otherPt) ? bndPerp : bndPerp + Math.PI;
+
+      // Final point: X from road, Y from boundary
+      const finalPt = L.latLng(
+        roadPt.lat + (xM * Math.cos(roadToClick)) / mPerLat + (yM * Math.cos(usePerp)) / mPerLat,
+        roadPt.lng + (xM * Math.sin(roadToClick)) / mPerLng + (yM * Math.sin(usePerp)) / mPerLng
+      );
+
+      // Draw offset lines
+      const lineFromRoad = L.polyline([roadPt, finalPt], { color: "#4caf50", weight: 2, dashArray: "6,3" }).addTo(map);
+      const lineFromBnd = L.polyline([bndPt, finalPt], { color: "#81c784", weight: 2, dashArray: "6,3" }).addTo(map);
+      offsetRef.current.layers.push(lineFromRoad, lineFromBnd);
+
+      // Distance labels
+      const midR = L.latLng((roadPt.lat + finalPt.lat)/2, (roadPt.lng + finalPt.lng)/2);
+      const lblR = L.marker(midR, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#4caf50;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:sans-serif">${xM}m</div>`, iconAnchor: [12, 8] }) }).addTo(map);
+      const midB = L.latLng((bndPt.lat + finalPt.lat)/2, (bndPt.lng + finalPt.lng)/2);
+      const lblB = L.marker(midB, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#81c784;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;font-family:sans-serif">${yM}m</div>`, iconAnchor: [12, 8] }) }).addTo(map);
+      offsetRef.current.layers.push(lblR, lblB);
+
+      // Final point marker
+      const marker = L.marker(finalPt, { icon: L.divIcon({ className: "", html: '<div style="width:16px;height:16px;border-radius:50%;background:#4caf50;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff">⊕</div>', iconSize: [16,16], iconAnchor: [8,8] }) })
+        .bindTooltip(`${xM}m from verge, ${yM}m from boundary<br/>${finalPt.lat.toFixed(6)}, ${finalPt.lng.toFixed(6)}`, { permanent: true, direction: "top", offset: [0, -12] })
+        .addTo(map);
+      offsetRef.current.layers.push(marker);
+    }
+
+    map.on("click", onClick);
+    return () => { map.off("click", onClick); map.getContainer().style.cursor = ""; };
+  }, [mapTool, offsetState, leafletLoaded, speedRoadsData, allLotsData]);
 
   // ── Clear draw annotations ──
   const clearDrawAnnotations = () => {
