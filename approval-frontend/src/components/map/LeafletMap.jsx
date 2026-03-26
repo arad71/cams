@@ -102,9 +102,10 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 19, { duration: 1 });
   }, [selectedApp, allLotsData]);
 
-  // Map click for draw mode
+  // Map click for sight triangle draw mode — disabled when measure/draw tool active
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (mapTool === "measure" || mapTool === "draw") return; // Tools take priority
     const handler = (e) => { if (onMapClick && drawMode) onMapClick(e.latlng); };
     if (drawMode) {
       mapInstanceRef.current.getContainer().style.cursor = 'crosshair';
@@ -114,7 +115,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       mapInstanceRef.current.off('click', handler);
     }
     return () => { mapInstanceRef.current?.off('click', handler); if (mapInstanceRef.current) mapInstanceRef.current.getContainer().style.cursor = ''; };
-  }, [drawMode, onMapClick, leafletLoaded]);
+  }, [drawMode, onMapClick, leafletLoaded, mapTool]);
 
   // Render GeoJSON lot boundaries layer
   useEffect(() => {
@@ -367,73 +368,145 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     });
   }, [waLayers, leafletLoaded]);
 
-  // ── Measure tool ──
-  const measureRef = useRef({ pts: [], layers: [] });
+  // ── Measure tool — multi-segment with running total ──
+  const measureRef = useRef({ pts: [], layers: [], total: 0 });
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
     const L = window.L;
-    // Clean up old measure
-    measureRef.current.layers.forEach(l => mapInstanceRef.current.removeLayer(l));
-    measureRef.current = { pts: [], layers: [] };
+    const map = mapInstanceRef.current;
+
+    // Clean up previous measure layers
+    measureRef.current.layers.forEach(l => map.removeLayer(l));
+    measureRef.current = { pts: [], layers: [], total: 0 };
+
     if (mapTool !== "measure") return;
 
+    map.getContainer().style.cursor = "crosshair";
+    // Disable map dragging temporarily for better click handling
     const onClick = (e) => {
+      L.DomEvent.stopPropagation(e);
       const pts = measureRef.current.pts;
-      pts.push(e.latlng);
-      const dot = L.circleMarker(e.latlng, { radius: 4, color: "#3498db", fillColor: "#fff", fillOpacity: 1, weight: 2 }).addTo(mapInstanceRef.current);
+      const latlng = e.latlng;
+      pts.push(latlng);
+
+      // Dot at click point
+      const dot = L.circleMarker(latlng, { radius: 5, color: "#3498db", fillColor: "#fff", fillOpacity: 1, weight: 2.5, pane: "markerPane" }).addTo(map);
       measureRef.current.layers.push(dot);
 
-      if (pts.length === 2) {
-        const d = pts[0].distanceTo(pts[1]);
-        const line = L.polyline([pts[0], pts[1]], { color: "#3498db", weight: 2, dashArray: "6,4" }).addTo(mapInstanceRef.current);
-        const mid = L.latLng((pts[0].lat + pts[1].lat) / 2, (pts[0].lng + pts[1].lng) / 2);
-        const label = L.marker(mid, { icon: L.divIcon({ className: "", html: `<div style="background:#3498db;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;font-family:sans-serif">${d.toFixed(1)}m</div>`, iconAnchor: [25, 10] }) }).addTo(mapInstanceRef.current);
-        measureRef.current.layers.push(line, label);
-        if (setMeasureDist) setMeasureDist(`${d.toFixed(1)}m`);
-        // Reset for next measurement
-        measureRef.current.pts = [];
+      if (pts.length > 1) {
+        const prev = pts[pts.length - 2];
+        const segDist = prev.distanceTo(latlng);
+        measureRef.current.total += segDist;
+
+        // Line segment
+        const line = L.polyline([prev, latlng], { color: "#3498db", weight: 2.5, dashArray: "8,4" }).addTo(map);
+        measureRef.current.layers.push(line);
+
+        // Segment distance label
+        const mid = L.latLng((prev.lat + latlng.lat) / 2, (prev.lng + latlng.lng) / 2);
+        const segLabel = L.marker(mid, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#3498db;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.2)">${segDist.toFixed(1)}m</div>`, iconAnchor: [20, 8] }) }).addTo(map);
+        measureRef.current.layers.push(segLabel);
+
+        // Running total at current point
+        const totalLabel = L.marker(latlng, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#1a3a4a;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 4px rgba(0,0,0,0.3);margin-top:-20px">Σ ${measureRef.current.total.toFixed(1)}m</div>`, iconAnchor: [25, 30] }) }).addTo(map);
+        measureRef.current.layers.push(totalLabel);
+
+        if (setMeasureDist) setMeasureDist(`${measureRef.current.total.toFixed(1)}m (${pts.length - 1} segments)`);
       }
     };
-    mapInstanceRef.current.on("click", onClick);
-    mapInstanceRef.current.getContainer().style.cursor = "crosshair";
+
+    const onDblClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      // Double-click closes measurement — reset points for next one
+      measureRef.current.pts = [];
+      measureRef.current.total = 0;
+    };
+
+    map.on("click", onClick);
+    map.on("dblclick", onDblClick);
+    map.doubleClickZoom.disable();
+
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.off("click", onClick);
-        mapInstanceRef.current.getContainer().style.cursor = "";
-      }
+      map.off("click", onClick);
+      map.off("dblclick", onDblClick);
+      map.doubleClickZoom.enable();
+      map.getContainer().style.cursor = "";
     };
   }, [mapTool, leafletLoaded]);
 
-  // ── Draw tool (freehand markers + lines) ──
-  const drawRef = useRef({ layers: [], lastPt: null });
+  // ── Draw/annotate tool — markers, lines, text labels ──
+  const drawToolRef = useRef({ layers: [], lastPt: null, mode: "line" });
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    const map = mapInstanceRef.current;
+
     if (mapTool !== "draw") {
-      if (drawRef.current.layers.length > 0) {
-        drawRef.current.layers.forEach(l => mapInstanceRef.current.removeLayer(l));
-        drawRef.current = { layers: [], lastPt: null };
-      }
+      // Don't clear draw layers when switching away — keep annotations visible
       return;
     }
-    const L = window.L;
+
+    map.getContainer().style.cursor = "crosshair";
+
     const onClick = (e) => {
-      const marker = L.circleMarker(e.latlng, { radius: 5, color: "#e91e63", fillColor: "#e91e63", fillOpacity: 0.8, weight: 2 }).addTo(mapInstanceRef.current);
-      drawRef.current.layers.push(marker);
-      if (drawRef.current.lastPt) {
-        const line = L.polyline([drawRef.current.lastPt, e.latlng], { color: "#e91e63", weight: 2 }).addTo(mapInstanceRef.current);
-        drawRef.current.layers.push(line);
+      L.DomEvent.stopPropagation(e);
+      const latlng = e.latlng;
+
+      // Place marker
+      const marker = L.circleMarker(latlng, { radius: 6, color: "#e91e63", fillColor: "#e91e63", fillOpacity: 0.8, weight: 2, pane: "markerPane" }).addTo(map);
+      drawToolRef.current.layers.push(marker);
+
+      // Connect line to previous point
+      if (drawToolRef.current.lastPt) {
+        const line = L.polyline([drawToolRef.current.lastPt, latlng], { color: "#e91e63", weight: 2.5, opacity: 0.8 }).addTo(map);
+        drawToolRef.current.layers.push(line);
+
+        // Show distance on line
+        const d = drawToolRef.current.lastPt.distanceTo(latlng);
+        const mid = L.latLng((drawToolRef.current.lastPt.lat + latlng.lat) / 2, (drawToolRef.current.lastPt.lng + latlng.lng) / 2);
+        const label = L.marker(mid, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#e91e63;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:600;white-space:nowrap;font-family:sans-serif">${d.toFixed(1)}m</div>`, iconAnchor: [15, 8] }) }).addTo(map);
+        drawToolRef.current.layers.push(label);
       }
-      drawRef.current.lastPt = e.latlng;
+      drawToolRef.current.lastPt = latlng;
     };
-    mapInstanceRef.current.on("click", onClick);
-    mapInstanceRef.current.getContainer().style.cursor = "crosshair";
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.off("click", onClick);
-        mapInstanceRef.current.getContainer().style.cursor = "";
+
+    const onDblClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      // Double-click breaks the line — next click starts a new line
+      drawToolRef.current.lastPt = null;
+    };
+
+    const onRightClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      L.DomEvent.preventDefault(e);
+      // Right-click places a text label
+      const text = prompt("Enter label text:");
+      if (text) {
+        const label = L.marker(e.latlng, { icon: L.divIcon({ className: "", html: `<div style="background:#fff;color:#1a3a4a;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;font-family:sans-serif;border:2px solid #e91e63;box-shadow:0 2px 4px rgba(0,0,0,0.2)">${text}</div>`, iconAnchor: [20, 12] }) }).addTo(map);
+        drawToolRef.current.layers.push(label);
       }
+    };
+
+    map.on("click", onClick);
+    map.on("dblclick", onDblClick);
+    map.on("contextmenu", onRightClick);
+    map.doubleClickZoom.disable();
+
+    return () => {
+      map.off("click", onClick);
+      map.off("dblclick", onDblClick);
+      map.off("contextmenu", onRightClick);
+      map.doubleClickZoom.enable();
+      map.getContainer().style.cursor = "";
     };
   }, [mapTool, leafletLoaded]);
+
+  // ── Clear draw annotations ──
+  const clearDrawAnnotations = () => {
+    if (!mapInstanceRef.current) return;
+    drawToolRef.current.layers.forEach(l => mapInstanceRef.current.removeLayer(l));
+    drawToolRef.current = { layers: [], lastPt: null, mode: "line" };
+  };
 
   // ── Zoom and Print commands ──
   useEffect(() => {
@@ -451,17 +524,18 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       try {
         const container = mapInstanceRef.current.getContainer();
         import("html2canvas").then(mod => {
-          mod.default(container).then(canvas => {
+          mod.default(container, { useCORS: true, allowTaint: true }).then(canvas => {
             const link = document.createElement("a");
-            link.download = `map_${new Date().toISOString().split("T")[0]}.png`;
+            link.download = `map_${selectedApp?.id || "view"}_${new Date().toISOString().split("T")[0]}.png`;
             link.href = canvas.toDataURL();
             link.click();
           });
-        }).catch(() => {
-          // Fallback: simple screenshot via window.print
-          window.print();
-        });
+        }).catch(() => { window.print(); });
       } catch (e) { window.print(); }
+      if (setMapTool) setMapTool(null);
+    }
+    if (mapTool === "clearDraw") {
+      clearDrawAnnotations();
       if (setMapTool) setMapTool(null);
     }
   }, [mapTool, selectedApp, allLotsData, leafletLoaded]);
