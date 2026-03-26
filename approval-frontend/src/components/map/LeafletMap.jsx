@@ -426,12 +426,12 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       measureRef.current.total = 0;
     };
 
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = "";
@@ -491,13 +491,13 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
     };
 
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.on("contextmenu", onRightClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.off("contextmenu", onRightClick);
       map.doubleClickZoom.enable();
@@ -631,12 +631,12 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       centrelineRef.current.total = 0;
     };
 
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = "";
@@ -908,8 +908,8 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       offsetRef.current.layers.push(abLabel);
     }
 
-    map.on("click", onClick);
-    return () => { map.off("click", onClick); map.getContainer().style.cursor = ""; };
+    map.on("preclick", onClick);
+    return () => { map.off("preclick", onClick); map.getContainer().style.cursor = ""; };
   }, [mapTool, offsetState, leafletLoaded, speedRoadsData, allLotsData]);
 
   // ── Clear draw annotations ──
@@ -1077,7 +1077,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     map.on("mousedown", onMouseDown);
     map.on("mousemove", onMouseMove);
     map.on("mouseup", onMouseUp);
-    map.on("click", onClick);
+    map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
@@ -1085,7 +1085,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       map.off("mousedown", onMouseDown);
       map.off("mousemove", onMouseMove);
       map.off("mouseup", onMouseUp);
-      map.off("click", onClick);
+      map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.dragging.enable();
