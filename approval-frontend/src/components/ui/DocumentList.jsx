@@ -568,24 +568,16 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
             imgUrl={imgUrl}
             appRef={`${app?.ref_number || app?.id} — ${spDoc.name}`}
             savedItems={app?.site_plan_measures || []}
+            appData={app}
             onClose={() => { setShowMeasure(false); setMeasureDocId(null); }}
             onSaveMeasures={(measures) => {
               api.updateApp(appDbId, { site_plan_measures: measures }).catch(err => console.warn('Auto-save measures failed:', err));
             }}
             onSaveField={(fieldKey, value, unit) => {
-              const parts = fieldKey.split('.');
-              const corData = app?.cor_site_plan_data || app?.site_plan_data || {};
-              let target = { ...corData };
-              let ptr = target;
-              for (let i = 0; i < parts.length - 1; i++) {
-                if (!ptr[parts[i]]) ptr[parts[i]] = {};
-                else ptr[parts[i]] = { ...ptr[parts[i]] };
-                ptr = ptr[parts[i]];
-              }
-              ptr[parts[parts.length - 1]] = value;
-              api.updateApp(appDbId, { cor_site_plan_data: target }).then(() => {
+              // Save via the correction endpoint — updates cor_site_plan_data and re-runs assessment
+              api.correctSitePlan(appDbId, { [fieldKey]: value }).then(() => {
                 if (onDocUpdated) onDocUpdated();
-                alert(`✅ Saved ${value}${unit} to ${fieldKey}`);
+                alert(`✅ Saved ${value} ${unit} → ${fieldKey}\nAssessment re-run.`);
               }).catch(err => alert('Save failed: ' + err.message));
             }}
           />

@@ -2,23 +2,27 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 
 const COLORS = ['#00e4c8','#ff5c72','#ffcf40','#5cacff','#4dff91','#a77dff','#ff8f4d','#ff6eb4'];
 
-// AI extraction fields that can be overridden
+// AI extraction fields that can be overridden via correctSitePlan
 const AI_FIELDS = [
-  { key: 'crossover_dimensions.width', label: 'Crossover Width', unit: 'm' },
-  { key: 'crossover_dimensions.distance_to_left_boundary', label: 'Dist to Left Boundary', unit: 'm' },
-  { key: 'crossover_dimensions.distance_to_right_boundary', label: 'Dist to Right Boundary', unit: 'm' },
-  { key: 'siteplan_measurements.lot_frontage', label: 'Lot Frontage', unit: 'm' },
-  { key: 'siteplan_measurements.lot_depth', label: 'Lot Depth', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_front', label: 'Front Setback', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_left', label: 'Left Setback', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_right', label: 'Right Setback', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_rear', label: 'Rear Setback', unit: 'm' },
-  { key: 'crossover_dimensions.surface_material', label: 'Surface Material', unit: '' },
-  { key: 'road.width', label: 'Road Width', unit: 'm' },
-  { key: 'road.verge_width', label: 'Verge Width', unit: 'm' },
+  { key: 'crossover_dimensions.width_at_boundary_m', label: 'Crossover Width at Boundary', unit: 'm' },
+  { key: 'crossover_dimensions.width_at_road_m', label: 'Crossover Width at Road', unit: 'm' },
+  { key: 'crossover_dimensions.length_m', label: 'Crossover Length', unit: 'm' },
+  { key: 'crossover_dimensions.distance_to_left_boundary_m', label: 'Dist to Left Boundary', unit: 'm' },
+  { key: 'crossover_dimensions.distance_to_right_boundary_m', label: 'Dist to Right Boundary', unit: 'm' },
+  { key: 'crossover_dimensions.distance_to_nearest_lot_corner_m', label: 'Dist to Nearest Corner', unit: 'm' },
+  { key: 'crossover_dimensions.verge_depth_m', label: 'Verge Depth', unit: 'm' },
+  { key: 'siteplan_measurements.lot_frontage_m', label: 'Lot Frontage', unit: 'm' },
+  { key: 'siteplan_measurements.lot_depth_m', label: 'Lot Depth', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_front_m', label: 'Front Setback', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_left_m', label: 'Left Setback', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_right_m', label: 'Right Setback', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_rear_m', label: 'Rear Setback', unit: 'm' },
+  { key: 'road.width_m', label: 'Road Width', unit: 'm' },
+  { key: 'road.speed_zone_kmh', label: 'Speed Zone', unit: 'km/h' },
+  { key: 'construction.material', label: 'Surface Material', unit: '' },
 ];
 
-export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems }) {
+export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData }) {
   const wrapRef = useRef(null);
   const innerRef = useRef(null);
   const svgRef = useRef(null);
@@ -404,21 +408,32 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       {saveModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 10002, display: 'grid', placeItems: 'center' }}
           onClick={(e) => { if (e.target === e.currentTarget) setSaveModal(null); }}>
-          <div style={{ background: '#14171f', border: '1px solid #2a2f3d', borderRadius: 14, padding: 24, width: 380, maxHeight: '70vh', overflow: 'auto' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💾 Save Measurement to AI Field</div>
+          <div style={{ background: '#14171f', border: '1px solid #2a2f3d', borderRadius: 14, padding: 24, width: 420, maxHeight: '70vh', overflow: 'auto' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💾 Save Measurement as Correction</div>
             <div style={{ fontSize: 12, color: '#7a8098', marginBottom: 16 }}>
-              Value: <span style={{ color: '#00e4c8', fontFamily: 'monospace', fontWeight: 600 }}>{saveModal.value} {calUnit}</span>
-              — Select which field to override:
+              Measured: <span style={{ color: '#00e4c8', fontFamily: 'monospace', fontWeight: 600 }}>{saveModal.value} {calUnit}</span>
+              — This will override the AI-extracted value and re-run assessment.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {AI_FIELDS.map(f => (
-                <button key={f.key} onClick={() => { if (onSaveField) onSaveField(f.key, parseFloat(saveModal.value), calUnit); setSaveModal(null); }}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 8, color: '#e2e5f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s' }}
-                  onMouseEnter={e => e.target.style.borderColor = '#00e4c8'} onMouseLeave={e => e.target.style.borderColor = '#2a2f3d'}>
-                  <span>{f.label}</span>
-                  <span style={{ fontSize: 10, color: '#4e5470', fontFamily: 'monospace' }}>{f.key}</span>
-                </button>
-              ))}
+              {AI_FIELDS.map(f => {
+                // Get current AI value for this field
+                const spd = appData?.cor_site_plan_data || appData?.site_plan_data;
+                const extraction = spd?.extraction || spd || {};
+                const parts = f.key.split('.');
+                let current = extraction;
+                for (const p of parts) { current = current?.[p]; }
+                const currentStr = current != null ? String(current) : '—';
+                return (
+                  <button key={f.key} onClick={() => { if (onSaveField) onSaveField(f.key, parseFloat(saveModal.value), calUnit); setSaveModal(null); }}
+                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 8, color: '#e2e5f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s', gap: 8 }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = '#00e4c8'} onMouseLeave={e => e.currentTarget.style.borderColor = '#2a2f3d'}>
+                    <span style={{ flex: 1, textAlign: 'left' }}>{f.label}</span>
+                    <span style={{ fontSize: 10, color: '#ff5c72', fontFamily: 'monospace', minWidth: 50, textAlign: 'right' }}>{currentStr}</span>
+                    <span style={{ fontSize: 10, color: '#4e5470' }}>→</span>
+                    <span style={{ fontSize: 10, color: '#00e4c8', fontFamily: 'monospace', fontWeight: 600, minWidth: 50, textAlign: 'right' }}>{saveModal.value}</span>
+                  </button>
+                );
+              })}
             </div>
             <button onClick={() => setSaveModal(null)} style={{ marginTop: 12, width: '100%', padding: '8px', background: 'transparent', border: '1px solid #2a2f3d', borderRadius: 8, color: '#7a8098', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Cancel</button>
           </div>
