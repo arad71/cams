@@ -138,9 +138,9 @@ export default function BoundaryDrawer({ appDbId, app, sitePlanDoc, onClose, onS
 
   // Close polygon: ensure last point == first point
   const closePoly = (poly) => {
-    if (!poly || poly.length < 3) return poly;
+    if (!poly || poly.length < 3) return null; // Return null if not a valid polygon
     const first = poly[0], last = poly[poly.length - 1];
-    if (first[0] === last[0] && first[1] === last[1]) return poly; // already closed
+    if (first[0] === last[0] && first[1] === last[1]) return poly;
     return [...poly, [first[0], first[1]]];
   };
 
@@ -163,6 +163,7 @@ export default function BoundaryDrawer({ appDbId, app, sitePlanDoc, onClose, onS
   };
 
   const hasData = points.some(p => p.length >= 3);
+  const hasAnyPoints = points.some(p => p.length > 0);
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.85)", zIndex: 10001, display: "flex", flexDirection: "column" }}>
@@ -174,8 +175,8 @@ export default function BoundaryDrawer({ appDbId, app, sitePlanDoc, onClose, onS
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {saved && <span style={{ color: "#27ae60", fontWeight: 700, fontSize: 12 }}>✅ Saved</span>}
-          <button onClick={handleSave} disabled={saving || !hasData}
-            style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: hasData ? "linear-gradient(135deg, #27ae60, #1e8449)" : "#555", color: "#fff", fontWeight: 700, fontSize: 12, cursor: hasData ? "pointer" : "default", fontFamily: "inherit" }}>
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: saving ? "#555" : "linear-gradient(135deg, #27ae60, #1e8449)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: saving ? "default" : "pointer", fontFamily: "inherit" }}>
             {saving ? "⟳ Saving..." : "💾 Save Boundaries"}
           </button>
           <button onClick={onClose}
