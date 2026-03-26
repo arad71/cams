@@ -1,0 +1,402 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+const COLORS = ['#00e4c8','#ff5c72','#ffcf40','#5cacff','#4dff91','#a77dff','#ff8f4d','#ff6eb4'];
+
+// AI extraction fields that can be overridden
+const AI_FIELDS = [
+  { key: 'crossover_dimensions.width', label: 'Crossover Width', unit: 'm' },
+  { key: 'crossover_dimensions.distance_to_left_boundary', label: 'Dist to Left Boundary', unit: 'm' },
+  { key: 'crossover_dimensions.distance_to_right_boundary', label: 'Dist to Right Boundary', unit: 'm' },
+  { key: 'siteplan_measurements.lot_frontage', label: 'Lot Frontage', unit: 'm' },
+  { key: 'siteplan_measurements.lot_depth', label: 'Lot Depth', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_front', label: 'Front Setback', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_left', label: 'Left Setback', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_right', label: 'Right Setback', unit: 'm' },
+  { key: 'siteplan_measurements.building_setback_rear', label: 'Rear Setback', unit: 'm' },
+  { key: 'crossover_dimensions.surface_material', label: 'Surface Material', unit: '' },
+  { key: 'road.width', label: 'Road Width', unit: 'm' },
+  { key: 'road.verge_width', label: 'Verge Width', unit: 'm' },
+];
+
+export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, appRef }) {
+  const wrapRef = useRef(null);
+  const innerRef = useRef(null);
+  const svgRef = useRef(null);
+  const imgRef = useRef(null);
+
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
+  const [tool, setTool] = useState('measure');
+  const [color, setColor] = useState(COLORS[0]);
+  const [items, setItems] = useState([]);
+  const [tempPt, setTempPt] = useState(null);
+  const [areaPts, setAreaPts] = useState([]);
+  const [calPx, setCalPx] = useState(null); // px per unit
+  const [calVal, setCalVal] = useState(1);
+  const [calUnit, setCalUnit] = useState('m');
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [mouse, setMouse] = useState(null);
+  const [saveModal, setSaveModal] = useState(null); // { itemId, value }
+  const idSeq = useRef(0);
+  const panState = useRef({ panning: false, ox: 0, oy: 0 });
+
+  // Screen to image coords
+  const s2i = useCallback((e) => {
+    const r = wrapRef.current.getBoundingClientRect();
+    return { x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom };
+  }, [zoom, pan]);
+
+  const dist = (a, b) => Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
+
+  const fmtDist = useCallback((pxD) => {
+    if (!calPx) return Math.round(pxD) + ' px';
+    const real = pxD / calPx;
+    if (calUnit === 'mm') return (real * 1000).toFixed(0) + ' mm';
+    return real.toFixed(2) + ' ' + calUnit;
+  }, [calPx, calUnit]);
+
+  const fmtArea = useCallback((pxA) => {
+    if (!calPx) return Math.round(pxA) + ' px²';
+    const real = pxA / (calPx ** 2);
+    return real.toFixed(2) + ' ' + calUnit + '²';
+  }, [calPx, calUnit]);
+
+  const polyArea = (pts) => {
+    let a = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      a += pts[i].x * pts[j].y - pts[j].x * pts[i].y;
+    }
+    return Math.abs(a) / 2;
+  };
+
+  // Fit view on load
+  useEffect(() => {
+    if (!imgLoaded || !wrapRef.current) return;
+    const cw = wrapRef.current.clientWidth, ch = wrapRef.current.clientHeight;
+    const z = Math.min(cw / imgSize.w, ch / imgSize.h) * 0.92;
+    setZoom(z);
+    setPan({ x: (cw - imgSize.w * z) / 2, y: (ch - imgSize.h * z) / 2 });
+  }, [imgLoaded, imgSize]);
+
+  // Mouse handlers
+  const handleMouseDown = (e) => {
+    if (e.button === 1 || (e.button === 0 && tool === 'pan')) {
+      panState.current = { panning: true, ox: e.clientX - pan.x, oy: e.clientY - pan.y };
+      e.preventDefault();
+      return;
+    }
+    if (e.button !== 0) return;
+    const pt = s2i(e);
+
+    if (tool === 'marker') {
+      const label = prompt('Marker label:', 'Point ' + (idSeq.current + 1));
+      if (label === null) return;
+      idSeq.current++;
+      setItems(prev => [...prev, { id: idSeq.current, type: 'marker', pt: { ...pt }, color, label: label || 'Point ' + idSeq.current }]);
+    } else if (tool === 'measure' || tool === 'calibrate') {
+      if (!tempPt) { setTempPt(pt); }
+      else {
+        const d = dist(tempPt, pt);
+        idSeq.current++;
+        if (tool === 'calibrate') {
+          const newCalPx = d / (calVal || 1);
+          setCalPx(newCalPx);
+          setItems(prev => [...prev, { id: idSeq.current, type: 'cal', p1: { ...tempPt }, p2: { ...pt }, pxDist: d, color: '#ffcf40' }]);
+          setTool('measure');
+        } else {
+          setItems(prev => [...prev, { id: idSeq.current, type: 'measure', p1: { ...tempPt }, p2: { ...pt }, pxDist: d, color, label: 'M' + idSeq.current }]);
+        }
+        setTempPt(null);
+      }
+    } else if (tool === 'area') {
+      setAreaPts(prev => [...prev, pt]);
+    }
+  };
+
+  const handleDblClick = () => {
+    if (tool === 'area' && areaPts.length >= 3) {
+      idSeq.current++;
+      setItems(prev => [...prev, { id: idSeq.current, type: 'area', pts: [...areaPts], color, pxArea: polyArea(areaPts), label: 'A' + idSeq.current }]);
+      setAreaPts([]);
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (panState.current.panning) {
+      setPan({ x: e.clientX - panState.current.ox, y: e.clientY - panState.current.oy });
+      return;
+    }
+    setMouse(s2i(e));
+  };
+
+  const handleMouseUp = () => { panState.current.panning = false; };
+
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const r = wrapRef.current.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const oldZ = zoom;
+    const newZ = Math.max(0.08, Math.min(12, zoom * (e.deltaY < 0 ? 1.12 : 0.89)));
+    setPan(p => ({ x: mx - (mx - p.x) * (newZ / oldZ), y: my - (my - p.y) * (newZ / oldZ) }));
+    setZoom(newZ);
+  };
+
+  // Keyboard
+  useEffect(() => {
+    const kd = (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'm') setTool('measure');
+      if (e.key === 'p') setTool('marker');
+      if (e.key === 'a') setTool('area');
+      if (e.key === ' ') { setTool('pan'); e.preventDefault(); }
+      if (e.key === 'c') setTool('calibrate');
+      if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); if (onClose) onClose(); }
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) setItems(prev => prev.slice(0, -1));
+    };
+    const ku = (e) => { if (e.key === ' ') setTool('measure'); };
+    window.addEventListener('keydown', kd);
+    window.addEventListener('keyup', ku);
+    return () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); };
+  }, [onClose]);
+
+  const deleteItem = (id) => setItems(prev => {
+    const removed = prev.find(i => i.id === id);
+    if (removed?.type === 'cal') setCalPx(null);
+    return prev.filter(i => i.id !== id);
+  });
+
+  const getRealValue = (item) => {
+    if (item.type === 'measure' && calPx) return (item.pxDist / calPx).toFixed(2);
+    if (item.type === 'area' && calPx) return (item.pxArea / (calPx ** 2)).toFixed(2);
+    return null;
+  };
+
+  // Render SVG overlay
+  const renderSvg = () => {
+    const esc = (t) => t?.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') || '';
+    const labelBox = (x, y, angle, c, text) => {
+      const w = text.length * 7.5 + 18;
+      return `<rect x="${x - w / 2}" y="${y - 11}" width="${w}" height="21" rx="5" fill="rgba(12,14,20,0.92)" stroke="${c}" stroke-width="0.5" transform="rotate(${angle},${x},${y})"/>
+        <text x="${x}" y="${y + 3.5}" text-anchor="middle" fill="${c}" font-family="monospace" font-size="11" font-weight="600" transform="rotate(${angle},${x},${y})">${esc(text)}</text>`;
+    };
+
+    let s = `<defs>
+      <filter id="gl"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <marker id="aL" markerWidth="7" markerHeight="5" refX="0" refY="2.5" orient="auto"><path d="M7,0 L0,2.5 L7,5" fill="none" stroke="context-stroke" stroke-width="1"/></marker>
+      <marker id="aR" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="none" stroke="context-stroke" stroke-width="1"/></marker>
+    </defs>`;
+
+    // Temp line
+    if (tempPt && mouse && (tool === 'measure' || tool === 'calibrate')) {
+      const d = dist(tempPt, mouse);
+      const mx = (tempPt.x + mouse.x) / 2, my = (tempPt.y + mouse.y) / 2;
+      const ang = Math.atan2(mouse.y - tempPt.y, mouse.x - tempPt.x) * 180 / Math.PI;
+      const ta = (ang > 90 || ang < -90) ? ang + 180 : ang;
+      const c = tool === 'calibrate' ? '#ffcf40' : color;
+      s += `<line x1="${tempPt.x}" y1="${tempPt.y}" x2="${mouse.x}" y2="${mouse.y}" stroke="${c}" stroke-width="2" stroke-dasharray="6,4" opacity="0.7"/>`;
+      s += `<circle cx="${tempPt.x}" cy="${tempPt.y}" r="5" fill="${c}" opacity="0.8"/>`;
+      s += labelBox(mx, my, ta, c, fmtDist(d));
+    }
+    if (tempPt && !mouse) {
+      const c = tool === 'calibrate' ? '#ffcf40' : color;
+      s += `<circle cx="${tempPt.x}" cy="${tempPt.y}" r="5" fill="${c}"/>`;
+      s += `<circle cx="${tempPt.x}" cy="${tempPt.y}" r="5" fill="${c}"><animate attributeName="r" values="5;14;5" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.5;0;0.5" dur="1.4s" repeatCount="indefinite"/></circle>`;
+    }
+
+    // Area in progress
+    if (areaPts.length) {
+      let pts = [...areaPts];
+      if (mouse) pts.push(mouse);
+      s += `<polygon points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="${color}" fill-opacity="0.08" stroke="${color}" stroke-width="1.5" stroke-dasharray="6,3"/>`;
+      pts.forEach(p => s += `<circle cx="${p.x}" cy="${p.y}" r="4" fill="${color}"/>`);
+      if (pts.length >= 3) {
+        const cx = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+        const cy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+        s += labelBox(cx, cy, 0, color, fmtArea(polyArea(pts)));
+      }
+    }
+
+    // Saved items
+    items.forEach(it => {
+      if (it.type === 'measure' || it.type === 'cal') {
+        const { p1, p2, color: c, pxDist } = it;
+        const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+        const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+        const ta = (ang > 90 || ang < -90) ? ang + 180 : ang;
+        const lbl = it.type === 'cal' ? calVal + ' ' + calUnit + ' (cal)' : fmtDist(pxDist);
+        s += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${c}" stroke-width="2.5" marker-start="url(#aL)" marker-end="url(#aR)" filter="url(#gl)"/>`;
+        s += `<circle cx="${p1.x}" cy="${p1.y}" r="4" fill="${c}"/><circle cx="${p2.x}" cy="${p2.y}" r="4" fill="${c}"/>`;
+        s += labelBox(mx, my, ta, c, lbl);
+      } else if (it.type === 'marker') {
+        const { pt, color: c, label } = it;
+        const tw = label.length * 7 + 16;
+        s += `<circle cx="${pt.x}" cy="${pt.y}" r="11" fill="${c}" opacity="0.12"/><circle cx="${pt.x}" cy="${pt.y}" r="5.5" fill="${c}" stroke="rgba(12,14,20,0.7)" stroke-width="2"/>`;
+        s += `<rect x="${pt.x + 10}" y="${pt.y - 10}" width="${tw}" height="20" rx="5" fill="rgba(12,14,20,0.92)" stroke="${c}" stroke-width="0.5"/>`;
+        s += `<text x="${pt.x + 10 + tw / 2}" y="${pt.y + 3.5}" text-anchor="middle" fill="${c}" font-family="sans-serif" font-size="11" font-weight="600">${esc(label)}</text>`;
+      } else if (it.type === 'area') {
+        const { pts, color: c, pxArea } = it;
+        const cx = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+        const cy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+        s += `<polygon points="${pts.map(p => p.x + ',' + p.y).join(' ')}" fill="${c}" fill-opacity="0.1" stroke="${c}" stroke-width="2"/>`;
+        pts.forEach(p => s += `<circle cx="${p.x}" cy="${p.y}" r="3.5" fill="${c}"/>`);
+        s += labelBox(cx, cy, 0, c, fmtArea(pxArea));
+      }
+    });
+
+    return s;
+  };
+
+  const ToolBtn = ({ id, icon, label, active }) => (
+    <button onClick={() => { setTool(id); setTempPt(null); if (id !== 'area') setAreaPts([]); }}
+      style={{ height: 32, padding: '0 12px', border: active ? '1px solid rgba(0,228,200,0.3)' : '1px solid transparent', background: active ? 'rgba(0,228,200,0.12)' : 'transparent', color: active ? '#00e4c8' : '#7a8098', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+      {icon} {label}
+    </button>
+  );
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#0c0e14', zIndex: 10001, display: 'flex', flexDirection: 'column', fontFamily: "'Outfit',sans-serif", color: '#e2e5f0' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 48, background: '#14171f', borderBottom: '1px solid #2a2f3d', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, #00e4c8, #00a896)', borderRadius: 7, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 11, color: '#0c0e14' }}>SP</div>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>Site Plan Measure</span>
+          {appRef && <span style={{ fontSize: 11, color: '#7a8098', marginLeft: 8 }}>{appRef}</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <ToolBtn id="measure" icon="📏" label="Measure" active={tool === 'measure'} />
+          <ToolBtn id="marker" icon="📍" label="Marker" active={tool === 'marker'} />
+          <ToolBtn id="area" icon="⬜" label="Area" active={tool === 'area'} />
+          <ToolBtn id="pan" icon="✋" label="Pan" active={tool === 'pan'} />
+          <div style={{ width: 1, height: 20, background: '#2a2f3d', margin: '0 4px' }} />
+          <ToolBtn id="calibrate" icon="📐" label="Calibrate" active={tool === 'calibrate'} />
+          <div style={{ width: 1, height: 20, background: '#2a2f3d', margin: '0 4px' }} />
+          <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8098', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>↩ Undo</button>
+          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8098', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>🗑 Clear</button>
+          <div style={{ width: 1, height: 20, background: '#2a2f3d', margin: '0 4px' }} />
+          <button onClick={onClose} style={{ height: 32, padding: '0 14px', border: '1px solid #2a2f3d', background: 'transparent', color: '#e2e5f0', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>✕ Close</button>
+        </div>
+      </div>
+
+      {/* Workspace */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Canvas */}
+        <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#0c0e14', cursor: tool === 'pan' ? 'grab' : 'crosshair' }}
+          onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp} onDoubleClick={handleDblClick} onWheel={handleWheel}>
+          <div ref={innerRef} style={{ position: 'absolute', transformOrigin: '0 0', transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})` }}>
+            <img ref={imgRef} src={imgUrl} crossOrigin="anonymous" alt="Site Plan"
+              onLoad={(e) => { setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight }); setImgLoaded(true); }}
+              style={{ display: 'block', userSelect: 'none' }} draggable={false} />
+            <svg ref={svgRef} xmlns="http://www.w3.org/2000/svg" width={imgSize.w} height={imgSize.h}
+              style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+              dangerouslySetInnerHTML={{ __html: renderSvg() }} />
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div style={{ width: 280, background: '#14171f', borderLeft: '1px solid #2a2f3d', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a2f3d', display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 13 }}>
+            <span>Measurements</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7a8098' }}>{items.length} item{items.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
+            {/* Calibration */}
+            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#4e5470', fontWeight: 600, marginBottom: 8 }}>Scale Calibration</div>
+            <div style={{ background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input type="number" value={calVal} onChange={e => { setCalVal(parseFloat(e.target.value) || 1); if (calPx) { const ci = items.find(i => i.type === 'cal'); if (ci) setCalPx(ci.pxDist / (parseFloat(e.target.value) || 1)); } }}
+                  style={{ flex: 1, background: '#0c0e14', border: '1px solid #2a2f3d', borderRadius: 6, padding: '6px 8px', color: '#e2e5f0', fontFamily: 'monospace', fontSize: 12, outline: 'none' }} />
+                <select value={calUnit} onChange={e => setCalUnit(e.target.value)}
+                  style={{ background: '#0c0e14', border: '1px solid #2a2f3d', borderRadius: 6, padding: '6px 8px', color: '#e2e5f0', fontSize: 12, outline: 'none' }}>
+                  <option value="m">m</option><option value="mm">mm</option><option value="ft">ft</option>
+                </select>
+              </div>
+              <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 11, color: calPx ? '#00e4c8' : '#4e5470' }}>
+                {calPx ? `Scale: ${calPx.toFixed(1)} px/${calUnit}` : 'Draw a calibration line to set scale'}
+              </div>
+            </div>
+
+            {/* Colors */}
+            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#4e5470', fontWeight: 600, marginBottom: 8 }}>Color</div>
+            <div style={{ display: 'flex', gap: 5, marginBottom: 12 }}>
+              {COLORS.map(c => (
+                <div key={c} onClick={() => setColor(c)}
+                  style={{ width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c ? '2.5px solid #fff' : '2.5px solid transparent', transform: color === c ? 'scale(1.15)' : 'none', transition: 'all 0.12s' }} />
+              ))}
+            </div>
+
+            {/* Items */}
+            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#4e5470', fontWeight: 600, marginBottom: 8 }}>Items</div>
+            {items.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '24px 14px', color: '#4e5470', fontSize: 12, lineHeight: 1.7 }}>
+                Click on the plan to measure distances or place markers.
+              </div>
+            )}
+            {items.map(it => (
+              <div key={it.id} style={{ background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 9, padding: '10px 11px', marginBottom: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <div style={{ width: 9, height: 9, borderRadius: '50%', background: it.color, flexShrink: 0 }} />
+                  <div style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {it.type === 'cal' ? 'Calibration' : it.label || it.type}
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: it.type === 'cal' ? '#ffcf40' : '#00e4c8', whiteSpace: 'nowrap' }}>
+                    {it.type === 'measure' ? fmtDist(it.pxDist) : it.type === 'area' ? fmtArea(it.pxArea) : it.type === 'cal' ? Math.round(it.pxDist) + ' px' : 'Marker'}
+                  </div>
+                  {/* Save to AI field button */}
+                  {it.type === 'measure' && calPx && onSaveField && (
+                    <button onClick={() => setSaveModal({ itemId: it.id, value: getRealValue(it) })}
+                      style={{ background: 'none', border: 'none', color: '#00e4c8', cursor: 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}
+                      title="Save to AI field">💾</button>
+                  )}
+                  <button onClick={() => deleteItem(it.id)}
+                    style={{ background: 'none', border: 'none', color: '#4e5470', cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>×</button>
+                </div>
+                <div style={{ fontSize: 10, color: '#4e5470', marginTop: 3, paddingLeft: 16, fontFamily: 'monospace' }}>
+                  {it.type === 'measure' || it.type === 'cal' ? Math.round(it.pxDist) + ' px' : it.type === 'area' ? it.pts.length + ' vertices' : `${Math.round(it.pt.x)}, ${Math.round(it.pt.y)}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Status bar */}
+      <div style={{ height: 26, padding: '0 16px', background: '#14171f', borderTop: '1px solid #2a2f3d', display: 'flex', alignItems: 'center', gap: 20, fontSize: 10, color: '#4e5470', fontFamily: 'monospace', flexShrink: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4dff91' }} />
+          {tool.charAt(0).toUpperCase() + tool.slice(1)}
+        </span>
+        {mouse && <span>X:{Math.round(mouse.x)} Y:{Math.round(mouse.y)}</span>}
+        <span>{Math.round(zoom * 100)}%</span>
+        <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Calibrate</span>
+      </div>
+
+      {/* Save to AI field modal */}
+      {saveModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 10002, display: 'grid', placeItems: 'center' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSaveModal(null); }}>
+          <div style={{ background: '#14171f', border: '1px solid #2a2f3d', borderRadius: 14, padding: 24, width: 380, maxHeight: '70vh', overflow: 'auto' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💾 Save Measurement to AI Field</div>
+            <div style={{ fontSize: 12, color: '#7a8098', marginBottom: 16 }}>
+              Value: <span style={{ color: '#00e4c8', fontFamily: 'monospace', fontWeight: 600 }}>{saveModal.value} {calUnit}</span>
+              — Select which field to override:
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {AI_FIELDS.map(f => (
+                <button key={f.key} onClick={() => { if (onSaveField) onSaveField(f.key, parseFloat(saveModal.value), calUnit); setSaveModal(null); }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 8, color: '#e2e5f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s' }}
+                  onMouseEnter={e => e.target.style.borderColor = '#00e4c8'} onMouseLeave={e => e.target.style.borderColor = '#2a2f3d'}>
+                  <span>{f.label}</span>
+                  <span style={{ fontSize: 10, color: '#4e5470', fontFamily: 'monospace' }}>{f.key}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setSaveModal(null)} style={{ marginTop: 12, width: '100%', padding: '8px', background: 'transparent', border: '1px solid #2a2f3d', borderRadius: 8, color: '#7a8098', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
