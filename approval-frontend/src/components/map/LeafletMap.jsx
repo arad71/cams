@@ -657,9 +657,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     map.getContainer().style.cursor = "crosshair";
 
-    // Find nearest point on any road segment from speedRoadsData
+    // Find nearest point on road segment (within 30m only)
     const snapToRoad = (latlng) => {
-      if (!speedRoadsData?.features) return latlng;
+      if (!speedRoadsData?.features) return null;
       let best = null, bestDist = Infinity;
       for (const f of speedRoadsData.features) {
         const coords = f.geometry?.coordinates;
@@ -667,7 +667,6 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         for (let i = 0; i < coords.length - 1; i++) {
           const a = L.latLng(coords[i][1], coords[i][0]);
           const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-          // Project latlng onto segment a-b
           const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = latlng.lng, py = latlng.lat;
           const dx = bx-ax, dy = by-ay;
           const lenSq = dx*dx + dy*dy;
@@ -678,40 +677,37 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           if (d < bestDist) { bestDist = d; best = { point: snap, road: f.properties }; }
         }
       }
-      return bestDist < 200 ? best : null; // 200m snap for road
+      return bestDist < 30 ? best : null;
     };
 
-    // Find nearest lot boundary segment
+    // Find nearest boundary segment of SELECTED APP's lot polygon (within 30m)
     const snapToBoundary = (latlng) => {
-      if (!allLotsData?.features) return null;
+      let lotPoly = selectedApp?.lot_polygon;
+      if (!lotPoly || lotPoly.length < 3) return null;
+      // Auto-detect [lng,lat] vs [lat,lng]
+      if (Math.abs(lotPoly[0][0]) > 90) lotPoly = lotPoly.map(p => [p[1], p[0]]);
+      // Ensure closed
+      const last = lotPoly[lotPoly.length - 1], first = lotPoly[0];
+      if (last[0] !== first[0] || last[1] !== first[1]) lotPoly = [...lotPoly, first];
+
       let best = null, bestDist = Infinity;
-      for (const f of allLotsData.features) {
-        const geom = f.geometry;
-        if (!geom) continue;
-        let rings = [];
-        if (geom.type === "Polygon") rings = [geom.coordinates[0]];
-        else if (geom.type === "MultiPolygon") rings = geom.coordinates.map(p => p[0]);
-        for (const ring of rings) {
-          for (let i = 0; i < ring.length - 1; i++) {
-            const a = L.latLng(ring[i][1], ring[i][0]);
-            const b = L.latLng(ring[i+1][1], ring[i+1][0]);
-            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = latlng.lng, py = latlng.lat;
-            const dx = bx-ax, dy = by-ay;
-            const lenSq = dx*dx + dy*dy;
-            if (lenSq < 1e-20) continue;
-            const t = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
-            const snap = L.latLng(ay + t*dy, ax + t*dx);
-            const d = latlng.distanceTo(snap);
-            if (d < bestDist) {
-              bestDist = d;
-              // Compute bearing of this boundary segment
-              const bearing = Math.atan2(b.lng - a.lng, b.lat - a.lat);
-              best = { point: snap, a, b, bearing, properties: f.properties };
-            }
-          }
+      for (let i = 0; i < lotPoly.length - 1; i++) {
+        const a = L.latLng(lotPoly[i][0], lotPoly[i][1]);
+        const b = L.latLng(lotPoly[i + 1][0], lotPoly[i + 1][1]);
+        const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = latlng.lng, py = latlng.lat;
+        const dx = bx - ax, dy = by - ay;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq < 1e-20) continue;
+        const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+        const snap = L.latLng(ay + t * dy, ax + t * dx);
+        const d = latlng.distanceTo(snap);
+        if (d < bestDist) {
+          bestDist = d;
+          const bearing = Math.atan2(b.lng - a.lng, b.lat - a.lat);
+          best = { point: snap, a, b, bearing };
         }
       }
-      return bestDist < 200 ? best : null; // 200m snap for boundary
+      return bestDist < 30 ? best : null;
     };
 
     const onClick = (e) => {
@@ -868,8 +864,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         .addTo(map);
       offsetRef.current.layers.push(marker);
 
-      // Compute Point B: project finalPt perpendicularly onto the road centreline
-      // Find nearest point on road centreline from finalPt
+      // Compute Point B: project finalPt perpendicularly onto nearest road centreline (within 50m)
       let bestB = roadPt, bestBDist = Infinity;
       if (speedRoadsData?.features) {
         for (const f of speedRoadsData.features) {
@@ -878,6 +873,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           for (let i = 0; i < coords.length - 1; i++) {
             const a = L.latLng(coords[i][1], coords[i][0]);
             const b = L.latLng(coords[i+1][1], coords[i+1][0]);
+            // Quick distance check — skip segments far from finalPt
+            const midSeg = L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2);
+            if (finalPt.distanceTo(midSeg) > 100) continue;
             const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat;
             const px = finalPt.lng, py = finalPt.lat;
             const dx = bx-ax, dy = by-ay;
