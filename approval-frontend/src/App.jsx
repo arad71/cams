@@ -65,16 +65,16 @@ export default function KalamundaApprovalPortal() {
   useEffect(() => {
     let cancelled = false;
     async function loadGeoData() {
+      // Load each independently — missing files don't break others
       try {
-        const [lotsRes, roadsRes, networkRes] = await Promise.all([
-          fetch('/lot.geojson', { cache: 'no-cache' }),
-          fetch('/Legal_Speed_Limits.geojson', { cache: 'no-cache' }),
-          fetch('/Road_Network.geojson', { cache: 'no-cache' }),
-        ]);
-        if (!cancelled && lotsRes.ok) setGlobalLotsData(await lotsRes.json());
-        if (!cancelled && roadsRes.ok) {
-          const data = await roadsRes.json();
-          // Normalize properties to consistent format: rd, sp, nt
+        const r = await fetch('/lot.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) setGlobalLotsData(await r.json());
+      } catch (e) { console.warn('lot.geojson not loaded:', e.message); }
+
+      try {
+        const r = await fetch('/Legal_Speed_Limits.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) {
+          const data = await r.json();
           if (data?.features) {
             data.features = data.features.map(f => {
               const p = f.properties || {};
@@ -88,10 +88,19 @@ export default function KalamundaApprovalPortal() {
             });
           }
           setGlobalSpeedRoads(data);
+        } else {
+          // Fallback to old speed_roads.geojson
+          try {
+            const r2 = await fetch('/speed_roads.geojson', { cache: 'no-cache' });
+            if (!cancelled && r2.ok) setGlobalSpeedRoads(await r2.json());
+          } catch (e2) { console.warn('speed_roads.geojson fallback not loaded'); }
         }
-        if (!cancelled && networkRes.ok) {
-          const data = await networkRes.json();
-          // Normalize road network properties
+      } catch (e) { console.warn('Legal_Speed_Limits.geojson not loaded:', e.message); }
+
+      try {
+        const r = await fetch('/Road_Network.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) {
+          const data = await r.json();
           if (data?.features) {
             data.features = data.features.map(f => {
               const p = f.properties || {};
@@ -106,7 +115,7 @@ export default function KalamundaApprovalPortal() {
           }
           setGlobalRoadNetwork(data);
         }
-      } catch (e) { console.error('Failed to load geojson data:', e); }
+      } catch (e) { console.warn('Road_Network.geojson not loaded:', e.message); }
     }
     loadGeoData();
     return () => { cancelled = true; };
