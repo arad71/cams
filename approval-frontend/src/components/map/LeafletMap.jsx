@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -504,6 +504,144 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       map.getContainer().style.cursor = "";
     };
   }, [mapTool, leafletLoaded]);
+
+  // ── Centreline tool — click near road to auto-draw its centreline ──
+  const centrelineRef = useRef({ pts: [], layers: [], total: 0 });
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    const map = mapInstanceRef.current;
+
+    centrelineRef.current.layers.forEach(l => map.removeLayer(l));
+    centrelineRef.current = { pts: [], layers: [], total: 0 };
+
+    if (mapTool !== "centreline") return;
+
+    map.getContainer().style.cursor = "crosshair";
+
+    // Find nearest road from speedRoadsData
+    const findNearestRoad = (latlng) => {
+      if (!speedRoadsData?.features) return null;
+      let best = null, bestDist = Infinity;
+      for (const f of speedRoadsData.features) {
+        const coords = f.geometry?.coordinates;
+        if (!coords) continue;
+        for (const c of coords) {
+          // coords are [lng, lat]
+          const d = Math.sqrt(Math.pow(c[1] - latlng.lat, 2) + Math.pow(c[0] - latlng.lng, 2));
+          if (d < bestDist) { bestDist = d; best = f; }
+        }
+      }
+      // ~50m threshold in degrees (~0.0005)
+      return bestDist < 0.0005 ? best : null;
+    };
+
+    const drawRoadCentreline = (feature) => {
+      // Clear previous
+      centrelineRef.current.layers.filter(l => l._isCL).forEach(l => map.removeLayer(l));
+      centrelineRef.current.layers = centrelineRef.current.layers.filter(l => !l._isCL);
+
+      const coords = feature.geometry.coordinates; // [lng, lat]
+      const latLngs = coords.map(c => L.latLng(c[1], c[0]));
+      const props = feature.properties;
+
+      // Main centreline
+      const line = L.polyline(latLngs, { color: "#00bcd4", weight: 3.5, opacity: 0.9 });
+      line._isCL = true; line.addTo(map);
+      centrelineRef.current.layers.push(line);
+
+      // Calculate total length
+      let total = 0;
+      for (let i = 1; i < latLngs.length; i++) {
+        total += latLngs[i - 1].distanceTo(latLngs[i]);
+      }
+
+      // Perpendicular ticks at each vertex
+      for (let i = 0; i < latLngs.length; i++) {
+        const prev = i > 0 ? latLngs[i - 1] : latLngs[i];
+        const next = i < latLngs.length - 1 ? latLngs[i + 1] : latLngs[i];
+        const bearing = Math.atan2(next.lng - prev.lng, next.lat - prev.lat);
+        const perp = bearing + Math.PI / 2;
+        const tickLen = 0.00004;
+        const tickA = L.latLng(latLngs[i].lat + Math.cos(perp) * tickLen, latLngs[i].lng + Math.sin(perp) * tickLen);
+        const tickB = L.latLng(latLngs[i].lat - Math.cos(perp) * tickLen, latLngs[i].lng - Math.sin(perp) * tickLen);
+        const tick = L.polyline([tickA, tickB], { color: "#00bcd4", weight: 1.5, opacity: 0.5 });
+        tick._isCL = true; tick.addTo(map);
+        centrelineRef.current.layers.push(tick);
+
+        // Dot at vertex
+        const dot = L.circleMarker(latLngs[i], { radius: 3, color: "#00bcd4", fillColor: "#fff", fillOpacity: 1, weight: 2 });
+        dot._isCL = true; dot.addTo(map);
+        centrelineRef.current.layers.push(dot);
+      }
+
+      // Road name + length label at midpoint
+      const midIdx = Math.floor(latLngs.length / 2);
+      const midPt = latLngs[midIdx];
+      const label = L.marker(midPt, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#00838f;color:#fff;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${props.rd || "Road"} · ${props.sp}km/h · ${total.toFixed(0)}m</div>`, iconAnchor: [60, -5] }) });
+      label._isCL = true; label.addTo(map);
+      centrelineRef.current.layers.push(label);
+
+      centrelineRef.current.total = total;
+      if (setCentrelineDist) setCentrelineDist(`${props.rd || "Road"} · ${props.sp}km/h · ${total.toFixed(1)}m`);
+    };
+
+    const onClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+
+      // Try auto-snap to nearest road
+      const road = findNearestRoad(e.latlng);
+      if (road) {
+        drawRoadCentreline(road);
+        return;
+      }
+
+      // Manual mode — click points along road centre
+      centrelineRef.current.pts.push(e.latlng);
+      const dot = L.circleMarker(e.latlng, { radius: 4, color: "#00bcd4", fillColor: "#fff", fillOpacity: 1, weight: 2.5, pane: "markerPane" }).addTo(map);
+      centrelineRef.current.layers.push(dot);
+
+      const pts = centrelineRef.current.pts;
+      if (pts.length >= 2) {
+        // Remove old manual lines
+        centrelineRef.current.layers.filter(l => l._isManualCL).forEach(l => map.removeLayer(l));
+        centrelineRef.current.layers = centrelineRef.current.layers.filter(l => !l._isManualCL);
+
+        let total = 0;
+        for (let i = 1; i < pts.length; i++) {
+          const seg = pts[i - 1].distanceTo(pts[i]);
+          total += seg;
+          const line = L.polyline([pts[i - 1], pts[i]], { color: "#00bcd4", weight: 3, opacity: 0.9 });
+          line._isManualCL = true; line.addTo(map);
+          centrelineRef.current.layers.push(line);
+
+          const mid = L.latLng((pts[i - 1].lat + pts[i].lat) / 2, (pts[i - 1].lng + pts[i].lng) / 2);
+          const segLabel = L.marker(mid, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#00838f;color:#fff;padding:1px 5px;border-radius:3px;font-size:8px;font-weight:600;white-space:nowrap;font-family:sans-serif">${seg.toFixed(1)}m</div>`, iconAnchor: [15, 8] }) });
+          segLabel._isManualCL = true; segLabel.addTo(map);
+          centrelineRef.current.layers.push(segLabel);
+        }
+        centrelineRef.current.total = total;
+        if (setCentrelineDist) setCentrelineDist(`Manual · ${total.toFixed(1)}m (${pts.length - 1} segments)`);
+      }
+    };
+
+    const onDblClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      centrelineRef.current.pts = [];
+      centrelineRef.current.total = 0;
+    };
+
+    map.on("click", onClick);
+    map.on("dblclick", onDblClick);
+    map.doubleClickZoom.disable();
+
+    return () => {
+      map.off("click", onClick);
+      map.off("dblclick", onDblClick);
+      map.doubleClickZoom.enable();
+      map.getContainer().style.cursor = "";
+    };
+  }, [mapTool, leafletLoaded, speedRoadsData]);
 
   // ── Clear draw annotations ──
   const clearDrawAnnotations = () => {
