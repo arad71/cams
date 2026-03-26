@@ -110,7 +110,7 @@ function formatValue(val, type) {
   return String(val);
 }
 
-export default function AIExtractionReview({ app, currentUser, onReload }) {
+export default function AIExtractionReview({ app, currentUser, onReload, measureCorrections = [], onMeasureCorrectionsApplied }) {
   const hasCorrected = !!app?.cor_site_plan_data;
   const spd = app?.cor_site_plan_data || app?.site_plan_data;
   const orgSpd = app?.org_site_plan_data || app?.site_plan_data;
@@ -120,6 +120,22 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
   const [corrections, setCorrections] = useState([]);
+
+  // Merge incoming measure corrections into pending corrections
+  useEffect(() => {
+    if (measureCorrections.length > 0) {
+      setCorrections(prev => {
+        let merged = [...prev];
+        for (const mc of measureCorrections) {
+          merged = merged.filter(c => c.field_path !== mc.field_path);
+          merged.push(mc);
+        }
+        return merged;
+      });
+      // Auto-expand the section so officer sees the pending corrections
+      setCollapsed(false);
+    }
+  }, [measureCorrections]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [analysing, setAnalysing] = useState(false);
@@ -196,6 +212,7 @@ export default function AIExtractionReview({ app, currentUser, onReload }) {
       } catch (e) { console.warn("Training save skipped:", e); }
 
       setCorrections([]);
+      if (onMeasureCorrectionsApplied) onMeasureCorrectionsApplied();
       setSaved(true);
       if (onReload) onReload(); // Reload app to reflect updated site_plan_data + assessment
       setTimeout(() => setSaved(false), 3000);

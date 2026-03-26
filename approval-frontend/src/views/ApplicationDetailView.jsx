@@ -13,6 +13,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
   const [localApp, setLocalApp] = useState(JSON.parse(JSON.stringify(app)));
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
+  const [measureCorrections, setMeasureCorrections] = useState([]); // from measure tool → AI review
   const [assignee, setAssignee] = useState(app.assessment.officer);
   const [categories, setCategories] = useState([]);
   const role = currentUser?.role || "engineer";
@@ -78,12 +79,21 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
       {/* ★ DOCUMENTS ★ */}
       <div style={{ marginBottom: 14 }}>
-        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} app={localApp} currentUser={currentUser} onDocUpdated={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} />
+        <DocumentList documents={localApp.documents} appDbId={localApp._dbId} app={localApp} currentUser={currentUser} onDocUpdated={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }}
+          onMeasureCorrection={(fieldKey, value, unit) => {
+            setMeasureCorrections(prev => [...prev.filter(c => c.field_path !== fieldKey), {
+              field_path: fieldKey,
+              ai_value: (() => { const spd = localApp?.cor_site_plan_data || localApp?.site_plan_data; const ext = spd?.extraction || spd || {}; const parts = fieldKey.split('.'); let v = ext; for (const p of parts) v = v?.[p]; return String(v ?? '—'); })(),
+              correct_value: String(value),
+              type: "measure_override",
+              unit: unit || "m",
+            }]);
+          }} />
       </div>
 
       {/* ★ AI SITE PLAN EXTRACTION — officer review + corrections ★ */}
       <div style={{ marginBottom: 14 }}>
-        <AIExtractionReview app={localApp} currentUser={currentUser} onReload={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} />
+        <AIExtractionReview app={localApp} currentUser={currentUser} onReload={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} measureCorrections={measureCorrections} onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
       </div>
 
       {/* ★ APPROVAL CHECKLIST ★ */}
