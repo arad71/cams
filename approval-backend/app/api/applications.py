@@ -814,8 +814,7 @@ def render_document_as_image(
 
     # If already an image, serve directly
     if ext in ("jpg", "jpeg", "png", "gif", "webp"):
-        return Response(content=file_path.read_bytes(), media_type=f"image/{ext}",
-                        headers={"Access-Control-Allow-Origin": "*"})
+        return Response(content=file_path.read_bytes(), media_type=f"image/{ext}")
 
     # PDF → render page as PNG
     if ext == "pdf":
@@ -827,8 +826,7 @@ def render_document_as_image(
             import io
             buf = io.BytesIO()
             images[0].save(buf, format="PNG")
-            return Response(content=buf.getvalue(), media_type="image/png",
-                            headers={"Access-Control-Allow-Origin": "*"})
+            return Response(content=buf.getvalue(), media_type="image/png")
         except ImportError:
             raise HTTPException(500, "pdf2image not installed")
         except Exception as e:
@@ -884,10 +882,6 @@ def save_boundaries(
             setattr(app, key, cleaned)
             if cleaned is None:
                 setattr(app, f"{key}_latlon", None)
-
-    # Save cropped lot image
-    if "site_lot_image" in data:
-        app.site_lot_image = data["site_lot_image"] if data["site_lot_image"] else None
 
     # ── Geo-reference: map pixel lot boundary → real lot_polygon → affine transform ──
     pixel_lot = app.site_lot_boundary or []  # Already cleaned and saved above
