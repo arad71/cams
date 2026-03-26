@@ -560,7 +560,9 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
             </div>
           );
         }
-        const imgUrl = `${window.location.origin}/api/applications/${appDbId}/documents/${spDoc.id}/render`;
+        const imgUrl = spDoc.type === "pdf"
+          ? api.getDocumentRenderUrl(appDbId, spDoc.id, 1)
+          : api.getDocumentFileUrl(appDbId, spDoc.id);
         return (
           <SitePlanMeasure
             imgUrl={imgUrl}
