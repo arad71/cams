@@ -998,51 +998,117 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       if (!circle || circle.radius <= 0 || circle.radius > 5000) return;
 
       const R = circle.radius;
-      const V = 6.67 * Math.sqrt(R); // sight distance in metres
+      const V = 6.67 * Math.sqrt(R);
 
-      // Smooth arc through clicked points
-      const startAngle = Math.atan2((pts[0].lng - circle.lng) * mPerLng, (pts[0].lat - circle.lat) * mPerLat);
-      const endAngle = Math.atan2((pts[pts.length-1].lng - circle.lng) * mPerLng, (pts[pts.length-1].lat - circle.lat) * mPerLat);
-      const midPt = pts[Math.floor(pts.length / 2)];
-      const midAngle = Math.atan2((midPt.lng - circle.lng) * mPerLng, (midPt.lat - circle.lat) * mPerLat);
-      const norm = (a) => ((a % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
-      let sa = norm(startAngle), ea = norm(endAngle), ma = norm(midAngle);
-      const between = (sa <= ea) ? (ma >= sa && ma <= ea) : (ma >= sa || ma <= ea);
-      if (!between) { const t = sa; sa = ea; ea = t; }
-      let sweep = ea - sa;
-      if (sweep <= 0) sweep += 2 * Math.PI;
+      // Find the nearest road LineString to identify turn start/end
+      let bestRoad = null, bestRoadDist = Infinity;
+      const midClickPt = pts[Math.floor(pts.length / 2)];
+      for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+        for (const f of src.features) {
+          const c = f.geometry?.coordinates;
+          if (!c || f.geometry?.type !== "LineString" || c.length < 3) continue;
+          for (const coord of c) {
+            const d = midClickPt.distanceTo(L.latLng(coord[1], coord[0]));
+            if (d < bestRoadDist) { bestRoadDist = d; bestRoad = f; }
+          }
+        }
+      }
 
-      const arcPts = [];
-      for (let i = 0; i <= 64; i++) {
-        const a = sa + (sweep * i / 64);
-        arcPts.push([circle.lat + (R * Math.cos(a)) / mPerLat, circle.lng + (R * Math.sin(a)) / mPerLng]);
+      let turnStart = null, turnEnd = null;
+      let arcPts = [];
+
+      if (bestRoad && bestRoadDist < 30) {
+        // Use actual road geometry to find turn boundaries
+        const coords = bestRoad.geometry.coordinates;
+        const roadPts = coords.map(c => ({ lat: c[1], lng: c[0] }));
+
+        // For each road vertex, compute distance to circle centre
+        const distFromCircle = roadPts.map(p => {
+          const dx = (p.lng - circle.lng) * mPerLng;
+          const dy = (p.lat - circle.lat) * mPerLat;
+          return Math.abs(Math.sqrt(dx*dx + dy*dy) - R);
+        });
+
+        // Curve threshold: points within 20% of R from the circle are "on the curve"
+        const threshold = R * 0.2;
+
+        // Find start: first point (walking from start) that is on the curve
+        let startIdx = -1, endIdx = -1;
+        for (let i = 0; i < distFromCircle.length; i++) {
+          if (distFromCircle[i] < threshold) { startIdx = i; break; }
+        }
+        // Find end: last point that is on the curve
+        for (let i = distFromCircle.length - 1; i >= 0; i--) {
+          if (distFromCircle[i] < threshold) { endIdx = i; break; }
+        }
+
+        if (startIdx >= 0 && endIdx > startIdx) {
+          turnStart = L.latLng(roadPts[startIdx].lat, roadPts[startIdx].lng);
+          turnEnd = L.latLng(roadPts[endIdx].lat, roadPts[endIdx].lng);
+
+          // Build arc from road points on the curve
+          for (let i = startIdx; i <= endIdx; i++) {
+            arcPts.push([roadPts[i].lat, roadPts[i].lng]);
+          }
+        }
+      }
+
+      // Fallback: use fitted arc if no road geometry found
+      if (arcPts.length < 3) {
+        const startAngle = Math.atan2((pts[0].lng - circle.lng) * mPerLng, (pts[0].lat - circle.lat) * mPerLat);
+        const endAngle = Math.atan2((pts[pts.length-1].lng - circle.lng) * mPerLng, (pts[pts.length-1].lat - circle.lat) * mPerLat);
+        const midAngle = Math.atan2((midClickPt.lng - circle.lng) * mPerLng, (midClickPt.lat - circle.lat) * mPerLat);
+        const norm = (a) => ((a % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+        let sa = norm(startAngle), ea = norm(endAngle), ma = norm(midAngle);
+        const between = (sa <= ea) ? (ma >= sa && ma <= ea) : (ma >= sa || ma <= ea);
+        if (!between) { const t = sa; sa = ea; ea = t; }
+        let sweep = ea - sa; if (sweep <= 0) sweep += 2 * Math.PI;
+        arcPts = [];
+        for (let i = 0; i <= 64; i++) {
+          const a = sa + (sweep * i / 64);
+          arcPts.push([circle.lat + (R * Math.cos(a)) / mPerLat, circle.lng + (R * Math.sin(a)) / mPerLng]);
+        }
+        turnStart = L.latLng(arcPts[0]);
+        turnEnd = L.latLng(arcPts[arcPts.length - 1]);
       }
 
       // Draw smooth arc
       const arc = L.polyline(arcPts, { color: "#ff9800", weight: 2, opacity: 0.8 });
       arc._isResult = true; arc.addTo(map); radiusRef.current.layers.push(arc);
 
-      // Walk V metres along arc from first point → place sight marker
+      // Turn start dot (green)
+      if (turnStart) {
+        const dStart = L.circleMarker(turnStart, { radius: 5, color: "#27ae60", fillColor: "#27ae60", fillOpacity: 1, weight: 1.5, pane: "markerPane" });
+        dStart._isResult = true; dStart.addTo(map); radiusRef.current.layers.push(dStart);
+      }
+
+      // Turn end dot (green)
+      if (turnEnd) {
+        const dEnd = L.circleMarker(turnEnd, { radius: 5, color: "#27ae60", fillColor: "#27ae60", fillOpacity: 1, weight: 1.5, pane: "markerPane" });
+        dEnd._isResult = true; dEnd.addTo(map); radiusRef.current.layers.push(dEnd);
+      }
+
+      // Sight distance marker: walk V metres along arc from turn start
       let walked = 0;
       let sightPt = arcPts[arcPts.length - 1];
       for (let i = 1; i < arcPts.length; i++) {
         const segD = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
         if (walked + segD >= V) {
           const frac = (V - walked) / segD;
-          sightPt = [
-            arcPts[i-1][0] + frac * (arcPts[i][0] - arcPts[i-1][0]),
-            arcPts[i-1][1] + frac * (arcPts[i][1] - arcPts[i-1][1]),
-          ];
+          sightPt = [arcPts[i-1][0] + frac*(arcPts[i][0]-arcPts[i-1][0]), arcPts[i-1][1] + frac*(arcPts[i][1]-arcPts[i-1][1])];
           break;
         }
         walked += segD;
       }
 
-      // Just a dot at sight distance
       const sightDot = L.circleMarker(sightPt, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" });
       sightDot._isResult = true; sightDot.addTo(map); radiusRef.current.layers.push(sightDot);
 
-      if (setRadiusResult) setRadiusResult(`R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h · Sight=${V.toFixed(1)}m`);
+      // Arc length for info
+      let arcLen = 0;
+      for (let i = 1; i < arcPts.length; i++) arcLen += L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
+
+      if (setRadiusResult) setRadiusResult(`R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h · Arc=${arcLen.toFixed(0)}m`);
     };
 
     const onClick = (e) => {
