@@ -872,154 +872,129 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     drawToolRef.current = { layers: [], lastPt: null, mode: "line" };
   };
 
-  // ── Radius tool — draw freehand curve along road bend, compute best-fit circle ──
-  const radiusRef = useRef({ pts: [], layers: [], drawing: false });
+  // ── Radius tool — click points on curve, compute R, V=6.67√R, draw sight line ──
+  const radiusRef = useRef({ pts: [], layers: [] });
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
     const L = window.L;
     const map = mapInstanceRef.current;
 
     radiusRef.current.layers.forEach(l => map.removeLayer(l));
-    radiusRef.current = { pts: [], layers: [], drawing: false };
+    radiusRef.current = { pts: [], layers: [] };
 
     if (mapTool !== "radius") return;
-
     map.getContainer().style.cursor = "crosshair";
+
+    const mPerLat = 111320;
+    const mPerLng = 111320 * Math.cos(-31.97 * Math.PI / 180);
 
     const fitCircle = (pts) => {
       if (pts.length < 3) return null;
       const n = pts.length;
       const cLat = pts.reduce((s, p) => s + p.lat, 0) / n;
       const cLng = pts.reduce((s, p) => s + p.lng, 0) / n;
-      const mPerLat = 111320;
-      const mPerLng = 111320 * Math.cos(cLat * Math.PI / 180);
       const mPts = pts.map(p => ({ x: (p.lng - cLng) * mPerLng, y: (p.lat - cLat) * mPerLat }));
-      let sumX=0,sumY=0,sumX2=0,sumY2=0,sumXY=0,sumX3=0,sumY3=0,sumX2Y=0,sumXY2=0;
-      for (const p of mPts) { sumX+=p.x; sumY+=p.y; sumX2+=p.x*p.x; sumY2+=p.y*p.y; sumXY+=p.x*p.y; sumX3+=p.x*p.x*p.x; sumY3+=p.y*p.y*p.y; sumX2Y+=p.x*p.x*p.y; sumXY2+=p.x*p.y*p.y; }
-      const A=n*sumX2-sumX*sumX, B=n*sumXY-sumX*sumY, C=n*sumY2-sumY*sumY;
-      const D=0.5*(n*sumX3+n*sumXY2-sumX*sumX2-sumX*sumY2);
-      const E=0.5*(n*sumX2Y+n*sumY3-sumY*sumX2-sumY*sumY2);
-      const denom=A*C-B*B;
-      if (Math.abs(denom)<1e-10) return null;
-      const cx=(D*C-B*E)/denom, cy=(A*E-B*D)/denom;
+      let sX=0,sY=0,sX2=0,sY2=0,sXY=0,sX3=0,sY3=0,sX2Y=0,sXY2=0;
+      for (const p of mPts) { sX+=p.x; sY+=p.y; sX2+=p.x*p.x; sY2+=p.y*p.y; sXY+=p.x*p.y; sX3+=p.x**3; sY3+=p.y**3; sX2Y+=p.x*p.x*p.y; sXY2+=p.x*p.y*p.y; }
+      const A=n*sX2-sX*sX, B=n*sXY-sX*sY, C=n*sY2-sY*sY;
+      const D=0.5*(n*sX3+n*sXY2-sX*sX2-sX*sY2);
+      const E=0.5*(n*sX2Y+n*sY3-sY*sX2-sY*sY2);
+      const det=A*C-B*B;
+      if (Math.abs(det)<1e-10) return null;
+      const cx=(D*C-B*E)/det, cy=(A*E-B*D)/det;
       const r=Math.sqrt(mPts.reduce((s,p)=>s+(p.x-cx)**2+(p.y-cy)**2,0)/n);
       return { lat: cLat+cy/mPerLat, lng: cLng+cx/mPerLng, radius: r };
     };
 
-    const showResult = () => {
-      // Remove old circle/labels/curve
-      radiusRef.current.layers.filter(l => l._isCircle || l._isLabel || l._isCurve).forEach(l => map.removeLayer(l));
-      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isCircle && !l._isLabel && !l._isCurve);
+    const redraw = () => {
+      // Remove drawn elements (keep click dots)
+      radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
+      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
 
       const pts = radiusRef.current.pts;
-      if (pts.length < 5) return;
+      if (pts.length < 3) return;
 
-      const sample = pts.length > 30 ? pts.filter((_,i) => i % Math.floor(pts.length/30) === 0) : pts;
-      const circle = fitCircle(sample);
+      const circle = fitCircle(pts);
       if (!circle || circle.radius <= 0 || circle.radius > 5000) return;
 
-      const mPerLat = 111320;
-      const mPerLng = 111320 * Math.cos(circle.lat * Math.PI / 180);
+      const R = circle.radius;
+      const V = 6.67 * Math.sqrt(R); // speed from radius
 
-      // Compute start and end angles of the arc
-      const startPt = pts[0];
-      const endPt = pts[pts.length - 1];
-      let startAngle = Math.atan2((startPt.lng - circle.lng) * mPerLng, (startPt.lat - circle.lat) * mPerLat);
-      let endAngle = Math.atan2((endPt.lng - circle.lng) * mPerLng, (endPt.lat - circle.lat) * mPerLat);
-
-      // Determine arc direction (CW vs CCW) from the drawn points
+      // Smooth arc through points
+      const startAngle = Math.atan2((pts[0].lng - circle.lng) * mPerLng, (pts[0].lat - circle.lat) * mPerLat);
+      const endAngle = Math.atan2((pts[pts.length-1].lng - circle.lng) * mPerLng, (pts[pts.length-1].lat - circle.lat) * mPerLat);
       const midPt = pts[Math.floor(pts.length / 2)];
       const midAngle = Math.atan2((midPt.lng - circle.lng) * mPerLng, (midPt.lat - circle.lat) * mPerLat);
-      // Normalize angles
-      const normAngle = (a) => ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-      let sa = normAngle(startAngle), ea = normAngle(endAngle), ma = normAngle(midAngle);
-      // Check if mid angle is between start and end going CW
-      const isBetweenCW = (sa <= ea) ? (ma >= sa && ma <= ea) : (ma >= sa || ma <= ea);
-      if (!isBetweenCW) { const tmp = sa; sa = ea; ea = tmp; } // Swap to ensure arc goes through mid
-
-      // Generate smooth arc points (64 segments)
-      const arcPts = [];
-      const steps = 64;
+      const norm = (a) => ((a % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+      let sa = norm(startAngle), ea = norm(endAngle), ma = norm(midAngle);
+      const between = (sa <= ea) ? (ma >= sa && ma <= ea) : (ma >= sa || ma <= ea);
+      if (!between) { const t = sa; sa = ea; ea = t; }
       let sweep = ea - sa;
       if (sweep <= 0) sweep += 2 * Math.PI;
-      for (let i = 0; i <= steps; i++) {
-        const angle = sa + (sweep * i / steps);
-        const lat = circle.lat + (circle.radius * Math.cos(angle)) / mPerLat;
-        const lng = circle.lng + (circle.radius * Math.sin(angle)) / mPerLng;
-        arcPts.push([lat, lng]);
+
+      // Draw smooth arc
+      const arcPts = [];
+      for (let i = 0; i <= 64; i++) {
+        const a = sa + (sweep * i / 64);
+        arcPts.push([circle.lat + (R * Math.cos(a)) / mPerLat, circle.lng + (R * Math.sin(a)) / mPerLng]);
       }
-
-      // Draw smooth arc (solid orange)
-      const arcLine = L.polyline(arcPts, { color: "#ff9800", weight: 3, opacity: 0.9 });
-      arcLine._isCurve = true; arcLine.addTo(map); radiusRef.current.layers.push(arcLine);
-
-      // Best-fit circle (dashed, subtle)
-      const c = L.circle([circle.lat, circle.lng], { radius: circle.radius, color: "#ff9800", weight: 1, fillColor: "#ff9800", fillOpacity: 0.03, dashArray: "6,6" });
-      c._isCircle = true; c.addTo(map); radiusRef.current.layers.push(c);
-
-      // Start and end dots
-      const dotStart = L.circleMarker(arcPts[0], { radius: 5, color: "#ff9800", fillColor: "#fff", fillOpacity: 1, weight: 2.5 });
-      dotStart._isCurve = true; dotStart.addTo(map); radiusRef.current.layers.push(dotStart);
-      const dotEnd = L.circleMarker(arcPts[arcPts.length-1], { radius: 5, color: "#ff9800", fillColor: "#fff", fillOpacity: 1, weight: 2.5 });
-      dotEnd._isCurve = true; dotEnd.addTo(map); radiusRef.current.layers.push(dotEnd);
-
-      // Centre dot
-      const cDot = L.circleMarker([circle.lat, circle.lng], { radius: 4, color: "#ff9800", fillColor: "#ff9800", fillOpacity: 1, weight: 1 });
-      cDot._isCircle = true; cDot.addTo(map); radiusRef.current.layers.push(cDot);
-
-      // Radius line from centre to arc midpoint
-      const arcMid = arcPts[Math.floor(arcPts.length / 2)];
-      const rLine = L.polyline([[circle.lat, circle.lng], arcMid], { color: "#ff9800", weight: 1.5, dashArray: "4,4" });
-      rLine._isCircle = true; rLine.addTo(map); radiusRef.current.layers.push(rLine);
+      const arc = L.polyline(arcPts, { color: "#ff9800", weight: 2.5, opacity: 0.9 });
+      arc._isResult = true; arc.addTo(map); radiusRef.current.layers.push(arc);
 
       // R label at centre
-      const label = L.marker([circle.lat, circle.lng], { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#ff9800;color:#fff;padding:3px 12px;border-radius:6px;font-size:12px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.3)">R = ${circle.radius.toFixed(1)}m</div>`, iconAnchor: [35, -12] }) });
-      label._isLabel = true; label.addTo(map); radiusRef.current.layers.push(label);
+      const cDot = L.circleMarker([circle.lat, circle.lng], { radius: 3, color: "#ff9800", fillColor: "#ff9800", fillOpacity: 1, weight: 1 });
+      cDot._isResult = true; cDot.addTo(map); radiusRef.current.layers.push(cDot);
+      const rLabel = L.marker([circle.lat, circle.lng], { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#ff9800;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif">R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h</div>`, iconAnchor: [50, -8] }) });
+      rLabel._isResult = true; rLabel.addTo(map); radiusRef.current.layers.push(rLabel);
 
-      // Arc length
-      const arcLen = circle.radius * sweep;
-      const arcLabel = L.marker(arcMid, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#e65100;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:600;white-space:nowrap;font-family:sans-serif">Arc: ${arcLen.toFixed(1)}m</div>`, iconAnchor: [25, 15] }) });
-      arcLabel._isLabel = true; arcLabel.addTo(map); radiusRef.current.layers.push(arcLabel);
+      // Compute sight line position: V metres along curve from first point
+      // Walk along arc to find point at distance V
+      const arcLen = R * sweep;
+      const vDist = V; // sight distance in metres
+      let walked = 0;
+      let sightPt = arcPts[arcPts.length - 1]; // fallback to end
+      for (let i = 1; i < arcPts.length; i++) {
+        const segD = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
+        if (walked + segD >= vDist) {
+          const frac = (vDist - walked) / segD;
+          sightPt = [
+            arcPts[i-1][0] + frac * (arcPts[i][0] - arcPts[i-1][0]),
+            arcPts[i-1][1] + frac * (arcPts[i][1] - arcPts[i-1][1]),
+          ];
+          break;
+        }
+        walked += segD;
+      }
 
-      if (setRadiusResult) setRadiusResult(`R = ${circle.radius.toFixed(1)}m · Arc = ${arcLen.toFixed(1)}m`);
+      // Draw sight line perpendicular to road at sightPt
+      // Get tangent direction at sightPt on the arc
+      const sightAngle = Math.atan2((sightPt[1] - circle.lng) * mPerLng, (sightPt[0] - circle.lat) * mPerLat);
+      const tangent = sightAngle + Math.PI / 2; // perpendicular to radius = tangent
+      const perpToRoad = tangent + Math.PI / 2; // perpendicular to tangent = across road
+      const lineLen = 0.00015; // ~15m visual extension each side
+      const sightA = [sightPt[0] + Math.cos(perpToRoad) * lineLen, sightPt[1] + Math.sin(perpToRoad) * lineLen];
+      const sightB = [sightPt[0] - Math.cos(perpToRoad) * lineLen, sightPt[1] - Math.sin(perpToRoad) * lineLen];
+
+      const sightLine = L.polyline([sightA, sightB], { color: "#e74c3c", weight: 3, opacity: 0.9 });
+      sightLine._isResult = true; sightLine.addTo(map); radiusRef.current.layers.push(sightLine);
+
+      // Dot at sight point
+      const sightDot = L.circleMarker(sightPt, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1 });
+      sightDot._isResult = true; sightDot.addTo(map); radiusRef.current.layers.push(sightDot);
+
+      // V label at sight line
+      const vLabel = L.marker(sightPt, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;white-space:nowrap;font-family:sans-serif">V=${V.toFixed(0)}km/h · ${vDist.toFixed(1)}m</div>`, iconAnchor: [40, 18] }) });
+      vLabel._isResult = true; vLabel.addTo(map); radiusRef.current.layers.push(vLabel);
+
+      if (setRadiusResult) setRadiusResult(`R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h · Sight=${vDist.toFixed(1)}m`);
     };
 
-    // Freehand drawing — mousedown starts, mousemove collects, mouseup finishes + smooth
-    let rawPolyline = null;
-
-    const onMouseDown = (e) => {
-      L.DomEvent.stopPropagation(e);
-      radiusRef.current.drawing = true;
-      radiusRef.current.pts = [e.latlng];
-      map.dragging.disable();
-      // Thin guide line while drawing
-      rawPolyline = L.polyline([e.latlng], { color: "#ff980060", weight: 2, dashArray: "3,3" }).addTo(map);
-      radiusRef.current.layers.push(rawPolyline);
-    };
-
-    const onMouseMove = (e) => {
-      if (!radiusRef.current.drawing) return;
-      radiusRef.current.pts.push(e.latlng);
-      if (rawPolyline) rawPolyline.addLatLng(e.latlng);
-    };
-
-    const onMouseUp = (e) => {
-      if (!radiusRef.current.drawing) return;
-      radiusRef.current.drawing = false;
-      map.dragging.enable();
-      // Remove raw guide line
-      if (rawPolyline) { map.removeLayer(rawPolyline); radiusRef.current.layers = radiusRef.current.layers.filter(l => l !== rawPolyline); rawPolyline = null; }
-      showResult();
-    };
-
-    // Also support click mode for precise points
     const onClick = (e) => {
-      if (radiusRef.current.drawing) return;
       L.DomEvent.stopPropagation(e);
       radiusRef.current.pts.push(e.latlng);
       const dot = L.circleMarker(e.latlng, { radius: 4, color: "#ff9800", fillColor: "#fff", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
       radiusRef.current.layers.push(dot);
-      if (radiusRef.current.pts.length >= 3) showResult();
+      if (radiusRef.current.pts.length >= 3) redraw();
     };
 
     const onDblClick = (e) => {
@@ -1027,21 +1002,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       radiusRef.current.pts = [];
     };
 
-    map.on("mousedown", onMouseDown);
-    map.on("mousemove", onMouseMove);
-    map.on("mouseup", onMouseUp);
     map.on("preclick", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("mousedown", onMouseDown);
-      map.off("mousemove", onMouseMove);
-      map.off("mouseup", onMouseUp);
       map.off("preclick", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
-      map.dragging.enable();
       map.getContainer().style.cursor = "";
     };
   }, [mapTool, leafletLoaded]);
