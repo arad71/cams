@@ -765,13 +765,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         if (snap) {
           const dot = L.circleMarker(snap.point, { radius: 5, color: "#66bb6a", fillColor: "#66bb6a", fillOpacity: 0.9, weight: 1.5, pane: "markerPane" }).addTo(map);
           offsetRef.current.layers.push(dot);
-          setOffsetState(s => ({ ...s, step: 2, boundary: snap }));
+          // Go directly to step 3 to auto-compute Point A
+          setOffsetState(s => ({ ...s, step: 3, boundary: snap }));
         }
       }
     };
 
-    // Step 3: compute offset point A, project B on road, just show points + triangle
-    if (offsetState.step === 3 && offsetState.road && offsetState.boundary) {
+    // Step 3: auto-compute offset point A and B, show as dots
+    if (offsetState.step >= 2 && offsetState.road && offsetState.boundary) {
       const roadPt = offsetState.road.point;
       const bndSnap = offsetState.boundary;
       const bndA = bndSnap.a, bndB = bndSnap.b;
