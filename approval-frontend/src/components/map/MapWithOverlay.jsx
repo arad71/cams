@@ -790,28 +790,6 @@ Respond with JSON only:
             ))}
           </div> */}
 
-          {/* Boundary distances from A to each lot side */}
-          <div style={{ padding: "0 16px 12px" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>
-              📐 Distance from Point A to lot boundary
-              {sightTriangle.ptALotInfo && (
-                <span style={{ fontWeight: 400, textTransform: "none", marginLeft: 6, color: "#2980b9" }}>
-                  — {[sightTriangle.ptALotInfo.road_number_1, sightTriangle.ptALotInfo.road_name, sightTriangle.ptALotInfo.road_type, sightTriangle.ptALotInfo.locality].filter(Boolean).join(" ")}
-                  {sightTriangle.ptALotInfo.lot_number && ` (Lot ${sightTriangle.ptALotInfo.lot_number})`}
-                </span>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-              {(sightTriangle.boundaryDists || []).map((bd, i) => (
-                <div key={i} style={{ flex: "1 1 110px", padding: "6px 10px", borderRadius: 6, fontSize: 11, minWidth: 100,
-                  background: i === 0 ? "#fdf2f2" : "#f8fafb", border: i === 0 ? "2px solid #e74c3c" : "1px solid #eef2f4" }}>
-                  <div style={{ fontWeight: 800, color: i === 0 ? "#e74c3c" : "#1a3a4a", fontSize: 16 }}>→ {bd.distLabel}m</div>
-                  <div style={{ color: "#7a8a94", fontSize: 9 }}>Side {bd.idx + 1} ({bd.sideLen}m){i === 0 ? " — nearest" : ""}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Info panels */}
           {/* <div style={{ padding: "0 16px 12px" }}>
               <div style={{
