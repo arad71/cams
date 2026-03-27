@@ -750,110 +750,87 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
     };
 
-    // Auto-compute: Point A in front of lot, Point B perpendicular on road centreline
+    // Point A = intersection of:
+    //   Line parallel to road, xM (2.5m) from verge toward lot
+    //   Line parallel to boundary/fence, yM (4m) inside lot
+    // Point B = perpendicular foot from A onto road centreline
     if (offsetState.step >= 2 && offsetState.road && offsetState.boundary) {
       const roadPt = offsetState.road.point;
       const bndPt = offsetState.boundary.point;
-      const xM = offsetState.x;
+      const xM = offsetState.x; // from verge
+      const yM = offsetState.y; // from fence
 
       const mPerLat = 111320;
       const mPerLng = 111320 * Math.cos(roadPt.lat * Math.PI / 180);
 
-      // Find the nearest road SEGMENT (not just point) to get direction
-      let roadSegA = roadPt, roadSegB = L.latLng(roadPt.lat, roadPt.lng + 0.0001);
-      const rdSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
-      let bestRdDist = Infinity;
-      for (const src of rdSources) {
+      // Find road segment
+      let rA = roadPt, rB = L.latLng(roadPt.lat, roadPt.lng + 0.0001);
+      let bestD = Infinity;
+      for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
         for (const f of src.features) {
-          const coords = f.geometry?.coordinates;
-          if (!coords || f.geometry?.type !== "LineString") continue;
-          for (let i = 0; i < coords.length - 1; i++) {
-            const a = L.latLng(coords[i][1], coords[i][0]);
-            const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-            // Project roadPt onto this segment
-            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat;
-            const dx = bx-ax, dy = by-ay, lenSq = dx*dx+dy*dy;
-            if (lenSq < 1e-20) continue;
-            const t = Math.max(0, Math.min(1, ((roadPt.lng-ax)*dx + (roadPt.lat-ay)*dy) / lenSq));
-            const proj = L.latLng(ay + t*dy, ax + t*dx);
-            const d = roadPt.distanceTo(proj);
-            if (d < bestRdDist) { bestRdDist = d; roadSegA = a; roadSegB = b; }
+          const c = f.geometry?.coordinates;
+          if (!c || f.geometry?.type !== "LineString") continue;
+          for (let i = 0; i < c.length - 1; i++) {
+            const a = L.latLng(c[i][1], c[i][0]), b = L.latLng(c[i+1][1], c[i+1][0]);
+            const d = roadPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2));
+            if (d < bestD) { bestD = d; rA = a; rB = b; }
           }
         }
       }
 
-      // Road direction vector in metres
-      const rdDx = (roadSegB.lng - roadSegA.lng) * mPerLng;
-      const rdDy = (roadSegB.lat - roadSegA.lat) * mPerLat;
-      const rdLen = Math.sqrt(rdDx*rdDx + rdDy*rdDy);
-      if (rdLen < 0.01) return;
-      // Unit vectors: along road and perpendicular
-      const rdUx = rdDx / rdLen, rdUy = rdDy / rdLen;  // unit along road
-      const rdPerpX = -rdUy, rdPerpY = rdUx;            // unit perp to road
+      // Road unit vectors (metres)
+      const rdx = (rB.lng-rA.lng)*mPerLng, rdy = (rB.lat-rA.lat)*mPerLat;
+      const rdL = Math.sqrt(rdx*rdx+rdy*rdy);
+      if (rdL > 0.01) {
+        const rux = rdx/rdL, ruy = rdy/rdL; // along road
+        const rpx = -ruy, rpy = rux;         // perp to road
 
-      // Which perpendicular direction is toward lot?
-      const towardBnd = (bndPt.lat - roadPt.lat) * mPerLat * rdPerpY + (bndPt.lng - roadPt.lng) * mPerLng * rdPerpX;
-      const lotSign = towardBnd >= 0 ? 1 : -1;
+        // Which perp side is toward lot?
+        const d2b = (bndPt.lng-roadPt.lng)*mPerLng*rpx + (bndPt.lat-roadPt.lat)*mPerLat*rpy;
+        const ls = d2b >= 0 ? 1 : -1;
 
-      // Boundary direction vector in metres
-      const bndA = offsetState.boundary.a, bndB = offsetState.boundary.b;
-      const bndDx = (bndB.lng - bndA.lng) * mPerLng;
-      const bndDy = (bndB.lat - bndA.lat) * mPerLat;
-      const bndLen = Math.sqrt(bndDx*bndDx + bndDy*bndDy);
-      if (bndLen < 0.01) return;
-      const bndUx = bndDx / bndLen, bndUy = bndDy / bndLen;  // unit along boundary
-      const bndPerpX = -bndUy, bndPerpY = bndUx;              // unit perp to boundary
+        // Boundary unit vectors
+        const ba = offsetState.boundary.a, bb = offsetState.boundary.b;
+        const bx = (bb.lng-ba.lng)*mPerLng, by = (bb.lat-ba.lat)*mPerLat;
+        const bL = Math.sqrt(bx*bx+by*by);
+        const bux = bL>0.01?bx/bL:0, buy = bL>0.01?by/bL:1;
+        const bpx = -buy, bpy = bux; // perp to boundary
 
-      // Which perp direction is INTO the lot (away from road)?
-      const towardRd = (roadPt.lat - bndPt.lat) * mPerLat * bndPerpY + (roadPt.lng - bndPt.lng) * mPerLng * bndPerpX;
-      const bndSign = towardRd >= 0 ? -1 : 1; // opposite of toward road = into lot
+        // Which perp of boundary goes INTO lot (away from road)?
+        const d2r = (roadPt.lng-bndPt.lng)*mPerLng*bpx + (roadPt.lat-bndPt.lat)*mPerLat*bpy;
+        const fs = d2r >= 0 ? -1 : 1;
 
-      // LINE 1: parallel to road, X metres from road toward lot
-      // A point on this line (in metres from roadPt):
-      const l1Ox = lotSign * xM * rdPerpX;  // offset from road
-      const l1Oy = lotSign * xM * rdPerpY;
-      // Direction: along road (rdUx, rdUy)
+        // Line 1: parallel to road, xM from road toward lot
+        // Origin (metres from rA): roadPt projected + offset perp
+        const r0x = (roadPt.lng-rA.lng)*mPerLng + ls*xM*rpx;
+        const r0y = (roadPt.lat-rA.lat)*mPerLat + ls*xM*rpy;
 
-      // LINE 2: parallel to boundary, Y metres inside lot from boundary
-      // A point on this line (in metres from bndPt):
-      const l2Ox = (bndPt.lng - roadPt.lng) * mPerLng + bndSign * yM * bndPerpX;
-      const l2Oy = (bndPt.lat - roadPt.lat) * mPerLat + bndSign * yM * bndPerpY;
-      // Direction: along boundary (bndUx, bndUy)
+        // Line 2: parallel to boundary, yM from fence into lot
+        const b0x = (bndPt.lng-rA.lng)*mPerLng + fs*yM*bpx;
+        const b0y = (bndPt.lat-rA.lat)*mPerLat + fs*yM*bpy;
 
-      // Intersect: l1O + t * rdU = l2O + s * bndU
-      // t * rdUx - s * bndUx = l2Ox - l1Ox
-      // t * rdUy - s * bndUy = l2Oy - l1Oy
-      const det = rdUx * (-bndUy) - rdUy * (-bndUx);
-      let ptA;
-      if (Math.abs(det) > 1e-10) {
-        const dOx = l2Ox - l1Ox, dOy = l2Oy - l1Oy;
-        const t = (dOx * (-bndUy) - dOy * (-bndUx)) / det;
-        ptA = L.latLng(
-          roadPt.lat + (l1Oy + t * rdUy) / mPerLat,
-          roadPt.lng + (l1Ox + t * rdUx) / mPerLng
-        );
-      } else {
-        // Lines parallel — fallback: just offset from road
-        ptA = L.latLng(
-          roadPt.lat + (lotSign * xM * rdPerpY) / mPerLat,
-          roadPt.lng + (lotSign * xM * rdPerpX) / mPerLng
-        );
+        // Intersect: r0 + t*ruDir = b0 + s*buDir
+        const det = rux*(-buy) - ruy*(-bux);
+        let ptA;
+        if (Math.abs(det) > 1e-8) {
+          const dx = b0x-r0x, dy = b0y-r0y;
+          const t = (dx*(-buy) - dy*(-bux)) / det;
+          ptA = L.latLng(rA.lat + (r0y + t*ruy)/mPerLat, rA.lng + (r0x + t*rux)/mPerLng);
+        } else {
+          ptA = L.latLng(rA.lat + r0y/mPerLat, rA.lng + r0x/mPerLng);
+        }
+
+        // Point B: drop perpendicular from A to road centreline
+        const ax = (ptA.lng-rA.lng)*mPerLng, ay = (ptA.lat-rA.lat)*mPerLat;
+        const pt = ax*rux + ay*ruy;
+        const ptB = L.latLng(rA.lat + (pt*ruy)/mPerLat, rA.lng + (pt*rux)/mPerLng);
+
+        // Show dots + thin line
+        const dotA = L.circleMarker(ptA, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
+        const dotB = L.circleMarker(ptB, { radius: 5, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
+        const lineAB = L.polyline([ptA, ptB], { color: "#95a5a6", weight: 1, dashArray: "3,3", opacity: 0.5 }).addTo(map);
+        offsetRef.current.layers.push(dotA, dotB, lineAB);
       }
-
-      // Point B = perpendicular drop from A onto road centreline
-      const apx = (ptA.lng - roadSegA.lng) * mPerLng;
-      const apy = (ptA.lat - roadSegA.lat) * mPerLat;
-      const projT = (apx * rdUx + apy * rdUy);
-      const ptB = L.latLng(
-        roadSegA.lat + (projT * rdUy) / mPerLat,
-        roadSegA.lng + (projT * rdUx) / mPerLng
-      );
-
-      // Show dots and thin perpendicular line
-      const dotA = L.circleMarker(ptA, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
-      const dotB = L.circleMarker(ptB, { radius: 5, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
-      const lineAB = L.polyline([ptA, ptB], { color: "#95a5a6", weight: 1, dashArray: "3,3", opacity: 0.5 }).addTo(map);
-      offsetRef.current.layers.push(dotA, dotB, lineAB);
     }
 
     map.on("preclick", onClick);
