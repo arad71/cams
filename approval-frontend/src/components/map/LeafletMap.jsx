@@ -38,7 +38,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (!leafletLoaded || !mapRef.current || mapInstanceRef.current) return;
     const L = window.L;
     const map = L.map(mapRef.current, { zoomControl: true, attributionControl: true }).setView([-31.97, 116.06], 13);
-    tileLayerRef.current = L.tileLayer(TILE_LAYERS.street.url, { attribution: TILE_LAYERS.street.attr, maxZoom: 19 }).addTo(map);
+    tileLayerRef.current = L.tileLayer(TILE_LAYERS.street.url, { attribution: TILE_LAYERS.street.attr, maxZoom: 22 }).addTo(map);
     mapInstanceRef.current = map;
 
     // Inject clean tooltip style
@@ -58,7 +58,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     const L = window.L;
     const layer = forceLayer || activeLayer;
     mapInstanceRef.current.removeLayer(tileLayerRef.current);
-    tileLayerRef.current = L.tileLayer(TILE_LAYERS[layer].url, { attribution: TILE_LAYERS[layer].attr, maxZoom: 19 }).addTo(mapInstanceRef.current);
+    tileLayerRef.current = L.tileLayer(TILE_LAYERS[layer].url, { attribution: TILE_LAYERS[layer].attr, maxZoom: 22 }).addTo(mapInstanceRef.current);
   }, [activeLayer, forceLayer]);
 
   // Add markers for applications — if selectedApp exists, show only that one
@@ -254,15 +254,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const makeIcon = (label, color) => L.divIcon({
       className: '',
-      html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;font-family:sans-serif;pointer-events:none">${label}</div>`,
-      iconSize: [24, 24], iconAnchor: [12, 12]
+      html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;font-family:sans-serif;pointer-events:none">${label}</div>`,
+      iconSize: [18, 18], iconAnchor: [9, 9]
     });
 
-    // Point A — create once, then just update position
+    // Point A
     if (ptA) {
       if (!sightMarkerA.current) {
         sightMarkerA.current = L.marker([ptA.lat, ptA.lng], { icon: makeIcon('A', '#e74c3c'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
-
         sightMarkerA.current.on('dragend', () => {
           const ll = sightMarkerA.current.getLatLng();
           if (onDragRef.current) onDragRef.current('A', { lat: ll.lat, lng: ll.lng });
@@ -272,11 +271,10 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
     }
 
-    // Point B — create once, then just update position
+    // Point B
     if (ptB) {
       if (!sightMarkerB.current) {
         sightMarkerB.current = L.marker([ptB.lat, ptB.lng], { icon: makeIcon('B', '#2980b9'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
-
         sightMarkerB.current.on('dragend', () => {
           const ll = sightMarkerB.current.getLatLng();
           if (onDragRef.current) onDragRef.current('B', { lat: ll.lat, lng: ll.lng });
@@ -285,33 +283,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         sightMarkerB.current.setLatLng([ptB.lat, ptB.lng]);
       }
     }
-    // Triangle polygon (A, triLeft, triRight)
+
+    // Triangle polygon only — thin lines, no labels
     if (triLeft && triRight && ptA) {
       const compliant = analysis?.compliant !== false;
       const tri = L.polygon([[ptA.lat, ptA.lng], [triLeft.lat, triLeft.lng], [triRight.lat, triRight.lng]], {
-        color: compliant ? '#27ae60' : '#e74c3c', weight: 2.5, fillColor: compliant ? '#27ae60' : '#e74c3c', fillOpacity: compliant ? 0.15 : 0.2, dashArray: compliant ? null : '6,4',
+        color: compliant ? '#27ae60' : '#e74c3c', weight: 1.5, fillColor: compliant ? '#27ae60' : '#e74c3c', fillOpacity: compliant ? 0.08 : 0.12, dashArray: compliant ? null : '5,3',
       }).addTo(mapInstanceRef.current);
       triLayersRef.current.push(tri);
-  }
-    // Arrow lines from ptA to nearest point on each lot boundary side
-    const bdColors = ['#e74c3c', '#e67e22', '#f39c12', '#2ecc71', '#3498db', '#9b59b6', '#1abc9c'];
-    if (sightTriangle.boundaryDists && ptA) {
-      sightTriangle.boundaryDists.forEach((bd, i) => {
-        const clr = bdColors[i % bdColors.length];
-        // Dashed arrow line from ptA to nearest point on this side
-        const al = L.polyline([[ptA.lat, ptA.lng], [bd.nearPt.lat, bd.nearPt.lng]], {
-          color: clr, weight: i === 0 ? 3 : 1.5, dashArray: i === 0 ? '8,4' : '4,6', opacity: i === 0 ? 0.9 : 0.5
-        }).addTo(mapInstanceRef.current);
-        triLayersRef.current.push(al);
-        // Distance label at midpoint
-        const midLat = (ptA.lat + bd.nearPt.lat) / 2, midLng = (ptA.lng + bd.nearPt.lng) / 2;
-        const lbl = L.marker([midLat, midLng], { icon: L.divIcon({ className:'', html:`<div style="background:${clr};color:#fff;padding:2px 6px;border-radius:3px;font-size:${i===0?11:9}px;font-weight:700;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.2);white-space:nowrap;">→ ${bd.distLabel}m ${i===0?'(nearest)':''}</div>`, iconAnchor:[40,10]})}).addTo(mapInstanceRef.current);
-        triLayersRef.current.push(lbl);
-        // Small marker at the nearest point on boundary side
-        const pm = L.circleMarker([bd.nearPt.lat, bd.nearPt.lng], { radius: i === 0 ? 5 : 3, color: clr, weight: 2, fillColor: '#fff', fillOpacity: 1 })
-          .bindTooltip(`Side ${bd.idx+1}: ${bd.distLabel}m (${bd.sideLen}m long)`, { direction: 'bottom' }).addTo(mapInstanceRef.current);
-        triLayersRef.current.push(pm);
-      });
     }
   }, [sightTriangle, leafletLoaded]);
 
@@ -771,17 +750,16 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
     };
 
-    // Auto-compute: Point A in front of lot, Point B on road centreline
+    // Auto-compute: Point A in front of lot, Point B perpendicular on road centreline
     if (offsetState.step >= 2 && offsetState.road && offsetState.boundary) {
-      const roadPt = offsetState.road.point; // snapped point on road
-      const bndPt = offsetState.boundary.point; // snapped point on boundary
-      const xM = offsetState.x; // metres from road verge
-      const yM = offsetState.y; // metres from boundary fence
+      const roadPt = offsetState.road.point;
+      const bndPt = offsetState.boundary.point;
+      const xM = offsetState.x;
 
       const mPerLat = 111320;
       const mPerLng = 111320 * Math.cos(roadPt.lat * Math.PI / 180);
 
-      // Road direction: find the actual road segment
+      // Find the nearest road SEGMENT (not just point) to get direction
       let roadSegA = roadPt, roadSegB = L.latLng(roadPt.lat, roadPt.lng + 0.0001);
       const rdSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
       let bestRdDist = Infinity;
@@ -792,67 +770,51 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           for (let i = 0; i < coords.length - 1; i++) {
             const a = L.latLng(coords[i][1], coords[i][0]);
             const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-            const d = roadPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2));
+            // Project roadPt onto this segment
+            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat;
+            const dx = bx-ax, dy = by-ay, lenSq = dx*dx+dy*dy;
+            if (lenSq < 1e-20) continue;
+            const t = Math.max(0, Math.min(1, ((roadPt.lng-ax)*dx + (roadPt.lat-ay)*dy) / lenSq));
+            const proj = L.latLng(ay + t*dy, ax + t*dx);
+            const d = roadPt.distanceTo(proj);
             if (d < bestRdDist) { bestRdDist = d; roadSegA = a; roadSegB = b; }
           }
         }
       }
 
-      // Road bearing (direction along road)
-      const rdBearing = Math.atan2(
-        (roadSegB.lng - roadSegA.lng) * mPerLng,
-        (roadSegB.lat - roadSegA.lat) * mPerLat
+      // Road direction vector in metres
+      const rdDx = (roadSegB.lng - roadSegA.lng) * mPerLng;
+      const rdDy = (roadSegB.lat - roadSegA.lat) * mPerLat;
+      const rdLen = Math.sqrt(rdDx*rdDx + rdDy*rdDy);
+      if (rdLen < 0.01) return;
+      // Unit perpendicular to road
+      const perpX = -rdDy / rdLen; // perpendicular in metres
+      const perpY = rdDx / rdLen;
+
+      // Which direction is toward the boundary?
+      const towardBnd = (bndPt.lat - roadPt.lat) * mPerLat * perpY + (bndPt.lng - roadPt.lng) * mPerLng * perpX;
+      const sign = towardBnd >= 0 ? 1 : -1;
+
+      // Project boundary point onto road to get B position
+      const bpx = (bndPt.lng - roadSegA.lng) * mPerLng;
+      const bpy = (bndPt.lat - roadSegA.lat) * mPerLat;
+      const rdUx = rdDx / rdLen, rdUy = rdDy / rdLen;
+      const projDist = bpx * rdUx + bpy * rdUy;
+      const ptB = L.latLng(
+        roadSegA.lat + (projDist * rdUy) / mPerLat,
+        roadSegA.lng + (projDist * rdUx) / mPerLng
       );
 
-      // Perpendicular to road (toward the lot)
-      const rdPerp = rdBearing + Math.PI / 2;
-      // Which side of road is the boundary on?
-      const test1 = L.latLng(roadPt.lat + Math.cos(rdPerp) * 0.0001, roadPt.lng + Math.sin(rdPerp) * 0.0001);
-      const test2 = L.latLng(roadPt.lat - Math.cos(rdPerp) * 0.0001, roadPt.lng - Math.sin(rdPerp) * 0.0001);
-      const perpToLot = bndPt.distanceTo(test1) < bndPt.distanceTo(test2) ? rdPerp : rdPerp + Math.PI;
-
-      // Boundary bearing (direction along fence)
-      const bndA = offsetState.boundary.a, bndB = offsetState.boundary.b;
-      const bndBearing = Math.atan2(
-        (bndB.lng - bndA.lng) * mPerLng,
-        (bndB.lat - bndA.lat) * mPerLat
-      );
-
-      // Perpendicular to boundary (toward lot interior)
-      const bndPerp = bndBearing + Math.PI / 2;
-      const testB1 = L.latLng(bndPt.lat + Math.cos(bndPerp) * 0.0001, bndPt.lng + Math.sin(bndPerp) * 0.0001);
-      const testB2 = L.latLng(bndPt.lat - Math.cos(bndPerp) * 0.0001, bndPt.lng - Math.sin(bndPerp) * 0.0001);
-      const perpFromBnd = roadPt.distanceTo(testB1) < roadPt.distanceTo(testB2) ? bndPerp : bndPerp + Math.PI;
-
-      // Point A: start from boundary point, move Y metres toward road (perpendicular to boundary),
-      // then from road, move X metres toward lot (perpendicular to road)
-      // Simple approach: project boundary point onto road, then offset X from road + Y from boundary
-      
-      // Project boundary snap point onto road line to get the "along road" position
-      const projAx = roadSegA.lng, projAy = roadSegA.lat;
-      const projBx = roadSegB.lng, projBy = roadSegB.lat;
-      const projPx = bndPt.lng, projPy = bndPt.lat;
-      const projDx = projBx - projAx, projDy = projBy - projAy;
-      const projLenSq = projDx * projDx + projDy * projDy;
-      const projT = projLenSq > 0 ? Math.max(0, Math.min(1, ((projPx - projAx) * projDx + (projPy - projAy) * projDy) / projLenSq)) : 0;
-      const roadFootPt = L.latLng(projAy + projT * projDy, projAx + projT * projDx);
-
-      // Point A = roadFootPt + X metres perpendicular toward lot + Y metres along road from boundary
-      // More precisely: move from roadFootPt, X metres toward lot (perpendicular to road)
+      // Point A = B + X metres perpendicular toward lot
       const ptA = L.latLng(
-        roadFootPt.lat + (xM * Math.cos(perpToLot)) / mPerLat,
-        roadFootPt.lng + (xM * Math.sin(perpToLot)) / mPerLng
+        ptB.lat + (xM * sign * perpY) / mPerLat,
+        ptB.lng + (xM * sign * perpX) / mPerLng
       );
 
-      // Point B = perpendicular foot from Point A onto road centreline (same as roadFootPt)
-      const ptB = roadFootPt;
-
-      // Show dots
-      const dotA = L.circleMarker(ptA, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
-      const dotB = L.circleMarker(ptB, { radius: 6, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
-
-      // A→B line
-      const lineAB = L.polyline([ptA, ptB], { color: "#e74c3c", weight: 1.5, dashArray: "4,3", opacity: 0.6 }).addTo(map);
+      // Show dots and thin perpendicular line
+      const dotA = L.circleMarker(ptA, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
+      const dotB = L.circleMarker(ptB, { radius: 5, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
+      const lineAB = L.polyline([ptA, ptB], { color: "#95a5a6", weight: 1, dashArray: "3,3", opacity: 0.5 }).addTo(map);
       offsetRef.current.layers.push(dotA, dotB, lineAB);
     }
 
