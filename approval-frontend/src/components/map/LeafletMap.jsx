@@ -728,10 +728,70 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       return bestDist < 30 ? best : null;
     };
 
+    // Corner lot radius collection ref
+    if (!offsetRef.current.cornerPts) offsetRef.current.cornerPts = [];
+
+    const fitCircle3 = (pts) => {
+      if (pts.length < 3) return null;
+      const n = pts.length;
+      const cLat = pts.reduce((s, p) => s + p.lat, 0) / n;
+      const cLng = pts.reduce((s, p) => s + p.lng, 0) / n;
+      const mPts = pts.map(p => ({ x: (p.lng - cLng) * mPerLng, y: (p.lat - cLat) * mPerLat }));
+      let sX=0,sY=0,sX2=0,sY2=0,sXY=0,sX3=0,sY3=0,sX2Y=0,sXY2=0;
+      for (const p of mPts) { sX+=p.x; sY+=p.y; sX2+=p.x*p.x; sY2+=p.y*p.y; sXY+=p.x*p.y; sX3+=p.x**3; sY3+=p.y**3; sX2Y+=p.x*p.x*p.y; sXY2+=p.x*p.y*p.y; }
+      const A=n*sX2-sX*sX, B=n*sXY-sX*sY, C=n*sY2-sY*sY;
+      const D=0.5*(n*sX3+n*sXY2-sX*sX2-sX*sY2);
+      const E=0.5*(n*sX2Y+n*sY3-sY*sX2-sY*sY2);
+      const det=A*C-B*B;
+      if (Math.abs(det)<1e-10) return null;
+      const cx=(D*C-B*E)/det, cy=(A*E-B*D)/det;
+      const r=Math.sqrt(mPts.reduce((s,p)=>s+(p.x-cx)**2+(p.y-cy)**2,0)/n);
+      return { lat: cLat+cy/mPerLat, lng: cLng+cx/mPerLng, radius: r };
+    };
+
+    const mPerLng2 = 111320 * Math.cos(-31.97 * Math.PI / 180);
+    const mPerLat2 = 111320;
+
     const onClick = (e) => {
       L.DomEvent.stopPropagation(e);
       if (!setOffsetState) return;
 
+      // Corner lot: radius collection phase
+      if (offsetState.isCorner && !offsetState.cornerR && offsetState.step === 0) {
+        offsetRef.current.cornerPts.push(e.latlng);
+        const dot = L.circleMarker(e.latlng, { radius: 4, color: "#ff9800", fillColor: "#fff", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
+        offsetRef.current.layers.push(dot);
+
+        // After 3+ points, show preview arc
+        if (offsetRef.current.cornerPts.length >= 3) {
+          // Remove old preview
+          offsetRef.current.layers.filter(l => l._isCornerPreview).forEach(l => map.removeLayer(l));
+          offsetRef.current.layers = offsetRef.current.layers.filter(l => !l._isCornerPreview);
+
+          const circle = fitCircle3(offsetRef.current.cornerPts);
+          if (circle && circle.radius > 0 && circle.radius < 5000) {
+            const pts = offsetRef.current.cornerPts;
+            const sa = Math.atan2((pts[0].lng-circle.lng)*mPerLng2, (pts[0].lat-circle.lat)*mPerLat2);
+            const ea = Math.atan2((pts[pts.length-1].lng-circle.lng)*mPerLng2, (pts[pts.length-1].lat-circle.lat)*mPerLat2);
+            const ma = Math.atan2((pts[Math.floor(pts.length/2)].lng-circle.lng)*mPerLng2, (pts[Math.floor(pts.length/2)].lat-circle.lat)*mPerLat2);
+            const norm = (a) => ((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+            let s=norm(sa), end=norm(ea), m=norm(ma);
+            const btw = (s<=end)?(m>=s&&m<=end):(m>=s||m<=end);
+            if (!btw) { const t=s; s=end; end=t; }
+            let sw = end-s; if (sw<=0) sw += 2*Math.PI;
+            const arcPts = [];
+            for (let i=0; i<=32; i++) {
+              const a = s + (sw*i/32);
+              arcPts.push([circle.lat + (circle.radius*Math.cos(a))/mPerLat2, circle.lng + (circle.radius*Math.sin(a))/mPerLng2]);
+            }
+            const preview = L.polyline(arcPts, { color: "#ff9800", weight: 2, opacity: 0.6, dashArray: "4,3" });
+            preview._isCornerPreview = true; preview.addTo(map); offsetRef.current.layers.push(preview);
+          }
+        }
+        return;
+      }
+
+      // Normal offset flow: step 0 = road, step 1 = boundary
       if (offsetState.step === 0) {
         const snap = snapToRoad(e.latlng);
         if (snap) {
@@ -744,8 +804,58 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         if (snap) {
           const dot = L.circleMarker(snap.point, { radius: 5, color: "#66bb6a", fillColor: "#66bb6a", fillOpacity: 0.9, weight: 1.5, pane: "markerPane" }).addTo(map);
           offsetRef.current.layers.push(dot);
-          // Go directly to step 3 to auto-compute Point A
           setOffsetState(s => ({ ...s, step: 3, boundary: snap }));
+        }
+      }
+    };
+
+    // Double-click: finish corner radius collection → compute R and V
+    const onDblClick = (e) => {
+      L.DomEvent.stopPropagation(e);
+      if (offsetState.isCorner && !offsetState.cornerR && offsetRef.current.cornerPts.length >= 3) {
+        const circle = fitCircle3(offsetRef.current.cornerPts);
+        if (circle && circle.radius > 0 && circle.radius < 5000) {
+          const R = circle.radius;
+          const V = 6.67 * Math.sqrt(R);
+
+          // Draw final arc (solid)
+          const pts = offsetRef.current.cornerPts;
+          const sa = Math.atan2((pts[0].lng-circle.lng)*mPerLng2, (pts[0].lat-circle.lat)*mPerLat2);
+          const ea = Math.atan2((pts[pts.length-1].lng-circle.lng)*mPerLng2, (pts[pts.length-1].lat-circle.lat)*mPerLat2);
+          const ma = Math.atan2((pts[Math.floor(pts.length/2)].lng-circle.lng)*mPerLng2, (pts[Math.floor(pts.length/2)].lat-circle.lat)*mPerLat2);
+          const norm = (a) => ((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+          let s=norm(sa), end=norm(ea), m=norm(ma);
+          const btw = (s<=end)?(m>=s&&m<=end):(m>=s||m<=end);
+          if (!btw) { const t=s; s=end; end=t; }
+          let sw = end-s; if (sw<=0) sw += 2*Math.PI;
+          // Remove preview
+          offsetRef.current.layers.filter(l => l._isCornerPreview).forEach(l => map.removeLayer(l));
+          offsetRef.current.layers = offsetRef.current.layers.filter(l => !l._isCornerPreview);
+          const arcPts = [];
+          for (let i=0; i<=48; i++) {
+            const a = s + (sw*i/48);
+            arcPts.push([circle.lat + (R*Math.cos(a))/mPerLat2, circle.lng + (R*Math.sin(a))/mPerLng2]);
+          }
+          const finalArc = L.polyline(arcPts, { color: "#ff9800", weight: 2, opacity: 0.8 });
+          offsetRef.current.layers.push(finalArc); finalArc.addTo(map);
+
+          // Sight distance dot on arc
+          let walked = 0; let sightPt = arcPts[arcPts.length-1];
+          for (let i=1; i<arcPts.length; i++) {
+            const d = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
+            if (walked+d >= V) { const f=(V-walked)/d; sightPt=[arcPts[i-1][0]+f*(arcPts[i][0]-arcPts[i-1][0]), arcPts[i-1][1]+f*(arcPts[i][1]-arcPts[i-1][1])]; break; }
+            walked += d;
+          }
+          const sDot = L.circleMarker(sightPt, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" });
+          offsetRef.current.layers.push(sDot); sDot.addTo(map);
+
+          // Turn start/end dots
+          const dStart = L.circleMarker(arcPts[0], { radius: 4, color: "#27ae60", fillColor: "#27ae60", fillOpacity: 1, weight: 1, pane: "markerPane" });
+          const dEnd = L.circleMarker(arcPts[arcPts.length-1], { radius: 4, color: "#27ae60", fillColor: "#27ae60", fillOpacity: 1, weight: 1, pane: "markerPane" });
+          offsetRef.current.layers.push(dStart, dEnd); dStart.addTo(map); dEnd.addTo(map);
+
+          setOffsetState(s => ({ ...s, cornerR: R, cornerV: V }));
+          offsetRef.current.cornerPts = [];
         }
       }
     };
@@ -935,15 +1045,17 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           }
         }
 
-        // Feed A and B into sight triangle
+        // Feed A and B into sight triangle (with corner speed if available)
         if (onOffsetComplete) {
-          onOffsetComplete({ lat: ptA.lat, lng: ptA.lng }, { lat: ptB.lat, lng: ptB.lng });
+          onOffsetComplete({ lat: ptA.lat, lng: ptA.lng }, { lat: ptB.lat, lng: ptB.lng }, offsetState.cornerV || null);
         }
       }
     }
 
     map.on("preclick", onClick);
-    return () => { map.off("preclick", onClick); map.getContainer().style.cursor = ""; };
+    map.on("dblclick", onDblClick);
+    map.doubleClickZoom.disable();
+    return () => { map.off("preclick", onClick); map.off("dblclick", onDblClick); map.doubleClickZoom.enable(); map.getContainer().style.cursor = ""; };
   }, [mapTool, offsetState, leafletLoaded, speedRoadsData, roadNetworkData, allLotsData]);
 
   // ── Clear draw annotations ──
