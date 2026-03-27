@@ -796,9 +796,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         const bux = bL>0.01?bx/bL:0, buy = bL>0.01?by/bL:1;
         const bpx = -buy, bpy = bux; // perp to boundary
 
-        // Which perp of boundary goes INTO lot (away from road)?
+        // Which perp of boundary goes toward the road (into lot from fence)?
         const d2r = (roadPt.lng-bndPt.lng)*mPerLng*bpx + (roadPt.lat-bndPt.lat)*mPerLat*bpy;
-        const fs = d2r >= 0 ? -1 : 1;
+        const fs = d2r >= 0 ? 1 : -1;
 
         // Line 1: parallel to road, xM from road toward lot
         // Origin (metres from rA): roadPt projected + offset perp
@@ -809,14 +809,18 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         const b0x = (bndPt.lng-rA.lng)*mPerLng + fs*yM*bpx;
         const b0y = (bndPt.lat-rA.lat)*mPerLat + fs*yM*bpy;
 
-        // Intersect: r0 + t*ruDir = b0 + s*buDir
-        const det = rux*(-buy) - ruy*(-bux);
+        // Intersect two parallel offset lines:
+        // Line 1: point r0, direction along road (rux, ruy)
+        // Line 2: point b0, direction along boundary (bux, buy)
+        // r0 + t*(rux,ruy) = b0 + s*(bux,buy)
+        const det = rux*buy - ruy*bux;
         let ptA;
         if (Math.abs(det) > 1e-8) {
           const dx = b0x-r0x, dy = b0y-r0y;
-          const t = (dx*(-buy) - dy*(-bux)) / det;
+          const t = (dx*buy - dy*bux) / det;
           ptA = L.latLng(rA.lat + (r0y + t*ruy)/mPerLat, rA.lng + (r0x + t*rux)/mPerLng);
         } else {
+          // Lines parallel — just use road offset point
           ptA = L.latLng(rA.lat + r0y/mPerLat, rA.lng + r0x/mPerLng);
         }
 
