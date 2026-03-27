@@ -105,11 +105,12 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [measureDist, setMeasureDist] = useState(null);
   const [radiusResult, setRadiusResult] = useState(null);
   const [centrelineDist, setCentrelineDist] = useState(null);
-  const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0 });
+  const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
   const [ptB, setPtB] = useState(null);
+  const [cornerSpeed, setCornerSpeed] = useState(null);
   const [sightTriangle, setSightTriangle] = useState(null);
   const coords = getAppCoords(lotsData, app, speedRoadsData);
 
@@ -500,7 +501,9 @@ Respond with JSON only:
   useEffect(() => {
     if (!ptA || !ptB) { setSightTriangle(null); return; }
     const nearestRoad = findNearestRoadSpeed(ptB.lat, ptB.lng, speedRoadsData);
-    const sd = getSightDistances(nearestRoad.speed);
+    // Use corner speed (from radius tool) if available, otherwise road speed
+    const effectiveSpeed = cornerSpeed || nearestRoad.speed;
+    const sd = getSightDistances(effectiveSpeed);
     const leftDistM = sd.leftM, rightDistM = sd.rightM, baseTotal = leftDistM + rightDistM;
 
     const bearing = geoBearing(ptA.lat, ptA.lng, ptB.lat, ptB.lng);
@@ -535,7 +538,7 @@ Respond with JSON only:
       lineAB: [[ptA.lat, ptA.lng], [ptB.lat, ptB.lng]],
       lotPoly: bPoly, boundaryDists,
       ptALotInfo: ptALotPoly?.properties || null,
-      speedInfo: { detected: nearestRoad.speed, roadName: nearestRoad.roadName, networkType: nearestRoad.networkType, absMin: sd.absMin, ssdMin: sd.ssdMin, leftM: leftDistM, rightM: rightDistM, baseTotal },
+      speedInfo: { detected: effectiveSpeed, roadName: cornerSpeed ? `Corner R (${(cornerSpeed/6.67)**2 > 0 ? ((cornerSpeed/6.67)**2).toFixed(0) : '?'}m)` : nearestRoad.roadName, networkType: nearestRoad.networkType, absMin: sd.absMin, ssdMin: sd.ssdMin, leftM: leftDistM, rightM: rightDistM, baseTotal, isCorner: !!cornerSpeed },
       analysis: {
         depth: depthM.toFixed(1), area: (baseTotal * depthM / 2).toFixed(1), baseWidth: baseTotal.toFixed(1),
         leftDist: leftDistM.toFixed(1), rightDist: rightDistM.toFixed(1),
@@ -547,7 +550,7 @@ Respond with JSON only:
     });
 
     // Async road crossing detection removed — handled by AI 3D Sight Analysis instead
-  }, [ptA, ptB, coords, lotPoly, ptALotPoly]);
+  }, [ptA, ptB, coords, lotPoly, ptALotPoly, cornerSpeed]);
 
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
@@ -716,16 +719,30 @@ Respond with JSON only:
       )}
       {mapTool === "offset" && (
         <div style={{ padding: "4px 12px", background: "#e8f5e9", borderBottom: "1px solid #c8e6c9", fontSize: 10, color: "#2e7d32", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {offsetState.step === 0 && <span>⊕ Step 1: Click on the <b>road</b></span>}
+          {offsetState.step === 0 && !offsetState.isCorner && (
+            <>
+              <span>⊕ Step 1: Click on the <b>road</b></span>
+              <label style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 8 }}>
+                <input type="checkbox" checked={offsetState.isCorner} onChange={e => setOffsetState(s => ({...s, isCorner: e.target.checked}))} />
+                <span style={{ color: "#ff9800" }}>Corner lot</span>
+              </label>
+            </>
+          )}
+          {offsetState.step === 0 && offsetState.isCorner && !offsetState.cornerR && (
+            <span style={{ color: "#ff9800" }}>◎ Corner lot: Click 3+ points on the <b>kerb return curve</b> first, then double-click to finish</span>
+          )}
+          {offsetState.step === 0 && offsetState.isCorner && offsetState.cornerR && (
+            <span>⊕ R={offsetState.cornerR.toFixed(1)}m V={offsetState.cornerV.toFixed(0)}km/h — Now click on the <b>road</b></span>
+          )}
           {offsetState.step === 1 && <span>⊕ Step 2: Click on the <b>lot boundary/fence</b></span>}
-          {offsetState.step >= 2 && <span>⊕ Point A placed</span>}
+          {offsetState.step >= 2 && <span>⊕ Point A placed {offsetState.cornerR ? `(corner R=${offsetState.cornerR.toFixed(1)}m)` : ""}</span>}
           <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
             Verge: <input type="number" value={offsetState.x} onChange={e => setOffsetState(s => ({...s, x: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 40, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
           </label>
           <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
             Fence: <input type="number" value={offsetState.y} onChange={e => setOffsetState(s => ({...s, y: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 40, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
           </label>
-          <button onClick={() => { setMapTool(null); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0 }); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #4caf5040", background: "#fff", color: "#2e7d32", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+          <button onClick={() => { setMapTool(null); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #4caf5040", background: "#fff", color: "#2e7d32", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
 
@@ -748,7 +765,7 @@ Respond with JSON only:
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         offsetState={offsetState} setOffsetState={setOffsetState}
-        onOffsetComplete={(a, b) => { setPtA(a); setPtB(b); setDrawMode(null); }}
+        onOffsetComplete={(a, b, cornerSpeed) => { setPtA(a); setPtB(b); if (cornerSpeed) setCornerSpeed(cornerSpeed); setDrawMode(null); }}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);
