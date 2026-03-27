@@ -41,6 +41,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     tileLayerRef.current = L.tileLayer(TILE_LAYERS.street.url, { attribution: TILE_LAYERS.street.attr, maxZoom: 19 }).addTo(map);
     mapInstanceRef.current = map;
 
+    // Inject clean tooltip style
+    if (!document.getElementById('lot-tip-style')) {
+      const style = document.createElement('style');
+      style.id = 'lot-tip-style';
+      style.textContent = `.lot-tip-clean{background:none!important;border:none!important;box-shadow:none!important;padding:0!important;font-size:11px;font-weight:600;color:#1a3a4a;font-family:sans-serif;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 5px #fff;}.lot-tip-clean::before{display:none!important;}`;
+      document.head.appendChild(style);
+    }
+
     return () => { map.remove(); mapInstanceRef.current = null; };
   }, [leafletLoaded]);
 
@@ -146,19 +154,23 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
       onEachFeature: (feature, layer) => {
         const p = feature.properties || {};
+        const num = p.road_number_1 || p.n || p.ROAD_NUMBER || "";
+        const road = p.road_name || p.rd || p.ROAD_NAME || "";
+        const type = p.road_type || p.rt || p.ROAD_TYPE || "";
+        const loc = p.locality || p.loc || p.LOCALITY || "";
+        const lotNum = p.lot_number || p.LOT_NUMBER || "";
+        const addr = [num, road, type].filter(Boolean).join(' ').trim();
+        const fullLabel = [addr, loc, lotNum ? `Lot ${lotNum}` : ""].filter(Boolean).join(' · ');
+
+        if (fullLabel) {
+          layer.bindTooltip(fullLabel, { sticky: true, direction: "top", offset: [0, -8], className: "lot-tip-clean" });
+        }
         layer.on('click', (e) => {
           if (drawModeRef.current || mapToolRef.current) return;
           L.DomEvent.stopPropagation(e);
           const coords = feature.geometry.coordinates;
           const ring = coords[0] || coords;
           const poly = ring.map(c => [c[1], c[0]]);
-          const num = p.road_number_1 || p.n || p.ROAD_NUMBER || "";
-          const road = p.road_name || p.rd || p.ROAD_NAME || "";
-          const type = p.road_type || p.rt || p.ROAD_TYPE || "";
-          const loc = p.locality || p.loc || p.LOCALITY || "";
-          const lotNum = p.lot_number || p.LOT_NUMBER || "";
-          const addr = [num, road, type].filter(Boolean).join(' ').trim();
-          const fullLabel = [addr, loc, lotNum ? `Lot ${lotNum}` : ""].filter(Boolean).join(' · ');
           if (onLotClick) onLotClick({ properties: p, polygon: poly, address: fullLabel || "Lot" });
         });
       },
@@ -167,7 +179,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
   // (Selected app lot polygon highlight removed — use 📐 Boundaries toggle instead)
 
-  // Highlight clicked lot boundary
+  // Highlight clicked lot — just style change, no extra polygon
   const clickedLotRef = useRef(null);
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
@@ -175,11 +187,6 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       mapInstanceRef.current.removeLayer(clickedLotRef.current);
       clickedLotRef.current = null;
     }
-    if (!clickedLot?.polygon || clickedLot.polygon.length < 3) return;
-    const L = window.L;
-    clickedLotRef.current = L.polygon(clickedLot.polygon, {
-      color: '#f39c12', weight: 2.5, fillColor: '#f39c12', fillOpacity: 0.15, dashArray: '5,4',
-    }).addTo(mapInstanceRef.current);
   }, [clickedLot, leafletLoaded]);
 
   // Render speed limit road network
