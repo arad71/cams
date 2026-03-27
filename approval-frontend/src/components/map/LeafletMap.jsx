@@ -771,94 +771,89 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
     };
 
-    // Step 3: auto-compute offset point A and B, show as dots
+    // Auto-compute: Point A in front of lot, Point B on road centreline
     if (offsetState.step >= 2 && offsetState.road && offsetState.boundary) {
-      const roadPt = offsetState.road.point;
-      const bndSnap = offsetState.boundary;
-      const bndA = bndSnap.a, bndB = bndSnap.b;
-      const xM = offsetState.x;
-      const yM = offsetState.y;
+      const roadPt = offsetState.road.point; // snapped point on road
+      const bndPt = offsetState.boundary.point; // snapped point on boundary
+      const xM = offsetState.x; // metres from road verge
+      const yM = offsetState.y; // metres from boundary fence
 
       const mPerLat = 111320;
       const mPerLng = 111320 * Math.cos(roadPt.lat * Math.PI / 180);
 
-      // Find road segment
-      let roadA = null, roadB = null;
+      // Road direction: find the actual road segment
+      let roadSegA = roadPt, roadSegB = L.latLng(roadPt.lat, roadPt.lng + 0.0001);
       const rdSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
-      if (rdSources.length > 0) {
-        let bestDist = Infinity;
-        for (const src of rdSources) {
-          for (const f of src.features) {
-            const coords = f.geometry?.coordinates;
-            if (!coords || f.geometry?.type !== "LineString") continue;
-            for (let i = 0; i < coords.length - 1; i++) {
-              const a = L.latLng(coords[i][1], coords[i][0]);
-              const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-              const d = roadPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2));
-              if (d < bestDist) { bestDist = d; roadA = a; roadB = b; }
-            }
-          }
-        }
-      }
-      if (!roadA) { roadA = roadPt; roadB = L.latLng(roadPt.lat + 0.0001, roadPt.lng); }
-
-      const roadBearing = Math.atan2((roadB.lng - roadA.lng) * mPerLng, (roadB.lat - roadA.lat) * mPerLat);
-      const roadPerp = roadBearing + Math.PI / 2;
-      const testR1 = L.latLng(roadPt.lat + Math.cos(roadPerp) * 0.0001, roadPt.lng + Math.sin(roadPerp) * 0.0001);
-      const testR2 = L.latLng(roadPt.lat - Math.cos(roadPerp) * 0.0001, roadPt.lng - Math.sin(roadPerp) * 0.0001);
-      const roadPerpDir = bndSnap.point.distanceTo(testR1) < bndSnap.point.distanceTo(testR2) ? roadPerp : roadPerp + Math.PI;
-
-      const bndBearing = Math.atan2((bndB.lng - bndA.lng) * mPerLng, (bndB.lat - bndA.lat) * mPerLat);
-      const bndPerp = bndBearing + Math.PI / 2;
-      const testB1 = L.latLng(bndSnap.point.lat + Math.cos(bndPerp) * 0.0001, bndSnap.point.lng + Math.sin(bndPerp) * 0.0001);
-      const testB2 = L.latLng(bndSnap.point.lat - Math.cos(bndPerp) * 0.0001, bndSnap.point.lng - Math.sin(bndPerp) * 0.0001);
-      const bndPerpDir = roadPt.distanceTo(testB1) > roadPt.distanceTo(testB2) ? bndPerp : bndPerp + Math.PI;
-
-      const l1Pt = L.latLng(roadPt.lat + (xM * Math.cos(roadPerpDir)) / mPerLat, roadPt.lng + (xM * Math.sin(roadPerpDir)) / mPerLng);
-      const l2Pt = L.latLng(bndSnap.point.lat + (yM * Math.cos(bndPerpDir)) / mPerLat, bndSnap.point.lng + (yM * Math.sin(bndPerpDir)) / mPerLng);
-      const l1Dir = roadBearing, l2Dir = bndBearing;
-
-      // Intersect to get Point A
-      const d1x = Math.sin(l1Dir), d1y = Math.cos(l1Dir);
-      const d2x = Math.sin(l2Dir), d2y = Math.cos(l2Dir);
-      const det = d1x * d2y - d1y * d2x;
-
-      let finalPt;
-      if (Math.abs(det) > 1e-10) {
-        const dLat = (l2Pt.lat - l1Pt.lat) * mPerLat;
-        const dLng = (l2Pt.lng - l1Pt.lng) * mPerLng;
-        const t = (dLng * d2y - dLat * d2x) / (d1x * d2y - d1y * d2x);
-        finalPt = L.latLng(l1Pt.lat + (t * d1y) / mPerLat, l1Pt.lng + (t * d1x) / mPerLng);
-      } else {
-        finalPt = L.latLng(roadPt.lat + (xM * Math.cos(roadPerpDir)) / mPerLat, roadPt.lng + (xM * Math.sin(roadPerpDir)) / mPerLng);
-      }
-
-      // Point B: perpendicular projection onto road centreline
-      let bestB = roadPt, bestBDist = Infinity;
-      const roadSources = [speedRoadsData, roadNetworkData].filter(s => s?.features);
-      for (const src of roadSources) {
+      let bestRdDist = Infinity;
+      for (const src of rdSources) {
         for (const f of src.features) {
           const coords = f.geometry?.coordinates;
           if (!coords || f.geometry?.type !== "LineString") continue;
           for (let i = 0; i < coords.length - 1; i++) {
             const a = L.latLng(coords[i][1], coords[i][0]);
             const b = L.latLng(coords[i+1][1], coords[i+1][0]);
-            if (finalPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2)) > 100) continue;
-            const ax = a.lng, ay = a.lat, bx = b.lng, by = b.lat, px = finalPt.lng, py = finalPt.lat;
-            const dx = bx-ax, dy = by-ay, lenSq = dx*dx + dy*dy;
-            if (lenSq < 1e-20) continue;
-            const tt = Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / lenSq));
-            const snap = L.latLng(ay + tt*dy, ax + tt*dx);
-            const d = finalPt.distanceTo(snap);
-            if (d < bestBDist) { bestBDist = d; bestB = snap; }
+            const d = roadPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2));
+            if (d < bestRdDist) { bestRdDist = d; roadSegA = a; roadSegB = b; }
           }
         }
       }
 
-      // Just show Point A (small red dot) and Point B (small blue dot)
-      const dotA = L.circleMarker(finalPt, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
-      const dotB = L.circleMarker(bestB, { radius: 6, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
-      offsetRef.current.layers.push(dotA, dotB);
+      // Road bearing (direction along road)
+      const rdBearing = Math.atan2(
+        (roadSegB.lng - roadSegA.lng) * mPerLng,
+        (roadSegB.lat - roadSegA.lat) * mPerLat
+      );
+
+      // Perpendicular to road (toward the lot)
+      const rdPerp = rdBearing + Math.PI / 2;
+      // Which side of road is the boundary on?
+      const test1 = L.latLng(roadPt.lat + Math.cos(rdPerp) * 0.0001, roadPt.lng + Math.sin(rdPerp) * 0.0001);
+      const test2 = L.latLng(roadPt.lat - Math.cos(rdPerp) * 0.0001, roadPt.lng - Math.sin(rdPerp) * 0.0001);
+      const perpToLot = bndPt.distanceTo(test1) < bndPt.distanceTo(test2) ? rdPerp : rdPerp + Math.PI;
+
+      // Boundary bearing (direction along fence)
+      const bndA = offsetState.boundary.a, bndB = offsetState.boundary.b;
+      const bndBearing = Math.atan2(
+        (bndB.lng - bndA.lng) * mPerLng,
+        (bndB.lat - bndA.lat) * mPerLat
+      );
+
+      // Perpendicular to boundary (toward lot interior)
+      const bndPerp = bndBearing + Math.PI / 2;
+      const testB1 = L.latLng(bndPt.lat + Math.cos(bndPerp) * 0.0001, bndPt.lng + Math.sin(bndPerp) * 0.0001);
+      const testB2 = L.latLng(bndPt.lat - Math.cos(bndPerp) * 0.0001, bndPt.lng - Math.sin(bndPerp) * 0.0001);
+      const perpFromBnd = roadPt.distanceTo(testB1) < roadPt.distanceTo(testB2) ? bndPerp : bndPerp + Math.PI;
+
+      // Point A: start from boundary point, move Y metres toward road (perpendicular to boundary),
+      // then from road, move X metres toward lot (perpendicular to road)
+      // Simple approach: project boundary point onto road, then offset X from road + Y from boundary
+      
+      // Project boundary snap point onto road line to get the "along road" position
+      const projAx = roadSegA.lng, projAy = roadSegA.lat;
+      const projBx = roadSegB.lng, projBy = roadSegB.lat;
+      const projPx = bndPt.lng, projPy = bndPt.lat;
+      const projDx = projBx - projAx, projDy = projBy - projAy;
+      const projLenSq = projDx * projDx + projDy * projDy;
+      const projT = projLenSq > 0 ? Math.max(0, Math.min(1, ((projPx - projAx) * projDx + (projPy - projAy) * projDy) / projLenSq)) : 0;
+      const roadFootPt = L.latLng(projAy + projT * projDy, projAx + projT * projDx);
+
+      // Point A = roadFootPt + X metres perpendicular toward lot + Y metres along road from boundary
+      // More precisely: move from roadFootPt, X metres toward lot (perpendicular to road)
+      const ptA = L.latLng(
+        roadFootPt.lat + (xM * Math.cos(perpToLot)) / mPerLat,
+        roadFootPt.lng + (xM * Math.sin(perpToLot)) / mPerLng
+      );
+
+      // Point B = perpendicular foot from Point A onto road centreline (same as roadFootPt)
+      const ptB = roadFootPt;
+
+      // Show dots
+      const dotA = L.circleMarker(ptA, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
+      const dotB = L.circleMarker(ptB, { radius: 6, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 2, pane: "markerPane" }).addTo(map);
+
+      // A→B line
+      const lineAB = L.polyline([ptA, ptB], { color: "#e74c3c", weight: 1.5, dashArray: "4,3", opacity: 0.6 }).addTo(map);
+      offsetRef.current.layers.push(dotA, dotB, lineAB);
     }
 
     map.on("preclick", onClick);
