@@ -1000,16 +1000,24 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const R = circle.radius;
       const V = 6.67 * Math.sqrt(R);
 
-      // Find the nearest road LineString to identify turn start/end
-      let bestRoad = null, bestRoadDist = Infinity;
+      // Find ALL nearby road segments (within 30m) — handles intersections where two roads meet
+      const nearbyRoadPts = [];
       const midClickPt = pts[Math.floor(pts.length / 2)];
       for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
         for (const f of src.features) {
           const c = f.geometry?.coordinates;
-          if (!c || f.geometry?.type !== "LineString" || c.length < 3) continue;
+          if (!c || f.geometry?.type !== "LineString") continue;
+          let isNear = false;
           for (const coord of c) {
-            const d = midClickPt.distanceTo(L.latLng(coord[1], coord[0]));
-            if (d < bestRoadDist) { bestRoadDist = d; bestRoad = f; }
+            if (midClickPt.distanceTo(L.latLng(coord[1], coord[0])) < 50) { isNear = true; break; }
+          }
+          if (!isNear) continue;
+          // Add all vertices from this road
+          for (const coord of c) {
+            const p = { lat: coord[1], lng: coord[0], road: f.properties?.rd || "" };
+            if (L.latLng(p.lat, p.lng).distanceTo(L.latLng(circle.lat, circle.lng)) < R * 3) {
+              nearbyRoadPts.push(p);
+            }
           }
         }
       }
@@ -1017,39 +1025,38 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       let turnStart = null, turnEnd = null;
       let arcPts = [];
 
-      if (bestRoad && bestRoadDist < 30) {
-        // Use actual road geometry to find turn boundaries
-        const coords = bestRoad.geometry.coordinates;
-        const roadPts = coords.map(c => ({ lat: c[1], lng: c[0] }));
-
-        // For each road vertex, compute distance to circle centre
-        const distFromCircle = roadPts.map(p => {
+      if (nearbyRoadPts.length >= 3) {
+        // For each road point, compute distance from best-fit circle
+        const withDist = nearbyRoadPts.map(p => {
           const dx = (p.lng - circle.lng) * mPerLng;
           const dy = (p.lat - circle.lat) * mPerLat;
-          return Math.abs(Math.sqrt(dx*dx + dy*dy) - R);
+          const distFromCircle = Math.abs(Math.sqrt(dx*dx + dy*dy) - R);
+          const angle = Math.atan2(dx, dy);
+          return { ...p, distFromCircle, angle };
         });
 
-        // Curve threshold: points within 20% of R from the circle are "on the curve"
-        const threshold = R * 0.2;
+        // Points on the curve: within 20% of R
+        const threshold = R * 0.25;
+        const onCurve = withDist.filter(p => p.distFromCircle < threshold);
 
-        // Find start: first point (walking from start) that is on the curve
-        let startIdx = -1, endIdx = -1;
-        for (let i = 0; i < distFromCircle.length; i++) {
-          if (distFromCircle[i] < threshold) { startIdx = i; break; }
-        }
-        // Find end: last point that is on the curve
-        for (let i = distFromCircle.length - 1; i >= 0; i--) {
-          if (distFromCircle[i] < threshold) { endIdx = i; break; }
-        }
+        if (onCurve.length >= 2) {
+          // Sort by angle to get ordered arc
+          onCurve.sort((a, b) => a.angle - b.angle);
 
-        if (startIdx >= 0 && endIdx > startIdx) {
-          turnStart = L.latLng(roadPts[startIdx].lat, roadPts[startIdx].lng);
-          turnEnd = L.latLng(roadPts[endIdx].lat, roadPts[endIdx].lng);
-
-          // Build arc from road points on the curve
-          for (let i = startIdx; i <= endIdx; i++) {
-            arcPts.push([roadPts[i].lat, roadPts[i].lng]);
+          // Find the angular gap to determine start/end
+          let maxGap = 0, gapIdx = 0;
+          for (let i = 0; i < onCurve.length; i++) {
+            const next = (i + 1) % onCurve.length;
+            let gap = onCurve[next].angle - onCurve[i].angle;
+            if (gap < 0) gap += 2 * Math.PI;
+            if (gap > maxGap) { maxGap = gap; gapIdx = next; }
           }
+
+          // Reorder so arc starts after the biggest gap
+          const ordered = [...onCurve.slice(gapIdx), ...onCurve.slice(0, gapIdx)];
+          turnStart = L.latLng(ordered[0].lat, ordered[0].lng);
+          turnEnd = L.latLng(ordered[ordered.length-1].lat, ordered[ordered.length-1].lng);
+          arcPts = ordered.map(p => [p.lat, p.lng]);
         }
       }
 
