@@ -675,7 +675,6 @@ Respond with JSON only:
           {[
             { key: "measure", label: "Measure", color: "#3498db" },
             { key: "draw", label: "Annotate", color: "#6c5ce7" },
-            { key: "radius", label: "Radius", color: "#ff9800" },
           ].map(t => (
             <button key={t.key} onClick={() => setMapTool(mapTool === t.key ? null : t.key)}
               style={{ padding: "3px 7px", borderRadius: 4, border: mapTool === t.key ? `1.5px solid ${t.color}` : "1px solid #dce1e6", background: mapTool === t.key ? `${t.color}10` : "#fff", color: mapTool === t.key ? t.color : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
@@ -683,14 +682,13 @@ Respond with JSON only:
             </button>
           ))}
         </div>
-        {/* Right: Navigation */}
         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🎯</button>
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🎯 Property</button>
           <button onClick={() => setMapTool("zoomKalamunda")} title="Zoom to full extent"
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🗺️</button>
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🗺️ Extent</button>
           <button onClick={() => setMapTool("print")} title="Export as image"
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🖨️</button>
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🖨️ Print</button>
           <button onClick={() => setIsFullscreen(!isFullscreen)}
             style={{ padding: "3px 7px", borderRadius: 4, border: isFullscreen ? "1.5px solid #1a3a4a" : "1px solid #dce1e6", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
             {isFullscreen ? "✕" : "⛶"}
@@ -699,88 +697,63 @@ Respond with JSON only:
       </div>
       {/* ═══ Sight Analysis Panel ═══ */}
       {(sightPhase || sightTriangle || drawMode) ? (
-        <div style={{ background: "#fafbfc", borderBottom: "1px solid #e4e9ec", padding: "6px 12px" }}>
-          {/* Step indicator */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>👁 Sight Analysis</span>
-            {sightConfig.isCorner && <span style={{ fontSize: 9, background: "#ff9800", color: "#fff", padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>Corner Lot</span>}
+        <div style={{ background: "#f8fafb", borderBottom: "1px solid #e4e9ec", padding: "6px 12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Sight Analysis</span>
+            {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "1px 5px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.3 }}>CORNER LOT</span>}
+
+            {/* Progress */}
+            <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+              {sightConfig.isCorner && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: sightConfig.cornerR ? "#27ae60" : (sightPhase === "corner_ask" || sightPhase === "corner_draw") ? "#e65100" : "#c0c5ca" }}>
+                  {sightConfig.cornerR ? "● Road curve" : "○ Road curve"}
+                </span>
+              )}
+              <span style={{ fontSize: 9, fontWeight: 700, color: (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "#2e7d32" : sightTriangle ? "#27ae60" : "#c0c5ca" }}>
+                {sightTriangle || sightPhase === "complete" ? "● Driveway" : "○ Driveway"}
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: sightTriangle ? "#283593" : "#c0c5ca" }}>
+                {sightTriangle ? "● Triangle" : "○ Triangle"}
+              </span>
+            </div>
+
             <div style={{ flex: 1 }} />
+
+            {/* Config */}
+            <div style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 9, color: "#7a8a94" }}>
+              <span>Verge</span><input type="number" value={sightConfig.x} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, x: v})); setOffsetState(s => ({...s, x: v})); }} step="0.5" min="0" style={{ width: 32, padding: "1px 2px", borderRadius: 3, border: "1px solid #dce1e6", fontSize: 9, fontWeight: 700, textAlign: "center" }} /><span>m</span>
+              <span>Fence</span><input type="number" value={sightConfig.y} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, y: v})); setOffsetState(s => ({...s, y: v})); }} step="0.5" min="0" style={{ width: 32, padding: "1px 2px", borderRadius: 3, border: "1px solid #dce1e6", fontSize: 9, fontWeight: 700, textAlign: "center" }} /><span>m</span>
+            </div>
+
             {sightTriangle && !drawMode && !analysisRunning && (
-              <button onClick={run3DSightAnalysis} style={{ padding: "3px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #8e44ad, #6c3483)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer" }}>🔬 3D Analysis</button>
+              <button onClick={run3DSightAnalysis} style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: "#6c3483", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>3D Analysis</button>
             )}
-            {analysisRunning && <span style={{ fontSize: 10, fontWeight: 700, color: "#8e44ad", padding: "3px 8px", background: "#f4ecf7", borderRadius: 5 }}>⟳ Analysing...</span>}
-            <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>✕ Reset</button>
+            {analysisRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad" }}>Analysing...</span>}
+            <button onClick={resetTriangle} style={{ padding: "2px 6px", borderRadius: 3, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Reset</button>
           </div>
-          {/* Steps */}
-          <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
-            {/* Step badges */}
-            {sightConfig.isCorner && (
-              <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600,
-                background: sightPhase === "corner_ask" || sightPhase === "corner_draw" ? "#fff3e0" : sightConfig.cornerR ? "#e8f5e9" : "#f8fafb",
-                border: `1px solid ${sightPhase === "corner_ask" || sightPhase === "corner_draw" ? "#ff980050" : sightConfig.cornerR ? "#4caf5050" : "#e4e9ec"}`,
-                color: sightConfig.cornerR ? "#2e7d32" : sightPhase === "corner_ask" || sightPhase === "corner_draw" ? "#e65100" : "#95a5a6" }}>
-                <span style={{ fontWeight: 800 }}>①</span> Radius
-                {sightConfig.cornerR && <span style={{ fontFamily: "monospace" }}>R={sightConfig.cornerR.toFixed(1)}m</span>}
-              </div>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600,
-              background: sightPhase === "offset_road" || sightPhase === "offset_boundary" ? "#e8f5e9" : (sightTriangle || drawMode) ? "#e8f5e9" : "#f8fafb",
-              border: `1px solid ${sightPhase === "offset_road" || sightPhase === "offset_boundary" ? "#4caf5050" : sightTriangle ? "#4caf5050" : "#e4e9ec"}`,
-              color: sightTriangle ? "#2e7d32" : sightPhase === "offset_road" || sightPhase === "offset_boundary" ? "#2e7d32" : "#95a5a6" }}>
-              <span style={{ fontWeight: 800 }}>{sightConfig.isCorner ? "②" : "①"}</span> Offset A/B
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600,
-              background: sightTriangle ? "#e8eaf6" : "#f8fafb",
-              border: `1px solid ${sightTriangle ? "#3f51b550" : "#e4e9ec"}`,
-              color: sightTriangle ? "#283593" : "#95a5a6" }}>
-              <span style={{ fontWeight: 800 }}>{sightConfig.isCorner ? "③" : "②"}</span> Triangle
-              {sightTriangle && <span style={{ color: sightTriangle.analysis?.compliant ? "#27ae60" : "#e74c3c", fontWeight: 800 }}>{sightTriangle.analysis?.compliant ? "✓" : "✗"}</span>}
-            </div>
 
-            <div style={{ width: 1, height: 16, background: "#e4e9ec", margin: "0 4px" }} />
-
-            {/* Config inputs */}
-            <label style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10, color: "#5a6a74" }}>
-              Verge: <input type="number" value={sightConfig.x} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, x: v})); setOffsetState(s => ({...s, x: v})); }} step="0.5" min="0" style={{ width: 36, padding: "2px 3px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10, color: "#5a6a74" }}>
-              Fence: <input type="number" value={sightConfig.y} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, y: v})); setOffsetState(s => ({...s, y: v})); }} step="0.5" min="0" style={{ width: 36, padding: "2px 3px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
-            </label>
-
-            {(sightTriangle || drawMode) && (
-              <>
-                <div style={{ width: 1, height: 16, background: "#e4e9ec", margin: "0 2px" }} />
-                <span style={{ fontSize: 9, color: "#e74c3c", fontWeight: 700 }}>👁</span>
-                <input type="number" value={eyeHeight} onChange={e => setEyeHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
-                <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
-                <span style={{ fontSize: 9, color: "#2980b9", fontWeight: 700 }}>◎</span>
-                <input type="number" value={objectHeight} onChange={e => setObjectHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
-                <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
-              </>
-            )}
-          </div>
-          {/* Active step instruction */}
-          <div style={{ marginTop: 5, fontSize: 10, color: "#5a6a74" }}>
+          {/* Instruction */}
+          <div style={{ marginTop: 4, fontSize: 10, color: "#5a6a74", fontWeight: 500 }}>
             {sightPhase === "corner_ask" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span>Corner lot detected. Draw the kerb return curve?</span>
-                <button onClick={() => { setSightPhase("corner_draw"); setMapTool("radius"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#ff9800", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Yes, draw curve</button>
-                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span>Corner lot detected — draw the road curve for radius calculation</span>
+                <button onClick={() => { setSightPhase("corner_draw"); setMapTool("radius"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#e65100", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Draw curve</button>
+                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip, not corner</button>
               </div>
             )}
-            {sightPhase === "corner_draw" && !sightConfig.cornerR && <span style={{ color: "#e65100" }}>◎ Click 3+ points on the <b>kerb return curve</b>, then double-click to finish</span>}
-            {sightPhase === "corner_draw" && sightConfig.cornerR && <span style={{ color: "#2e7d32" }}>✓ R={sightConfig.cornerR.toFixed(1)}m V={sightConfig.cornerV.toFixed(0)}km/h — proceeding to offset...</span>}
-            {sightPhase === "offset_road" && <span>⊕ Click on the <b>road/verge edge</b></span>}
-            {sightPhase === "offset_boundary" && <span>⊕ Click on the <b>lot boundary/fence</b></span>}
-            {sightPhase === "complete" && sightTriangle && <span style={{ color: "#283593" }}>✓ Sight triangle drawn — {sightTriangle.analysis?.compliant ? "COMPLIANT" : "review required"}</span>}
-            {drawMode === "ptA" && <span>Manual mode — click <b>driveway point (A)</b></span>}
-            {drawMode === "ptB" && <span>Manual mode — click <b>road point (B)</b></span>}
+            {sightPhase === "corner_draw" && !sightConfig.cornerR && <span>Click 3+ points along the <b>road curve</b>, double-click to finish</span>}
+            {sightPhase === "corner_draw" && sightConfig.cornerR && <span style={{ color: "#2e7d32" }}>R = {sightConfig.cornerR.toFixed(1)}m — proceeding to driveway location...</span>}
+            {sightPhase === "offset_road" && <span>Click on the <b>road edge</b> near the driveway</span>}
+            {sightPhase === "offset_boundary" && <span>Click on the <b>property boundary</b></span>}
+            {sightPhase === "complete" && sightTriangle && <span style={{ color: "#283593" }}>Sight triangle complete</span>}
+            {drawMode === "ptA" && <span>Manual — click the <b>driveway location</b> (Point A)</span>}
+            {drawMode === "ptB" && <span>Manual — click the <b>road centreline</b> (Point B)</span>}
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 4, padding: "4px 12px", borderBottom: "1px solid #e4e9ec" }}>
-          <button onClick={startSightAnalysis} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>👁 Sight Analysis</button>
-          <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Manual A/B</button>
+        <div style={{ display: "flex", gap: 3, alignItems: "center", padding: "4px 12px", borderBottom: "1px solid #e4e9ec" }}>
+          <button onClick={startSightAnalysis} style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Sight Analysis</button>
+          <button onClick={startDraw} style={{ padding: "4px 12px", borderRadius: 5, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
         </div>
       )}
       {/* Tool context bar */}
@@ -796,13 +769,6 @@ Respond with JSON only:
           <span>Click to annotate · Double-click to break line · Right-click for label</span>
           <button onClick={() => setMapTool("clearDraw")} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Clear</button>
           <button onClick={() => setMapTool(null)} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Done</button>
-        </div>
-      )}
-      {mapTool === "radius" && !sightPhase && (
-        <div style={{ padding: "4px 12px", background: "#fff8f0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#e65100", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>Click 3+ points on curve · Double-click to reset</span>
-          {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: 700, fontSize: 9 }}>{radiusResult}</span>}
-          <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #ff980030", background: "#fff", color: "#e65100", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Done</button>
         </div>
       )}
 
