@@ -601,9 +601,12 @@ Respond with JSON only:
         if (nearRoad(midPrev[0], midPrev[1]) && nearRoad(midNext[0], midNext[1])) { isCorner = true; break; }
       }
     }
-    setSightPhase(isCorner ? "corner_ask" : "offset_road");
+    setSightPhase(isCorner ? "corner_draw" : "offset_road");
     setSightConfig(c => ({ ...c, isCorner }));
-    if (!isCorner) {
+    if (isCorner) {
+      // Corner lot → go straight to radius drawing
+      setMapTool("radius");
+    } else {
       setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
       setMapTool("offset");
     }
@@ -720,18 +723,16 @@ Respond with JSON only:
 
           {/* Instruction */}
           <div style={{ marginTop: 4, fontSize: 10, color: "#5a6a74", fontWeight: 500 }}>
-            {sightPhase === "corner_ask" && (
+            {sightPhase === "corner_draw" && !sightConfig.cornerR && (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span>Corner lot detected — draw the road curve for radius calculation</span>
-                <button onClick={() => { setSightPhase("corner_draw"); setMapTool("radius"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#e65100", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Draw curve</button>
-                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip, not corner</button>
+                <span style={{ color: "#e65100" }}>Click 3+ points along the <b>kerb return curve</b>, double-click to finish</span>
+                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip curve</button>
               </div>
             )}
-            {sightPhase === "corner_draw" && !sightConfig.cornerR && <span>Click 3+ points along the <b>road curve</b>, double-click to finish</span>}
-            {sightPhase === "corner_draw" && sightConfig.cornerR && <span style={{ color: "#2e7d32" }}>R = {sightConfig.cornerR.toFixed(1)}m — proceeding to driveway location...</span>}
+            {sightPhase === "corner_draw" && sightConfig.cornerR && <span style={{ color: "#2e7d32" }}>R = {sightConfig.cornerR.toFixed(1)}m · V = {sightConfig.cornerV.toFixed(0)}km/h — now click the <b>road edge</b></span>}
             {sightPhase === "offset_road" && <span>Click on the <b>road edge</b> near the driveway</span>}
-            {sightPhase === "offset_boundary" && <span>Click on the <b>property boundary</b></span>}
-            {sightPhase === "complete" && sightTriangle && <span style={{ color: "#283593" }}>Sight triangle complete</span>}
+            {sightPhase === "offset_boundary" && <span>Click on the <b>property boundary/fence</b></span>}
+            {sightPhase === "complete" && sightTriangle && <span style={{ color: "#283593" }}>Sight analysis complete — triangle and sight distance drawn</span>}
             {drawMode === "ptA" && <span>Manual — click the <b>driveway location</b> (Point A)</span>}
             {drawMode === "ptB" && <span>Manual — click the <b>road centreline</b> (Point B)</span>}
           </div>

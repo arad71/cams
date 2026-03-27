@@ -1228,7 +1228,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       for (let i = 1; i < arcPts.length; i++) arcLen += L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
 
       if (setRadiusResult) setRadiusResult(`R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h · Arc=${arcLen.toFixed(0)}m`);
-      if (onRadiusComplete) onRadiusComplete(R, V);
+      // Store last computed R/V for dblclick confirmation
+      radiusRef.current.lastR = R;
+      radiusRef.current.lastV = V;
     };
 
     const onClick = (e) => {
@@ -1241,7 +1243,13 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const onDblClick = (e) => {
       L.DomEvent.stopPropagation(e);
-      radiusRef.current.pts = [];
+      // If we have a valid result, fire completion callback
+      if (radiusRef.current.lastR && radiusRef.current.pts.length >= 3 && onRadiusComplete) {
+        onRadiusComplete(radiusRef.current.lastR, radiusRef.current.lastV);
+      } else {
+        // No valid result — reset
+        radiusRef.current.pts = [];
+      }
     };
 
     map.on("preclick", onClick);
