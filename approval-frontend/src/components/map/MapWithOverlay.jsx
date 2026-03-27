@@ -650,61 +650,49 @@ Respond with JSON only:
 
   return (
     <div style={fullscreenContainerStyle}>
-      {/* Toolbar — Row 1: Layers & Tools */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isFullscreen ? 0 : 4, flexWrap: "wrap", gap: 4, ...(isFullscreen ? { padding: "6px 12px", background: "#f8fafb", borderBottom: "1px solid #e4e9ec" } : {}) }}>
-        <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
-          {/* Layer toggles */}
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: isFullscreen ? "5px 12px" : "0 0 4px", background: isFullscreen ? "#f8fafb" : "transparent", borderBottom: isFullscreen ? "1px solid #e4e9ec" : "none", flexWrap: "wrap", gap: 3 }}>
+        {/* Left: Layers */}
+        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           {[
-            { key: "lots", state: showLots, set: () => setShowLots(!showLots), icon: "🏘️", label: "Lots", color: "#2980b9" },
-            { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), icon: "🚗", label: "Speed", color: "#e67e22" },
-            { key: "streets", state: showStreetNames, set: () => setShowStreetNames(!showStreetNames), icon: "🏷️", label: "Streets", color: "#16a085" },
+            { key: "lots", state: showLots, set: () => setShowLots(!showLots), label: "Lots", color: "#2980b9" },
+            { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), label: "Speed", color: "#e67e22" },
+            { key: "streets", state: showStreetNames, set: () => setShowStreetNames(!showStreetNames), label: "Streets", color: "#16a085" },
           ].map(l => (
             <button key={l.key} onClick={l.set}
-              style={{ padding: "4px 8px", borderRadius: 5, border: l.state ? `2px solid ${l.color}` : "1px solid #d5dde2", background: l.state ? `${l.color}15` : "#fff", color: l.state ? l.color : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-              {l.icon} {l.label}
+              style={{ padding: "3px 7px", borderRadius: 4, border: l.state ? `1.5px solid ${l.color}` : "1px solid #dce1e6", background: l.state ? `${l.color}10` : "#fff", color: l.state ? l.color : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
+              {l.label}
             </button>
           ))}
-          {/* Boundaries */}
           {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary) && (
             <button onClick={() => setShowBoundaries(!showBoundaries)}
-              style={{ padding: "4px 8px", borderRadius: 5, border: showBoundaries ? "2px solid #8e44ad" : "1px solid #d5dde2", background: showBoundaries ? "#f4ecf7" : "#fff", color: showBoundaries ? "#8e44ad" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-              📐 Bounds
+              style={{ padding: "3px 7px", borderRadius: 4, border: showBoundaries ? "1.5px solid #8e44ad" : "1px solid #dce1e6", background: showBoundaries ? "#8e44ad10" : "#fff", color: showBoundaries ? "#8e44ad" : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
+              Bounds
             </button>
           )}
-          <div style={{ width: 1, height: 20, background: "#e4e9ec", margin: "0 2px" }} />
-          {/* Tools */}
-          <button onClick={() => setMapTool(mapTool === "measure" ? null : "measure")}
-            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "measure" ? "2px solid #3498db" : "1px solid #d5dde2", background: mapTool === "measure" ? "#ebf5fb" : "#fff", color: mapTool === "measure" ? "#3498db" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            📏 Measure
-          </button>
-          <button onClick={() => setMapTool(mapTool === "draw" ? null : "draw")}
-            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "draw" ? "2px solid #e91e63" : "1px solid #d5dde2", background: mapTool === "draw" ? "#fce4ec" : "#fff", color: mapTool === "draw" ? "#e91e63" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            ✏️ Draw
-          </button>
-          <button onClick={() => setMapTool(mapTool === "radius" ? null : "radius")}
-            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "radius" ? "2px solid #ff9800" : "1px solid #d5dde2", background: mapTool === "radius" ? "#fff3e0" : "#fff", color: mapTool === "radius" ? "#ff9800" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            ◎ Radius
-          </button>
-          <button onClick={() => setMapTool(mapTool === "centreline" ? null : "centreline")}
-            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "centreline" ? "2px solid #00bcd4" : "1px solid #d5dde2", background: mapTool === "centreline" ? "#e0f7fa" : "#fff", color: mapTool === "centreline" ? "#00bcd4" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            ┃ Centreline
-          </button>
+          <div style={{ width: 1, height: 16, background: "#e4e9ec", margin: "0 2px" }} />
+          {/* Map tools */}
+          {[
+            { key: "measure", label: "Measure", color: "#3498db" },
+            { key: "draw", label: "Annotate", color: "#6c5ce7" },
+            { key: "radius", label: "Radius", color: "#ff9800" },
+          ].map(t => (
+            <button key={t.key} onClick={() => setMapTool(mapTool === t.key ? null : t.key)}
+              style={{ padding: "3px 7px", borderRadius: 4, border: mapTool === t.key ? `1.5px solid ${t.color}` : "1px solid #dce1e6", background: mapTool === t.key ? `${t.color}10` : "#fff", color: mapTool === t.key ? t.color : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
+              {t.label}
+            </button>
+          ))}
         </div>
-        <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+        {/* Right: Navigation */}
+        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
-            style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            🎯 Property
-          </button>
-          <button onClick={() => setMapTool("zoomKalamunda")} title="Zoom to Kalamunda"
-            style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            🗺️ Kalamunda
-          </button>
-          <button onClick={() => setMapTool("print")} title="Export map as image"
-            style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            🖨️ Print
-          </button>
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🎯</button>
+          <button onClick={() => setMapTool("zoomKalamunda")} title="Zoom to full extent"
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🗺️</button>
+          <button onClick={() => setMapTool("print")} title="Export as image"
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🖨️</button>
           <button onClick={() => setIsFullscreen(!isFullscreen)}
-            style={{ padding: "4px 8px", borderRadius: 5, border: isFullscreen ? "2px solid #1a3a4a" : "1px solid #d5dde2", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "3px 7px", borderRadius: 4, border: isFullscreen ? "1.5px solid #1a3a4a" : "1px solid #dce1e6", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
             {isFullscreen ? "✕" : "⛶"}
           </button>
         </div>
@@ -795,41 +783,26 @@ Respond with JSON only:
           <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Manual A/B</button>
         </div>
       )}
-      {/* Measure/Draw info bar */}
+      {/* Tool context bar */}
       {mapTool === "measure" && (
-        <div style={{ padding: "4px 12px", background: "#ebf5fb", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: "#2980b9", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>📏 Click points to measure. Double-click to start new line.</span>
-          {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{measureDist}</span>}
-          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #2980b940", background: "#fff", color: "#2980b9", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+        <div style={{ padding: "4px 12px", background: "#f0f7ff", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: "#3498db", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>Click to measure distance · Double-click to start new</span>
+          {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: 700, fontSize: 9 }}>{measureDist}</span>}
+          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: "#3498db", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Done</button>
         </div>
       )}
       {mapTool === "draw" && (
-        <div style={{ padding: "4px 12px", background: "#fce4ec", borderBottom: "1px solid #f8bbd0", fontSize: 10, color: "#e91e63", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>✏️ Click to draw lines + markers. Double-click to break line. Right-click to add text label.</span>
-          <button onClick={() => setMapTool("clearDraw")} style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid #e91e6340", background: "#fff", color: "#e91e63", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>🗑 Clear All</button>
-          <button onClick={() => setMapTool(null)} style={{ padding: "2px 8px", borderRadius: 3, border: "1px solid #e91e6340", background: "#fff", color: "#e91e63", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+        <div style={{ padding: "4px 12px", background: "#f5f0ff", borderBottom: "1px solid #e0d5f0", fontSize: 10, color: "#6c5ce7", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>Click to annotate · Double-click to break line · Right-click for label</span>
+          <button onClick={() => setMapTool("clearDraw")} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Clear</button>
+          <button onClick={() => setMapTool(null)} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Done</button>
         </div>
       )}
-      {mapTool === "radius" && (
-        <div style={{ padding: "4px 12px", background: "#fff3e0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#ff9800", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>◎ Click 3+ points along the road curve. R and V=6.67√R auto-calculated. Sight line drawn at V distance. Double-click to reset.</span>
-          {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{radiusResult}</span>}
-          <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #ff980040", background: "#fff", color: "#ff9800", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
-        </div>
-      )}
-      {mapTool === "centreline" && (
-        <div style={{ padding: "4px 12px", background: "#e0f7fa", borderBottom: "1px solid #b2ebf2", fontSize: 10, color: "#00838f", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>┃ Click along the centre of the road to draw centreline. Double-click to finish. Shows total length + offset lines.</span>
-          {centrelineDist && <span style={{ background: "#00bcd4", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{centrelineDist}</span>}
-          <button onClick={() => { setMapTool(null); setCentrelineDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #00bcd440", background: "#fff", color: "#00838f", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
-        </div>
-      )}
-      {/* Radius standalone info bar (when used independently) */}
       {mapTool === "radius" && !sightPhase && (
-        <div style={{ padding: "4px 12px", background: "#fff3e0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#ff9800", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>◎ Click 3+ points along curve. Double-click to reset.</span>
-          {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{radiusResult}</span>}
-          <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #ff980040", background: "#fff", color: "#ff9800", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+        <div style={{ padding: "4px 12px", background: "#fff8f0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#e65100", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>Click 3+ points on curve · Double-click to reset</span>
+          {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: 700, fontSize: 9 }}>{radiusResult}</span>}
+          <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #ff980030", background: "#fff", color: "#e65100", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Done</button>
         </div>
       )}
 
