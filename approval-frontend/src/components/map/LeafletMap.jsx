@@ -146,26 +146,19 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
       onEachFeature: (feature, layer) => {
         const p = feature.properties || {};
-        // Build address from various possible property names
-        const num = p.road_number_1 || p.n || p.ROAD_NUMBER || p.house_number || "";
-        const road = p.road_name || p.rd || p.ROAD_NAME || p.name || "";
-        const type = p.road_type || p.rt || p.ROAD_TYPE || "";
-        const loc = p.locality || p.loc || p.LOCALITY || p.suburb || "";
-        const lotNum = p.lot_number || p.LOT_NUMBER || "";
-        const parts = [num, road, type].filter(Boolean);
-        const addr = parts.join(' ').trim();
-        const fullLabel = [addr, loc, lotNum ? `Lot ${lotNum}` : ""].filter(Boolean).join(' · ');
-
-        // Only show tooltip if we have something meaningful
-        if (fullLabel) {
-          layer.bindTooltip(`<b>${addr || loc}</b>${loc && addr ? '<br/>' + loc : ''}${lotNum ? '<br/>Lot ' + lotNum : ''}`, { sticky: true, className: 'lot-tooltip' });
-        }
         layer.on('click', (e) => {
           if (drawModeRef.current || mapToolRef.current) return;
           L.DomEvent.stopPropagation(e);
           const coords = feature.geometry.coordinates;
           const ring = coords[0] || coords;
           const poly = ring.map(c => [c[1], c[0]]);
+          const num = p.road_number_1 || p.n || p.ROAD_NUMBER || "";
+          const road = p.road_name || p.rd || p.ROAD_NAME || "";
+          const type = p.road_type || p.rt || p.ROAD_TYPE || "";
+          const loc = p.locality || p.loc || p.LOCALITY || "";
+          const lotNum = p.lot_number || p.LOT_NUMBER || "";
+          const addr = [num, road, type].filter(Boolean).join(' ').trim();
+          const fullLabel = [addr, loc, lotNum ? `Lot ${lotNum}` : ""].filter(Boolean).join(' · ');
           if (onLotClick) onLotClick({ properties: p, polygon: poly, address: fullLabel || "Lot" });
         });
       },
@@ -179,28 +172,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
     if (clickedLotRef.current) {
-      if (Array.isArray(clickedLotRef.current)) clickedLotRef.current.forEach(l => mapInstanceRef.current.removeLayer(l));
-      else mapInstanceRef.current.removeLayer(clickedLotRef.current);
+      mapInstanceRef.current.removeLayer(clickedLotRef.current);
       clickedLotRef.current = null;
     }
     if (!clickedLot?.polygon || clickedLot.polygon.length < 3) return;
     const L = window.L;
-    const layers = [];
-    const poly = L.polygon(clickedLot.polygon, {
-      color: '#f39c12', weight: 3, fillColor: '#f39c12', fillOpacity: 0.2, dashArray: '5,4',
+    clickedLotRef.current = L.polygon(clickedLot.polygon, {
+      color: '#f39c12', weight: 2.5, fillColor: '#f39c12', fillOpacity: 0.15, dashArray: '5,4',
     }).addTo(mapInstanceRef.current);
-    layers.push(poly);
-
-    // Show address label at centroid
-    if (clickedLot.address) {
-      const lats = clickedLot.polygon.map(p => p[0]);
-      const lngs = clickedLot.polygon.map(p => p[1]);
-      const cLat = lats.reduce((a, b) => a + b, 0) / lats.length;
-      const cLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
-      const label = L.marker([cLat, cLng], { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#f39c12;color:#fff;padding:3px 10px;border-radius:5px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 4px rgba(0,0,0,0.3)">${clickedLot.address}</div>`, iconAnchor: [40, 10] }) }).addTo(mapInstanceRef.current);
-      layers.push(label);
-    }
-    clickedLotRef.current = layers;
   }, [clickedLot, leafletLoaded]);
 
   // Render speed limit road network
