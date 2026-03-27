@@ -560,20 +560,6 @@ Respond with JSON only:
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
 
-  // Transition: corner radius computed → move to offset phase
-  useEffect(() => {
-    if (sightPhase === "corner_draw" && offsetState.cornerR && !sightConfig.cornerR) {
-      setSightConfig(c => ({ ...c, cornerR: offsetState.cornerR, cornerV: offsetState.cornerV }));
-      setCornerSpeed(offsetState.cornerV);
-      // Auto-transition to offset after brief delay
-      setTimeout(() => {
-        setSightPhase("offset_road");
-        setOffsetState(s => ({ ...s, step: 0, road: null, boundary: null, isCorner: true }));
-        setMapTool("offset");
-      }, 800);
-    }
-  }, [offsetState.cornerR, sightPhase]);
-
   // Transition: offset road clicked → update phase
   useEffect(() => {
     if (sightPhase === "offset_road" && offsetState.step === 1) {
@@ -706,14 +692,14 @@ Respond with JSON only:
             <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
               {sightConfig.isCorner && (
                 <span style={{ fontSize: 9, fontWeight: 700, color: sightConfig.cornerR ? "#27ae60" : (sightPhase === "corner_ask" || sightPhase === "corner_draw") ? "#e65100" : "#c0c5ca" }}>
-                  {sightConfig.cornerR ? "● Road curve" : "○ Road curve"}
+                  {sightConfig.cornerR ? `● Curve R=${sightConfig.cornerR.toFixed(1)}m` : "○ Road curve"}
                 </span>
               )}
               <span style={{ fontSize: 9, fontWeight: 700, color: (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "#2e7d32" : sightTriangle ? "#27ae60" : "#c0c5ca" }}>
-                {sightTriangle || sightPhase === "complete" ? "● Driveway" : "○ Driveway"}
+                {sightTriangle || sightPhase === "complete" ? "● Driveway location" : "○ Driveway location"}
               </span>
               <span style={{ fontSize: 9, fontWeight: 700, color: sightTriangle ? "#283593" : "#c0c5ca" }}>
-                {sightTriangle ? "● Triangle" : "○ Triangle"}
+                {sightTriangle ? "● Sight area" : "○ Sight area"}
               </span>
             </div>
 
@@ -789,6 +775,18 @@ Respond with JSON only:
         mapTool={mapTool} setMapTool={setMapTool}
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
+        onRadiusComplete={(R, V) => {
+          // When in corner_draw phase, capture R/V and transition to driveway
+          if (sightPhase === "corner_draw") {
+            setSightConfig(c => ({ ...c, cornerR: R, cornerV: V }));
+            setCornerSpeed(V);
+            setTimeout(() => {
+              setSightPhase("offset_road");
+              setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: true, cornerR: R, cornerV: V });
+              setMapTool("offset");
+            }, 600);
+          }
+        }}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         offsetState={offsetState} setOffsetState={setOffsetState}
         onOffsetComplete={(a, b, cornerSpeed) => { setPtA(a); setPtB(b); if (cornerSpeed) setCornerSpeed(cornerSpeed); setDrawMode(null); setSightPhase("complete"); setMapTool(null); }}
