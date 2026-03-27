@@ -105,7 +105,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [measureDist, setMeasureDist] = useState(null);
   const [radiusResult, setRadiusResult] = useState(null);
   const [centrelineDist, setCentrelineDist] = useState(null);
-  const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 1.0 });
+  const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0 });
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
@@ -702,7 +702,7 @@ Respond with JSON only:
       )}
       {mapTool === "radius" && (
         <div style={{ padding: "4px 12px", background: "#fff3e0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#ff9800", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>◎ Draw a curve along the road bend (hold mouse + drag), or click 3+ points. Double-click to reset.</span>
+          <span>◎ Click 3+ points along the road curve. R and V=6.67√R auto-calculated. Sight line drawn at V distance. Double-click to reset.</span>
           {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{radiusResult}</span>}
           <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #ff980040", background: "#fff", color: "#ff9800", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
@@ -716,22 +716,16 @@ Respond with JSON only:
       )}
       {mapTool === "offset" && (
         <div style={{ padding: "4px 12px", background: "#e8f5e9", borderBottom: "1px solid #c8e6c9", fontSize: 10, color: "#2e7d32", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {offsetState.step === 0 && <span>⊕ Step 1: Click on the <b>road/verge edge</b></span>}
-          {offsetState.step === 1 && <span>⊕ Step 2: Click on the <b>lot boundary side</b></span>}
-          {offsetState.step >= 2 && (
-            <>
-              <span>⊕ Offsets:</span>
-              <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                Verge: <input type="number" value={offsetState.x} onChange={e => setOffsetState(s => ({...s, x: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 45, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
-              </label>
-              <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                Boundary: <input type="number" value={offsetState.y} onChange={e => setOffsetState(s => ({...s, y: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 45, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
-              </label>
-              <button onClick={() => setOffsetState(s => ({...s, step: 3}))} style={{ padding: "2px 10px", borderRadius: 4, border: "none", background: "#4caf50", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>📍 Place</button>
-            </>
-          )}
-          {offsetState.step === 3 && <span style={{ background: "#4caf50", color: "#fff", padding: "1px 8px", borderRadius: 4 }}>✅ {offsetState.x}m from verge, {offsetState.y}m from boundary</span>}
-          <button onClick={() => { setMapTool(null); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 1.0 }); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #4caf5040", background: "#fff", color: "#2e7d32", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+          {offsetState.step === 0 && <span>⊕ Step 1: Click on the <b>road</b></span>}
+          {offsetState.step === 1 && <span>⊕ Step 2: Click on the <b>lot boundary/fence</b></span>}
+          {offsetState.step >= 2 && <span>⊕ Point A placed</span>}
+          <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            Verge: <input type="number" value={offsetState.x} onChange={e => setOffsetState(s => ({...s, x: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 40, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            Fence: <input type="number" value={offsetState.y} onChange={e => setOffsetState(s => ({...s, y: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 40, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
+          </label>
+          <button onClick={() => { setMapTool(null); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0 }); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #4caf5040", background: "#fff", color: "#2e7d32", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
 
