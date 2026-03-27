@@ -107,6 +107,11 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [centrelineDist, setCentrelineDist] = useState(null);
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
+  // Unified Sight Analysis state machine
+  // Phases: null → "corner_ask" → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
+  const [sightPhase, setSightPhase] = useState(null);
+  const [sightConfig, setSightConfig] = useState({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
+
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
   const [ptB, setPtB] = useState(null);
@@ -552,8 +557,71 @@ Respond with JSON only:
     // Async road crossing detection removed — handled by AI 3D Sight Analysis instead
   }, [ptA, ptB, coords, lotPoly, ptALotPoly, cornerSpeed]);
 
-  const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); reset3DAnalysis(); };
+  const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
+
+  // Transition: corner radius computed → move to offset phase
+  useEffect(() => {
+    if (sightPhase === "corner_draw" && offsetState.cornerR && !sightConfig.cornerR) {
+      setSightConfig(c => ({ ...c, cornerR: offsetState.cornerR, cornerV: offsetState.cornerV }));
+      setCornerSpeed(offsetState.cornerV);
+      // Auto-transition to offset after brief delay
+      setTimeout(() => {
+        setSightPhase("offset_road");
+        setOffsetState(s => ({ ...s, step: 0, road: null, boundary: null, isCorner: true }));
+        setMapTool("offset");
+      }, 800);
+    }
+  }, [offsetState.cornerR, sightPhase]);
+
+  // Transition: offset road clicked → update phase
+  useEffect(() => {
+    if (sightPhase === "offset_road" && offsetState.step === 1) {
+      setSightPhase("offset_boundary");
+    }
+  }, [offsetState.step, sightPhase]);
+
+  // Start unified sight analysis — auto-detect corner lot
+  const startSightAnalysis = () => {
+    resetTriangle();
+    // Auto-detect corner lot from lot polygon + nearby roads
+    let isCorner = false;
+    let lotPoly2 = app?.lot_polygon;
+    if (lotPoly2 && lotPoly2.length >= 4) {
+      if (Math.abs(lotPoly2[0][0]) > 90) lotPoly2 = lotPoly2.map(p => [p[1], p[0]]);
+      const lf = lotPoly2[0], ll = lotPoly2[lotPoly2.length-1];
+      if (lf[0] !== ll[0] || lf[1] !== ll[1]) lotPoly2 = [...lotPoly2, lf];
+      const nearRoad = (lat, lng) => {
+        for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+          for (const f of src.features) {
+            const c = f.geometry?.coordinates;
+            if (!c || f.geometry?.type !== "LineString") continue;
+            for (let j = 0; j < c.length - 1; j++) {
+              const a = [c[j][1], c[j][0]], b = [c[j+1][1], c[j+1][0]];
+              const dx = b[1]-a[1], dy = b[0]-a[0], len = dx*dx+dy*dy;
+              if (len < 1e-20) continue;
+              const t = Math.max(0, Math.min(1, ((lng-a[1])*dx + (lat-a[0])*dy) / len));
+              const slat = a[0]+t*dy, slng = a[1]+t*dx;
+              const d = Math.sqrt(((lat-slat)*111320)**2 + (((lng-slng)*111320*Math.cos(lat*Math.PI/180)))**2);
+              if (d < 12) return true;
+            }
+          }
+        }
+        return false;
+      };
+      for (let i = 1; i < lotPoly2.length - 1; i++) {
+        const midPrev = [(lotPoly2[i-1][0]+lotPoly2[i][0])/2, (lotPoly2[i-1][1]+lotPoly2[i][1])/2];
+        const midNext = [(lotPoly2[i][0]+lotPoly2[i+1][0])/2, (lotPoly2[i][1]+lotPoly2[i+1][1])/2];
+        if (nearRoad(midPrev[0], midPrev[1]) && nearRoad(midNext[0], midNext[1])) { isCorner = true; break; }
+      }
+    }
+    setSightPhase(isCorner ? "corner_ask" : "offset_road");
+    setSightConfig(c => ({ ...c, isCorner }));
+    if (!isCorner) {
+      setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
+      setMapTool("offset");
+    }
+  };
 
   // Clicked lot from map
   const [clickedLot, setClickedLot] = useState(null);
@@ -621,10 +689,6 @@ Respond with JSON only:
             style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "centreline" ? "2px solid #00bcd4" : "1px solid #d5dde2", background: mapTool === "centreline" ? "#e0f7fa" : "#fff", color: mapTool === "centreline" ? "#00bcd4" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
             ┃ Centreline
           </button>
-          <button onClick={() => setMapTool(mapTool === "offset" ? null : "offset")}
-            style={{ padding: "4px 8px", borderRadius: 5, border: mapTool === "offset" ? "2px solid #4caf50" : "1px solid #d5dde2", background: mapTool === "offset" ? "#e8f5e9" : "#fff", color: mapTool === "offset" ? "#4caf50" : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-            ⊕ Offset Pt
-          </button>
         </div>
         <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
@@ -645,47 +709,90 @@ Respond with JSON only:
           </button>
         </div>
       </div>
-      {/* Toolbar — Row 2: Sight triangle (only when active) */}
-      {(drawMode || sightTriangle) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: isFullscreen ? 0 : 4, flexWrap: "wrap", ...(isFullscreen ? { padding: "4px 12px", background: "#fef5f5", borderBottom: "1px solid #e4e9ec" } : {}) }}>
-          {!drawMode && !sightTriangle && (
-            <button onClick={startDraw} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>🔺 Sight Triangle</button>
-          )}
-          {drawMode && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, background: drawMode === "ptA" ? "#fdf2f2" : "#ebf5fb", padding: "4px 10px", borderRadius: 6, border: `1px solid ${drawMode === "ptA" ? "#e74c3c40" : "#2980b940"}` }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: drawMode === "ptA" ? "#e74c3c" : "#2980b9", animation: "pulse 1.2s infinite" }} />
-              <span style={{ fontSize: 10, fontWeight: 700, color: drawMode === "ptA" ? "#c0392b" : "#2980b9" }}>
-                {drawMode === "ptA" ? "Click: DRIVEWAY (A)" : "Click: ROAD (B)"}
-              </span>
-              <button onClick={resetTriangle} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", fontSize: 9, cursor: "pointer" }}>Cancel</button>
+      {/* ═══ Sight Analysis Panel ═══ */}
+      {(sightPhase || sightTriangle || drawMode) ? (
+        <div style={{ background: "#fafbfc", borderBottom: "1px solid #e4e9ec", padding: "6px 12px" }}>
+          {/* Step indicator */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>👁 Sight Analysis</span>
+            {sightConfig.isCorner && <span style={{ fontSize: 9, background: "#ff9800", color: "#fff", padding: "1px 6px", borderRadius: 3, fontWeight: 700 }}>Corner Lot</span>}
+            <div style={{ flex: 1 }} />
+            {sightTriangle && !drawMode && !analysisRunning && (
+              <button onClick={run3DSightAnalysis} style={{ padding: "3px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #8e44ad, #6c3483)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer" }}>🔬 3D Analysis</button>
+            )}
+            {analysisRunning && <span style={{ fontSize: 10, fontWeight: 700, color: "#8e44ad", padding: "3px 8px", background: "#f4ecf7", borderRadius: 5 }}>⟳ Analysing...</span>}
+            <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>✕ Reset</button>
+          </div>
+          {/* Steps */}
+          <div style={{ display: "flex", gap: 3, alignItems: "center", flexWrap: "wrap" }}>
+            {/* Step badges */}
+            {sightConfig.isCorner && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+                background: sightPhase === "corner_ask" || sightPhase === "corner_draw" ? "#fff3e0" : sightConfig.cornerR ? "#e8f5e9" : "#f8fafb",
+                border: `1px solid ${sightPhase === "corner_ask" || sightPhase === "corner_draw" ? "#ff980050" : sightConfig.cornerR ? "#4caf5050" : "#e4e9ec"}`,
+                color: sightConfig.cornerR ? "#2e7d32" : sightPhase === "corner_ask" || sightPhase === "corner_draw" ? "#e65100" : "#95a5a6" }}>
+                <span style={{ fontWeight: 800 }}>①</span> Radius
+                {sightConfig.cornerR && <span style={{ fontFamily: "monospace" }}>R={sightConfig.cornerR.toFixed(1)}m</span>}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+              background: sightPhase === "offset_road" || sightPhase === "offset_boundary" ? "#e8f5e9" : (sightTriangle || drawMode) ? "#e8f5e9" : "#f8fafb",
+              border: `1px solid ${sightPhase === "offset_road" || sightPhase === "offset_boundary" ? "#4caf5050" : sightTriangle ? "#4caf5050" : "#e4e9ec"}`,
+              color: sightTriangle ? "#2e7d32" : sightPhase === "offset_road" || sightPhase === "offset_boundary" ? "#2e7d32" : "#95a5a6" }}>
+              <span style={{ fontWeight: 800 }}>{sightConfig.isCorner ? "②" : "①"}</span> Offset A/B
             </div>
-          )}
-          {sightTriangle && !drawMode && (
-            <>
-              <button onClick={resetTriangle} style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>↺ Clear</button>
-              {!analysisRunning && (
-                <button onClick={run3DSightAnalysis} style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #8e44ad, #6c3483)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>🔬 3D Analysis</button>
-              )}
-              {analysisRunning && <span style={{ fontSize: 10, fontWeight: 700, color: "#8e44ad", padding: "4px 10px", background: "#f4ecf7", borderRadius: 5 }}>⟳ Analysing...</span>}
-            </>
-          )}
-          {(sightTriangle || drawMode) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f8fafb", padding: "3px 8px", borderRadius: 5, border: "1px solid #e4e9ec", marginLeft: "auto" }}>
-              <span style={{ fontSize: 9, color: "#e74c3c", fontWeight: 700 }}>👁</span>
-              <input type="number" value={eyeHeight} onChange={e => setEyeHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
-              <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
-              <div style={{ width: 1, height: 12, background: "#d5dde2" }} />
-              <span style={{ fontSize: 9, color: "#2980b9", fontWeight: 700 }}>◎</span>
-              <input type="number" value={objectHeight} onChange={e => setObjectHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
-              <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 600,
+              background: sightTriangle ? "#e8eaf6" : "#f8fafb",
+              border: `1px solid ${sightTriangle ? "#3f51b550" : "#e4e9ec"}`,
+              color: sightTriangle ? "#283593" : "#95a5a6" }}>
+              <span style={{ fontWeight: 800 }}>{sightConfig.isCorner ? "③" : "②"}</span> Triangle
+              {sightTriangle && <span style={{ color: sightTriangle.analysis?.compliant ? "#27ae60" : "#e74c3c", fontWeight: 800 }}>{sightTriangle.analysis?.compliant ? "✓" : "✗"}</span>}
             </div>
-          )}
+
+            <div style={{ width: 1, height: 16, background: "#e4e9ec", margin: "0 4px" }} />
+
+            {/* Config inputs */}
+            <label style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10, color: "#5a6a74" }}>
+              Verge: <input type="number" value={sightConfig.x} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, x: v})); setOffsetState(s => ({...s, x: v})); }} step="0.5" min="0" style={{ width: 36, padding: "2px 3px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10, color: "#5a6a74" }}>
+              Fence: <input type="number" value={sightConfig.y} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, y: v})); setOffsetState(s => ({...s, y: v})); }} step="0.5" min="0" style={{ width: 36, padding: "2px 3px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
+            </label>
+
+            {(sightTriangle || drawMode) && (
+              <>
+                <div style={{ width: 1, height: 16, background: "#e4e9ec", margin: "0 2px" }} />
+                <span style={{ fontSize: 9, color: "#e74c3c", fontWeight: 700 }}>👁</span>
+                <input type="number" value={eyeHeight} onChange={e => setEyeHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
+                <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
+                <span style={{ fontSize: 9, color: "#2980b9", fontWeight: 700 }}>◎</span>
+                <input type="number" value={objectHeight} onChange={e => setObjectHeight(parseFloat(e.target.value) || 0)} min="0" max="50" step="0.05" style={hInputStyle} />
+                <span style={{ fontSize: 8, color: "#7a8a94" }}>m</span>
+              </>
+            )}
+          </div>
+          {/* Active step instruction */}
+          <div style={{ marginTop: 5, fontSize: 10, color: "#5a6a74" }}>
+            {sightPhase === "corner_ask" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span>Corner lot detected. Draw the kerb return curve?</span>
+                <button onClick={() => { setSightPhase("corner_draw"); setMapTool("radius"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#ff9800", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Yes, draw curve</button>
+                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
+              </div>
+            )}
+            {sightPhase === "corner_draw" && !sightConfig.cornerR && <span style={{ color: "#e65100" }}>◎ Click 3+ points on the <b>kerb return curve</b>, then double-click to finish</span>}
+            {sightPhase === "corner_draw" && sightConfig.cornerR && <span style={{ color: "#2e7d32" }}>✓ R={sightConfig.cornerR.toFixed(1)}m V={sightConfig.cornerV.toFixed(0)}km/h — proceeding to offset...</span>}
+            {sightPhase === "offset_road" && <span>⊕ Click on the <b>road/verge edge</b></span>}
+            {sightPhase === "offset_boundary" && <span>⊕ Click on the <b>lot boundary/fence</b></span>}
+            {sightPhase === "complete" && sightTriangle && <span style={{ color: "#283593" }}>✓ Sight triangle drawn — {sightTriangle.analysis?.compliant ? "COMPLIANT" : "review required"}</span>}
+            {drawMode === "ptA" && <span>Manual mode — click <b>driveway point (A)</b></span>}
+            {drawMode === "ptB" && <span>Manual mode — click <b>road point (B)</b></span>}
+          </div>
         </div>
-      )}
-      {/* Sight triangle start button when not active */}
-      {!drawMode && !sightTriangle && (
-        <div style={{ display: "flex", gap: 4, marginBottom: isFullscreen ? 0 : 4, ...(isFullscreen ? { padding: "4px 12px", borderBottom: "1px solid #e4e9ec" } : {}) }}>
-          <button onClick={startDraw} style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #e74c3c, #c0392b)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>🔺 Sight Triangle</button>
+      ) : (
+        <div style={{ display: "flex", gap: 4, padding: "4px 12px", borderBottom: "1px solid #e4e9ec" }}>
+          <button onClick={startSightAnalysis} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>👁 Sight Analysis</button>
+          <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Manual A/B</button>
         </div>
       )}
       {/* Measure/Draw info bar */}
@@ -717,32 +824,12 @@ Respond with JSON only:
           <button onClick={() => { setMapTool(null); setCentrelineDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #00bcd440", background: "#fff", color: "#00838f", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
-      {mapTool === "offset" && (
-        <div style={{ padding: "4px 12px", background: "#e8f5e9", borderBottom: "1px solid #c8e6c9", fontSize: 10, color: "#2e7d32", fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {offsetState.step === 0 && !offsetState.isCorner && (
-            <>
-              <span>⊕ Step 1: Click on the <b>road</b></span>
-              <label style={{ display: "flex", alignItems: "center", gap: 3, marginLeft: 8 }}>
-                <input type="checkbox" checked={offsetState.isCorner} onChange={e => setOffsetState(s => ({...s, isCorner: e.target.checked}))} />
-                <span style={{ color: "#ff9800" }}>Corner lot</span>
-              </label>
-            </>
-          )}
-          {offsetState.step === 0 && offsetState.isCorner && !offsetState.cornerR && (
-            <span style={{ color: "#ff9800" }}>◎ Corner lot: Click 3+ points on the <b>kerb return curve</b> first, then double-click to finish</span>
-          )}
-          {offsetState.step === 0 && offsetState.isCorner && offsetState.cornerR && (
-            <span>⊕ R={offsetState.cornerR.toFixed(1)}m V={offsetState.cornerV.toFixed(0)}km/h — Now click on the <b>road</b></span>
-          )}
-          {offsetState.step === 1 && <span>⊕ Step 2: Click on the <b>lot boundary/fence</b></span>}
-          {offsetState.step >= 2 && <span>⊕ Point A placed {offsetState.cornerR ? `(corner R=${offsetState.cornerR.toFixed(1)}m)` : ""}</span>}
-          <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            Verge: <input type="number" value={offsetState.x} onChange={e => setOffsetState(s => ({...s, x: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 40, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            Fence: <input type="number" value={offsetState.y} onChange={e => setOffsetState(s => ({...s, y: parseFloat(e.target.value) || 0}))} step="0.1" min="0" style={{ width: 40, padding: "2px 4px", borderRadius: 3, border: "1px solid #4caf5060", fontSize: 10, fontWeight: 700, textAlign: "center" }} />m
-          </label>
-          <button onClick={() => { setMapTool(null); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #4caf5040", background: "#fff", color: "#2e7d32", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
+      {/* Radius standalone info bar (when used independently) */}
+      {mapTool === "radius" && !sightPhase && (
+        <div style={{ padding: "4px 12px", background: "#fff3e0", borderBottom: "1px solid #ffe0b2", fontSize: 10, color: "#ff9800", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>◎ Click 3+ points along curve. Double-click to reset.</span>
+          {radiusResult && <span style={{ background: "#ff9800", color: "#fff", padding: "1px 8px", borderRadius: 4, fontWeight: 700 }}>{radiusResult}</span>}
+          <button onClick={() => { setMapTool(null); setRadiusResult(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 3, border: "1px solid #ff980040", background: "#fff", color: "#ff9800", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✕ Done</button>
         </div>
       )}
 
@@ -765,7 +852,7 @@ Respond with JSON only:
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         offsetState={offsetState} setOffsetState={setOffsetState}
-        onOffsetComplete={(a, b, cornerSpeed) => { setPtA(a); setPtB(b); if (cornerSpeed) setCornerSpeed(cornerSpeed); setDrawMode(null); }}
+        onOffsetComplete={(a, b, cornerSpeed) => { setPtA(a); setPtB(b); if (cornerSpeed) setCornerSpeed(cornerSpeed); setDrawMode(null); setSightPhase("complete"); setMapTool(null); }}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);
