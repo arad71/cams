@@ -888,7 +888,6 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     };
 
     const redraw = () => {
-      // Remove drawn elements (keep click dots)
       radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
       radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
 
@@ -899,9 +898,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       if (!circle || circle.radius <= 0 || circle.radius > 5000) return;
 
       const R = circle.radius;
-      const V = 6.67 * Math.sqrt(R); // speed from radius
+      const V = 6.67 * Math.sqrt(R); // sight distance in metres
 
-      // Smooth arc through points
+      // Smooth arc through clicked points
       const startAngle = Math.atan2((pts[0].lng - circle.lng) * mPerLng, (pts[0].lat - circle.lat) * mPerLat);
       const endAngle = Math.atan2((pts[pts.length-1].lng - circle.lng) * mPerLng, (pts[pts.length-1].lat - circle.lat) * mPerLat);
       const midPt = pts[Math.floor(pts.length / 2)];
@@ -913,31 +912,23 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       let sweep = ea - sa;
       if (sweep <= 0) sweep += 2 * Math.PI;
 
-      // Draw smooth arc
       const arcPts = [];
       for (let i = 0; i <= 64; i++) {
         const a = sa + (sweep * i / 64);
         arcPts.push([circle.lat + (R * Math.cos(a)) / mPerLat, circle.lng + (R * Math.sin(a)) / mPerLng]);
       }
-      const arc = L.polyline(arcPts, { color: "#ff9800", weight: 2.5, opacity: 0.9 });
+
+      // Draw smooth arc
+      const arc = L.polyline(arcPts, { color: "#ff9800", weight: 2, opacity: 0.8 });
       arc._isResult = true; arc.addTo(map); radiusRef.current.layers.push(arc);
 
-      // R label at centre
-      const cDot = L.circleMarker([circle.lat, circle.lng], { radius: 3, color: "#ff9800", fillColor: "#ff9800", fillOpacity: 1, weight: 1 });
-      cDot._isResult = true; cDot.addTo(map); radiusRef.current.layers.push(cDot);
-      const rLabel = L.marker([circle.lat, circle.lng], { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#ff9800;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif">R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h</div>`, iconAnchor: [50, -8] }) });
-      rLabel._isResult = true; rLabel.addTo(map); radiusRef.current.layers.push(rLabel);
-
-      // Compute sight line position: V metres along curve from first point
-      // Walk along arc to find point at distance V
-      const arcLen = R * sweep;
-      const vDist = V; // sight distance in metres
+      // Walk V metres along arc from first point → place sight marker
       let walked = 0;
-      let sightPt = arcPts[arcPts.length - 1]; // fallback to end
+      let sightPt = arcPts[arcPts.length - 1];
       for (let i = 1; i < arcPts.length; i++) {
         const segD = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
-        if (walked + segD >= vDist) {
-          const frac = (vDist - walked) / segD;
+        if (walked + segD >= V) {
+          const frac = (V - walked) / segD;
           sightPt = [
             arcPts[i-1][0] + frac * (arcPts[i][0] - arcPts[i-1][0]),
             arcPts[i-1][1] + frac * (arcPts[i][1] - arcPts[i-1][1]),
@@ -947,27 +938,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         walked += segD;
       }
 
-      // Draw sight line perpendicular to road at sightPt
-      // Get tangent direction at sightPt on the arc
-      const sightAngle = Math.atan2((sightPt[1] - circle.lng) * mPerLng, (sightPt[0] - circle.lat) * mPerLat);
-      const tangent = sightAngle + Math.PI / 2; // perpendicular to radius = tangent
-      const perpToRoad = tangent + Math.PI / 2; // perpendicular to tangent = across road
-      const lineLen = 0.00015; // ~15m visual extension each side
-      const sightA = [sightPt[0] + Math.cos(perpToRoad) * lineLen, sightPt[1] + Math.sin(perpToRoad) * lineLen];
-      const sightB = [sightPt[0] - Math.cos(perpToRoad) * lineLen, sightPt[1] - Math.sin(perpToRoad) * lineLen];
-
-      const sightLine = L.polyline([sightA, sightB], { color: "#e74c3c", weight: 3, opacity: 0.9 });
-      sightLine._isResult = true; sightLine.addTo(map); radiusRef.current.layers.push(sightLine);
-
-      // Dot at sight point
-      const sightDot = L.circleMarker(sightPt, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1 });
+      // Just a dot at sight distance
+      const sightDot = L.circleMarker(sightPt, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" });
       sightDot._isResult = true; sightDot.addTo(map); radiusRef.current.layers.push(sightDot);
 
-      // V label at sight line
-      const vLabel = L.marker(sightPt, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#e74c3c;color:#fff;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;white-space:nowrap;font-family:sans-serif">V=${V.toFixed(0)}km/h · ${vDist.toFixed(1)}m</div>`, iconAnchor: [40, 18] }) });
-      vLabel._isResult = true; vLabel.addTo(map); radiusRef.current.layers.push(vLabel);
-
-      if (setRadiusResult) setRadiusResult(`R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h · Sight=${vDist.toFixed(1)}m`);
+      if (setRadiusResult) setRadiusResult(`R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h · Sight=${V.toFixed(1)}m`);
     };
 
     const onClick = (e) => {
