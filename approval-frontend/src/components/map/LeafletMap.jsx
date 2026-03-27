@@ -835,6 +835,106 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         const lineAB = L.polyline([ptA, ptB], { color: "#95a5a6", weight: 1, dashArray: "3,3", opacity: 0.5 }).addTo(map);
         offsetRef.current.layers.push(dotA, dotB, lineAB);
 
+        // ── Corner lot detection: find if lot has a curved corner near a road ──
+        let lotPoly = selectedApp?.lot_polygon;
+        if (lotPoly && lotPoly.length >= 4) {
+          if (Math.abs(lotPoly[0][0]) > 90) lotPoly = lotPoly.map(p => [p[1], p[0]]);
+          // Ensure closed
+          const lf = lotPoly[0], ll = lotPoly[lotPoly.length-1];
+          if (lf[0] !== ll[0] || lf[1] !== ll[1]) lotPoly = [...lotPoly, lf];
+
+          // Find lot vertices near roads (within 8m of any road segment)
+          const nearRoad = (pt) => {
+            for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+              for (const f of src.features) {
+                const c = f.geometry?.coordinates;
+                if (!c || f.geometry?.type !== "LineString") continue;
+                for (let j = 0; j < c.length - 1; j++) {
+                  const a = L.latLng(c[j][1], c[j][0]), b = L.latLng(c[j+1][1], c[j+1][0]);
+                  const dx = b.lng-a.lng, dy = b.lat-a.lat, len = dx*dx+dy*dy;
+                  if (len < 1e-20) continue;
+                  const t = Math.max(0, Math.min(1, ((pt.lng-a.lng)*dx + (pt.lat-a.lat)*dy) / len));
+                  const snap = L.latLng(a.lat + t*dy, a.lng + t*dx);
+                  if (pt.distanceTo(snap) < 8) return true;
+                }
+              }
+            }
+            return false;
+          };
+
+          // Find corner: vertex where BOTH adjacent sides are near roads
+          for (let i = 1; i < lotPoly.length - 1; i++) {
+            const prev = L.latLng(lotPoly[i-1][0], lotPoly[i-1][1]);
+            const curr = L.latLng(lotPoly[i][0], lotPoly[i][1]);
+            const next = L.latLng(lotPoly[i+1][0], lotPoly[i+1][1]);
+            const midPrev = L.latLng((prev.lat+curr.lat)/2, (prev.lng+curr.lng)/2);
+            const midNext = L.latLng((curr.lat+next.lat)/2, (curr.lng+next.lng)/2);
+
+            if (nearRoad(midPrev) && nearRoad(midNext)) {
+              // This is a corner lot vertex — compute radius of the corner
+              // Use the three points: prev, curr, next to fit a circle
+              const cLat = (prev.lat+curr.lat+next.lat)/3;
+              const cLng = (prev.lng+curr.lng+next.lng)/3;
+              const pts3 = [prev, curr, next].map(p => ({
+                x: (p.lng - cLng) * mPerLng,
+                y: (p.lat - cLat) * mPerLat
+              }));
+              // Circumscribed circle of 3 points
+              const ax2 = pts3[0].x, ay2 = pts3[0].y;
+              const bx2 = pts3[1].x, by2 = pts3[1].y;
+              const cx2 = pts3[2].x, cy2 = pts3[2].y;
+              const D2 = 2 * (ax2*(by2-cy2) + bx2*(cy2-ay2) + cx2*(ay2-by2));
+              if (Math.abs(D2) > 1e-6) {
+                const ux = ((ax2*ax2+ay2*ay2)*(by2-cy2) + (bx2*bx2+by2*by2)*(cy2-ay2) + (cx2*cx2+cy2*cy2)*(ay2-by2)) / D2;
+                const uy = ((ax2*ax2+ay2*ay2)*(cx2-bx2) + (bx2*bx2+by2*by2)*(ax2-cx2) + (cx2*cx2+cy2*cy2)*(bx2-ax2)) / D2;
+                const R = Math.sqrt((ax2-ux)**2 + (ay2-uy)**2);
+
+                if (R > 1 && R < 200) {
+                  const centerLat = cLat + uy / mPerLat;
+                  const centerLng = cLng + ux / mPerLng;
+                  const V = 6.67 * Math.sqrt(R);
+
+                  // Draw arc from prev to next through curr
+                  const sa = Math.atan2((prev.lng-centerLng)*mPerLng, (prev.lat-centerLat)*mPerLat);
+                  const ea = Math.atan2((next.lng-centerLng)*mPerLng, (next.lat-centerLat)*mPerLat);
+                  const ma = Math.atan2((curr.lng-centerLng)*mPerLng, (curr.lat-centerLat)*mPerLat);
+                  const nm = (a) => ((a%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+                  let s = nm(sa), e = nm(ea), m = nm(ma);
+                  const btw = (s<=e) ? (m>=s && m<=e) : (m>=s || m<=e);
+                  if (!btw) { const tmp = s; s = e; e = tmp; }
+                  let sw = e - s; if (sw <= 0) sw += 2*Math.PI;
+
+                  const arcPts = [];
+                  for (let k = 0; k <= 32; k++) {
+                    const a = s + (sw * k / 32);
+                    arcPts.push([centerLat + (R*Math.cos(a))/mPerLat, centerLng + (R*Math.sin(a))/mPerLng]);
+                  }
+                  const cornerArc = L.polyline(arcPts, { color: "#ff9800", weight: 1.5, opacity: 0.8 });
+                  offsetRef.current.layers.push(cornerArc);
+                  cornerArc.addTo(map);
+
+                  // Sight distance marker on arc
+                  let walked2 = 0;
+                  let sPt = arcPts[arcPts.length-1];
+                  for (let k = 1; k < arcPts.length; k++) {
+                    const sd = L.latLng(arcPts[k-1]).distanceTo(L.latLng(arcPts[k]));
+                    if (walked2 + sd >= V) {
+                      const fr = (V - walked2) / sd;
+                      sPt = [arcPts[k-1][0]+fr*(arcPts[k][0]-arcPts[k-1][0]), arcPts[k-1][1]+fr*(arcPts[k][1]-arcPts[k-1][1])];
+                      break;
+                    }
+                    walked2 += sd;
+                  }
+                  const sDot = L.circleMarker(sPt, { radius: 5, color: "#ff9800", fillColor: "#ff9800", fillOpacity: 1, weight: 1, pane: "markerPane" });
+                  offsetRef.current.layers.push(sDot);
+                  sDot.addTo(map);
+                }
+              }
+              break; // Only process first corner found
+            }
+          }
+        }
+
         // Feed A and B into sight triangle
         if (onOffsetComplete) {
           onOffsetComplete({ lat: ptA.lat, lng: ptA.lng }, { lat: ptB.lat, lng: ptB.lng });
