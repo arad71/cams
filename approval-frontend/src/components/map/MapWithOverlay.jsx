@@ -95,9 +95,9 @@ function SatelliteMiniMap({ sightTriangle }) {
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
 function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null }) {
-  const [showLots, setShowLots] = useState(false);
-  const [showSpeedRoads, setShowSpeedRoads] = useState(true);
-  const [showStreetNames, setShowStreetNames] = useState(true);
+  const [showLots, setShowLots] = useState(true);
+  const [showSpeedRoads, setShowSpeedRoads] = useState(false);
+  const [showStreetNames, setShowStreetNames] = useState(false);
   const [showBoundaries, setShowBoundaries] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
@@ -600,18 +600,6 @@ Respond with JSON only:
               📐 Bounds
             </button>
           )}
-          {/* WA Layers */}
-          {[
-            { key: "contour", label: "Contour", icon: "⛰️", color: "#795548" },
-            { key: "cadastral", label: "Cadastral", icon: "📏", color: "#607d8b" },
-            { key: "zoning", label: "Zoning", icon: "🏗️", color: "#9c27b0" },
-            { key: "hazard", label: "Hazard", icon: "🔥", color: "#f44336" },
-          ].map(l => (
-            <button key={l.key} onClick={() => setWaLayers(prev => ({ ...prev, [l.key]: !prev[l.key] }))}
-              style={{ padding: "4px 8px", borderRadius: 5, border: waLayers[l.key] ? `2px solid ${l.color}` : "1px solid #d5dde2", background: waLayers[l.key] ? `${l.color}15` : "#fff", color: waLayers[l.key] ? l.color : "#95a5a6", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
-              {l.icon} {l.label}
-            </button>
-          ))}
           <div style={{ width: 1, height: 20, background: "#e4e9ec", margin: "0 2px" }} />
           {/* Tools */}
           <button onClick={() => setMapTool(mapTool === "measure" ? null : "measure")}
