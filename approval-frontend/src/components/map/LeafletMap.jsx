@@ -787,28 +787,66 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const rdDy = (roadSegB.lat - roadSegA.lat) * mPerLat;
       const rdLen = Math.sqrt(rdDx*rdDx + rdDy*rdDy);
       if (rdLen < 0.01) return;
-      // Unit perpendicular to road
-      const perpX = -rdDy / rdLen; // perpendicular in metres
-      const perpY = rdDx / rdLen;
+      // Unit vectors: along road and perpendicular
+      const rdUx = rdDx / rdLen, rdUy = rdDy / rdLen;  // unit along road
+      const rdPerpX = -rdUy, rdPerpY = rdUx;            // unit perp to road
 
-      // Which direction is toward the boundary?
-      const towardBnd = (bndPt.lat - roadPt.lat) * mPerLat * perpY + (bndPt.lng - roadPt.lng) * mPerLng * perpX;
-      const sign = towardBnd >= 0 ? 1 : -1;
+      // Which perpendicular direction is toward lot?
+      const towardBnd = (bndPt.lat - roadPt.lat) * mPerLat * rdPerpY + (bndPt.lng - roadPt.lng) * mPerLng * rdPerpX;
+      const lotSign = towardBnd >= 0 ? 1 : -1;
 
-      // Project boundary point onto road to get B position
-      const bpx = (bndPt.lng - roadSegA.lng) * mPerLng;
-      const bpy = (bndPt.lat - roadSegA.lat) * mPerLat;
-      const rdUx = rdDx / rdLen, rdUy = rdDy / rdLen;
-      const projDist = bpx * rdUx + bpy * rdUy;
+      // Boundary direction vector in metres
+      const bndA = offsetState.boundary.a, bndB = offsetState.boundary.b;
+      const bndDx = (bndB.lng - bndA.lng) * mPerLng;
+      const bndDy = (bndB.lat - bndA.lat) * mPerLat;
+      const bndLen = Math.sqrt(bndDx*bndDx + bndDy*bndDy);
+      if (bndLen < 0.01) return;
+      const bndUx = bndDx / bndLen, bndUy = bndDy / bndLen;  // unit along boundary
+      const bndPerpX = -bndUy, bndPerpY = bndUx;              // unit perp to boundary
+
+      // Which perp direction is INTO the lot (away from road)?
+      const towardRd = (roadPt.lat - bndPt.lat) * mPerLat * bndPerpY + (roadPt.lng - bndPt.lng) * mPerLng * bndPerpX;
+      const bndSign = towardRd >= 0 ? -1 : 1; // opposite of toward road = into lot
+
+      // LINE 1: parallel to road, X metres from road toward lot
+      // A point on this line (in metres from roadPt):
+      const l1Ox = lotSign * xM * rdPerpX;  // offset from road
+      const l1Oy = lotSign * xM * rdPerpY;
+      // Direction: along road (rdUx, rdUy)
+
+      // LINE 2: parallel to boundary, Y metres inside lot from boundary
+      // A point on this line (in metres from bndPt):
+      const l2Ox = (bndPt.lng - roadPt.lng) * mPerLng + bndSign * yM * bndPerpX;
+      const l2Oy = (bndPt.lat - roadPt.lat) * mPerLat + bndSign * yM * bndPerpY;
+      // Direction: along boundary (bndUx, bndUy)
+
+      // Intersect: l1O + t * rdU = l2O + s * bndU
+      // t * rdUx - s * bndUx = l2Ox - l1Ox
+      // t * rdUy - s * bndUy = l2Oy - l1Oy
+      const det = rdUx * (-bndUy) - rdUy * (-bndUx);
+      let ptA;
+      if (Math.abs(det) > 1e-10) {
+        const dOx = l2Ox - l1Ox, dOy = l2Oy - l1Oy;
+        const t = (dOx * (-bndUy) - dOy * (-bndUx)) / det;
+        ptA = L.latLng(
+          roadPt.lat + (l1Oy + t * rdUy) / mPerLat,
+          roadPt.lng + (l1Ox + t * rdUx) / mPerLng
+        );
+      } else {
+        // Lines parallel — fallback: just offset from road
+        ptA = L.latLng(
+          roadPt.lat + (lotSign * xM * rdPerpY) / mPerLat,
+          roadPt.lng + (lotSign * xM * rdPerpX) / mPerLng
+        );
+      }
+
+      // Point B = perpendicular drop from A onto road centreline
+      const apx = (ptA.lng - roadSegA.lng) * mPerLng;
+      const apy = (ptA.lat - roadSegA.lat) * mPerLat;
+      const projT = (apx * rdUx + apy * rdUy);
       const ptB = L.latLng(
-        roadSegA.lat + (projDist * rdUy) / mPerLat,
-        roadSegA.lng + (projDist * rdUx) / mPerLng
-      );
-
-      // Point A = B + X metres perpendicular toward lot
-      const ptA = L.latLng(
-        ptB.lat + (xM * sign * perpY) / mPerLat,
-        ptB.lng + (xM * sign * perpX) / mPerLng
+        roadSegA.lat + (projT * rdUy) / mPerLat,
+        roadSegA.lng + (projT * rdUx) / mPerLng
       );
 
       // Show dots and thin perpendicular line
