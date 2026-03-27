@@ -748,6 +748,7 @@ Respond with JSON only:
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         offsetState={offsetState} setOffsetState={setOffsetState}
+        onOffsetComplete={(a, b) => { setPtA(a); setPtB(b); setDrawMode(null); }}
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);
