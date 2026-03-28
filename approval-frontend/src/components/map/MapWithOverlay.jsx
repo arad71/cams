@@ -107,7 +107,17 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [centrelineDist, setCentrelineDist] = useState(null);
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
-  // Handle radius completion (from Finish button or LeafletMap callback)
+  // Unified Sight Analysis state machine
+  // Phases: null → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
+  const [sightPhase, setSightPhase] = useState(null);
+  const [sightConfig, setSightConfig] = useState({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
+
+  const [drawMode, setDrawMode] = useState(null);
+  const [ptA, setPtA] = useState(null);
+  const [ptB, setPtB] = useState(null);
+  const [cornerSpeed, setCornerSpeed] = useState(null);
+
+  // Handle radius completion (from LeafletMap callback)
   const handleRadiusComplete = useCallback((R, V) => {
     if (sightPhase === "corner_draw") {
       setSightConfig(c => ({ ...c, cornerR: R, cornerV: V }));
@@ -119,16 +129,6 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
       }, 600);
     }
   }, [sightPhase, sightConfig.x, sightConfig.y]);
-
-  // Unified Sight Analysis state machine
-  // Phases: null → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
-  const [sightPhase, setSightPhase] = useState(null);
-  const [sightConfig, setSightConfig] = useState({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
-
-  const [drawMode, setDrawMode] = useState(null);
-  const [ptA, setPtA] = useState(null);
-  const [ptB, setPtB] = useState(null);
-  const [cornerSpeed, setCornerSpeed] = useState(null);
   const [sightTriangle, setSightTriangle] = useState(null);
   const coords = getAppCoords(lotsData, app, speedRoadsData);
 
