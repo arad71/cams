@@ -570,16 +570,19 @@ Respond with JSON only:
   // Start unified sight analysis — auto-detect corner lot
   const startSightAnalysis = () => {
     resetTriangle();
-    // Auto-detect corner lot from lot polygon + nearby roads
-    // Uses lotPoly which resolves from: app.lot_polygon → lot.geojson address match → rectangle fallback
     let isCorner = false;
     let poly = lotPoly;
     if (poly && poly.length >= 4) {
-      // Ensure closed
       const lf = poly[0], ll = poly[poly.length-1];
       if (lf[0] !== ll[0] || lf[1] !== ll[1]) poly = [...poly, lf];
 
-      // Check each lot side: is its midpoint within 12m of any road?
+      const mPerLat = 111320;
+      const mPerLng = 111320 * Math.cos((poly[0][0]) * Math.PI / 180);
+      const sideLen = (a, b) => Math.sqrt(((a[0]-b[0])*mPerLat)**2 + ((a[1]-b[1])*mPerLng)**2);
+      const sideAngle = (a, b) => Math.atan2((b[1]-a[1])*mPerLng, (b[0]-a[0])*mPerLat);
+
+      // METHOD 1: Road proximity check (when road data available)
+      let roadDetected = false;
       const sideNearRoad = [];
       for (let i = 0; i < poly.length - 1; i++) {
         const midLat = (poly[i][0] + poly[i+1][0]) / 2;
@@ -597,7 +600,7 @@ Respond with JSON only:
               if (len < 1e-20) continue;
               const t = Math.max(0, Math.min(1, ((midLng-ax)*dx + (midLat-ay)*dy) / len));
               const slat = ay+t*dy, slng = ax+t*dx;
-              const d = Math.sqrt(((midLat-slat)*111320)**2 + ((midLng-slng)*111320*Math.cos(midLat*Math.PI/180))**2);
+              const d = Math.sqrt(((midLat-slat)*mPerLat)**2 + ((midLng-slng)*mPerLng)**2);
               if (d < 12) { near = true; break; }
             }
           }
@@ -605,17 +608,58 @@ Respond with JSON only:
         sideNearRoad.push(near);
       }
 
-      // Corner lot = any vertex where both adjacent sides touch different roads
-      for (let i = 0; i < sideNearRoad.length; i++) {
-        const next = (i + 1) % sideNearRoad.length;
-        if (sideNearRoad[i] && sideNearRoad[next]) {
-          // Both sides near roads — but are they DIFFERENT roads? Check angle between sides
-          const p0 = poly[i], p1 = poly[(i+1) % (poly.length-1)], p2 = poly[(i+2) % (poly.length-1)];
-          const dx1 = p1[1]-p0[1], dy1 = p1[0]-p0[0];
-          const dx2 = p2[1]-p1[1], dy2 = p2[0]-p1[0];
-          const angle = Math.abs(Math.atan2(dx1*dy2-dy1*dx2, dx1*dx2+dy1*dy2)) * 180 / Math.PI;
-          // Corner if angle is roughly 60-120 degrees (not near-straight)
-          if (angle > 40 && angle < 160) { isCorner = true; break; }
+      // Check if any road was found at all
+      if (sideNearRoad.some(n => n)) {
+        for (let i = 0; i < sideNearRoad.length; i++) {
+          const next = (i + 1) % sideNearRoad.length;
+          if (sideNearRoad[i] && sideNearRoad[next]) {
+            const p0 = poly[i], p1 = poly[(i+1) % (poly.length-1)], p2 = poly[(i+2) % (poly.length-1)];
+            const dx1 = p1[1]-p0[1], dy1 = p1[0]-p0[0];
+            const dx2 = p2[1]-p1[1], dy2 = p2[0]-p1[0];
+            const angle = Math.abs(Math.atan2(dx1*dy2-dy1*dx2, dx1*dx2+dy1*dy2)) * 180 / Math.PI;
+            if (angle > 40 && angle < 160) { isCorner = true; roadDetected = true; break; }
+          }
+        }
+      }
+
+      // METHOD 2: Geometry-only detection (when no road data nearby)
+      // A corner lot has two long sides at ~90° connected by a short diagonal/curve
+      if (!roadDetected && !isCorner) {
+        const sides = [];
+        for (let i = 0; i < poly.length - 1; i++) {
+          sides.push({
+            idx: i,
+            len: sideLen(poly[i], poly[i+1]),
+            angle: sideAngle(poly[i], poly[i+1]),
+            p0: poly[i], p1: poly[i+1],
+          });
+        }
+
+        // Find pairs of long sides (>10m) at roughly 70-110° to each other
+        const longSides = sides.filter(s => s.len > 10);
+        for (let a = 0; a < longSides.length; a++) {
+          for (let b = a + 1; b < longSides.length; b++) {
+            const angleDiff = Math.abs(longSides[a].angle - longSides[b].angle);
+            const normAngle = Math.min(angleDiff, Math.PI - angleDiff, Math.abs(angleDiff - Math.PI)) * 180 / Math.PI;
+            // Two long sides at ~90° (70-110° range)
+            if (normAngle > 55 && normAngle < 125) {
+              // Check if there's a short connecting segment between them (chamfer/curve)
+              const idxA = longSides[a].idx, idxB = longSides[b].idx;
+              const gap = Math.abs(idxA - idxB);
+              // They should be close in sequence (1-3 sides apart)
+              if (gap >= 1 && gap <= 3) {
+                // Check the sides between them are short (<15m) - chamfer or curve
+                let betweenShort = true;
+                const start = Math.min(idxA, idxB) + 1;
+                const end = Math.max(idxA, idxB);
+                for (let k = start; k < end; k++) {
+                  if (sides[k] && sides[k].len > 15) { betweenShort = false; break; }
+                }
+                if (betweenShort) { isCorner = true; break; }
+              }
+            }
+          }
+          if (isCorner) break;
         }
       }
     }
