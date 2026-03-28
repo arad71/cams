@@ -965,12 +965,13 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         // const dotCheck = abx*rux + aby*ruy; // should be ~0
 
         // Show dots + thin line
-        const dotA = L.circleMarker(ptA, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
-        const dotB = L.circleMarker(ptB, { radius: 5, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
+        const dotA = L.circleMarker(ptA, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, interactive: false }).addTo(map);
+        const dotB = L.circleMarker(ptB, { radius: 5, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 1.5, interactive: false }).addTo(map);
         const lineAB = L.polyline([ptA, ptB], { color: "#95a5a6", weight: 1, dashArray: "3,3", opacity: 0.5 }).addTo(map);
         offsetRef.current.layers.push(dotA, dotB, lineAB);
 
-        // ── Corner lot detection: find if lot has a curved corner near a road ──
+        // ── Corner lot detection: only if NOT already drawn by radius tool ──
+        if (!(offsetState?.cornerR > 0)) {
         let lotPoly = selectedApp?.lot_polygon;
         if (lotPoly && lotPoly.length >= 4) {
           if (Math.abs(lotPoly[0][0]) > 90) lotPoly = lotPoly.map(p => [p[1], p[0]]);
@@ -1069,6 +1070,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
             }
           }
         }
+        } // end: skip if radius already drawn
 
         // Feed A and B into sight triangle (with corner speed if available)
         if (onOffsetComplete) {
