@@ -110,7 +110,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   // Unified Sight Analysis state machine
   // Phases: null → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
   const [sightPhase, setSightPhase] = useState(null);
-  const [sightConfig, setSightConfig] = useState({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
+  const [sightConfig, setSightConfig] = useState({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null, sightPt: null, turnStart: null, turnEnd: null });
 
   const [drawMode, setDrawMode] = useState(null);
   const [ptA, setPtA] = useState(null);
@@ -118,9 +118,9 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [cornerSpeed, setCornerSpeed] = useState(null);
 
   // Handle radius completion (from LeafletMap callback)
-  const handleRadiusComplete = useCallback((R, V) => {
+  const handleRadiusComplete = useCallback((R, V, sightPt, turnStart, turnEnd) => {
     if (sightPhase === "corner_draw") {
-      setSightConfig(c => ({ ...c, cornerR: R, cornerV: V }));
+      setSightConfig(c => ({ ...c, cornerR: R, cornerV: V, sightPt, turnStart, turnEnd }));
       setCornerSpeed(V);
       setTimeout(() => {
         setSightPhase("offset_road");
@@ -551,9 +551,21 @@ Respond with JSON only:
     const grade = (Math.random() * 7 + 1).toFixed(1);
     const elevDiff = (parseFloat(grade) / 100 * depthM).toFixed(2);
 
+    // For corner lots, compute sight line from A to the sight distance point on curve
+    let cornerSightLine = null;
+    if (cornerSpeed && sightConfig.sightPt) {
+      const sp = sightConfig.sightPt;
+      cornerSightLine = {
+        from: { lat: ptA.lat, lng: ptA.lng },
+        to: { lat: sp[0], lng: sp[1] },
+        distance: geoDistMetres(ptA.lat, ptA.lng, sp[0], sp[1]),
+      };
+    }
+
     setSightTriangle({
       ptA, ptB, triLeft, triRight,
       lineAB: [[ptA.lat, ptA.lng], [ptB.lat, ptB.lng]],
+      cornerSightLine,
       lotPoly: bPoly, boundaryDists,
       ptALotInfo: ptALotPoly?.properties || null,
       speedInfo: { detected: effectiveSpeed, roadName: cornerSpeed ? `Corner R (${(cornerSpeed/6.67)**2 > 0 ? ((cornerSpeed/6.67)**2).toFixed(0) : '?'}m)` : nearestRoad.roadName, networkType: nearestRoad.networkType, absMin: sd.absMin, ssdMin: sd.ssdMin, leftM: leftDistM, rightM: rightDistM, baseTotal, isCorner: !!cornerSpeed },
@@ -568,9 +580,9 @@ Respond with JSON only:
     });
 
     // Async road crossing detection removed — handled by AI 3D Sight Analysis instead
-  }, [ptA, ptB, coords, lotPoly, ptALotPoly, cornerSpeed]);
+  }, [ptA, ptB, coords, lotPoly, ptALotPoly, cornerSpeed, sightConfig.sightPt]);
 
-  const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); reset3DAnalysis(); };
+  const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null, sightPt: null, turnStart: null, turnEnd: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); setRadiusResult(null); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
 
   // Transition: offset road clicked → update phase
@@ -848,15 +860,8 @@ Respond with JSON only:
             {sightPhase === "corner_draw" && !sightConfig.cornerR && (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#e65100", animation: "pulse 1.5s infinite" }} />
-                <span>Click 3+ points along the <b>kerb return curve</b></span>
-                {radiusResult && (
-                  <button onClick={() => {
-                    const match = radiusResult.match(/R=([\d.]+)m.*V=([\d.]+)km/);
-                    if (match) handleRadiusComplete(parseFloat(match[1]), parseFloat(match[2]));
-                  }} style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
-                    ✓ Finish — {radiusResult.split('·')[0].trim()} · Sight={radiusResult.match(/V=(\d+)/)?.[1]}m
-                  </button>
-                )}
+                <span>Click 3+ points along the <b>kerb return curve</b>, double-click to finish</span>
+                {radiusResult && <span style={{ fontSize: 9, background: "#ff9800", color: "#fff", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>{radiusResult.split('·')[0].trim()}</span>}
                 <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
               </div>
             )}

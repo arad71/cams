@@ -292,6 +292,15 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }).addTo(mapInstanceRef.current);
       triLayersRef.current.push(tri);
     }
+
+    // Corner lot: draw sight line from A to curve sight point
+    if (sightTriangle.cornerSightLine && ptA) {
+      const csl = sightTriangle.cornerSightLine;
+      const sightLine = L.polyline([[csl.from.lat, csl.from.lng], [csl.to.lat, csl.to.lng]], {
+        color: '#e74c3c', weight: 1.5, dashArray: '6,4', opacity: 0.8,
+      }).addTo(mapInstanceRef.current);
+      triLayersRef.current.push(sightLine);
+    }
   }, [sightTriangle, leafletLoaded]);
 
   // Render 3D analysis obstruction points as red dots on the map
@@ -1272,9 +1281,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       for (let i = 1; i < arcPts.length; i++) arcLen += L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
 
       if (setRadiusResult) setRadiusResult(`R=${R.toFixed(1)}m · V=${V.toFixed(0)}km/h · Arc=${arcLen.toFixed(0)}m`);
-      // Store last computed R/V for dblclick confirmation
       radiusRef.current.lastR = R;
       radiusRef.current.lastV = V;
+      radiusRef.current.lastSightPt = sightPt;
+      radiusRef.current.lastTurnStart = turnStart ? [turnStart.lat, turnStart.lng] : arcPts[0];
+      radiusRef.current.lastTurnEnd = turnEnd ? [turnEnd.lat, turnEnd.lng] : arcPts[arcPts.length - 1];
     };
 
     const onClick = (e) => {
@@ -1287,14 +1298,24 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const onDblClick = (e) => {
       L.DomEvent.stopPropagation(e);
-      // Reset points to start fresh
-      radiusRef.current.pts = [];
-      radiusRef.current.lastR = null;
-      radiusRef.current.lastV = null;
-      // Clear drawn layers
-      radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
-      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
-      if (setRadiusResult) setRadiusResult(null);
+      if (radiusRef.current.lastR && radiusRef.current.pts.length >= 3 && onRadiusComplete) {
+        // Confirm curve — fire completion with R, V, sightPt, turnStart
+        onRadiusComplete(
+          radiusRef.current.lastR,
+          radiusRef.current.lastV,
+          radiusRef.current.lastSightPt,
+          radiusRef.current.lastTurnStart,
+          radiusRef.current.lastTurnEnd
+        );
+      } else {
+        // No valid result — reset
+        radiusRef.current.pts = [];
+        radiusRef.current.lastR = null;
+        radiusRef.current.lastV = null;
+        radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
+        radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
+        if (setRadiusResult) setRadiusResult(null);
+      }
     };
 
     map.on("preclick", onClick);
