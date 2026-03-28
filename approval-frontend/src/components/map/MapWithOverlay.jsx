@@ -853,8 +853,8 @@ Respond with JSON only:
                   <button onClick={() => {
                     const match = radiusResult.match(/R=([\d.]+)m.*V=([\d.]+)km/);
                     if (match) handleRadiusComplete(parseFloat(match[1]), parseFloat(match[2]));
-                  }} style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#e65100", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
-                    Finish Curve {radiusResult && `(${radiusResult.split('·')[0].trim()})`}
+                  }} style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                    ✓ Finish — {radiusResult.split('·')[0].trim()} · Sight={radiusResult.match(/V=(\d+)/)?.[1]}m
                   </button>
                 )}
                 <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>

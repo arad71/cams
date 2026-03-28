@@ -1228,17 +1228,40 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         dEnd._isResult = true; dEnd.addTo(map); radiusRef.current.layers.push(dEnd);
       }
 
-      // Sight distance marker: walk V metres along arc from turn start
+      // Sight distance marker: walk V metres along arc from FIRST CLICKED POINT
+      // Find the arc point nearest to the first click
+      let startIdx = 0;
+      let bestStartD = Infinity;
+      for (let i = 0; i < arcPts.length; i++) {
+        const d = L.latLng(arcPts[i]).distanceTo(pts[0]);
+        if (d < bestStartD) { bestStartD = d; startIdx = i; }
+      }
+
       let walked = 0;
       let sightPt = arcPts[arcPts.length - 1];
-      for (let i = 1; i < arcPts.length; i++) {
+      let sightFound = false;
+      for (let i = startIdx + 1; i < arcPts.length; i++) {
         const segD = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
         if (walked + segD >= V) {
           const frac = (V - walked) / segD;
           sightPt = [arcPts[i-1][0] + frac*(arcPts[i][0]-arcPts[i-1][0]), arcPts[i-1][1] + frac*(arcPts[i][1]-arcPts[i-1][1])];
+          sightFound = true;
           break;
         }
         walked += segD;
+      }
+      // If not found walking forward, try backward from first click
+      if (!sightFound && startIdx > 0) {
+        walked = 0;
+        for (let i = startIdx - 1; i >= 0; i--) {
+          const segD = L.latLng(arcPts[i+1]).distanceTo(L.latLng(arcPts[i]));
+          if (walked + segD >= V) {
+            const frac = (V - walked) / segD;
+            sightPt = [arcPts[i+1][0] + frac*(arcPts[i][0]-arcPts[i+1][0]), arcPts[i+1][1] + frac*(arcPts[i][1]-arcPts[i+1][1])];
+            break;
+          }
+          walked += segD;
+        }
       }
 
       const sightDot = L.circleMarker(sightPt, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" });
