@@ -876,7 +876,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       const mPerLat = 111320;
       const mPerLng = 111320 * Math.cos(roadPt.lat * Math.PI / 180);
 
-      // Find road segment
+      // Find road segment nearest to roadPt using projection
       let rA = roadPt, rB = L.latLng(roadPt.lat, roadPt.lng + 0.0001);
       let bestD = Infinity;
       for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
@@ -885,7 +885,13 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           if (!c || f.geometry?.type !== "LineString") continue;
           for (let i = 0; i < c.length - 1; i++) {
             const a = L.latLng(c[i][1], c[i][0]), b = L.latLng(c[i+1][1], c[i+1][0]);
-            const d = roadPt.distanceTo(L.latLng((a.lat+b.lat)/2, (a.lng+b.lng)/2));
+            // Project roadPt onto segment a-b
+            const ax2 = a.lng, ay2 = a.lat, bx2 = b.lng, by2 = b.lat;
+            const dx2 = bx2-ax2, dy2 = by2-ay2, lenSq2 = dx2*dx2+dy2*dy2;
+            if (lenSq2 < 1e-20) continue;
+            const t2 = Math.max(0, Math.min(1, ((roadPt.lng-ax2)*dx2 + (roadPt.lat-ay2)*dy2) / lenSq2));
+            const proj = L.latLng(ay2+t2*dy2, ax2+t2*dx2);
+            const d = roadPt.distanceTo(proj);
             if (d < bestD) { bestD = d; rA = a; rB = b; }
           }
         }
@@ -937,10 +943,17 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           ptA = L.latLng(rA.lat + r0y/mPerLat, rA.lng + r0x/mPerLng);
         }
 
-        // Point B: drop perpendicular from A to road centreline
-        const ax = (ptA.lng-rA.lng)*mPerLng, ay = (ptA.lat-rA.lat)*mPerLat;
-        const pt = ax*rux + ay*ruy;
-        const ptB = L.latLng(rA.lat + (pt*ruy)/mPerLat, rA.lng + (pt*rux)/mPerLng);
+        // Point B: perpendicular foot from A onto road centreline (rA→rB)
+        // Vector from rA to ptA in metres
+        const pax = (ptA.lng-rA.lng)*mPerLng, pay = (ptA.lat-rA.lat)*mPerLat;
+        // Project onto road direction to get distance along road from rA
+        const projAlongRoad = pax*rux + pay*ruy;
+        // Point B = rA + projection along road direction (this is the foot of perpendicular)
+        const ptB = L.latLng(rA.lat + (projAlongRoad*ruy)/mPerLat, rA.lng + (projAlongRoad*rux)/mPerLng);
+
+        // Verify: A→B should be perpendicular to road (dot product ≈ 0)
+        // const abx = (ptB.lng-ptA.lng)*mPerLng, aby = (ptB.lat-ptA.lat)*mPerLat;
+        // const dotCheck = abx*rux + aby*ruy; // should be ~0
 
         // Show dots + thin line
         const dotA = L.circleMarker(ptA, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" }).addTo(map);
@@ -1215,17 +1228,40 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         dEnd._isResult = true; dEnd.addTo(map); radiusRef.current.layers.push(dEnd);
       }
 
-      // Sight distance marker: walk V metres along arc from turn start
+      // Sight distance marker: walk V metres along arc from FIRST CLICKED POINT
+      // Find the arc point nearest to the first click
+      let startIdx = 0;
+      let bestStartD = Infinity;
+      for (let i = 0; i < arcPts.length; i++) {
+        const d = L.latLng(arcPts[i]).distanceTo(pts[0]);
+        if (d < bestStartD) { bestStartD = d; startIdx = i; }
+      }
+
       let walked = 0;
       let sightPt = arcPts[arcPts.length - 1];
-      for (let i = 1; i < arcPts.length; i++) {
+      let sightFound = false;
+      for (let i = startIdx + 1; i < arcPts.length; i++) {
         const segD = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
         if (walked + segD >= V) {
           const frac = (V - walked) / segD;
           sightPt = [arcPts[i-1][0] + frac*(arcPts[i][0]-arcPts[i-1][0]), arcPts[i-1][1] + frac*(arcPts[i][1]-arcPts[i-1][1])];
+          sightFound = true;
           break;
         }
         walked += segD;
+      }
+      // If not found walking forward, try backward from first click
+      if (!sightFound && startIdx > 0) {
+        walked = 0;
+        for (let i = startIdx - 1; i >= 0; i--) {
+          const segD = L.latLng(arcPts[i+1]).distanceTo(L.latLng(arcPts[i]));
+          if (walked + segD >= V) {
+            const frac = (V - walked) / segD;
+            sightPt = [arcPts[i+1][0] + frac*(arcPts[i][0]-arcPts[i+1][0]), arcPts[i+1][1] + frac*(arcPts[i][1]-arcPts[i+1][1])];
+            break;
+          }
+          walked += segD;
+        }
       }
 
       const sightDot = L.circleMarker(sightPt, { radius: 6, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, pane: "markerPane" });
@@ -1251,13 +1287,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const onDblClick = (e) => {
       L.DomEvent.stopPropagation(e);
-      // If we have a valid result, fire completion callback
-      if (radiusRef.current.lastR && radiusRef.current.pts.length >= 3 && onRadiusComplete) {
-        onRadiusComplete(radiusRef.current.lastR, radiusRef.current.lastV);
-      } else {
-        // No valid result — reset
-        radiusRef.current.pts = [];
-      }
+      // Reset points to start fresh
+      radiusRef.current.pts = [];
+      radiusRef.current.lastR = null;
+      radiusRef.current.lastV = null;
+      // Clear drawn layers
+      radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
+      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
+      if (setRadiusResult) setRadiusResult(null);
     };
 
     map.on("preclick", onClick);
