@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -1108,7 +1108,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (mapTool !== "radius") return;
     map.getContainer().style.cursor = "crosshair";
 
-    // Set Done button ref so MapWithOverlay can trigger completion
+    // Set Done and Clear button refs
     if (radiusDoneRef) {
       radiusDoneRef.current = () => {
         if (radiusRef.current.lastR && radiusRef.current.pts.length >= 3 && onRadiusComplete) {
@@ -1120,6 +1120,15 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
             radiusRef.current.lastTurnEnd
           );
         }
+      };
+    }
+    if (radiusClearRef) {
+      radiusClearRef.current = () => {
+        radiusRef.current.pts = [];
+        radiusRef.current.lastR = null;
+        radiusRef.current.lastV = null;
+        radiusRef.current.layers.forEach(l => map.removeLayer(l));
+        radiusRef.current.layers = [];
       };
     }
 
@@ -1252,36 +1261,37 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         dEnd._isResult = true; dEnd.addTo(map); radiusRef.current.layers.push(dEnd);
       }
 
-      // Sight distance marker: walk V metres along arc from FIRST CLICKED POINT
-      // Find the arc point nearest to the first click
-      let startIdx = 0;
-      let bestStartD = Infinity;
+      // Sight distance marker: walk V metres from LAST CLICKED POINT along the curve
+      // The last point is nearest to the driveway; sight point is V metres away along road
+      let lastIdx = 0;
+      let bestLastD = Infinity;
       for (let i = 0; i < arcPts.length; i++) {
-        const d = L.latLng(arcPts[i]).distanceTo(pts[0]);
-        if (d < bestStartD) { bestStartD = d; startIdx = i; }
+        const d = L.latLng(arcPts[i]).distanceTo(pts[pts.length - 1]);
+        if (d < bestLastD) { bestLastD = d; lastIdx = i; }
       }
 
       let walked = 0;
-      let sightPt = arcPts[arcPts.length - 1];
+      let sightPt = arcPts[0]; // fallback to start
       let sightFound = false;
-      for (let i = startIdx + 1; i < arcPts.length; i++) {
-        const segD = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
+      // Walk backward from last point toward start of arc
+      for (let i = lastIdx - 1; i >= 0; i--) {
+        const segD = L.latLng(arcPts[i+1]).distanceTo(L.latLng(arcPts[i]));
         if (walked + segD >= V) {
           const frac = (V - walked) / segD;
-          sightPt = [arcPts[i-1][0] + frac*(arcPts[i][0]-arcPts[i-1][0]), arcPts[i-1][1] + frac*(arcPts[i][1]-arcPts[i-1][1])];
+          sightPt = [arcPts[i+1][0] + frac*(arcPts[i][0]-arcPts[i+1][0]), arcPts[i+1][1] + frac*(arcPts[i][1]-arcPts[i+1][1])];
           sightFound = true;
           break;
         }
         walked += segD;
       }
-      // If not found walking forward, try backward from first click
-      if (!sightFound && startIdx > 0) {
+      // If not found walking backward, try forward
+      if (!sightFound) {
         walked = 0;
-        for (let i = startIdx - 1; i >= 0; i--) {
-          const segD = L.latLng(arcPts[i+1]).distanceTo(L.latLng(arcPts[i]));
+        for (let i = lastIdx + 1; i < arcPts.length; i++) {
+          const segD = L.latLng(arcPts[i-1]).distanceTo(L.latLng(arcPts[i]));
           if (walked + segD >= V) {
             const frac = (V - walked) / segD;
-            sightPt = [arcPts[i+1][0] + frac*(arcPts[i][0]-arcPts[i+1][0]), arcPts[i+1][1] + frac*(arcPts[i][1]-arcPts[i+1][1])];
+            sightPt = [arcPts[i-1][0] + frac*(arcPts[i][0]-arcPts[i-1][0]), arcPts[i-1][1] + frac*(arcPts[i][1]-arcPts[i-1][1])];
             break;
           }
           walked += segD;

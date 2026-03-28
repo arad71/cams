@@ -116,7 +116,8 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [ptA, setPtA] = useState(null);
   const [ptB, setPtB] = useState(null);
   const [cornerSpeed, setCornerSpeed] = useState(null);
-  const radiusDoneRef = useRef(null); // Called by Done button to trigger radius completion
+  const radiusDoneRef = useRef(null);
+  const radiusClearRef = useRef(null);
 
   // Handle radius completion (from LeafletMap callback)
   const handleRadiusComplete = useCallback((R, V, sightPt, turnStart, turnEnd) => {
@@ -867,6 +868,10 @@ Respond with JSON only:
                   <button onClick={() => { if (radiusDoneRef.current) radiusDoneRef.current(); }}
                     style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Done ✓</button>
                 )}
+                {radiusResult && (
+                  <button onClick={() => { if (radiusClearRef.current) radiusClearRef.current(); setRadiusResult(null); }}
+                    style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#e65100", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Clear</button>
+                )}
                 <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
               </div>
             )}
@@ -939,6 +944,7 @@ Respond with JSON only:
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
         onRadiusComplete={handleRadiusComplete}
         radiusDoneRef={radiusDoneRef}
+        radiusClearRef={radiusClearRef}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         offsetState={offsetState} setOffsetState={setOffsetState}
         onOffsetComplete={(a, b, cornerSpeed) => { setPtA(a); setPtB(b); if (cornerSpeed) setCornerSpeed(cornerSpeed); setDrawMode(null); setSightPhase("complete"); setMapTool(null); }}
