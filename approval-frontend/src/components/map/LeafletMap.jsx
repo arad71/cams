@@ -668,9 +668,12 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     offsetRef.current.layers.forEach(l => map.removeLayer(l));
     offsetRef.current.layers = [];
 
-    if (mapTool !== "offset" || !offsetState) return;
+    if (mapTool !== "offset" && !(offsetState?.step >= 2 && offsetState?.road && offsetState?.boundary)) {
+      if (!offsetState) return;
+      return;
+    }
 
-    map.getContainer().style.cursor = "crosshair";
+    if (mapTool === "offset") map.getContainer().style.cursor = "crosshair";
 
     // Find nearest point on road segment — searches BOTH speed data and road network
     const snapToRoad = (latlng) => {
@@ -1052,9 +1055,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       }
     }
 
-    map.on("preclick", onClick);
-    map.on("dblclick", onDblClick);
-    map.doubleClickZoom.disable();
+    if (mapTool === "offset") {
+      map.on("preclick", onClick);
+      map.on("dblclick", onDblClick);
+      map.doubleClickZoom.disable();
+    }
     return () => { map.off("preclick", onClick); map.off("dblclick", onDblClick); map.doubleClickZoom.enable(); map.getContainer().style.cursor = ""; };
   }, [mapTool, offsetState, leafletLoaded, speedRoadsData, roadNetworkData, allLotsData]);
 
