@@ -45,7 +45,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (!document.getElementById('lot-tip-style')) {
       const style = document.createElement('style');
       style.id = 'lot-tip-style';
-      style.textContent = `.lot-tip-clean{background:none!important;border:none!important;box-shadow:none!important;padding:0!important;font-size:11px;font-weight:600;color:#1a3a4a;font-family:sans-serif;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 5px #fff;}.lot-tip-clean::before{display:none!important;}`;
+      style.textContent = `.lot-tip-clean{background:none!important;border:none!important;box-shadow:none!important;padding:0!important;font-size:11px;font-weight:600;color:#1a3a4a;font-family:sans-serif;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 5px #fff;}.lot-tip-clean::before{display:none!important;}.sight-drag-icon{background:none!important;border:none!important;cursor:grab!important;}.sight-drag-icon:active{cursor:grabbing!important;}`;
       document.head.appendChild(style);
     }
 
@@ -253,9 +253,9 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     const { ptA, ptB, triLeft, triRight, lineAB, propertyLine, intersections, analysis } = sightTriangle;
 
     const makeIcon = (label, color) => L.divIcon({
-      className: '',
-      html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;font-family:sans-serif;pointer-events:none">${label}</div>`,
-      iconSize: [18, 18], iconAnchor: [9, 9]
+      className: 'sight-drag-icon',
+      html: `<div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif;cursor:grab">${label}</div>`,
+      iconSize: [20, 20], iconAnchor: [10, 10]
     });
 
     // Point A
@@ -288,7 +288,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (triLeft && triRight && ptA) {
       const compliant = analysis?.compliant !== false;
       const tri = L.polygon([[ptA.lat, ptA.lng], [triLeft.lat, triLeft.lng], [triRight.lat, triRight.lng]], {
-        color: compliant ? '#27ae60' : '#e74c3c', weight: 1.5, fillColor: compliant ? '#27ae60' : '#e74c3c', fillOpacity: compliant ? 0.08 : 0.12, dashArray: compliant ? null : '5,3',
+        color: compliant ? '#27ae60' : '#e74c3c', weight: 1.5, fillColor: compliant ? '#27ae60' : '#e74c3c', fillOpacity: compliant ? 0.08 : 0.12, dashArray: compliant ? null : '5,3', interactive: false,
       }).addTo(mapInstanceRef.current);
       triLayersRef.current.push(tri);
     }
@@ -297,7 +297,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (sightTriangle.cornerSightLine && ptA) {
       const csl = sightTriangle.cornerSightLine;
       const sightLine = L.polyline([[csl.from.lat, csl.from.lng], [csl.to.lat, csl.to.lng]], {
-        color: '#e74c3c', weight: 1.5, dashArray: '6,4', opacity: 0.8,
+        color: '#e74c3c', weight: 1.5, dashArray: '6,4', opacity: 0.8, interactive: false,
       }).addTo(mapInstanceRef.current);
       triLayersRef.current.push(sightLine);
     }
@@ -967,7 +967,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         // Show dots + thin line
         const dotA = L.circleMarker(ptA, { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1, weight: 1.5, interactive: false }).addTo(map);
         const dotB = L.circleMarker(ptB, { radius: 5, color: "#2980b9", fillColor: "#2980b9", fillOpacity: 1, weight: 1.5, interactive: false }).addTo(map);
-        const lineAB = L.polyline([ptA, ptB], { color: "#95a5a6", weight: 1, dashArray: "3,3", opacity: 0.5 }).addTo(map);
+        const lineAB = L.polyline([ptA, ptB], { color: "#95a5a6", weight: 1, dashArray: "3,3", opacity: 0.5, interactive: false }).addTo(map);
         offsetRef.current.layers.push(dotA, dotB, lineAB);
 
         // ── Corner lot detection: only if NOT already drawn by radius tool ──
