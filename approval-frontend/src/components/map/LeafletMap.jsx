@@ -1264,13 +1264,14 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const onDblClick = (e) => {
       L.DomEvent.stopPropagation(e);
-      // If we have a valid result, fire completion callback
-      if (radiusRef.current.lastR && radiusRef.current.pts.length >= 3 && onRadiusComplete) {
-        onRadiusComplete(radiusRef.current.lastR, radiusRef.current.lastV);
-      } else {
-        // No valid result — reset
-        radiusRef.current.pts = [];
-      }
+      // Reset points to start fresh
+      radiusRef.current.pts = [];
+      radiusRef.current.lastR = null;
+      radiusRef.current.lastV = null;
+      // Clear drawn layers
+      radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
+      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
+      if (setRadiusResult) setRadiusResult(null);
     };
 
     map.on("preclick", onClick);

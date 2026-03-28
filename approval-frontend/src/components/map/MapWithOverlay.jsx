@@ -107,6 +107,19 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [centrelineDist, setCentrelineDist] = useState(null);
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
+  // Handle radius completion (from Finish button or LeafletMap callback)
+  const handleRadiusComplete = useCallback((R, V) => {
+    if (sightPhase === "corner_draw") {
+      setSightConfig(c => ({ ...c, cornerR: R, cornerV: V }));
+      setCornerSpeed(V);
+      setTimeout(() => {
+        setSightPhase("offset_road");
+        setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: true, cornerR: R, cornerV: V });
+        setMapTool("offset");
+      }, 600);
+    }
+  }, [sightPhase, sightConfig.x, sightConfig.y]);
+
   // Unified Sight Analysis state machine
   // Phases: null → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
   const [sightPhase, setSightPhase] = useState(null);
@@ -769,7 +782,10 @@ Respond with JSON only:
                 opacity: sightConfig.cornerR || sightPhase === "corner_draw" ? 1 : 0.5 }}>
                 <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Road Curve</div>
                 {sightConfig.cornerR ? (
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#27ae60" }}>R = {sightConfig.cornerR.toFixed(1)}m</div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#27ae60" }}>R = {sightConfig.cornerR.toFixed(1)}m</div>
+                    <div style={{ fontSize: 9, color: "#e65100", fontWeight: 600 }}>Sight dist = {sightConfig.cornerV.toFixed(1)}m</div>
+                  </div>
                 ) : (
                   <div style={{ fontSize: 10, color: "#e65100", fontWeight: 600 }}>Draw curve</div>
                 )}
@@ -799,9 +815,9 @@ Respond with JSON only:
               <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Sight Area</div>
               {sightTriangle ? (
                 <div style={{ fontSize: 9, fontWeight: 600, color: "#283593" }}>
-                  <span style={{ fontWeight: 800 }}>{sightTriangle.speedInfo?.detected}km/h</span>
-                  <span style={{ color: "#7a8a94" }}> → </span>
-                  <span>{sightTriangle.analysis?.leftDist}m + {sightTriangle.analysis?.rightDist}m = {sightTriangle.analysis?.baseWidth}m</span>
+                  <div><span style={{ fontWeight: 800 }}>{Math.round(sightTriangle.speedInfo?.detected)}km/h</span> <span style={{ color: "#7a8a94" }}>speed</span></div>
+                  <div style={{ fontSize: 8, color: "#5a6a74" }}>{sightTriangle.analysis?.leftDist}m + {sightTriangle.analysis?.rightDist}m = {sightTriangle.analysis?.baseWidth}m base</div>
+                  {sightConfig.cornerR && <div style={{ fontSize: 8, color: "#e65100" }}>Sight dist: {sightConfig.cornerV?.toFixed(1)}m</div>}
                 </div>
               ) : (
                 <div style={{ fontSize: 10, color: "#c0c5ca" }}>Auto-drawn</div>
@@ -832,7 +848,15 @@ Respond with JSON only:
             {sightPhase === "corner_draw" && !sightConfig.cornerR && (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#e65100", animation: "pulse 1.5s infinite" }} />
-                <span>Click 3+ points along the <b>kerb return curve</b>, double-click to finish</span>
+                <span>Click 3+ points along the <b>kerb return curve</b></span>
+                {radiusResult && (
+                  <button onClick={() => {
+                    const match = radiusResult.match(/R=([\d.]+)m.*V=([\d.]+)km/);
+                    if (match) handleRadiusComplete(parseFloat(match[1]), parseFloat(match[2]));
+                  }} style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#e65100", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                    Finish Curve {radiusResult && `(${radiusResult.split('·')[0].trim()})`}
+                  </button>
+                )}
                 <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
               </div>
             )}
@@ -903,18 +927,7 @@ Respond with JSON only:
         mapTool={mapTool} setMapTool={setMapTool}
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
-        onRadiusComplete={(R, V) => {
-          // When in corner_draw phase, capture R/V and transition to driveway
-          if (sightPhase === "corner_draw") {
-            setSightConfig(c => ({ ...c, cornerR: R, cornerV: V }));
-            setCornerSpeed(V);
-            setTimeout(() => {
-              setSightPhase("offset_road");
-              setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: true, cornerR: R, cornerV: V });
-              setMapTool("offset");
-            }, 600);
-          }
-        }}
+        onRadiusComplete={handleRadiusComplete}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         offsetState={offsetState} setOffsetState={setOffsetState}
         onOffsetComplete={(a, b, cornerSpeed) => { setPtA(a); setPtB(b); if (cornerSpeed) setCornerSpeed(cornerSpeed); setDrawMode(null); setSightPhase("complete"); setMapTool(null); }}
