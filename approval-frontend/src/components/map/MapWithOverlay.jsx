@@ -584,7 +584,7 @@ Respond with JSON only:
     // Async road crossing detection removed — handled by AI 3D Sight Analysis instead
   }, [ptA, ptB, coords, lotPoly, ptALotPoly, cornerSpeed, sightConfig.sightPt]);
 
-  const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null, sightPt: null, turnStart: null, turnEnd: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); setRadiusResult(null); reset3DAnalysis(); };
+  const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null, sightPt: null, turnStart: null, turnEnd: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); setRadiusResult(null); if (radiusClearRef.current) radiusClearRef.current(); reset3DAnalysis(); };
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
 
   // Transition: offset road clicked → update phase
