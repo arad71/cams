@@ -108,7 +108,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
   // Unified Sight Analysis state machine
-  // Phases: null → "corner_ask" → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
+  // Phases: null → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
   const [sightPhase, setSightPhase] = useState(null);
   const [sightConfig, setSightConfig] = useState({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
@@ -571,40 +571,58 @@ Respond with JSON only:
   const startSightAnalysis = () => {
     resetTriangle();
     // Auto-detect corner lot from lot polygon + nearby roads
+    // Uses lotPoly which resolves from: app.lot_polygon → lot.geojson address match → rectangle fallback
     let isCorner = false;
-    let lotPoly2 = app?.lot_polygon;
-    if (lotPoly2 && lotPoly2.length >= 4) {
-      if (Math.abs(lotPoly2[0][0]) > 90) lotPoly2 = lotPoly2.map(p => [p[1], p[0]]);
-      const lf = lotPoly2[0], ll = lotPoly2[lotPoly2.length-1];
-      if (lf[0] !== ll[0] || lf[1] !== ll[1]) lotPoly2 = [...lotPoly2, lf];
-      const nearRoad = (lat, lng) => {
+    let poly = lotPoly;
+    if (poly && poly.length >= 4) {
+      // Ensure closed
+      const lf = poly[0], ll = poly[poly.length-1];
+      if (lf[0] !== ll[0] || lf[1] !== ll[1]) poly = [...poly, lf];
+
+      // Check each lot side: is its midpoint within 12m of any road?
+      const sideNearRoad = [];
+      for (let i = 0; i < poly.length - 1; i++) {
+        const midLat = (poly[i][0] + poly[i+1][0]) / 2;
+        const midLng = (poly[i][1] + poly[i+1][1]) / 2;
+        let near = false;
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+          if (near) break;
           for (const f of src.features) {
+            if (near) break;
             const c = f.geometry?.coordinates;
             if (!c || f.geometry?.type !== "LineString") continue;
             for (let j = 0; j < c.length - 1; j++) {
-              const a = [c[j][1], c[j][0]], b = [c[j+1][1], c[j+1][0]];
-              const dx = b[1]-a[1], dy = b[0]-a[0], len = dx*dx+dy*dy;
+              const ax = c[j][0], ay = c[j][1], bx = c[j+1][0], by = c[j+1][1];
+              const dx = bx-ax, dy = by-ay, len = dx*dx+dy*dy;
               if (len < 1e-20) continue;
-              const t = Math.max(0, Math.min(1, ((lng-a[1])*dx + (lat-a[0])*dy) / len));
-              const slat = a[0]+t*dy, slng = a[1]+t*dx;
-              const d = Math.sqrt(((lat-slat)*111320)**2 + (((lng-slng)*111320*Math.cos(lat*Math.PI/180)))**2);
-              if (d < 12) return true;
+              const t = Math.max(0, Math.min(1, ((midLng-ax)*dx + (midLat-ay)*dy) / len));
+              const slat = ay+t*dy, slng = ax+t*dx;
+              const d = Math.sqrt(((midLat-slat)*111320)**2 + ((midLng-slng)*111320*Math.cos(midLat*Math.PI/180))**2);
+              if (d < 12) { near = true; break; }
             }
           }
         }
-        return false;
-      };
-      for (let i = 1; i < lotPoly2.length - 1; i++) {
-        const midPrev = [(lotPoly2[i-1][0]+lotPoly2[i][0])/2, (lotPoly2[i-1][1]+lotPoly2[i][1])/2];
-        const midNext = [(lotPoly2[i][0]+lotPoly2[i+1][0])/2, (lotPoly2[i][1]+lotPoly2[i+1][1])/2];
-        if (nearRoad(midPrev[0], midPrev[1]) && nearRoad(midNext[0], midNext[1])) { isCorner = true; break; }
+        sideNearRoad.push(near);
+      }
+
+      // Corner lot = any vertex where both adjacent sides touch different roads
+      for (let i = 0; i < sideNearRoad.length; i++) {
+        const next = (i + 1) % sideNearRoad.length;
+        if (sideNearRoad[i] && sideNearRoad[next]) {
+          // Both sides near roads — but are they DIFFERENT roads? Check angle between sides
+          const p0 = poly[i], p1 = poly[(i+1) % (poly.length-1)], p2 = poly[(i+2) % (poly.length-1)];
+          const dx1 = p1[1]-p0[1], dy1 = p1[0]-p0[0];
+          const dx2 = p2[1]-p1[1], dy2 = p2[0]-p1[0];
+          const angle = Math.abs(Math.atan2(dx1*dy2-dy1*dx2, dx1*dx2+dy1*dy2)) * 180 / Math.PI;
+          // Corner if angle is roughly 60-120 degrees (not near-straight)
+          if (angle > 40 && angle < 160) { isCorner = true; break; }
+        }
       }
     }
+
     setSightPhase(isCorner ? "corner_draw" : "offset_road");
     setSightConfig(c => ({ ...c, isCorner }));
     if (isCorner) {
-      // Corner lot → go straight to radius drawing
       setMapTool("radius");
     } else {
       setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
@@ -684,63 +702,105 @@ Respond with JSON only:
           </button>
         </div>
       </div>
-      {/* ═══ Sight Analysis Panel ═══ */}
+      {/* ═══ Sight Analysis ═══ */}
       {(sightPhase || sightTriangle || drawMode) ? (
-        <div style={{ background: "#f8fafb", borderBottom: "1px solid #e4e9ec", padding: "6px 12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Sight Analysis</span>
-            {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "1px 5px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.3 }}>CORNER LOT</span>}
-
-            {/* Progress */}
-            <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
-              {sightConfig.isCorner && (
-                <span style={{ fontSize: 9, fontWeight: 700, color: sightConfig.cornerR ? "#27ae60" : (sightPhase === "corner_ask" || sightPhase === "corner_draw") ? "#e65100" : "#c0c5ca" }}>
-                  {sightConfig.cornerR ? `● Curve R=${sightConfig.cornerR.toFixed(1)}m` : "○ Road curve"}
-                </span>
-              )}
-              <span style={{ fontSize: 9, fontWeight: 700, color: (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "#2e7d32" : sightTriangle ? "#27ae60" : "#c0c5ca" }}>
-                {sightTriangle || sightPhase === "complete" ? "● Driveway location" : "○ Driveway location"}
-              </span>
-              <span style={{ fontSize: 9, fontWeight: 700, color: sightTriangle ? "#283593" : "#c0c5ca" }}>
-                {sightTriangle ? "● Sight area" : "○ Sight area"}
-              </span>
-            </div>
-
+        <div style={{ background: "linear-gradient(180deg, #f0f2f5 0%, #f8f9fb 100%)", borderBottom: "2px solid #1a3a4a20", padding: "8px 14px" }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a", letterSpacing: -0.3 }}>Sight Analysis</span>
+            {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
             <div style={{ flex: 1 }} />
-
-            {/* Config */}
-            <div style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 9, color: "#7a8a94" }}>
-              <span>Verge</span><input type="number" value={sightConfig.x} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, x: v})); setOffsetState(s => ({...s, x: v})); }} step="0.5" min="0" style={{ width: 32, padding: "1px 2px", borderRadius: 3, border: "1px solid #dce1e6", fontSize: 9, fontWeight: 700, textAlign: "center" }} /><span>m</span>
-              <span>Fence</span><input type="number" value={sightConfig.y} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, y: v})); setOffsetState(s => ({...s, y: v})); }} step="0.5" min="0" style={{ width: 32, padding: "1px 2px", borderRadius: 3, border: "1px solid #dce1e6", fontSize: 9, fontWeight: 700, textAlign: "center" }} /><span>m</span>
-            </div>
-
             {sightTriangle && !drawMode && !analysisRunning && (
-              <button onClick={run3DSightAnalysis} style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: "#6c3483", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>3D Analysis</button>
+              <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
             )}
-            {analysisRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad" }}>Analysing...</span>}
-            <button onClick={resetTriangle} style={{ padding: "2px 6px", borderRadius: 3, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Reset</button>
+            {analysisRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
+            <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Reset</button>
           </div>
-
-          {/* Instruction */}
-          <div style={{ marginTop: 4, fontSize: 10, color: "#5a6a74", fontWeight: 500 }}>
-            {sightPhase === "corner_draw" && !sightConfig.cornerR && (
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "#e65100" }}>Click 3+ points along the <b>kerb return curve</b>, double-click to finish</span>
-                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip curve</button>
+          {/* Step cards */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+            {sightConfig.isCorner && (
+              <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightConfig.cornerR ? "#fff" : sightPhase === "corner_draw" ? "#fff" : "#f5f5f5",
+                border: sightConfig.cornerR ? "1.5px solid #27ae60" : sightPhase === "corner_draw" ? "1.5px solid #e65100" : "1px solid #e4e9ec",
+                opacity: sightConfig.cornerR || sightPhase === "corner_draw" ? 1 : 0.5 }}>
+                <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Road Curve</div>
+                {sightConfig.cornerR ? (
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#27ae60" }}>R = {sightConfig.cornerR.toFixed(1)}m</div>
+                ) : (
+                  <div style={{ fontSize: 10, color: "#e65100", fontWeight: 600 }}>Draw curve</div>
+                )}
               </div>
             )}
-            {sightPhase === "corner_draw" && sightConfig.cornerR && <span style={{ color: "#2e7d32" }}>R = {sightConfig.cornerR.toFixed(1)}m · V = {sightConfig.cornerV.toFixed(0)}km/h — now click the <b>road edge</b></span>}
-            {sightPhase === "offset_road" && <span>Click on the <b>road edge</b> near the driveway</span>}
-            {sightPhase === "offset_boundary" && <span>Click on the <b>property boundary/fence</b></span>}
-            {sightPhase === "complete" && sightTriangle && <span style={{ color: "#283593" }}>Sight analysis complete — triangle and sight distance drawn</span>}
+            <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightTriangle ? "#fff" : (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "#fff" : "#f5f5f5",
+              border: sightTriangle ? "1.5px solid #27ae60" : (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "1.5px solid #2e7d32" : "1px solid #e4e9ec",
+              opacity: sightTriangle || sightPhase === "offset_road" || sightPhase === "offset_boundary" ? 1 : 0.5 }}>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Driveway Location</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
+                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>Verge</span>
+                  <input type="number" value={sightConfig.x} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, x: v})); setOffsetState(s => ({...s, x: v})); }} step="0.5" min="0"
+                    style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
+                  <span style={{ color: "#a0aab0", fontSize: 9 }}>m</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
+                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>Fence</span>
+                  <input type="number" value={sightConfig.y} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, y: v})); setOffsetState(s => ({...s, y: v})); }} step="0.5" min="0"
+                    style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
+                  <span style={{ color: "#a0aab0", fontSize: 9 }}>m</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightTriangle ? "#fff" : "#f5f5f5",
+              border: sightTriangle ? "1.5px solid #283593" : "1px solid #e4e9ec", opacity: sightTriangle ? 1 : 0.5 }}>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Sight Area</div>
+              {sightTriangle ? (
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#283593" }}>{sightTriangle.speedInfo?.detected}km/h · {sightTriangle.analysis?.baseWidth}m</div>
+              ) : (
+                <div style={{ fontSize: 10, color: "#c0c5ca" }}>Auto-drawn</div>
+              )}
+            </div>
+          </div>
+          {/* Instruction */}
+          <div style={{ fontSize: 10, color: "#5a6a74", fontWeight: 500, padding: "3px 0", borderTop: "1px solid #e8eaed" }}>
+            {sightPhase === "corner_draw" && !sightConfig.cornerR && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#e65100", animation: "pulse 1.5s infinite" }} />
+                <span>Click 3+ points along the <b>kerb return curve</b>, double-click to finish</span>
+                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
+              </div>
+            )}
+            {sightPhase === "corner_draw" && sightConfig.cornerR && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#27ae60" }} />
+                <span style={{ color: "#2e7d32" }}>Curve captured — now click the <b>road edge</b></span>
+              </div>
+            )}
+            {sightPhase === "offset_road" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#2e7d32", animation: "pulse 1.5s infinite" }} />
+                <span>Click on the <b>road edge</b> near the driveway</span>
+              </div>
+            )}
+            {sightPhase === "offset_boundary" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#2e7d32", animation: "pulse 1.5s infinite" }} />
+                <span>Click on the <b>property boundary/fence</b></span>
+              </div>
+            )}
+            {sightPhase === "complete" && sightTriangle && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#283593" }} />
+                <span style={{ color: "#283593" }}>Complete — adjust Verge/Fence to recalculate</span>
+              </div>
+            )}
             {drawMode === "ptA" && <span>Manual — click the <b>driveway location</b> (Point A)</span>}
             {drawMode === "ptB" && <span>Manual — click the <b>road centreline</b> (Point B)</span>}
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 3, alignItems: "center", padding: "4px 12px", borderBottom: "1px solid #e4e9ec" }}>
-          <button onClick={startSightAnalysis} style={{ padding: "4px 12px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Sight Analysis</button>
-          <button onClick={startDraw} style={{ padding: "4px 12px", borderRadius: 5, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
+        <div style={{ padding: "6px 14px", borderBottom: "1px solid #e4e9ec", display: "flex", gap: 4, alignItems: "center" }}>
+          <button onClick={startSightAnalysis} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(26,58,74,0.25)" }}>Sight Analysis</button>
+          <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
         </div>
       )}
       {/* Tool context bar */}
