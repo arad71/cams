@@ -1077,8 +1077,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     const L = window.L;
     const map = mapInstanceRef.current;
 
-    radiusRef.current.layers.forEach(l => map.removeLayer(l));
-    radiusRef.current = { pts: [], layers: [] };
+    // Don't clear radius layers if corner curve was completed (keep arc + sight dot visible)
+    if (!(offsetState?.cornerR > 0)) {
+      radiusRef.current.layers.forEach(l => map.removeLayer(l));
+      radiusRef.current = { pts: [], layers: [] };
+    }
 
     if (mapTool !== "radius") return;
     map.getContainer().style.cursor = "crosshair";
