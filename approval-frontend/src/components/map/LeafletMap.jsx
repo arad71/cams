@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -1108,6 +1108,21 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (mapTool !== "radius") return;
     map.getContainer().style.cursor = "crosshair";
 
+    // Set Done button ref so MapWithOverlay can trigger completion
+    if (radiusDoneRef) {
+      radiusDoneRef.current = () => {
+        if (radiusRef.current.lastR && radiusRef.current.pts.length >= 3 && onRadiusComplete) {
+          onRadiusComplete(
+            radiusRef.current.lastR,
+            radiusRef.current.lastV,
+            radiusRef.current.lastSightPt,
+            radiusRef.current.lastTurnStart,
+            radiusRef.current.lastTurnEnd
+          );
+        }
+      };
+    }
+
     const mPerLat = 111320;
     const mPerLng = 111320 * Math.cos(-31.97 * Math.PI / 180);
 
@@ -1298,24 +1313,16 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const onDblClick = (e) => {
       L.DomEvent.stopPropagation(e);
-      if (radiusRef.current.lastR && radiusRef.current.pts.length >= 3 && onRadiusComplete) {
-        // Confirm curve — fire completion with R, V, sightPt, turnStart
-        onRadiusComplete(
-          radiusRef.current.lastR,
-          radiusRef.current.lastV,
-          radiusRef.current.lastSightPt,
-          radiusRef.current.lastTurnStart,
-          radiusRef.current.lastTurnEnd
-        );
-      } else {
-        // No valid result — reset
-        radiusRef.current.pts = [];
-        radiusRef.current.lastR = null;
-        radiusRef.current.lastV = null;
-        radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
-        radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
-        if (setRadiusResult) setRadiusResult(null);
-      }
+      // Reset — start fresh
+      radiusRef.current.pts = [];
+      radiusRef.current.lastR = null;
+      radiusRef.current.lastV = null;
+      radiusRef.current.layers.filter(l => l._isResult).forEach(l => map.removeLayer(l));
+      radiusRef.current.layers = radiusRef.current.layers.filter(l => !l._isResult);
+      // Also remove click dots
+      radiusRef.current.layers.forEach(l => map.removeLayer(l));
+      radiusRef.current.layers = [];
+      if (setRadiusResult) setRadiusResult(null);
     };
 
     map.on("preclick", onClick);
