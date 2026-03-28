@@ -693,25 +693,28 @@ Respond with JSON only:
         }
 
         // Merge near-collinear sides (< 15° between them) into one logical side
-        const sides = [{ ...rawSides[0] }];
+        const sides = [{ ...rawSides[0], lastAngle: rawSides[0].angle }];
         for (let i = 1; i < rawSides.length; i++) {
           const prev = sides[sides.length - 1];
-          const ad = Math.abs(prev.angle - rawSides[i].angle);
-          const na = Math.min(ad, Math.PI - ad, Math.abs(ad - Math.PI)) * 180 / Math.PI;
+          // Normalize angle difference to [0, 180°]
+          let ad = Math.abs(prev.lastAngle - rawSides[i].angle);
+          while (ad > Math.PI) ad -= Math.PI;
+          const na = Math.min(ad, Math.PI - ad) * 180 / Math.PI;
           if (na < 15) {
-            // Merge: extend previous side
             prev.len += rawSides[i].len;
+            prev.lastAngle = rawSides[i].angle;
           } else {
-            sides.push({ ...rawSides[i] });
+            sides.push({ ...rawSides[i], lastAngle: rawSides[i].angle });
           }
         }
 
-        // Count right angles between merged sides
+        // Count right angles (with fixed normalization)
         let rightAngleCount = 0;
         for (let i = 0; i < sides.length; i++) {
           const nxt = (i + 1) % sides.length;
-          const ad = Math.abs(sides[i].angle - sides[nxt].angle);
-          const na = Math.min(ad, Math.PI - ad, Math.abs(ad - Math.PI)) * 180 / Math.PI;
+          let ad = Math.abs(sides[i].angle - sides[nxt].angle);
+          while (ad > Math.PI) ad -= Math.PI;
+          const na = Math.min(ad, Math.PI - ad) * 180 / Math.PI;
           if (na > 70 && na < 110) rightAngleCount++;
         }
 
@@ -721,30 +724,29 @@ Respond with JSON only:
         if (numSides <= 4 && rightAngleCount >= 3) {
           isCorner = false;
         } else if (numSides >= 5) {
-          // 5+ sides: look for chamfer pattern (truncated corner)
-          // A corner lot has: long side → chamfer (25°-65° angle) → long side at ~90°
-          const longSides = sides.filter(s => s.len > 10);
-          for (let a = 0; a < longSides.length && !isCorner; a++) {
-            for (let b = a + 1; b < longSides.length && !isCorner; b++) {
-              const ad = Math.abs(longSides[a].angle - longSides[b].angle);
-              const na = Math.min(ad, Math.PI - ad, Math.abs(ad - Math.PI)) * 180 / Math.PI;
-              if (na > 55 && na < 125) {
-                const idxA = sides.indexOf(longSides[a]), idxB = sides.indexOf(longSides[b]);
-                const gap = Math.abs(idxA - idxB);
-                // Must be separated by exactly 1-2 sides (the chamfer)
-                if (gap >= 1 && gap <= 2) {
-                  const start = Math.min(idxA, idxB), end = Math.max(idxA, idxB);
-                  let hasChamfer = false;
-                  for (let k = start; k < end; k++) {
-                    const nxt = (k + 1) % sides.length;
-                    const ad2 = Math.abs(sides[k].angle - sides[nxt].angle);
-                    const na2 = Math.min(ad2, Math.PI - ad2, Math.abs(ad2 - Math.PI)) * 180 / Math.PI;
-                    // Chamfer angle: 25-65° AND side is short (<20m)
-                    if (na2 > 25 && na2 < 65 && sides[nxt > start ? nxt : k].len < 20) hasChamfer = true;
-                  }
-                  if (hasChamfer) isCorner = true;
-                }
-              }
+          // 5+ sides: look for chamfer pattern (truncated corner at intersection)
+          // Requirements:
+          //   - Two LONG sides (>15m each, road frontages)
+          //   - At roughly 90° to each other (60-120°)
+          //   - Separated by exactly 1 short side (the chamfer, <12m)
+          //   - Chamfer angle is 30-60° (classic 45° truncation)
+          for (let i = 0; i < sides.length && !isCorner; i++) {
+            const prev = sides[(i - 1 + sides.length) % sides.length];
+            const curr = sides[i];
+            const nxt = sides[(i + 1) % sides.length];
+            
+            if (curr.len > 12) continue;
+            if (prev.len < 15 || nxt.len < 15) continue;
+            
+            let ad1 = Math.abs(prev.angle - curr.angle);
+            while (ad1 > Math.PI) ad1 -= Math.PI;
+            const na1 = Math.min(ad1, Math.PI - ad1) * 180 / Math.PI;
+            let ad2 = Math.abs(curr.angle - nxt.angle);
+            while (ad2 > Math.PI) ad2 -= Math.PI;
+            const na2 = Math.min(ad2, Math.PI - ad2) * 180 / Math.PI;
+            
+            if (na1 > 30 && na1 < 60 && na2 > 30 && na2 < 60) {
+              isCorner = true;
             }
           }
         }
