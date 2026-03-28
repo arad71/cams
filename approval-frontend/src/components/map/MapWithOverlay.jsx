@@ -798,10 +798,33 @@ Respond with JSON only:
               border: sightTriangle ? "1.5px solid #283593" : "1px solid #e4e9ec", opacity: sightTriangle ? 1 : 0.5 }}>
               <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Sight Area</div>
               {sightTriangle ? (
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#283593" }}>{sightTriangle.speedInfo?.detected}km/h · {sightTriangle.analysis?.baseWidth}m</div>
+                <div style={{ fontSize: 9, fontWeight: 600, color: "#283593" }}>
+                  <span style={{ fontWeight: 800 }}>{sightTriangle.speedInfo?.detected}km/h</span>
+                  <span style={{ color: "#7a8a94" }}> → </span>
+                  <span>{sightTriangle.analysis?.leftDist}m + {sightTriangle.analysis?.rightDist}m = {sightTriangle.analysis?.baseWidth}m</span>
+                </div>
               ) : (
                 <div style={{ fontSize: 10, color: "#c0c5ca" }}>Auto-drawn</div>
               )}
+            </div>
+
+            {/* Observer/Object heights */}
+            <div style={{ padding: "6px 10px", borderRadius: 6, background: "#fff", border: "1px solid #e4e9ec" }}>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Heights</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
+                  <span style={{ color: "#e74c3c", fontWeight: 700 }}>👁</span>
+                  <input type="number" value={eyeHeight} onChange={e => setEyeHeight(parseFloat(e.target.value) || 0)} min="0" max="5" step="0.05"
+                    style={{ width: 38, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
+                  <span style={{ color: "#a0aab0", fontSize: 8 }}>m</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
+                  <span style={{ color: "#2980b9", fontWeight: 700 }}>◎</span>
+                  <input type="number" value={objectHeight} onChange={e => setObjectHeight(parseFloat(e.target.value) || 0)} min="0" max="5" step="0.05"
+                    style={{ width: 38, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
+                  <span style={{ color: "#a0aab0", fontSize: 8 }}>m</span>
+                </div>
+              </div>
             </div>
           </div>
           {/* Instruction */}
