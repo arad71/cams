@@ -721,28 +721,28 @@ Respond with JSON only:
         if (numSides <= 4 && rightAngleCount >= 3) {
           isCorner = false;
         } else if (numSides >= 5) {
-          // 5+ sides: look for chamfer pattern
+          // 5+ sides: look for chamfer pattern (truncated corner)
+          // A corner lot has: long side → chamfer (25°-65° angle) → long side at ~90°
           const longSides = sides.filter(s => s.len > 10);
           for (let a = 0; a < longSides.length && !isCorner; a++) {
             for (let b = a + 1; b < longSides.length && !isCorner; b++) {
               const ad = Math.abs(longSides[a].angle - longSides[b].angle);
               const na = Math.min(ad, Math.PI - ad, Math.abs(ad - Math.PI)) * 180 / Math.PI;
               if (na > 55 && na < 125) {
-                // Check connecting sides between them
                 const idxA = sides.indexOf(longSides[a]), idxB = sides.indexOf(longSides[b]);
                 const gap = Math.abs(idxA - idxB);
-                if (gap >= 1 && gap <= 3) {
-                  let betweenShort = true;
-                  let hasNonRightAngle = false;
+                // Must be separated by exactly 1-2 sides (the chamfer)
+                if (gap >= 1 && gap <= 2) {
                   const start = Math.min(idxA, idxB), end = Math.max(idxA, idxB);
-                  for (let k = start; k <= end; k++) {
+                  let hasChamfer = false;
+                  for (let k = start; k < end; k++) {
                     const nxt = (k + 1) % sides.length;
-                    if (k > start && k < end && sides[k].len > 15) betweenShort = false;
                     const ad2 = Math.abs(sides[k].angle - sides[nxt].angle);
                     const na2 = Math.min(ad2, Math.PI - ad2, Math.abs(ad2 - Math.PI)) * 180 / Math.PI;
-                    if (na2 < 60 || na2 > 120) hasNonRightAngle = true;
+                    // Chamfer angle: 25-65° AND side is short (<20m)
+                    if (na2 > 25 && na2 < 65 && sides[nxt > start ? nxt : k].len < 20) hasChamfer = true;
                   }
-                  if (betweenShort && hasNonRightAngle) isCorner = true;
+                  if (hasChamfer) isCorner = true;
                 }
               }
             }
