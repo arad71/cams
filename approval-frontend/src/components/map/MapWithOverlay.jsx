@@ -116,6 +116,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [ptA, setPtA] = useState(null);
   const [ptB, setPtB] = useState(null);
   const [cornerSpeed, setCornerSpeed] = useState(null);
+  const radiusDoneRef = useRef(null); // Called by Done button to trigger radius completion
 
   // Handle radius completion (from LeafletMap callback)
   const handleRadiusComplete = useCallback((R, V, sightPt, turnStart, turnEnd) => {
@@ -860,8 +861,12 @@ Respond with JSON only:
             {sightPhase === "corner_draw" && !sightConfig.cornerR && (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#e65100", animation: "pulse 1.5s infinite" }} />
-                <span>Click 3+ points along the <b>kerb return curve</b>, double-click to finish</span>
+                <span>Click 3+ points along the <b>kerb return curve</b></span>
                 {radiusResult && <span style={{ fontSize: 9, background: "#ff9800", color: "#fff", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>{radiusResult.split('·')[0].trim()}</span>}
+                {radiusResult && (
+                  <button onClick={() => { if (radiusDoneRef.current) radiusDoneRef.current(); }}
+                    style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Done ✓</button>
+                )}
                 <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
               </div>
             )}
@@ -933,6 +938,7 @@ Respond with JSON only:
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
         onRadiusComplete={handleRadiusComplete}
+        radiusDoneRef={radiusDoneRef}
         centrelineDist={centrelineDist} setCentrelineDist={setCentrelineDist}
         offsetState={offsetState} setOffsetState={setOffsetState}
         onOffsetComplete={(a, b, cornerSpeed) => { setPtA(a); setPtB(b); if (cornerSpeed) setCornerSpeed(cornerSpeed); setDrawMode(null); setSightPhase("complete"); setMapTool(null); }}
