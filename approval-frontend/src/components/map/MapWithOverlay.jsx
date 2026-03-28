@@ -108,7 +108,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
   // Unified Sight Analysis state machine
-  // Phases: null → "corner_ask" → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
+  // Phases: null → "corner_draw" → "offset_road" → "offset_boundary" → "complete"
   const [sightPhase, setSightPhase] = useState(null);
   const [sightConfig, setSightConfig] = useState({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
 
