@@ -571,40 +571,58 @@ Respond with JSON only:
   const startSightAnalysis = () => {
     resetTriangle();
     // Auto-detect corner lot from lot polygon + nearby roads
+    // Uses lotPoly which resolves from: app.lot_polygon → lot.geojson address match → rectangle fallback
     let isCorner = false;
-    let lotPoly2 = app?.lot_polygon;
-    if (lotPoly2 && lotPoly2.length >= 4) {
-      if (Math.abs(lotPoly2[0][0]) > 90) lotPoly2 = lotPoly2.map(p => [p[1], p[0]]);
-      const lf = lotPoly2[0], ll = lotPoly2[lotPoly2.length-1];
-      if (lf[0] !== ll[0] || lf[1] !== ll[1]) lotPoly2 = [...lotPoly2, lf];
-      const nearRoad = (lat, lng) => {
+    let poly = lotPoly;
+    if (poly && poly.length >= 4) {
+      // Ensure closed
+      const lf = poly[0], ll = poly[poly.length-1];
+      if (lf[0] !== ll[0] || lf[1] !== ll[1]) poly = [...poly, lf];
+
+      // Check each lot side: is its midpoint within 12m of any road?
+      const sideNearRoad = [];
+      for (let i = 0; i < poly.length - 1; i++) {
+        const midLat = (poly[i][0] + poly[i+1][0]) / 2;
+        const midLng = (poly[i][1] + poly[i+1][1]) / 2;
+        let near = false;
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+          if (near) break;
           for (const f of src.features) {
+            if (near) break;
             const c = f.geometry?.coordinates;
             if (!c || f.geometry?.type !== "LineString") continue;
             for (let j = 0; j < c.length - 1; j++) {
-              const a = [c[j][1], c[j][0]], b = [c[j+1][1], c[j+1][0]];
-              const dx = b[1]-a[1], dy = b[0]-a[0], len = dx*dx+dy*dy;
+              const ax = c[j][0], ay = c[j][1], bx = c[j+1][0], by = c[j+1][1];
+              const dx = bx-ax, dy = by-ay, len = dx*dx+dy*dy;
               if (len < 1e-20) continue;
-              const t = Math.max(0, Math.min(1, ((lng-a[1])*dx + (lat-a[0])*dy) / len));
-              const slat = a[0]+t*dy, slng = a[1]+t*dx;
-              const d = Math.sqrt(((lat-slat)*111320)**2 + (((lng-slng)*111320*Math.cos(lat*Math.PI/180)))**2);
-              if (d < 12) return true;
+              const t = Math.max(0, Math.min(1, ((midLng-ax)*dx + (midLat-ay)*dy) / len));
+              const slat = ay+t*dy, slng = ax+t*dx;
+              const d = Math.sqrt(((midLat-slat)*111320)**2 + ((midLng-slng)*111320*Math.cos(midLat*Math.PI/180))**2);
+              if (d < 12) { near = true; break; }
             }
           }
         }
-        return false;
-      };
-      for (let i = 1; i < lotPoly2.length - 1; i++) {
-        const midPrev = [(lotPoly2[i-1][0]+lotPoly2[i][0])/2, (lotPoly2[i-1][1]+lotPoly2[i][1])/2];
-        const midNext = [(lotPoly2[i][0]+lotPoly2[i+1][0])/2, (lotPoly2[i][1]+lotPoly2[i+1][1])/2];
-        if (nearRoad(midPrev[0], midPrev[1]) && nearRoad(midNext[0], midNext[1])) { isCorner = true; break; }
+        sideNearRoad.push(near);
+      }
+
+      // Corner lot = any vertex where both adjacent sides touch different roads
+      for (let i = 0; i < sideNearRoad.length; i++) {
+        const next = (i + 1) % sideNearRoad.length;
+        if (sideNearRoad[i] && sideNearRoad[next]) {
+          // Both sides near roads — but are they DIFFERENT roads? Check angle between sides
+          const p0 = poly[i], p1 = poly[(i+1) % (poly.length-1)], p2 = poly[(i+2) % (poly.length-1)];
+          const dx1 = p1[1]-p0[1], dy1 = p1[0]-p0[0];
+          const dx2 = p2[1]-p1[1], dy2 = p2[0]-p1[0];
+          const angle = Math.abs(Math.atan2(dx1*dy2-dy1*dx2, dx1*dx2+dy1*dy2)) * 180 / Math.PI;
+          // Corner if angle is roughly 60-120 degrees (not near-straight)
+          if (angle > 40 && angle < 160) { isCorner = true; break; }
+        }
       }
     }
+
     setSightPhase(isCorner ? "corner_draw" : "offset_road");
     setSightConfig(c => ({ ...c, isCorner }));
     if (isCorner) {
-      // Corner lot → go straight to radius drawing
       setMapTool("radius");
     } else {
       setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
