@@ -1229,6 +1229,30 @@ Respond with JSON only:
             ))}
           </div>
 
+          {/* Methodology note */}
+          <div style={{ padding: "8px 16px", background: "#f8f9fb", borderBottom: "1px solid #eef2f4" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Analysis Methodology</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 9, color: "#5a6a74", lineHeight: 1.5 }}>
+              {[
+                { icon: "📡", label: "40 sight rays", desc: `from A to ${sightTriangle?.analysis?.baseWidth || '—'}m base (C→D), 25 samples each` },
+                { icon: "⛰️", label: "Terrain DEM", desc: `Open-Meteo ~30m resolution, ${analysisResult.elevA?.toFixed(0) || '?'}m→${analysisResult.elevCD?.toFixed(0) || '?'}m ASL` },
+                { icon: "🌳", label: `${analysisResult.feats?.length || 0} OSM features`, desc: "trees, fences, walls, buildings, hedges" },
+                { icon: "👁", label: `Eye ${analysisResult.eyeH}m`, desc: `object ${analysisResult.tgtH}m above ground` },
+                ...(analysisResult.cornerLineResult ? [{ icon: "↗️", label: "Corner sight line", desc: `A→curve point ${analysisResult.cornerLineResult.distance?.toFixed(0) || '?'}m, ${analysisResult.cornerLineResult.obstructions?.length || 0} obstructions` }] : []),
+                { icon: "🛰️", label: "Street view", desc: "multi-angle imagery for AI classification" },
+                { icon: "🤖", label: "AI Vision", desc: "Claude analyses satellite + street view photos" },
+              ].map((item, i) => (
+                <div key={i} style={{ flex: "1 1 180px", display: "flex", gap: 4, alignItems: "flex-start", padding: "3px 6px", background: "#fff", borderRadius: 4, border: "1px solid #eef2f4" }}>
+                  <span style={{ fontSize: 11 }}>{item.icon}</span>
+                  <div>
+                    <span style={{ fontWeight: 700, color: "#1a3a4a" }}>{item.label}</span>
+                    <span style={{ color: "#95a5a6", marginLeft: 3 }}>{item.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Tabs */}
           <div style={{ display: "flex", gap: 1, borderBottom: "1px solid #e4e9ec", padding: "0 16px" }}>
             {[{ id: 'obstructions', label: '⚠ Obstruct.' }, { id: 'features', label: '▤ Features' }, { id: 'ai', label: '◈ AI' }].map(tab => (
