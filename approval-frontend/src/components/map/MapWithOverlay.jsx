@@ -630,6 +630,25 @@ Respond with JSON only:
   const startSightAnalysis = () => {
     resetTriangle();
     let isCorner = false;
+    let cornerSource = null;
+
+    // PRIORITY 1: Officer-corrected AI data (final authority)
+    const corExtraction = app?.cor_site_plan_data?.extraction;
+    if (corExtraction && corExtraction.is_corner_lot !== undefined && corExtraction.is_corner_lot !== null) {
+      isCorner = corExtraction.is_corner_lot === true || corExtraction.is_corner_lot === "true" || corExtraction.is_corner_lot === "yes" || corExtraction.is_corner_lot === "Yes";
+      cornerSource = "ai_corrected";
+    }
+    // PRIORITY 2: Original AI extraction
+    else {
+      const orgExtraction = (app?.site_plan_data || app?.org_site_plan_data)?.extraction;
+      if (orgExtraction && orgExtraction.is_corner_lot !== undefined && orgExtraction.is_corner_lot !== null) {
+        isCorner = orgExtraction.is_corner_lot === true || orgExtraction.is_corner_lot === "true" || orgExtraction.is_corner_lot === "yes" || orgExtraction.is_corner_lot === "Yes";
+        cornerSource = "ai_original";
+      }
+    }
+
+    // PRIORITY 3: Geometry detection (fallback when no AI data)
+    if (!cornerSource) {
     let poly = lotPoly;
     if (poly && poly.length >= 4) {
       const lf = poly[0], ll = poly[poly.length-1];
@@ -747,14 +766,16 @@ Respond with JSON only:
             
             if (na1 > 30 && na1 < 60 && na2 > 30 && na2 < 60) {
               isCorner = true;
+              cornerSource = "geometry";
             }
           }
         }
       }
     }
+    } // end: geometry fallback (priority 3)
 
     setSightPhase(isCorner ? "corner_draw" : "offset_road");
-    setSightConfig(c => ({ ...c, isCorner }));
+    setSightConfig(c => ({ ...c, isCorner, cornerSource }));
     if (isCorner) {
       setMapTool("radius");
     } else {
@@ -843,6 +864,7 @@ Respond with JSON only:
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
             <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a", letterSpacing: -0.3 }}>Sight Analysis</span>
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
+            {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
             {sightTriangle && !drawMode && !analysisRunning && (
               <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
