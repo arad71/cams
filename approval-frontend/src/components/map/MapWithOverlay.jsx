@@ -682,43 +682,71 @@ Respond with JSON only:
       }
 
       // METHOD 2: Geometry-only detection (when no road data nearby)
-      // A corner lot has two long sides at ~90° connected by a short diagonal/curve
       if (!roadDetected && !isCorner) {
-        const sides = [];
+        const rawSides = [];
         for (let i = 0; i < poly.length - 1; i++) {
-          sides.push({
+          rawSides.push({
             idx: i,
             len: sideLen(poly[i], poly[i+1]),
             angle: sideAngle(poly[i], poly[i+1]),
-            p0: poly[i], p1: poly[i+1],
           });
         }
 
-        // Find pairs of long sides (>10m) at roughly 70-110° to each other
-        const longSides = sides.filter(s => s.len > 10);
-        for (let a = 0; a < longSides.length; a++) {
-          for (let b = a + 1; b < longSides.length; b++) {
-            const angleDiff = Math.abs(longSides[a].angle - longSides[b].angle);
-            const normAngle = Math.min(angleDiff, Math.PI - angleDiff, Math.abs(angleDiff - Math.PI)) * 180 / Math.PI;
-            // Two long sides at ~90° (70-110° range)
-            if (normAngle > 55 && normAngle < 125) {
-              // Check if there's a short connecting segment between them (chamfer/curve)
-              const idxA = longSides[a].idx, idxB = longSides[b].idx;
-              const gap = Math.abs(idxA - idxB);
-              // They should be close in sequence (1-3 sides apart)
-              if (gap >= 1 && gap <= 3) {
-                // Check the sides between them are short (<15m) - chamfer or curve
-                let betweenShort = true;
-                const start = Math.min(idxA, idxB) + 1;
-                const end = Math.max(idxA, idxB);
-                for (let k = start; k < end; k++) {
-                  if (sides[k] && sides[k].len > 15) { betweenShort = false; break; }
+        // Merge near-collinear sides (< 15° between them) into one logical side
+        const sides = [{ ...rawSides[0] }];
+        for (let i = 1; i < rawSides.length; i++) {
+          const prev = sides[sides.length - 1];
+          const ad = Math.abs(prev.angle - rawSides[i].angle);
+          const na = Math.min(ad, Math.PI - ad, Math.abs(ad - Math.PI)) * 180 / Math.PI;
+          if (na < 15) {
+            // Merge: extend previous side
+            prev.len += rawSides[i].len;
+          } else {
+            sides.push({ ...rawSides[i] });
+          }
+        }
+
+        // Count right angles between merged sides
+        let rightAngleCount = 0;
+        for (let i = 0; i < sides.length; i++) {
+          const nxt = (i + 1) % sides.length;
+          const ad = Math.abs(sides[i].angle - sides[nxt].angle);
+          const na = Math.min(ad, Math.PI - ad, Math.abs(ad - Math.PI)) * 180 / Math.PI;
+          if (na > 70 && na < 110) rightAngleCount++;
+        }
+
+        const numSides = sides.filter(s => s.len > 2).length;
+
+        // Regular rectangle (4 sides, 4 right angles) → NOT corner
+        if (numSides <= 4 && rightAngleCount >= 3) {
+          isCorner = false;
+        } else if (numSides >= 5) {
+          // 5+ sides: look for chamfer pattern
+          const longSides = sides.filter(s => s.len > 10);
+          for (let a = 0; a < longSides.length && !isCorner; a++) {
+            for (let b = a + 1; b < longSides.length && !isCorner; b++) {
+              const ad = Math.abs(longSides[a].angle - longSides[b].angle);
+              const na = Math.min(ad, Math.PI - ad, Math.abs(ad - Math.PI)) * 180 / Math.PI;
+              if (na > 55 && na < 125) {
+                // Check connecting sides between them
+                const idxA = sides.indexOf(longSides[a]), idxB = sides.indexOf(longSides[b]);
+                const gap = Math.abs(idxA - idxB);
+                if (gap >= 1 && gap <= 3) {
+                  let betweenShort = true;
+                  let hasNonRightAngle = false;
+                  const start = Math.min(idxA, idxB), end = Math.max(idxA, idxB);
+                  for (let k = start; k <= end; k++) {
+                    const nxt = (k + 1) % sides.length;
+                    if (k > start && k < end && sides[k].len > 15) betweenShort = false;
+                    const ad2 = Math.abs(sides[k].angle - sides[nxt].angle);
+                    const na2 = Math.min(ad2, Math.PI - ad2, Math.abs(ad2 - Math.PI)) * 180 / Math.PI;
+                    if (na2 < 60 || na2 > 120) hasNonRightAngle = true;
+                  }
+                  if (betweenShort && hasNonRightAngle) isCorner = true;
                 }
-                if (betweenShort) { isCorner = true; break; }
               }
             }
           }
-          if (isCorner) break;
         }
       }
     }
