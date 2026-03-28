@@ -1033,44 +1033,66 @@ Respond with JSON only:
         </div>
       )}
 
-      {/* ═══ Street View + Satellite Context ═══ */}
-      {sightTriangle && sightTriangle.ptA && (
-        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {/* Google Street View from Point A looking toward road */}
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-            <div style={{ padding: "8px 14px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 12 }}>🚗</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Street View — Driveway (Point A)</span>
-            </div>
-            <div style={{ height: 280 }}>
-              <iframe
-                src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${sightTriangle.ptA.lat},${sightTriangle.ptA.lng}&heading=${sightTriangle.ptB ? Math.round(Math.atan2(sightTriangle.ptB.lng - sightTriangle.ptA.lng, sightTriangle.ptB.lat - sightTriangle.ptA.lat) * 180 / Math.PI) : 0}&pitch=0&fov=90`}
-                width="100%" height="280" style={{ border: "none" }}
-                allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                title="Street View from driveway"
-              />
-            </div>
-            <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4" }}>
-              📍 {sightTriangle.ptA.lat.toFixed(6)}, {sightTriangle.ptA.lng.toFixed(6)} · Looking toward road centreline
-            </div>
-          </div>
+      {/* ═══ Street View Sightlines ═══ */}
+      {sightTriangle && sightTriangle.ptA && sightTriangle.ptB && (() => {
+        const A = sightTriangle.ptA;
+        const B = sightTriangle.ptB;
+        const C = sightTriangle.triLeft;
+        const D = sightTriangle.triRight;
+        const csl = sightTriangle.cornerSightLine;
+        const apiKey = "AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8";
+        const heading = (from, to) => Math.round(Math.atan2(to.lng - from.lng, to.lat - from.lat) * 180 / Math.PI);
+        const midPt = (p1, p2) => ({ lat: (p1.lat+p2.lat)/2, lng: (p1.lng+p2.lng)/2 });
 
-          {/* Satellite context — mini Leaflet map with triangle overlay */}
-          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-            <div style={{ padding: "8px 14px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 12 }}>🛰️</span>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a" }}>Satellite — Sight Triangle Area</span>
-            </div>
-            <div style={{ height: 340, position: "relative" }}>
-              <SatelliteMiniMap sightTriangle={sightTriangle} />
-            </div>
-            <div style={{ padding: "6px 14px", fontSize: 9, color: "#95a5a6", borderTop: "1px solid #eef2f4", display: "flex", justifyContent: "space-between" }}>
-              <span>🛰️ {sightTriangle.speedInfo?.detected}km/h · {sightTriangle.speedInfo?.roadName || "—"} · Area: {sightTriangle.analysis?.area}m²</span>
-              <a href={`https://www.google.com/maps/@${sightTriangle.ptA.lat},${sightTriangle.ptA.lng},19z/data=!3m1!1e3`} target="_blank" rel="noopener noreferrer" style={{ color: "#2980b9", textDecoration: "none", fontWeight: 600 }}>Google Maps ↗</a>
+        // Build viewpoints
+        const views = [];
+
+        // 1. From curve sight point looking toward A (corner lot)
+        if (csl) {
+          views.push({ label: "Curve Sight Point → Driveway", loc: csl.to, lookAt: A, desc: "Driver approaching from curve" });
+        }
+
+        // 2. From A looking toward road
+        views.push({ label: "Driveway (A) → Road", loc: A, lookAt: B, desc: "Driver at driveway looking at road" });
+
+        // 3. From triangle left base looking toward A
+        if (C) views.push({ label: "Left Sight Line → Driveway", loc: C, lookAt: A, desc: "Approaching from left" });
+
+        // 4. From triangle right base looking toward A
+        if (D) views.push({ label: "Right Sight Line → Driveway", loc: D, lookAt: A, desc: "Approaching from right" });
+
+        // 5. Mid-base looking toward A
+        if (C && D) {
+          const mid = midPt(C, D);
+          views.push({ label: "Road Centre → Driveway", loc: mid, lookAt: A, desc: "View from road centreline" });
+        }
+
+        return (
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a", marginBottom: 6, paddingLeft: 2 }}>Street View Sightlines</div>
+            <div style={{ display: "grid", gridTemplateColumns: views.length <= 3 ? "1fr 1fr 1fr" : "1fr 1fr 1fr", gap: 8 }}>
+              {views.map((v, i) => (
+                <div key={i} style={{ background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+                  <div style={{ padding: "5px 10px", borderBottom: "1px solid #eef2f4", fontSize: 9, fontWeight: 700, color: "#1a3a4a" }}>
+                    {v.label}
+                  </div>
+                  <div style={{ height: 180 }}>
+                    <iframe
+                      src={`https://www.google.com/maps/embed/v1/streetview?key=${apiKey}&location=${v.loc.lat},${v.loc.lng}&heading=${heading(v.loc, v.lookAt)}&pitch=-5&fov=90`}
+                      width="100%" height="180" style={{ border: "none" }}
+                      allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                      title={v.label}
+                    />
+                  </div>
+                  <div style={{ padding: "3px 10px", fontSize: 8, color: "#a0aab0", borderTop: "1px solid #eef2f4" }}>
+                    {v.desc}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ═══ 3D Analysis Processing Steps ═══ */}
       {analysisRunning && analysisSteps.length > 0 && (
