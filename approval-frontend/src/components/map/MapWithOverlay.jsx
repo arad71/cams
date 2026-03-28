@@ -403,6 +403,38 @@ Respond with JSON only:
     const eg = { pts: uPts, elevs };
     ss(3); for (const f of feats) { const ct = f.geometry.length === 1 ? f.geometry[0] : { lat: f.geometry.reduce((s, g) => s + g.lat, 0) / f.geometry.length, lng: f.geometry.reduce((s, g) => s + g.lng, 0) / f.geometry.length }; f.groundElev = getElevAt3D(ct, eg); }
     ss(4); const res = losEngine3D(A, C, D, feats, eg, eyeH, tgtH);
+
+    // Also check corner sight line (A → curve sight point) if available
+    let cornerLineResult = null;
+    if (sightTriangle?.cornerSightLine) {
+      const csl = sightTriangle.cornerSightLine;
+      const cslTarget = csl.to;
+      // Run line-of-sight from A to corner sight point
+      const cslObs = [];
+      const elevAcsl = getElevAt3D(A, eg), eyeAltCsl = elevAcsl + eyeH;
+      const elevTarget = getElevAt3D(cslTarget, eg), tgtAltCsl = elevTarget + tgtH;
+      const cslDist = havDist3D(A, cslTarget);
+      for (let si = 1; si < 20; si++) {
+        const sf = si / 20, sp = lerpPt3D(A, cslTarget, sf);
+        const rayAlt = eyeAltCsl + (tgtAltCsl - eyeAltCsl) * sf;
+        const gnd = getElevAt3D(sp, eg);
+        if (gnd > rayAlt) {
+          cslObs.push({ type: 'terrain', point: sp, groundElev: gnd, rayAlt, excess: gnd - rayAlt, dist: cslDist * sf });
+        }
+        for (const f of feats) {
+          let hit = false;
+          if (f.type === 'tree' && f.geometry.length === 1) { if (havDist3D(sp, f.geometry[0]) < 5) hit = true; }
+          else if (f.geometry.length >= 2) { for (const g of f.geometry) { if (havDist3D(sp, g) < 3) { hit = true; break; } } }
+          if (hit) {
+            const fg = f.groundElev != null ? f.groundElev : gnd;
+            if (fg + f.estimatedHeight > rayAlt) {
+              cslObs.push({ type: 'feature', name: f.name, point: f.geometry[0], height: f.estimatedHeight, dist: cslDist * sf });
+            }
+          }
+        }
+      }
+      cornerLineResult = { obstructions: cslObs, distance: cslDist, blocked: cslObs.length > 0, from: A, to: cslTarget };
+    }
     // Filter obstructions to only those inside the sight triangle A-C-D
     const ptInTri = (p, a, b, c) => {
       const dx = p.lat - c.lat, dy = p.lng - c.lng;
@@ -417,7 +449,7 @@ Respond with JSON only:
     res.obstructions = res.obstructions.filter(o => o.point && ptInTri(o.point, A, C, D));
     ss(5); const elevA = getElevAt3D(A, eg), elevCD = getElevAt3D(mid, eg); const adv = (elevA + eyeH) - (elevCD + tgtH);
     const ai = await aiClassify3D(A, C, D, res.obstructions, feats, { elevA, elevCD, eyeH, tgtH, eyeAlt: elevA + eyeH, tgtAlt: elevCD + tgtH, advantage: adv, elevRange: Math.max(...elevs) - Math.min(...elevs) });
-    ss(6); setAnalysisResult({ ...res, ai, elevA, elevCD, eyeH, tgtH, feats, mode }); setAnalysisRunning(false);
+    ss(6); setAnalysisResult({ ...res, ai, elevA, elevCD, eyeH, tgtH, feats, mode, cornerLineResult }); setAnalysisRunning(false);
   };
 
   const reset3DAnalysis = () => { setAnalysisResult(null); setAnalysisRunning(false); setAnalysisSteps([]); };
