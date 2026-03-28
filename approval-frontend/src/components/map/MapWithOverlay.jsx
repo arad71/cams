@@ -630,6 +630,25 @@ Respond with JSON only:
   const startSightAnalysis = () => {
     resetTriangle();
     let isCorner = false;
+    let cornerSource = null;
+
+    // PRIORITY 1: Officer-corrected AI data (final authority)
+    const corExtraction = app?.cor_site_plan_data?.extraction;
+    if (corExtraction && corExtraction.is_corner_lot !== undefined && corExtraction.is_corner_lot !== null) {
+      isCorner = corExtraction.is_corner_lot === true || corExtraction.is_corner_lot === "true" || corExtraction.is_corner_lot === "yes" || corExtraction.is_corner_lot === "Yes";
+      cornerSource = "ai_corrected";
+    }
+    // PRIORITY 2: Original AI extraction
+    else {
+      const orgExtraction = (app?.site_plan_data || app?.org_site_plan_data)?.extraction;
+      if (orgExtraction && orgExtraction.is_corner_lot !== undefined && orgExtraction.is_corner_lot !== null) {
+        isCorner = orgExtraction.is_corner_lot === true || orgExtraction.is_corner_lot === "true" || orgExtraction.is_corner_lot === "yes" || orgExtraction.is_corner_lot === "Yes";
+        cornerSource = "ai_original";
+      }
+    }
+
+    // PRIORITY 3: Geometry detection (fallback when no AI data)
+    if (!cornerSource) {
     let poly = lotPoly;
     if (poly && poly.length >= 4) {
       const lf = poly[0], ll = poly[poly.length-1];
@@ -682,49 +701,81 @@ Respond with JSON only:
       }
 
       // METHOD 2: Geometry-only detection (when no road data nearby)
-      // A corner lot has two long sides at ~90° connected by a short diagonal/curve
       if (!roadDetected && !isCorner) {
-        const sides = [];
+        const rawSides = [];
         for (let i = 0; i < poly.length - 1; i++) {
-          sides.push({
+          rawSides.push({
             idx: i,
             len: sideLen(poly[i], poly[i+1]),
             angle: sideAngle(poly[i], poly[i+1]),
-            p0: poly[i], p1: poly[i+1],
           });
         }
 
-        // Find pairs of long sides (>10m) at roughly 70-110° to each other
-        const longSides = sides.filter(s => s.len > 10);
-        for (let a = 0; a < longSides.length; a++) {
-          for (let b = a + 1; b < longSides.length; b++) {
-            const angleDiff = Math.abs(longSides[a].angle - longSides[b].angle);
-            const normAngle = Math.min(angleDiff, Math.PI - angleDiff, Math.abs(angleDiff - Math.PI)) * 180 / Math.PI;
-            // Two long sides at ~90° (70-110° range)
-            if (normAngle > 55 && normAngle < 125) {
-              // Check if there's a short connecting segment between them (chamfer/curve)
-              const idxA = longSides[a].idx, idxB = longSides[b].idx;
-              const gap = Math.abs(idxA - idxB);
-              // They should be close in sequence (1-3 sides apart)
-              if (gap >= 1 && gap <= 3) {
-                // Check the sides between them are short (<15m) - chamfer or curve
-                let betweenShort = true;
-                const start = Math.min(idxA, idxB) + 1;
-                const end = Math.max(idxA, idxB);
-                for (let k = start; k < end; k++) {
-                  if (sides[k] && sides[k].len > 15) { betweenShort = false; break; }
-                }
-                if (betweenShort) { isCorner = true; break; }
-              }
+        // Merge near-collinear sides (< 15° between them) into one logical side
+        const sides = [{ ...rawSides[0], lastAngle: rawSides[0].angle }];
+        for (let i = 1; i < rawSides.length; i++) {
+          const prev = sides[sides.length - 1];
+          // Normalize angle difference to [0, 180°]
+          let ad = Math.abs(prev.lastAngle - rawSides[i].angle);
+          while (ad > Math.PI) ad -= Math.PI;
+          const na = Math.min(ad, Math.PI - ad) * 180 / Math.PI;
+          if (na < 15) {
+            prev.len += rawSides[i].len;
+            prev.lastAngle = rawSides[i].angle;
+          } else {
+            sides.push({ ...rawSides[i], lastAngle: rawSides[i].angle });
+          }
+        }
+
+        // Count right angles (with fixed normalization)
+        let rightAngleCount = 0;
+        for (let i = 0; i < sides.length; i++) {
+          const nxt = (i + 1) % sides.length;
+          let ad = Math.abs(sides[i].angle - sides[nxt].angle);
+          while (ad > Math.PI) ad -= Math.PI;
+          const na = Math.min(ad, Math.PI - ad) * 180 / Math.PI;
+          if (na > 70 && na < 110) rightAngleCount++;
+        }
+
+        const numSides = sides.filter(s => s.len > 2).length;
+
+        // Regular rectangle (4 sides, 4 right angles) → NOT corner
+        if (numSides <= 4 && rightAngleCount >= 3) {
+          isCorner = false;
+        } else if (numSides >= 5) {
+          // 5+ sides: look for chamfer pattern (truncated corner at intersection)
+          // Requirements:
+          //   - Two LONG sides (>15m each, road frontages)
+          //   - At roughly 90° to each other (60-120°)
+          //   - Separated by exactly 1 short side (the chamfer, <12m)
+          //   - Chamfer angle is 30-60° (classic 45° truncation)
+          for (let i = 0; i < sides.length && !isCorner; i++) {
+            const prev = sides[(i - 1 + sides.length) % sides.length];
+            const curr = sides[i];
+            const nxt = sides[(i + 1) % sides.length];
+            
+            if (curr.len > 12) continue;
+            if (prev.len < 15 || nxt.len < 15) continue;
+            
+            let ad1 = Math.abs(prev.angle - curr.angle);
+            while (ad1 > Math.PI) ad1 -= Math.PI;
+            const na1 = Math.min(ad1, Math.PI - ad1) * 180 / Math.PI;
+            let ad2 = Math.abs(curr.angle - nxt.angle);
+            while (ad2 > Math.PI) ad2 -= Math.PI;
+            const na2 = Math.min(ad2, Math.PI - ad2) * 180 / Math.PI;
+            
+            if (na1 > 30 && na1 < 60 && na2 > 30 && na2 < 60) {
+              isCorner = true;
+              cornerSource = "geometry";
             }
           }
-          if (isCorner) break;
         }
       }
     }
+    } // end: geometry fallback (priority 3)
 
     setSightPhase(isCorner ? "corner_draw" : "offset_road");
-    setSightConfig(c => ({ ...c, isCorner }));
+    setSightConfig(c => ({ ...c, isCorner, cornerSource }));
     if (isCorner) {
       setMapTool("radius");
     } else {
@@ -813,6 +864,7 @@ Respond with JSON only:
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
             <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a", letterSpacing: -0.3 }}>Sight Analysis</span>
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
+            {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
             {sightTriangle && !drawMode && !analysisRunning && (
               <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
@@ -1175,6 +1227,30 @@ Respond with JSON only:
                 <div style={{ fontSize: 14, fontWeight: 800, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
               </div>
             ))}
+          </div>
+
+          {/* Methodology note */}
+          <div style={{ padding: "8px 16px", background: "#f8f9fb", borderBottom: "1px solid #eef2f4" }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Analysis Methodology</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 9, color: "#5a6a74", lineHeight: 1.5 }}>
+              {[
+                { icon: "📡", label: "40 sight rays", desc: `from A to ${sightTriangle?.analysis?.baseWidth || '—'}m base (C→D), 25 samples each` },
+                { icon: "⛰️", label: "Terrain DEM", desc: `Open-Meteo ~30m resolution, ${analysisResult.elevA?.toFixed(0) || '?'}m→${analysisResult.elevCD?.toFixed(0) || '?'}m ASL` },
+                { icon: "🌳", label: `${analysisResult.feats?.length || 0} OSM features`, desc: "trees, fences, walls, buildings, hedges" },
+                { icon: "👁", label: `Eye ${analysisResult.eyeH}m`, desc: `object ${analysisResult.tgtH}m above ground` },
+                ...(analysisResult.cornerLineResult ? [{ icon: "↗️", label: "Corner sight line", desc: `A→curve point ${analysisResult.cornerLineResult.distance?.toFixed(0) || '?'}m, ${analysisResult.cornerLineResult.obstructions?.length || 0} obstructions` }] : []),
+                { icon: "🛰️", label: "Street view", desc: "multi-angle imagery for AI classification" },
+                { icon: "🤖", label: "AI Vision", desc: "Claude analyses satellite + street view photos" },
+              ].map((item, i) => (
+                <div key={i} style={{ flex: "1 1 180px", display: "flex", gap: 4, alignItems: "flex-start", padding: "3px 6px", background: "#fff", borderRadius: 4, border: "1px solid #eef2f4" }}>
+                  <span style={{ fontSize: 11 }}>{item.icon}</span>
+                  <div>
+                    <span style={{ fontWeight: 700, color: "#1a3a4a" }}>{item.label}</span>
+                    <span style={{ color: "#95a5a6", marginLeft: 3 }}>{item.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Tabs */}
