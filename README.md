@@ -2,15 +2,16 @@
 
 Crossover (driveway) permit assessment system for Western Australian local councils.
 
-## What it does
+## Features
 
 - Officers upload crossover applications with site plans
 - AI extracts dimensions, materials, utilities from site plan PDFs
 - 206 assessment rules auto-check compliance (12 categories, 70 items)
 - Interactive map with sight triangle analysis, corner lot detection, 3D terrain
 - PDF measure tool for on-screen verification
-- Officer review dashboard with pass/fail/review checklist
+- Officer review dashboard with pass/fail/review/n/a checklist
 - Document management, audit logging, role-based access
+- Admin rule editor with field dropdowns, priority reordering
 
 ## Tech Stack
 
@@ -19,15 +20,33 @@ Crossover (driveway) permit assessment system for Western Australian local counc
 - **AI**: Anthropic Claude (site plan analysis)
 - **Deploy**: Docker Compose, Azure
 
-## Quick Start (Test)
+## Quick Start
 
 ```bash
-git clone https://github.com/arad71/cams.git
-cd cams
-./deploy.sh test
+# First-time Azure VM setup
+curl -fsSL https://raw.githubusercontent.com/arad71/cams/master/setup-azure.sh -o setup.sh
+sudo bash setup.sh
+
+# Or if repo is already cloned
+./deploy.sh test       # Test environment (Docker DB)
+./deploy.sh prod       # Production (external DB)
 ```
 
-Opens at `http://localhost:3001` with test accounts:
+## Deploy Commands
+
+```
+./deploy.sh test       Deploy test environment (Docker DB)
+./deploy.sh prod       Deploy production (external DB)
+./deploy.sh status     Show what's running
+./deploy.sh logs       View logs
+./deploy.sh update     Pull latest + rebuild
+./deploy.sh backup     Backup database
+./deploy.sh reset      Reset database
+./deploy.sh reseed     Re-seed assessment rules only
+./deploy.sh stop       Stop services
+```
+
+## Test Accounts
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -36,45 +55,36 @@ Opens at `http://localhost:3001` with test accounts:
 | Engineer | engineer@council.wa.gov.au | engineer123 |
 | Viewer | viewer@council.wa.gov.au | viewer123 |
 
-## Deploy
-
-| Command | What it does |
-|---------|-------------|
-| `./deploy.sh test` | Test environment (Docker DB, ~$50 AUD/mo) |
-| `./deploy.sh prod` | Production (Azure Postgres, ~$80 AUD/mo) |
-| `./deploy.sh stop` | Stop services |
-| `./deploy.sh update` | Pull latest + rebuild |
-| `./deploy.sh backup` | Dump database to SQL |
-| `./deploy.sh status` | Show what's running |
-| `./deploy.sh reseed` | Re-seed assessment rules |
-
-See [DEPLOY-AZURE.md](DEPLOY-AZURE.md) and [DEPLOY-PRODUCTION.md](DEPLOY-PRODUCTION.md) for full guides.
-
-## Project Structure
+## Repository Structure
 
 ```
 cams/
-├── approval-backend/        FastAPI backend
-│   ├── app/
-│   │   ├── api/             API endpoints
-│   │   ├── models/          SQLAlchemy models
-│   │   ├── services/        AI analyser, audit, etc
-│   │   └── seed.py          Database seed (users, rules, test data)
-│   ├── Dockerfile
-│   └── requirements.txt
-├── approval-frontend/       React frontend
-│   ├── src/
-│   │   ├── App.jsx          Main app
-│   │   ├── components/      Map, UI components
-│   │   ├── views/           Pages (login, list, detail, admin)
-│   │   └── services/        API client
-│   ├── public/              GeoJSON data files
-│   ├── Dockerfile
-│   └── nginx.conf
-├── deploy.sh                Deploy/manage script
-├── setup-azure.sh           One-line Azure VM setup
-├── docker-compose.prod.yml  Test (includes DB)
+├── approval-backend/          FastAPI backend
+│   ├── app/api/               REST endpoints
+│   ├── app/models/            SQLAlchemy models
+│   ├── app/services/          AI analyser, extractor
+│   ├── app/seed.py            Database seed data
+│   └── scripts/               Reference documents
+├── approval-frontend/         React SPA
+│   ├── src/components/        Map, UI components
+│   ├── src/views/             Pages
+│   └── public/                GeoJSON data
+├── .env.test                  Test config template
+├── .env.production            Production config template
+├── deploy.sh                  Deploy/manage script
+├── setup-azure.sh             First-time VM setup
+├── docker-compose.prod.yml    Test (Docker DB)
 ├── docker-compose.external-db.yml  Production (external DB)
-├── .env.test                Test config template
-└── .env.production          Production config template
+├── DEPLOY-AZURE.md            Azure setup guide
+└── DEPLOY-PRODUCTION.md       Production guide
 ```
+
+## Deployment Options
+
+| | Test | Production |
+|---|---|---|
+| Command | `./deploy.sh test` | `./deploy.sh prod` |
+| Database | Docker container | Azure Flexible Server |
+| Backups | Manual | Automated daily |
+| SSO | Disabled | Entra ID |
+| Cost | ~$50 AUD/mo | ~$80 AUD/mo |
