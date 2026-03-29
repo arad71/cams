@@ -11,6 +11,16 @@ build
 .next
 out
 
+# Unused App copies (170-244KB each — not imported)
+src/App1.jsx
+src/App2.jsx
+src/App3.jsx
+src/App4.jsx
+src/App5.jsx
+src/App_sight.jsx
+src/App copy.jsx
+src/terrain.jsx
+
 # OS / VCS
 .DS_Store
 Thumbs.db
