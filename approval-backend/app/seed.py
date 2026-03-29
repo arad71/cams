@@ -77,6 +77,12 @@ def run_seed():
         # ─── Assessment Master Data ──────────────────────────
         if db.query(AssessmentCategory).count() == 0:
             MASTER = [
+                ("pathway", "Application Pathway", "🔀", [
+                    ("da_pathway", "DA includes crossover design — no separate application needed", "R-014"),
+                    ("standalone_required", "Standalone crossover application required", "R-015"),
+                    ("bonding_eligibility", "Bonding: permitted for DA only, not subdivision/standalone", "R-032"),
+                    ("subdivision_clearance", "Subdivision crossover — must complete before clearance", "R-031"),
+                ]),
                 ("ownership", "Ownership & Application", "👤", [
                     ("owner_verified", "Lot owner verified on Certificate of Title", "§2.1"),
                     ("contact_details", "Valid contact details (phone, email, postal)", "§2.1"),
@@ -92,20 +98,25 @@ def run_seed():
                     ("battleaxe_check", "Battleaxe/rear lot access checked (if applicable)", "§3.4"),
                 ]),
                 ("dimensions", "Width & Dimensions", "📏", [
-                    ("min_width", "Crossover width ≥ 3.0m at property boundary", "§4.1"),
-                    ("max_width", "Width within max limit for frontage", "§4.1"),
-                    ("road_edge_width", "Road edge widening ≤ 6.0m (wings/splay)", "§4.2"),
-                    ("dual_crossover", "Second crossover only if frontage > 20m", "§4.3"),
-                    ("separation_dist", "Dual crossover separation adequate", "§4.3"),
+                    ("min_width", "Crossover width ≥ 3.0m at property boundary", "R-083"),
+                    ("max_width", "Width within max limit for frontage", "R-084,R-086"),
+                    ("road_edge_width", "Road edge widening ≤ 6.0m (wings/splay)", "R-083"),
+                    ("alignment_90deg", "Crossover aligned at 90° to road centreline", "R-081"),
+                    ("dual_crossover", "Second crossover only if frontage > 20m", "R-100"),
+                    ("separation_dist", "Dual crossover separation adequate", "R-100"),
+                    ("intersection_tangent", "Min 6.0m from intersection tangent point", "R-100"),
                     ("setback_boundary", "Offset from side boundary ≥ 0.5m", "§4.4"),
+                    ("footpath_flush", "Footpath priority — flush join, delineation", "R-110,R-111"),
                 ]),
                 ("construction", "Construction & Materials", "🔨", [
-                    ("base_course", "Base course 150mm min, compacted 95% MDD", "§5.1"),
-                    ("surface_material", "Surface material compliant (concrete/asphalt/paver)", "§5.2"),
-                    ("concrete_joints", "Concrete jointing 1.8–2.0m, 2 expansion joints", "§5.3"),
+                    ("construction_std_type", "Construction standard: Type [1] urban sealed or Type [2] rural", "R-030"),
+                    ("base_course", "Base course 150mm min, compacted 95% MDD", "R-121,R-122"),
+                    ("surface_material", "Surface material compliant (concrete/asphalt/paver)", "R-120"),
+                    ("concrete_joints", "Concrete jointing 1.8–2.0m, min 2 expansion joints", "R-126"),
                     ("commercial_spec", "Commercial spec if commercial lot (150mm + F62)", "§5.4"),
                     ("grade_alignment", "Crossover grade matches verge/road levels", "§5.5"),
-                    ("kerb_transition", "Kerb transition/cut appropriate", "§5.6"),
+                    ("kerb_transition", "Kerb transition/cut appropriate — mountable preferred", "R-140,R-141"),
+                    ("site_cleanliness", "Site left clean after construction", "R-150"),
                 ]),
                 ("vegetation", "Vegetation & Trees", "🌳", [
                     ("tree_clearance", "Min 3m clearance from all verge trees", "§6.1"),
@@ -123,10 +134,12 @@ def run_seed():
                 ]),
                 ("sight_safety", "Sight Lines & Safety", "👁️", [
                     ("sight_triangle", "Sight triangle clear (AS 2890.1, 0.65–1.5m zone)", "AS 2890.1"),
-                    ("intersection_dist", "Min distance from nearest intersection", "§8.1"),
-                    ("pedestrian_safety", "Pedestrian path continuity maintained", "§8.2"),
+                    ("sight_unobstructed", "Unobstructed sightlines for pedestrians and traffic", "R-082"),
+                    ("intersection_dist", "Min distance from nearest intersection", "R-100"),
+                    ("pedestrian_safety", "Pedestrian path continuity maintained", "R-110"),
                     ("vehicle_turning", "Vehicle turning path — no encroachment", "AS 2890.1"),
                     ("driveway_grade", "Driveway gradient within limits (max 1:4)", "AS 2890.1"),
+                    ("corner_lot_sight", "Corner lot extended sight triangle requirements", "AS 2890.1 §3.2.4"),
                 ]),
                 ("road_referral", "Road & Referrals", "🛣️", [
                     ("road_class", "Road classification confirmed", "§9.1"),
@@ -150,10 +163,13 @@ def run_seed():
                     ("engineering_dwg", "Engineering drawing (if non-standard)", "§11.5"),
                 ]),
                 ("contribution", "Financial & Contribution", "💰", [
-                    ("first_crossover", "First crossover to lot (contribution eligible)", "§12.1"),
-                    ("contribution_calc", "Contribution: lesser of ½ cost or $474", "§12.2"),
-                    ("not_da_linked", "Not DA-linked (DA crossovers ineligible)", "§12.3"),
-                    ("receipts_info", "Receipts/invoices within 6 months", "§12.4"),
+                    ("first_crossover", "First crossover to lot (contribution eligible)", "R-163"),
+                    ("contribution_calc", "Contribution: lesser of ½ cost or $474", "R-163"),
+                    ("contribution_deadline", "Claim within 6 months of completion", "R-160"),
+                    ("not_da_linked", "Not DA-linked (DA crossovers ineligible)", "R-166"),
+                    ("not_subdivision", "Not subdivision-linked (ineligible)", "R-166"),
+                    ("receipts_info", "Receipts/invoices required for claim", "R-160"),
+                    ("compliance_enforcement", "Post-1 Jan 2018 compliance enforcement applies", "R-170"),
                 ]),
             ]
 
@@ -371,12 +387,69 @@ def run_seed():
 
             # ── Financial & Contribution ──
             R("first_crossover",     0, "app", "contribution_eligible", "true", None, "pass", 0.8, "First crossover — eligible for contribution")
+            R("first_crossover",     1, "app", "crossover_count",  "gt", "1",     "fail",   0.9,  "Not first crossover — second crossover not eligible for contribution (R-165)")
             R("first_crossover",     9, "app", "contribution_eligible", "false", None, "review", 0.6, "Contribution eligibility to be confirmed")
-            R("contribution_calc",   0, "app", "contribution_amount", "gt", "0",    "pass",   0.85, "Contribution: ${field_value}")
-            R("contribution_calc",   9, "app", "contribution_amount", "not_exists", None, "review", 0.5, "Contribution amount to be calculated")
-            R("not_da_linked",       0, "app", "da_number",        "exists", None,  "review", 0.7,  "DA-linked — check contribution eligibility")
-            R("not_da_linked",       9, "app", "da_number",        "not_exists", None, "pass", 0.85, "Not DA-linked or contribution N/A")
-            R("receipts_info",       0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Receipts/invoices to be collected within 6 months")
+            R("contribution_calc",   0, "app", "contribution_amount", "gt", "0",    "pass",   0.85, "Contribution: ${field_value} (max $474 or 50% of cost, R-163)")
+            R("contribution_calc",   9, "app", "contribution_amount", "not_exists", None, "review", 0.5, "Contribution amount to be calculated — lesser of ½ cost or $474")
+            R("contribution_deadline", 0, "app", "completion_date", "exists", None, "review", 0.7, "Completion date {field_value} — claim must be within 6 months (R-160)")
+            R("contribution_deadline", 9, "app", "completion_date", "not_exists", None, "review", 0.5, "Completion date not recorded — 6-month deadline applies from completion")
+            R("not_da_linked",       0, "app", "da_number",        "exists", None,  "fail",   0.9,  "DA-linked crossover — NOT eligible for financial contribution (R-166)")
+            R("not_da_linked",       9, "app", "da_number",        "not_exists", None, "pass", 0.85, "Not DA-linked — contribution may apply")
+            R("not_subdivision",     0, "app", "application_type", "eq", "subdivision", "fail", 0.9, "Subdivision crossover — NOT eligible for contribution (R-166)")
+            R("not_subdivision",     1, "app", "application_type", "neq", "subdivision", "pass", 0.85, "Not subdivision-linked")
+            R("not_subdivision",     9, "app", "application_type", "not_exists", None, "review", 0.5, "Application type not set — check subdivision status")
+            R("receipts_info",       0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Receipts/invoices to be collected within 6 months of completion (R-160)")
+            R("compliance_enforcement", 0, "app", "submitted_date", "exists", None, "pass", 0.9, "Post-1 Jan 2018 — subject to compliance enforcement (R-170)")
+
+            # ── Application Pathway (NEW) ──
+            R("da_pathway",          0, "app", "da_number",        "exists", None,  "pass",   0.85, "DA {field_value} includes crossover — no separate application needed (R-014)")
+            R("da_pathway",          1, "sp",  "property.da_linked", "true", None,   "pass",   0.9,  "DA-linked crossover identified on site plan")
+            R("da_pathway",          9, "app", "da_number",        "not_exists", None, "pass", 0.9, "Not DA-linked — standalone application pathway")
+            R("standalone_required", 0, "app", "da_number",        "not_exists", None, "pass", 0.9, "Standalone crossover — application form + site plan required (R-001 to R-003)")
+            R("standalone_required", 1, "app", "da_number",        "exists", None,  "pass",   0.8,  "DA-linked — standalone may not be required if DA covers crossover design (R-014)")
+            R("standalone_required", 9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Application pathway to be confirmed")
+            R("bonding_eligibility", 0, "app", "application_type", "eq", "da",      "pass",   0.9,  "DA crossover — outstanding works CAN be bonded (R-032)")
+            R("bonding_eligibility", 1, "app", "application_type", "eq", "subdivision", "fail", 0.95, "Subdivision — bonding NOT permitted, must complete before clearance (R-031)")
+            R("bonding_eligibility", 2, "app", "application_type", "eq", "standalone", "fail", 0.9, "Standalone — bonding not applicable")
+            R("bonding_eligibility", 9, "app", "application_type", "not_exists", None, "review", 0.5, "Application type not set — bonding eligibility unknown")
+            R("subdivision_clearance", 0, "app", "application_type", "eq", "subdivision", "review", 0.9, "Subdivision crossover — must be completed BEFORE clearance issued (R-031)")
+            R("subdivision_clearance", 1, "app", "application_type", "neq", "subdivision", "pass", 0.9, "Not subdivision — clearance rule N/A")
+            R("subdivision_clearance", 9, "app", "application_type", "not_exists", None, "review", 0.5, "Application type not set — check if subdivision")
+
+            # ── New Dimension Rules ──
+            R("alignment_90deg",     0, "sp",  "crossover_dimensions.alignment_degrees", "gte", "85", "pass", 0.9, "Crossover alignment {field_value}° — within 90° tolerance (R-081)")
+            R("alignment_90deg",     1, "sp",  "crossover_dimensions.alignment_degrees", "lt", "85", "fail", 0.9, "Crossover alignment {field_value}° — not at 90° to road (R-081)")
+            R("alignment_90deg",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Crossover alignment to road at 90° to be confirmed on-site (R-081)")
+            R("intersection_tangent", 0, "sp",  "crossover_dimensions.distance_to_intersection_tangent_m", "gte", "6.0", "pass", 0.95, "Distance to intersection tangent {field_value}m ≥ 6.0m (R-100)")
+            R("intersection_tangent", 1, "sp",  "crossover_dimensions.distance_to_intersection_tangent_m", "lt", "6.0", "fail", 0.95, "Distance to intersection tangent {field_value}m < 6.0m — too close (R-100)")
+            R("intersection_tangent", 2, "sp",  "crossover_dimensions.distance_to_nearest_lot_corner_m", "gte", "6.0", "pass", 0.8, "Distance to nearest corner {field_value}m ≥ 6.0m — adequate")
+            R("intersection_tangent", 9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Distance from intersection tangent point to be measured (min 6.0m, R-100)")
+            R("footpath_flush",      0, "sp",  "construction.footpath_exists", "true", None, "review", 0.8, "Footpath present — must meet flush with crossover (R-110). Concrete must delineate path by colour/jointing (R-111)")
+            R("footpath_flush",      1, "sp",  "construction.footpath_exists", "false", None, "pass", 0.8, "No footpath present at crossover location")
+            R("footpath_flush",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Footpath status to be confirmed — if present, must be flush join (R-110)")
+
+            # ── New Construction Rules ──
+            R("construction_std_type", 0, "app", "lot_type", "contains", "Urban", "pass", 0.85, "Urban lot — Type [1] standard: fully sealed and drained (asphalt, concrete, or paver) (R-030)")
+            R("construction_std_type", 1, "app", "lot_type", "contains", "Rural", "pass", 0.85, "Rural lot — Type [2] standard: trafficable and drained (asphalt, concrete, paver, or chip seal) (R-030)")
+            R("construction_std_type", 2, "app", "lot_type", "contains", "Semi", "pass", 0.8, "Semi-rural lot — Type [2] standard applies (R-030)")
+            R("construction_std_type", 9, "app", "owner_name",     "exists", None,  "review", 0.5,  "Construction standard type to be determined from lot classification (R-030)")
+            R("site_cleanliness",    0, "app", "status",           "eq", "completed", "review", 0.7, "Construction complete — site cleanliness inspection required (R-150)")
+            R("site_cleanliness",    9, "app", "owner_name",       "exists", None,  "pass",   0.5,  "Site cleanliness to be confirmed at final inspection (R-150)")
+
+            # ── New Sight Safety Rules ──
+            R("sight_unobstructed",  0, "sp",  "additional_findings.vegetation_on_verge", "true", None, "review", 0.8, "Vegetation on verge — sightlines may be obstructed (R-082)")
+            R("sight_unobstructed",  1, "sp",  "additional_findings.vegetation_on_verge", "false", None, "pass", 0.85, "No verge vegetation — sightlines likely clear (R-082)")
+            R("sight_unobstructed",  9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Unobstructed sightlines for pedestrians and traffic to be verified (R-082)")
+            R("corner_lot_sight",    0, "sp",  "property.is_corner_lot", "true",  None, "review", 0.9, "Corner lot — extended sight triangle per AS 2890.1 §3.2.4. Curve radius and sight distance calculation required")
+            R("corner_lot_sight",    1, "sp",  "property.is_corner_lot", "false", None, "pass",   0.9, "Not corner lot — standard sight triangle applies")
+            R("corner_lot_sight",    9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Corner lot status to be confirmed — if corner, extended sight requirements apply")
+
+            # ── Strengthened Battleaxe Rules ──
+            R("battleaxe_check",     1, "sp",  "property.is_battleaxe", "true", None, "review", 0.85, "Battleaxe lot — single: min 3.0m driveway + 0.5m garden bed (R-087). Adjoining: combined 6.0m (R-088)")
+
+            # ── Strengthened Dual Crossover (all 4 conditions from R-100) ──
+            R("dual_crossover",      2, "sp",  "crossover_dimensions.distance_to_intersection_tangent_m", "lt", "6.0", "fail", 0.95, "Second crossover: < 6.0m from intersection tangent — REFUSED (R-100)")
+            R("dual_crossover",      3, "sp",  "additional_findings.vegetation_on_verge", "true", None, "review", 0.8, "Second crossover: tree/vegetation impact must be assessed (R-100 condition 4)")
 
             db.commit()
             rule_count = db.query(AssessmentRule).count()
