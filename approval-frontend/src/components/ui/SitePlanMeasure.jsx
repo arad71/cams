@@ -288,39 +288,39 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
 
   const ToolBtn = ({ id, icon, label, active }) => (
     <button onClick={() => { setTool(id); setTempPt(null); if (id !== 'area') setAreaPts([]); }}
-      style={{ height: 32, padding: '0 12px', border: active ? '1px solid rgba(0,228,200,0.3)' : '1px solid transparent', background: active ? 'rgba(0,228,200,0.12)' : 'transparent', color: active ? '#00e4c8' : '#7a8098', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+      style={{ height: 32, padding: '0 12px', border: active ? '1px solid rgba(26,188,156,0.4)' : '1px solid transparent', background: active ? 'rgba(26,188,156,0.1)' : 'transparent', color: active ? '#16a085' : '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: active ? 600 : 500, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
       {icon} {label}
     </button>
   );
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#0c0e14', zIndex: 10001, display: 'flex', flexDirection: 'column', fontFamily: "'Outfit',sans-serif", color: '#e2e5f0' }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#f5f7fa', zIndex: 10001, display: 'flex', flexDirection: 'column', fontFamily: "'Outfit',sans-serif", color: '#1a3a4a' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 48, background: '#14171f', borderBottom: '1px solid #2a2f3d', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 48, background: '#fff', borderBottom: '1px solid #e4e9ec', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, #00e4c8, #00a896)', borderRadius: 7, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 11, color: '#0c0e14' }}>SP</div>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>Site Plan Measure</span>
-          {appRef && <span style={{ fontSize: 11, color: '#7a8098', marginLeft: 8 }}>{appRef}</span>}
+          <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, #1abc9c, #16a085)', borderRadius: 7, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 11, color: '#fff' }}>SP</div>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#1a3a4a' }}>Site Plan Measure</span>
+          {appRef && <span style={{ fontSize: 11, color: '#95a5a6', marginLeft: 8 }}>{appRef}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <ToolBtn id="measure" icon="📏" label="Measure" active={tool === 'measure'} />
           <ToolBtn id="marker" icon="📍" label="Marker" active={tool === 'marker'} />
           <ToolBtn id="area" icon="⬜" label="Area" active={tool === 'area'} />
           <ToolBtn id="pan" icon="✋" label="Pan" active={tool === 'pan'} />
-          <div style={{ width: 1, height: 20, background: '#2a2f3d', margin: '0 4px' }} />
+          <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
           <ToolBtn id="calibrate" icon="📐" label="Calibrate" active={tool === 'calibrate'} />
-          <div style={{ width: 1, height: 20, background: '#2a2f3d', margin: '0 4px' }} />
-          <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8098', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>↩ Undo</button>
-          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8098', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>🗑 Clear</button>
-          <div style={{ width: 1, height: 20, background: '#2a2f3d', margin: '0 4px' }} />
-          <button onClick={onClose} style={{ height: 32, padding: '0 14px', border: '1px solid #2a2f3d', background: 'transparent', color: '#e2e5f0', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>✕ Close</button>
+          <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
+          <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>↩ Undo</button>
+          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>🗑 Clear</button>
+          <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
+          <button onClick={onClose} style={{ height: 32, padding: '0 14px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>✕ Close</button>
         </div>
       </div>
 
       {/* Workspace */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Canvas */}
-        <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#0c0e14', cursor: tool === 'pan' ? 'grab' : 'crosshair' }}
+        <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#e8ecef', cursor: tool === 'pan' ? 'grab' : 'crosshair' }}
           onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp} onDoubleClick={handleDblClick} onWheel={handleWheel}>
           <div ref={innerRef} style={{ position: 'absolute', transformOrigin: '0 0', transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})` }}>
@@ -334,64 +334,64 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         </div>
 
         {/* Sidebar */}
-        <div style={{ width: 280, background: '#14171f', borderLeft: '1px solid #2a2f3d', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid #2a2f3d', display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 13 }}>
+        <div style={{ width: 280, background: '#fff', borderLeft: '1px solid #e4e9ec', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid #e4e9ec', display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 13, color: '#1a3a4a' }}>
             <span>Measurements</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7a8098' }}>{items.length} item{items.length !== 1 ? 's' : ''}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#95a5a6' }}>{items.length} item{items.length !== 1 ? 's' : ''}</span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
             {/* Calibration */}
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#4e5470', fontWeight: 600, marginBottom: 8 }}>Scale Calibration</div>
-            <div style={{ background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: 600, marginBottom: 8 }}>Scale Calibration</div>
+            <div style={{ background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: 10, padding: 12, marginBottom: 12 }}>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input type="number" value={calVal} onChange={e => { setCalVal(parseFloat(e.target.value) || 1); if (calPx) { const ci = items.find(i => i.type === 'cal'); if (ci) setCalPx(ci.pxDist / (parseFloat(e.target.value) || 1)); } }}
-                  style={{ flex: 1, background: '#0c0e14', border: '1px solid #2a2f3d', borderRadius: 6, padding: '6px 8px', color: '#e2e5f0', fontFamily: 'monospace', fontSize: 12, outline: 'none' }} />
+                  style={{ flex: 1, background: '#fff', border: '1px solid #d5dde2', borderRadius: 6, padding: '6px 8px', color: '#1a3a4a', fontFamily: 'monospace', fontSize: 12, outline: 'none' }} />
                 <select value={calUnit} onChange={e => setCalUnit(e.target.value)}
-                  style={{ background: '#0c0e14', border: '1px solid #2a2f3d', borderRadius: 6, padding: '6px 8px', color: '#e2e5f0', fontSize: 12, outline: 'none' }}>
+                  style={{ background: '#fff', border: '1px solid #d5dde2', borderRadius: 6, padding: '6px 8px', color: '#1a3a4a', fontSize: 12, outline: 'none' }}>
                   <option value="m">m</option><option value="mm">mm</option><option value="ft">ft</option>
                 </select>
               </div>
-              <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 11, color: calPx ? '#00e4c8' : '#4e5470' }}>
+              <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 11, color: calPx ? '#1abc9c' : '#95a5a6' }}>
                 {calPx ? `Scale: ${calPx.toFixed(1)} px/${calUnit}` : 'Draw a calibration line to set scale'}
               </div>
             </div>
 
             {/* Colors */}
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#4e5470', fontWeight: 600, marginBottom: 8 }}>Color</div>
+            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: 600, marginBottom: 8 }}>Color</div>
             <div style={{ display: 'flex', gap: 5, marginBottom: 12 }}>
               {COLORS.map(c => (
                 <div key={c} onClick={() => setColor(c)}
-                  style={{ width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c ? '2.5px solid #fff' : '2.5px solid transparent', transform: color === c ? 'scale(1.15)' : 'none', transition: 'all 0.12s' }} />
+                  style={{ width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c ? '2.5px solid #1a3a4a' : '2.5px solid transparent', transform: color === c ? 'scale(1.15)' : 'none', transition: 'all 0.12s' }} />
               ))}
             </div>
 
             {/* Items */}
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#4e5470', fontWeight: 600, marginBottom: 8 }}>Items</div>
+            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: 600, marginBottom: 8 }}>Items</div>
             {items.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '24px 14px', color: '#4e5470', fontSize: 12, lineHeight: 1.7 }}>
+              <div style={{ textAlign: 'center', padding: '24px 14px', color: '#95a5a6', fontSize: 12, lineHeight: 1.7 }}>
                 Click on the plan to measure distances or place markers.
               </div>
             )}
             {items.map(it => (
-              <div key={it.id} style={{ background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 9, padding: '10px 11px', marginBottom: 5 }}>
+              <div key={it.id} style={{ background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: 9, padding: '10px 11px', marginBottom: 5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <div style={{ width: 9, height: 9, borderRadius: '50%', background: it.color, flexShrink: 0 }} />
-                  <div style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1a3a4a' }}>
                     {it.type === 'cal' ? 'Calibration' : it.label || it.type}
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: it.type === 'cal' ? '#ffcf40' : '#00e4c8', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: it.type === 'cal' ? '#e67e22' : '#2980b9', whiteSpace: 'nowrap' }}>
                     {it.type === 'measure' ? fmtDist(it.pxDist) : it.type === 'area' ? fmtArea(it.pxArea) : it.type === 'cal' ? Math.round(it.pxDist) + ' px' : 'Marker'}
                   </div>
                   {/* Save to AI field button */}
                   {it.type === 'measure' && calPx && onSaveField && (
                     <button onClick={() => setSaveModal({ itemId: it.id, value: getRealValue(it) })}
-                      style={{ background: 'none', border: 'none', color: '#00e4c8', cursor: 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}
+                      style={{ background: 'none', border: 'none', color: '#1abc9c', cursor: 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}
                       title="Save to AI field">💾</button>
                   )}
                   <button onClick={() => deleteItem(it.id)}
-                    style={{ background: 'none', border: 'none', color: '#4e5470', cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>×</button>
+                    style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>×</button>
                 </div>
-                <div style={{ fontSize: 10, color: '#4e5470', marginTop: 3, paddingLeft: 16, fontFamily: 'monospace' }}>
+                <div style={{ fontSize: 10, color: '#95a5a6', marginTop: 3, paddingLeft: 16, fontFamily: 'monospace' }}>
                   {it.type === 'measure' || it.type === 'cal' ? Math.round(it.pxDist) + ' px' : it.type === 'area' ? it.pts.length + ' vertices' : `${Math.round(it.pt.x)}, ${Math.round(it.pt.y)}`}
                 </div>
               </div>
@@ -401,9 +401,9 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       </div>
 
       {/* Status bar */}
-      <div style={{ height: 26, padding: '0 16px', background: '#14171f', borderTop: '1px solid #2a2f3d', display: 'flex', alignItems: 'center', gap: 20, fontSize: 10, color: '#4e5470', fontFamily: 'monospace', flexShrink: 0 }}>
+      <div style={{ height: 26, padding: '0 16px', background: '#fff', borderTop: '1px solid #e4e9ec', display: 'flex', alignItems: 'center', gap: 20, fontSize: 10, color: '#95a5a6', fontFamily: 'monospace', flexShrink: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#4dff91' }} />
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1abc9c' }} />
           {tool.charAt(0).toUpperCase() + tool.slice(1)}
         </span>
         {mouse && <span>X:{Math.round(mouse.x)} Y:{Math.round(mouse.y)}</span>}
@@ -413,17 +413,16 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
 
       {/* Save to AI field modal */}
       {saveModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 10002, display: 'grid', placeItems: 'center' }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 10002, display: 'grid', placeItems: 'center' }}
           onClick={(e) => { if (e.target === e.currentTarget) setSaveModal(null); }}>
-          <div style={{ background: '#14171f', border: '1px solid #2a2f3d', borderRadius: 14, padding: 24, width: 420, maxHeight: '70vh', overflow: 'auto' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>💾 Save Measurement as Correction</div>
-            <div style={{ fontSize: 12, color: '#7a8098', marginBottom: 16 }}>
-              Measured: <span style={{ color: '#00e4c8', fontFamily: 'monospace', fontWeight: 600 }}>{saveModal.value} {calUnit}</span>
+          <div style={{ background: '#fff', border: '1px solid #e4e9ec', borderRadius: 14, padding: 24, width: 420, maxHeight: '70vh', overflow: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.15)' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1a3a4a', marginBottom: 4 }}>💾 Save Measurement as Correction</div>
+            <div style={{ fontSize: 12, color: '#7a8a94', marginBottom: 16 }}>
+              Measured: <span style={{ color: '#1abc9c', fontFamily: 'monospace', fontWeight: 600 }}>{saveModal.value} {calUnit}</span>
               — This will override the AI-extracted value and re-run assessment.
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {AI_FIELDS.map(f => {
-                // Get current AI value for this field
                 const spd = appData?.cor_site_plan_data || appData?.site_plan_data;
                 const extraction = spd?.extraction || spd || {};
                 const parts = f.key.split('.');
@@ -432,17 +431,17 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                 const currentStr = current != null ? String(current) : '—';
                 return (
                   <button key={f.key} onClick={() => { if (onSaveField) onSaveField(f.key, parseFloat(saveModal.value), calUnit); setSaveModal(null); }}
-                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#1c2029', border: '1px solid #2a2f3d', borderRadius: 8, color: '#e2e5f0', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s', gap: 8 }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = '#00e4c8'} onMouseLeave={e => e.currentTarget.style.borderColor = '#2a2f3d'}>
+                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: 8, color: '#1a3a4a', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s', gap: 8 }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = '#1abc9c'} onMouseLeave={e => e.currentTarget.style.borderColor = '#e4e9ec'}>
                     <span style={{ flex: 1, textAlign: 'left' }}>{f.label}</span>
-                    <span style={{ fontSize: 10, color: '#ff5c72', fontFamily: 'monospace', minWidth: 50, textAlign: 'right' }}>{currentStr}</span>
-                    <span style={{ fontSize: 10, color: '#4e5470' }}>→</span>
-                    <span style={{ fontSize: 10, color: '#00e4c8', fontFamily: 'monospace', fontWeight: 600, minWidth: 50, textAlign: 'right' }}>{saveModal.value}</span>
+                    <span style={{ fontSize: 10, color: '#e74c3c', fontFamily: 'monospace', minWidth: 50, textAlign: 'right' }}>{currentStr}</span>
+                    <span style={{ fontSize: 10, color: '#95a5a6' }}>→</span>
+                    <span style={{ fontSize: 10, color: '#1abc9c', fontFamily: 'monospace', fontWeight: 600, minWidth: 50, textAlign: 'right' }}>{saveModal.value}</span>
                   </button>
                 );
               })}
             </div>
-            <button onClick={() => setSaveModal(null)} style={{ marginTop: 12, width: '100%', padding: '8px', background: 'transparent', border: '1px solid #2a2f3d', borderRadius: 8, color: '#7a8098', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Cancel</button>
+            <button onClick={() => setSaveModal(null)} style={{ marginTop: 12, width: '100%', padding: '8px', background: '#fff', border: '1px solid #e4e9ec', borderRadius: 8, color: '#7a8a94', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Cancel</button>
           </div>
         </div>
       )}
