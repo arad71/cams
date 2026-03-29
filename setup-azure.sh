@@ -3,10 +3,10 @@
 #  CAMS Azure/Cloud Setup Script
 #  
 #  Usage (after SSH into VM):
-#    sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh)"
+#    sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/arad71/cams/master/setup-azure.sh)"
 #
 #  Or download and run:
-#    curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh -o setup.sh
+#    curl -fsSL https://raw.githubusercontent.com/arad71/cams/master/setup-azure.sh -o setup.sh
 #    chmod +x setup.sh
 #    sudo bash setup.sh
 # ═══════════════════════════════════════════════════════════
@@ -21,7 +21,7 @@ fi
 
 INSTALL_DIR="/opt/cams"
 REPO_URL="https://github.com/arad71/cams.git"
-BRANCH="feature/db-rules-refactor"
+BRANCH="master"
 
 echo ""
 echo "═══════════════════════════════════════════════════"

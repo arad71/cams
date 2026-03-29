@@ -89,13 +89,13 @@ ssh azureuser@20.211.xx.xx
 Then run the setup script (one line — does everything):
 
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh)"
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/arad71/cams/master/setup-azure.sh)"
 ```
 
 Or if that has issues, download and run in two steps:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh -o setup.sh
+curl -fsSL https://raw.githubusercontent.com/arad71/cams/master/setup-azure.sh -o setup.sh
 sudo bash setup.sh
 ```
 
@@ -193,7 +193,7 @@ ssh azureuser@20.211.xx.xx
 cd cams
 
 # Pull latest code and rebuild
-git pull origin feature/db-rules-refactor
+git pull origin master
 docker compose -f docker-compose.prod.yml up -d --build
 
 # Reseed assessment rules (after rule changes)
