@@ -379,6 +379,20 @@ function RulesTab() {
     } catch (e) { console.error(e); alert("Failed: " + e.message); }
   };
 
+  const handleSwap = async (groupRules, ruleIndex, direction) => {
+    const sorted = [...groupRules].sort((a, b) => a.priority - b.priority);
+    const targetIndex = ruleIndex + direction;
+    if (targetIndex < 0 || targetIndex >= sorted.length) return;
+    const ruleA = sorted[ruleIndex];
+    const ruleB = sorted[targetIndex];
+    // Swap priorities
+    try {
+      await api.updateRule(ruleA.id, { priority: ruleB.priority });
+      await api.updateRule(ruleB.id, { priority: ruleA.priority });
+      await load();
+    } catch (e) { console.error(e); }
+  };
+
   if (loading) return <div style={{ padding: 20, color: "#7a8a94" }}>Loading rules...</div>;
 
   return (
@@ -456,9 +470,11 @@ function RulesTab() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#fafcfa" }}>{["Pri","Source","Field","Op","Value","Result","Conf","Reason","Actions"].map(h => <th key={h} style={{ ...thS, fontSize: 8, padding: "5px 8px" }}>{h}</th>)}</tr></thead>
               <tbody>
-                {group.rules.sort((a,b) => a.priority - b.priority).map(rule => {
+                {group.rules.sort((a,b) => a.priority - b.priority).map((rule, ruleIdx, sortedArr) => {
                   const ed = editId === rule.id;
                   const rc = RESULT_COLORS[rule.result] || "#7a8a94";
+                  const isFirst = ruleIdx === 0;
+                  const isLast = ruleIdx === sortedArr.length - 1;
                   return (
                     <tr key={rule.id} style={{ background: ed ? "#ebf5fb" : "transparent" }}>
                       <td style={{ ...tdS, width: 40, textAlign: "center" }}>{ed ? <input type="number" value={form.priority} onChange={e => setForm({...form, priority: parseInt(e.target.value)||0})} style={{ ...inputS, width: 40, textAlign: "center" }} /> : <span style={{ fontWeight: 800, color: "#1a3a4a" }}>{rule.priority}</span>}</td>
@@ -469,14 +485,18 @@ function RulesTab() {
                       <td style={{ ...tdS, width: 55 }}>{ed ? <select value={form.result} onChange={e => setForm({...form, result: e.target.value})} style={{ ...inputS, width: 55 }}><option value="pass">pass</option><option value="fail">fail</option><option value="review">review</option></select> : <span style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, fontWeight: 800, background: `${rc}18`, color: rc }}>{rule.result}</span>}</td>
                       <td style={{ ...tdS, width: 40, textAlign: "center" }}>{ed ? <input type="number" step="0.05" value={form.confidence} onChange={e => setForm({...form, confidence: parseFloat(e.target.value)||0})} style={{ ...inputS, width: 40 }} /> : <span style={{ fontSize: 10, color: "#5a6a74" }}>{(rule.confidence * 100).toFixed(0)}%</span>}</td>
                       <td style={tdS}>{ed ? <input value={form.reason_template} onChange={e => setForm({...form, reason_template: e.target.value})} style={inputS} /> : <span style={{ fontSize: 10, color: "#7a8a94" }}>{rule.reason_template}</span>}</td>
-                      <td style={{ ...tdS, width: 80 }}>
+                      <td style={{ ...tdS, width: 110 }}>
                         {ed ? (
                           <div style={{ display: "flex", gap: 3 }}>
                             <button onClick={() => handleSave(rule)} style={btnSave}>Save</button>
                             <button onClick={() => setEditId(null)} style={btnCancel}>✕</button>
                           </div>
                         ) : (
-                          <div style={{ display: "flex", gap: 3 }}>
+                          <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                            <button onClick={() => handleSwap(sortedArr, ruleIdx, -1)} disabled={isFirst}
+                              style={{ ...btnEdit, padding: "3px 5px", opacity: isFirst ? 0.3 : 1 }} title="Move up (higher priority)">▲</button>
+                            <button onClick={() => handleSwap(sortedArr, ruleIdx, 1)} disabled={isLast}
+                              style={{ ...btnEdit, padding: "3px 5px", opacity: isLast ? 0.3 : 1 }} title="Move down (lower priority)">▼</button>
                             <button onClick={() => { setEditId(rule.id); setForm({ priority: rule.priority, source: rule.source, field: rule.field, operator: rule.operator, value: rule.value, result: rule.result, confidence: rule.confidence, reason_template: rule.reason_template }); }} style={btnEdit}>Edit</button>
                             <button onClick={() => handleDelete(rule.id)} style={btnDel}>✕</button>
                           </div>
