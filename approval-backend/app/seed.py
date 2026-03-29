@@ -53,16 +53,16 @@ def run_seed():
         # ─── Users ───────────────────────────────────────────
         if db.query(User).count() == 0:
             users = [
-                User(name="M. Thompson", email="m.thompson@kalamunda.wa.gov.au", initials="MT",
+                User(name="Admin User", email="admin@council.wa.gov.au", initials="AU",
                      hashed_password=hash_password("admin123"), role="admin", department="Asset Services"),
-                User(name="K. Williams", email="k.williams@kalamunda.wa.gov.au", initials="KW",
+                User(name="Manager User", email="manager@council.wa.gov.au", initials="MU",
                      hashed_password=hash_password("manager123"), role="manager", department="Engineering"),
-                User(name="S. Patel", email="s.patel@kalamunda.wa.gov.au", initials="SP",
+                User(name="Engineer User", email="engineer@council.wa.gov.au", initials="EU",
                      hashed_password=hash_password("engineer123"), role="engineer", department="Engineering"),
-                User(name="J. Morrison", email="j.morrison@kalamunda.wa.gov.au", initials="JM",
+                User(name="Engineer Two", email="engineer2@council.wa.gov.au", initials="E2",
                      hashed_password=hash_password("engineer123"), role="engineer", department="Engineering"),
-                User(name="R. Singh", email="r.singh@kalamunda.wa.gov.au", initials="RS",
-                     hashed_password=hash_password("manager123"), role="manager", department="Planning"),
+                User(name="Viewer User", email="viewer@council.wa.gov.au", initials="VU",
+                     hashed_password=hash_password("viewer123"), role="viewer", department="Planning"),
             ]
             db.add_all(users)
             db.commit()
@@ -71,8 +71,8 @@ def run_seed():
             print(f"⏭️  Users already exist ({db.query(User).count()})")
 
         # Fetch user IDs for assignment
-        spatel = db.query(User).filter(User.email == "s.patel@kalamunda.wa.gov.au").first()
-        jmorrison = db.query(User).filter(User.email == "j.morrison@kalamunda.wa.gov.au").first()
+        engineer_user = db.query(User).filter(User.email == "engineer@council.wa.gov.au").first()
+        engineer2_user = db.query(User).filter(User.email == "engineer2@council.wa.gov.au").first()
 
         # ─── Assessment Master Data ──────────────────────────
         if db.query(AssessmentCategory).count() == 0:
@@ -496,7 +496,7 @@ def run_seed():
                     da_number="DA2025/0892",
                     offset_from_left=3.5,
                     trees_nearby=False, drainage_type="Piped to road drainage",
-                    officer_id=spatel.id if spatel else None,
+                    officer_id=engineer_user.id if spatel else None,
                     contribution_eligible=False, contribution_amount=0,
                 ),
                 Application(
@@ -551,7 +551,7 @@ def run_seed():
                     tree_protection="Multiple Jarrah/Marri within 10m — arborist assessment required.",
                     clearing=True,
                     drainage_type="Earthen table drain",
-                    officer_id=jmorrison.id if jmorrison else None,
+                    officer_id=engineer2_user.id if jmorrison else None,
                     contribution_eligible=False, contribution_amount=0,
                 ),
                 Application(
@@ -592,7 +592,7 @@ def run_seed():
                     culvert=True,
                     lot_polygon=[[-31.995169,115.98427],[-31.995169,115.98436],[-31.995354,115.984577],
                                  [-31.995463,115.984449],[-31.995239,115.984187],[-31.995169,115.98427]],
-                    officer_id=spatel.id if spatel else None,
+                    officer_id=engineer_user.id if spatel else None,
                     contribution_eligible=False, contribution_amount=0,
                 ),
             ]
@@ -647,12 +647,12 @@ def run_seed():
             print(f"✅ Created {doc_count} documents")
 
             # ─── Notes for assigned applications ─────────────
-            if spatel:
+            if engineer_user:
                 note_app = db.query(Application).filter(Application.ref_number == "CX-2026-0044").first()
                 if note_app:
-                    db.add(ApplicationNote(application_id=note_app.id, author_id=spatel.id,
+                    db.add(ApplicationNote(application_id=note_app.id, author_id=engineer_user.id,
                                            text="Dual crossover permitted — frontage 20.5m > 20m threshold."))
-                    db.add(ApplicationNote(application_id=note_app.id, author_id=spatel.id,
+                    db.add(ApplicationNote(application_id=note_app.id, author_id=engineer_user.id,
                                            text="Arborist report confirms 3.2m clearance to both Jarrah trees."))
                     db.commit()
                     print("✅ Created sample notes")

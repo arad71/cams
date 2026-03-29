@@ -3,7 +3,7 @@ import api, { API_BASE } from '../services/api';
 import { apiUserToFrontend } from '../utils/transforms';
 
 export default function LoginScreen({ onLogin, branding: B = {} }) {
-  const orgName = B.orgName || "City of Kalamunda";
+  const orgName = B.orgName || "Council";
   const systemName = B.systemName || "Crossover Approval System";
   const version = B.version || "3.1";
   const icon = B.icon || "🏛";
@@ -11,7 +11,7 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
   const darkColor = B.darkColor || "#1a3a4a";
   const copyright = B.copyright || "";
   const disclaimer = B.disclaimer || "";
-  const emailDomain = B.emailDomain || "kalamunda.wa.gov.au";
+  const emailDomain = B.emailDomain || "council.wa.gov.au";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

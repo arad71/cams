@@ -12,8 +12,8 @@ router = APIRouter(prefix="/settings", tags=["Site Settings"])
 # Default settings — seeded on first access if table is empty
 DEFAULTS = [
     # Branding
-    ("org_name",           "City of Kalamunda",                      "branding", "Organisation Name",       True),
-    ("org_short_name",     "Kalamunda",                              "branding", "Short Name",              True),
+    ("org_name",           "Council",                      "branding", "Organisation Name",       True),
+    ("org_short_name",     "Council",                              "branding", "Short Name",              True),
     ("system_name",        "Crossover Approval Management System",   "branding", "System Name",             True),
     ("system_short_name",  "CAMS",                                   "branding", "System Short Name",       True),
     ("system_version",     "3.1",                                    "branding", "Version",                 True),
@@ -24,19 +24,19 @@ DEFAULTS = [
     ("portal_title",       "Approval Portal",                        "branding", "Portal Title",            True),
 
     # Contact
-    ("contact_email",      "asset.services@kalamunda.wa.gov.au",     "contact",  "Contact Email",           True),
+    ("contact_email",      "asset.services@council.wa.gov.au",     "contact",  "Contact Email",           True),
     ("contact_phone",      "(08) 9257 9999",                         "contact",  "Contact Phone",           True),
-    ("contact_address",    "2 Railway Road, Kalamunda WA 6076",      "contact",  "Street Address",          True),
-    ("website_url",        "https://www.kalamunda.wa.gov.au",        "contact",  "Website URL",             True),
+    ("contact_address",    "Council Office Address",      "contact",  "Street Address",          True),
+    ("website_url",        "https://www.council.wa.gov.au",        "contact",  "Website URL",             True),
 
     # Legal
-    ("copyright_text",     "© 2026 City of Kalamunda. All rights reserved.", "legal", "Copyright Text",     True),
+    ("copyright_text",     "© 2026 Council. All rights reserved.", "legal", "Copyright Text",     True),
     ("privacy_url",        "",                                       "legal",    "Privacy Policy URL",      True),
     ("terms_url",          "",                                       "legal",    "Terms of Use URL",        True),
     ("disclaimer",         "This system is for authorised council staff only.", "legal", "Login Disclaimer", True),
 
     # System (not public)
-    ("email_domain",       "kalamunda.wa.gov.au",                    "system",   "Default Email Domain",    False),
+    ("email_domain",       "council.wa.gov.au",                    "system",   "Default Email Domain",    False),
     ("ref_prefix",         "CRO",                                    "system",   "Reference Number Prefix", False),
     ("guideline_version",  "3.1",                                    "system",   "Guideline Version",       False),
     ("guideline_date",     "23/06/2022",                             "system",   "Guideline Date",          False),

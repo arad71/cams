@@ -5,7 +5,7 @@ import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from '../../data/constants';
 // ═══════════════════════════════════════════════════════════
 export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {} }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
-  const orgName = B.orgName || "City of Kalamunda";
+  const orgName = B.orgName || "Council";
   const portalTitle = B.portalTitle || "Approval Portal";
   const version = B.version || "3.1";
   const icon = B.icon || "🏛";

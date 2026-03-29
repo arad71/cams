@@ -33,7 +33,7 @@ except Exception:
 # ═════════════════════════════════════════════════════════════════════════════
 
 GUIDELINE = {
-    "name": "City of Kalamunda Crossover Guideline",
+    "name": "Council Crossover Guideline",
     "version": "3.1",
     "date": "23/06/2022",
     "rules": {
@@ -67,7 +67,7 @@ GUIDELINE = {
 # 2) PROMPTS
 # ═════════════════════════════════════════════════════════════════════════════
 
-SYSTEM_PROMPT = """You are a crossover siteplan document analyser for the City of Kalamunda, Western Australia.
+SYSTEM_PROMPT = """You are a crossover siteplan document analyser for the Council, Western Australia.
 
 A "crossover" is the driveway from the edge of the road surface to the property boundary.
 

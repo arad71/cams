@@ -1,7 +1,7 @@
 version: "3.9"
 
 # ═══════════════════════════════════════════════════════════
-#  CAMS — City of Kalamunda Approval Management System
+#  CAMS — Council Approval Management System
 #  Production Docker Compose
 # ═══════════════════════════════════════════════════════════
 #
@@ -79,7 +79,7 @@ services:
     restart: always
     environment:
       LOT_GEOJSON_PATH: /data/lot.geojson
-      KALAMUNDA_BBOX: "115.95,-32.10,116.15,-31.87"
+      COUNCIL_BBOX: "115.95,-32.10,116.15,-31.87"
     volumes:
       - lot_geojson_data:/data
       - cron_logs:/var/log/cams

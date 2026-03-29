@@ -3,7 +3,7 @@
 # import os
 
 # class Settings(BaseSettings):
-#     APP_NAME: str = "Kalamunda Crossover Approval System"
+#     APP_NAME: str = "Council Crossover Approval System"
 #     DEBUG: bool = False
 
 #     # Database
@@ -83,7 +83,7 @@ import os
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Kalamunda Crossover Approval System"
+    APP_NAME: str = "Council Crossover Approval System"
     DEBUG: bool = False
 
     # Database
@@ -115,7 +115,7 @@ class Settings(BaseSettings):
     ENTRA_TENANT_ID: str = Field(default="")         # e.g. "a1b2c3d4-..."
     ENTRA_CLIENT_ID: str = Field(default="")          # App Registration client ID
     ENTRA_CLIENT_SECRET: str = Field(default="")      # App Registration client secret
-    ENTRA_REDIRECT_URI: str = Field(default="")       # e.g. "https://crossover.kalamunda.wa.gov.au/api/auth/entra/callback"
+    ENTRA_REDIRECT_URI: str = Field(default="")       # e.g. "https://crossover.council.wa.gov.au/api/auth/entra/callback"
     ENTRA_AUTO_CREATE_USER: bool = Field(default=True) # Auto-create user on first SSO login
     ENTRA_DEFAULT_ROLE: str = Field(default="engineer") # Default role for auto-created SSO users
 

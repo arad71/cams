@@ -34,7 +34,7 @@ const ROAD_TYPE_MAP = {
   GDNS: "GDNS", GARDENS: "GDNS", LOOP: "LOOP", TCE: "TCE", TERRACE: "TCE", LANE: "LANE",
   BVD: "BVD", BOULEVARD: "BVD", GR: "GR", GROVE: "GR", MEWS: "MEWS", GRN: "GRN",
   GREEN: "GRN", CCT: "CCT", CIRCUIT: "CCT", CIR: "CIR", CIRCLE: "CIR",
-  // Extended types from City of Kalamunda lot.geojson
+  // Extended types from Council lot.geojson
   APP: "APP", APPROACH: "APP", BEND: "BEND", CH: "CH", CHASE: "CH",
   CNR: "CNR", CORNER: "CNR", CRSS: "CRSS", CROSS: "CRSS", CROSSING: "CRSS",
   ELB: "ELB", ELBOW: "ELB", ENT: "ENT", ENTRANCE: "ENT",
@@ -659,7 +659,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     if (!lotMatch) return null;
     if (lotMatch === "found") { const fp = matchedFeatureProps || {}; return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#eafaf1", borderRadius: 8, border: "1px solid #d4efdf", fontSize: 12, lineHeight: 1.6 }}><div style={{ fontWeight: 800, color: "#27ae60", marginBottom: 4 }}>✅ Lot Boundary Found</div><div style={{ color: "#2c6e49", fontSize: 11 }}>Matched: <strong>{fp.road_number_1} {fp.road_name} {fp.road_type}</strong>, {fp.locality}{fp.lot_number && <> — Lot {fp.lot_number}</>} — {lotPolygon?.length || 0} boundary points.</div></div>); }
     if (lotMatch === "not_found") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#fef9e7", borderRadius: 8, border: "1px solid #f9e79f", fontSize: 12 }}><strong style={{ color: "#b7950b" }}>⚠️ No Exact Lot Match</strong> <span style={{ color: "#7d6608", fontSize: 11 }}>— Boundary not found. You can still proceed — the lot boundary can be added later. Try format: <strong>54 Stirling Cr, High Wycombe</strong></span></div>);
-    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: 8, border: "1px solid #e6d5d5", fontSize: 12 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse Address</strong> <span style={{ color: "#784040", fontSize: 11 }}>— You can still proceed. Try: <strong>12 Railway Rd, Kalamunda</strong> or <strong>5 Mead St Kalamunda</strong></span></div>);
+    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: 8, border: "1px solid #e6d5d5", fontSize: 12 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse Address</strong> <span style={{ color: "#784040", fontSize: 11 }}>— You can still proceed. Try: <strong>12 Railway Rd, Council Area</strong> or <strong>5 Mead St Council Area</strong></span></div>);
     return null;
   };
 
@@ -779,7 +779,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     <div style={overlay} onClick={onClose}>
       <div style={modalBox} onClick={e => e.stopPropagation()}>
         <div style={{ padding: "18px 24px 14px", borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div><h2 style={{ fontSize: 18, fontWeight: 800, color: "#1a3a4a", margin: 0 }}>New Application</h2><div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>Crossover permit application — City of Kalamunda</div></div>
+          <div><h2 style={{ fontSize: 18, fontWeight: 800, color: "#1a3a4a", margin: 0 }}>New Application</h2><div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>Crossover permit application — Council</div></div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: "#7a8a94", cursor: "pointer", padding: "2px 6px", borderRadius: 4 }} title="Close">&times;</button>
         </div>
         <div style={{ display: "flex", gap: 0, padding: "0 24px", background: "#f8fafb", borderBottom: "1px solid #edf1f4" }}>

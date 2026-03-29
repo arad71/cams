@@ -178,7 +178,7 @@ function UsersTab({ users, setUsers, currentUser, ROLE_CONFIG, departments }) {
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Full Name *</label>
               <input value={newUserForm.name} onChange={e => setNewUserForm({...newUserForm, name: e.target.value})} style={inputS} placeholder="e.g. Jane Smith" /></div>
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Email *</label>
-              <input value={newUserForm.email} onChange={e => setNewUserForm({...newUserForm, email: e.target.value})} style={inputS} placeholder="jane@kalamunda.wa.gov.au" /></div>
+              <input value={newUserForm.email} onChange={e => setNewUserForm({...newUserForm, email: e.target.value})} style={inputS} placeholder="jane@council.wa.gov.au" /></div>
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Role</label>
               <select value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})} style={inputS}>
                 {Object.entries(ROLE_CONFIG).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}

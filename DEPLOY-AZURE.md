@@ -118,9 +118,9 @@ This script will:
   API Docs:         http://20.211.xx.xx:3001/api/docs
 
   Test Logins:
-    Admin:     m.thompson@kalamunda.wa.gov.au  /  admin123
-    Manager:   k.williams@kalamunda.wa.gov.au  /  manager123
-    Engineer:  s.patel@kalamunda.wa.gov.au     /  engineer123
+    Admin:     admin@council.wa.gov.au  /  admin123
+    Manager:   manager@council.wa.gov.au  /  manager123
+    Engineer:  engineer@council.wa.gov.au     /  engineer123
 ```
 
 **Optional — add your Anthropic API key** (for AI site plan analysis):
@@ -164,11 +164,11 @@ Approval Portal:  http://20.211.xx.xx:3001
 API Docs:         http://20.211.xx.xx:3001/api/docs
 
 Test Accounts:
-  Admin:     m.thompson@kalamunda.wa.gov.au  /  admin123
-  Manager:   k.williams@kalamunda.wa.gov.au  /  manager123
-  Engineer:  s.patel@kalamunda.wa.gov.au     /  engineer123
-  Engineer:  j.morrison@kalamunda.wa.gov.au  /  engineer123
-  Manager:   r.singh@kalamunda.wa.gov.au     /  manager123
+  Admin:     admin@council.wa.gov.au  /  admin123
+  Manager:   manager@council.wa.gov.au  /  manager123
+  Engineer:  engineer@council.wa.gov.au     /  engineer123
+  Engineer:  engineer2@council.wa.gov.au  /  engineer123
+  Manager:   viewer@council.wa.gov.au     /  manager123
 
 Features to test:
   ✓ Login → Dashboard → Application list
