@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import api from '../../services/api';
-import BoundaryDrawer from './BoundaryDrawer';
 import SitePlanMeasure from './SitePlanMeasure';
 
 const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
@@ -210,7 +209,6 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
   const [extractResult, setExtractResult] = useState(null);
   const [deleteDoc, setDeleteDoc] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [showBoundaryDrawer, setShowBoundaryDrawer] = useState(false);
   const [showMeasure, setShowMeasure] = useState(false);
   const [measureDocId, setMeasureDocId] = useState(null);
   const fileInputRef = useRef(null);
@@ -287,13 +285,6 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
               style={{ padding: "3px 10px", borderRadius: 4, border: showUpload ? "2px solid #1abc9c" : "1px solid #d5dde2", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
                 background: showUpload ? "#e8f8f5" : "#fff", color: showUpload ? "#1abc9c" : "#7a8a94", marginLeft: 4 }}>
               {showUpload ? "✕ Close" : "＋ Upload"}
-            </button>
-          )}
-          {canUpload && (
-            <button onClick={() => setShowBoundaryDrawer(true)}
-              style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid #8e44ad40", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-                background: "#f4ecf7", color: "#8e44ad" }}>
-              📐 Boundary
             </button>
           )}
         </div>
@@ -527,17 +518,6 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
             </div>
           </div>
         </div>
-      )}
-
-      {/* Boundary Drawer */}
-      {showBoundaryDrawer && (
-        <BoundaryDrawer
-          appDbId={appDbId}
-          app={app}
-          sitePlanDoc={docs.find(d => d.category?.toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes(d.type))}
-          onClose={() => setShowBoundaryDrawer(false)}
-          onSaved={() => { if (onDocUpdated) onDocUpdated(); }}
-        />
       )}
 
       {/* Site Plan Measure Tool */}
