@@ -89,7 +89,14 @@ ssh azureuser@20.211.xx.xx
 Then run the setup script (one line — does everything):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh | bash
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh)"
+```
+
+Or if that has issues, download and run in two steps:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh -o setup.sh
+sudo bash setup.sh
 ```
 
 This script will:
