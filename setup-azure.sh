@@ -113,6 +113,19 @@ fi
 echo "═══ Step 4/5: Building & Starting Containers ═══"
 echo "  This takes 3-5 minutes on first run..."
 cd "$INSTALL_DIR"
+
+# Create swap if not enough RAM (needed for npm build on 2GB VMs)
+TOTAL_MEM=$(free -m | awk '/Mem:/{print $2}')
+if [ "$TOTAL_MEM" -lt 3500 ] && [ ! -f /swapfile ]; then
+  echo "  Creating 2GB swap (needed for build on ${TOTAL_MEM}MB RAM)..."
+  fallocate -l 2G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile > /dev/null
+  swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  echo "  ✓ 2GB swap enabled"
+fi
+
 docker compose -f docker-compose.prod.yml up -d --build 2>&1 | tail -5
 
 # ─── Step 5: Wait for ready ─────────────────────────
