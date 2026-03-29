@@ -17,6 +17,109 @@ const RESULT_COLORS = { pass: "#27ae60", fail: "#e74c3c", review: "#e67e22" };
 const SOURCE_LABELS = { app: "Application Field", sp: "Site Plan AI Data", doc: "Uploaded Document" };
 const OPERATOR_LABELS = { gte: "≥", lte: "≤", gt: ">", lt: "<", eq: "=", neq: "≠", exists: "exists", not_exists: "empty", contains: "contains", true: "is true", false: "is false" };
 
+// Field paths available per source type
+const SOURCE_FIELDS = {
+  app: [
+    { path: "owner_name", label: "Owner Name" },
+    { path: "owner_phone", label: "Owner Phone" },
+    { path: "owner_email", label: "Owner Email" },
+    { path: "property_address", label: "Property Address" },
+    { path: "lot_number", label: "Lot Number" },
+    { path: "plan_number", label: "Plan Number" },
+    { path: "lot_type", label: "Lot Type" },
+    { path: "frontage", label: "Frontage (m)" },
+    { path: "depth", label: "Depth (m)" },
+    { path: "road_name", label: "Road Name" },
+    { path: "road_type", label: "Road Type (local/red/blue/rav)" },
+    { path: "road_width", label: "Road Width (m)" },
+    { path: "verge_width", label: "Verge Width (m)" },
+    { path: "crossover_width", label: "Crossover Width (m)" },
+    { path: "crossover_surface", label: "Crossover Surface" },
+    { path: "crossover_count", label: "Crossover Count" },
+    { path: "da_number", label: "DA Number" },
+    { path: "application_type", label: "Application Type (da/subdivision/standalone)" },
+    { path: "contribution_eligible", label: "Contribution Eligible" },
+    { path: "contribution_amount", label: "Contribution Amount ($)" },
+    { path: "trees_nearby", label: "Trees Nearby" },
+    { path: "clearing", label: "Clearing Required" },
+    { path: "drainage_type", label: "Drainage Type" },
+    { path: "culvert", label: "Culvert Required" },
+    { path: "declaration_signed", label: "Declaration Signed" },
+    { path: "date_signed", label: "Date Signed" },
+    { path: "status", label: "Application Status" },
+    { path: "submitted_date", label: "Submitted Date" },
+    { path: "completion_date", label: "Completion Date" },
+  ],
+  sp: [
+    { path: "crossover_dimensions.width_at_boundary_m", label: "Width at Boundary (m)" },
+    { path: "crossover_dimensions.splay_left_m", label: "Splay Left (m)" },
+    { path: "crossover_dimensions.splay_right_m", label: "Splay Right (m)" },
+    { path: "crossover_dimensions.total_width_at_road_m", label: "Total Width at Road (m)" },
+    { path: "crossover_dimensions.verge_depth_m", label: "Verge Depth (m)" },
+    { path: "crossover_dimensions.crossover_length_m", label: "Crossover Length (m)" },
+    { path: "crossover_dimensions.alignment_degrees", label: "Alignment to Road (°)" },
+    { path: "crossover_dimensions.distance_to_left_boundary_m", label: "→ Left Boundary (m)" },
+    { path: "crossover_dimensions.distance_to_right_boundary_m", label: "→ Right Boundary (m)" },
+    { path: "crossover_dimensions.distance_to_nearest_lot_corner_m", label: "→ Nearest Lot Corner (m)" },
+    { path: "crossover_dimensions.nearest_lot_corner", label: "Which Corner" },
+    { path: "crossover_dimensions.distance_to_intersection_tangent_m", label: "→ Intersection Tangent (m)" },
+    { path: "crossover_dimensions.distance_to_building_corner_m", label: "→ Building Corner (m)" },
+    { path: "crossover_dimensions.driveway_centreline_point_2_5m", label: "Point A (2.5m from verge)" },
+    { path: "construction.material", label: "Material" },
+    { path: "construction.thickness_mm", label: "Surface Thickness (mm)" },
+    { path: "construction.base_course_specified", label: "Base Course Specified" },
+    { path: "construction.base_course_depth_mm", label: "Base Course Depth (mm)" },
+    { path: "construction.compaction_mdd_pct", label: "Compaction MDD (%)" },
+    { path: "construction.expansion_joints", label: "Expansion Joints" },
+    { path: "construction.kerb_type", label: "Kerb Type" },
+    { path: "construction.footpath_exists", label: "Footpath Exists" },
+    { path: "construction.footpath_flush_join", label: "Footpath Flush Join" },
+    { path: "construction.construction_standard", label: "Construction Standard (Type 1/2)" },
+    { path: "siteplan_measurements.lot_frontage_m", label: "Lot Frontage (m)" },
+    { path: "siteplan_measurements.lot_depth_m", label: "Lot Depth (m)" },
+    { path: "siteplan_measurements.existing_driveway_width_m", label: "Existing Driveway Width (m)" },
+    { path: "siteplan_measurements.road_name", label: "Road Name" },
+    { path: "siteplan_measurements.road_speed_zone_kmh", label: "Speed Zone (km/h)" },
+    { path: "siteplan_measurements.road_classification", label: "Road Classification" },
+    { path: "siteplan_measurements.number_of_crossovers", label: "Number of Crossovers" },
+    { path: "siteplan_measurements.building_setback_front_m", label: "Front Setback (m)" },
+    { path: "siteplan_measurements.building_setback_left_m", label: "Left Setback (m)" },
+    { path: "siteplan_measurements.building_setback_right_m", label: "Right Setback (m)" },
+    { path: "siteplan_measurements.building_setback_rear_m", label: "Rear Setback (m)" },
+    { path: "utilities.power_conflict", label: "Power Conflict" },
+    { path: "utilities.water_conflict", label: "Water Conflict" },
+    { path: "utilities.gas_conflict", label: "Gas Conflict" },
+    { path: "utilities.telco_conflict", label: "Telco/NBN Conflict" },
+    { path: "utilities.sewer_conflict", label: "Sewer Conflict" },
+    { path: "utilities.power_line_shown", label: "Power Line Shown" },
+    { path: "utilities.water_main_shown", label: "Water Main Shown" },
+    { path: "utilities.gas_main_shown", label: "Gas Main Shown" },
+    { path: "utilities.telco_shown", label: "Telco Shown" },
+    { path: "drainage.drainage_plan_included", label: "Drainage Plan Included" },
+    { path: "drainage.soakwells_proposed", label: "Soakwells Proposed" },
+    { path: "drainage.storage_tanks_proposed", label: "Storage Tanks Proposed" },
+    { path: "drainage.pipe_diameter_mm", label: "Pipe Diameter (mm)" },
+    { path: "additional_findings.vegetation_on_verge", label: "Vegetation on Verge" },
+    { path: "additional_findings.trees_on_verge", label: "Trees on Verge" },
+    { path: "additional_findings.street_light_near_crossover", label: "Street Light Nearby" },
+    { path: "additional_findings.fire_hydrant_near_crossover", label: "Fire Hydrant Nearby" },
+    { path: "additional_findings.is_subdivision", label: "Is Subdivision" },
+    { path: "property.is_corner_lot", label: "Corner Lot" },
+    { path: "property.is_battleaxe", label: "Battleaxe Lot" },
+    { path: "property.da_linked", label: "DA-Linked" },
+  ],
+  doc: [
+    { path: "Site Plan", label: "Site Plan" },
+    { path: "Certificate of Title", label: "Certificate of Title" },
+    { path: "Site Photos", label: "Site Photos" },
+    { path: "Other Documents", label: "Other Documents" },
+    { path: "Dial Before You Dig", label: "Dial Before You Dig" },
+    { path: "Engineering Drawing", label: "Engineering Drawing" },
+    { path: "Arborist Report", label: "Arborist Report" },
+    { path: "Drainage Plan", label: "Drainage Plan" },
+  ],
+};
+
 // ═══════════════════════════════════════════════════════
 //  Users Tab
 // ═══════════════════════════════════════════════════════
@@ -307,11 +410,17 @@ function RulesTab() {
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Priority</label>
               <input type="number" value={addForm.priority} onChange={e => setAddForm({...addForm, priority: parseInt(e.target.value)||0})} style={inputS} /></div>
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Source</label>
-              <select value={addForm.source} onChange={e => setAddForm({...addForm, source: e.target.value})} style={inputS}>
-                <option value="app">Application Field</option><option value="sp">Site Plan AI Data</option>
+              <select value={addForm.source} onChange={e => setAddForm({...addForm, source: e.target.value, field: ""})} style={inputS}>
+                <option value="app">Application Field</option><option value="sp">Site Plan AI Data</option><option value="doc">Uploaded Document</option>
               </select></div>
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Field Path</label>
-              <input value={addForm.field} onChange={e => setAddForm({...addForm, field: e.target.value})} style={inputS} placeholder="e.g. crossover_width" /></div>
+              <select value={addForm.field} onChange={e => setAddForm({...addForm, field: e.target.value})} style={inputS}>
+                <option value="">Select field...</option>
+                {(SOURCE_FIELDS[addForm.source] || []).map(f => <option key={f.path} value={f.path}>{f.label}</option>)}
+                <option value="__custom__">— Custom field path —</option>
+              </select>
+              {addForm.field === "__custom__" && <input value="" onChange={e => setAddForm({...addForm, field: e.target.value})} style={{ ...inputS, marginTop: 4 }} placeholder="e.g. crossover_dimensions.width_m" />}
+            </div>
             <div><label style={{ fontSize: 9, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase" }}>Operator</label>
               <select value={addForm.operator} onChange={e => setAddForm({...addForm, operator: e.target.value})} style={inputS}>
                 {Object.entries(OPERATOR_LABELS).map(([k,v]) => <option key={k} value={k}>{k} ({v})</option>)}
@@ -353,8 +462,8 @@ function RulesTab() {
                   return (
                     <tr key={rule.id} style={{ background: ed ? "#ebf5fb" : "transparent" }}>
                       <td style={{ ...tdS, width: 40, textAlign: "center" }}>{ed ? <input type="number" value={form.priority} onChange={e => setForm({...form, priority: parseInt(e.target.value)||0})} style={{ ...inputS, width: 40, textAlign: "center" }} /> : <span style={{ fontWeight: 800, color: "#1a3a4a" }}>{rule.priority}</span>}</td>
-                      <td style={{ ...tdS, width: 60 }}>{ed ? <select value={form.source} onChange={e => setForm({...form, source: e.target.value})} style={{ ...inputS, width: 55 }}><option value="app">app</option><option value="sp">sp</option></select> : <span style={{ fontSize: 9, padding: "2px 5px", borderRadius: 3, background: rule.source === "sp" ? "#f4ecf7" : "#ebf5fb", color: rule.source === "sp" ? "#8e44ad" : "#2980b9", fontWeight: 700 }}>{rule.source}</span>}</td>
-                      <td style={{ ...tdS, maxWidth: 140 }}>{ed ? <input value={form.field} onChange={e => setForm({...form, field: e.target.value})} style={{ ...inputS, width: 130 }} /> : <code style={{ fontSize: 9, color: "#5a6a74", wordBreak: "break-all" }}>{rule.field}</code>}</td>
+                      <td style={{ ...tdS, width: 60 }}>{ed ? <select value={form.source} onChange={e => setForm({...form, source: e.target.value, field: ""})} style={{ ...inputS, width: 55 }}><option value="app">app</option><option value="sp">sp</option><option value="doc">doc</option></select> : <span style={{ fontSize: 9, padding: "2px 5px", borderRadius: 3, background: rule.source === "sp" ? "#f4ecf7" : rule.source === "doc" ? "#fef5e7" : "#ebf5fb", color: rule.source === "sp" ? "#8e44ad" : rule.source === "doc" ? "#e67e22" : "#2980b9", fontWeight: 700 }}>{rule.source}</span>}</td>
+                      <td style={{ ...tdS, maxWidth: 140 }}>{ed ? <select value={form.field} onChange={e => setForm({...form, field: e.target.value})} style={{ ...inputS, width: 130 }}><option value="">Select...</option>{(SOURCE_FIELDS[form.source] || []).map(f => <option key={f.path} value={f.path}>{f.label}</option>)}<option value={form.field}>{form.field}</option></select> : <code style={{ fontSize: 9, color: "#5a6a74", wordBreak: "break-all" }}>{rule.field}</code>}</td>
                       <td style={{ ...tdS, width: 50 }}>{ed ? <select value={form.operator} onChange={e => setForm({...form, operator: e.target.value})} style={{ ...inputS, width: 50 }}>{Object.keys(OPERATOR_LABELS).map(k => <option key={k} value={k}>{k}</option>)}</select> : <span style={{ fontWeight: 800, color: "#1a3a4a" }}>{OPERATOR_LABELS[rule.operator] || rule.operator}</span>}</td>
                       <td style={{ ...tdS, width: 60 }}>{ed ? <input value={form.value || ""} onChange={e => setForm({...form, value: e.target.value})} style={{ ...inputS, width: 55 }} /> : <span style={{ fontWeight: 600, color: "#2980b9" }}>{rule.value || "—"}</span>}</td>
                       <td style={{ ...tdS, width: 55 }}>{ed ? <select value={form.result} onChange={e => setForm({...form, result: e.target.value})} style={{ ...inputS, width: 55 }}><option value="pass">pass</option><option value="fail">fail</option><option value="review">review</option></select> : <span style={{ padding: "2px 6px", borderRadius: 3, fontSize: 9, fontWeight: 800, background: `${rc}18`, color: rc }}>{rule.result}</span>}</td>
