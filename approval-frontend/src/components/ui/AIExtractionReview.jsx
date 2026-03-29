@@ -29,6 +29,8 @@ const FIELD_GROUPS = [
       { path: "distance_to_nearest_lot_corner_m", label: "→ Nearest Lot Corner", unit: "m" },
       { path: "nearest_lot_corner", label: "Which Corner" },
       { path: "distance_to_building_corner_m", label: "→ Building Corner", unit: "m" },
+      { path: "distance_to_intersection_tangent_m", label: "→ Intersection Tangent", unit: "m" },
+      { path: "alignment_degrees", label: "Alignment to Road", unit: "°" },
       { path: "driveway_centreline_point_2_5m", label: "Point A (2.5m from verge)" },
     ],
   },
@@ -37,10 +39,14 @@ const FIELD_GROUPS = [
     fields: [
       { path: "material", label: "Material" },
       { path: "thickness_mm", label: "Thickness", unit: "mm" },
-      { path: "expansion_joints", label: "Expansion Joints", type: "bool" },
       { path: "base_course_specified", label: "Base Course", type: "bool" },
+      { path: "base_course_depth_mm", label: "Base Course Depth", unit: "mm" },
+      { path: "compaction_mdd_pct", label: "Compaction MDD", unit: "%" },
+      { path: "expansion_joints", label: "Expansion Joints", type: "bool" },
       { path: "kerb_type", label: "Kerb Type" },
       { path: "footpath_exists", label: "Footpath Exists", type: "bool" },
+      { path: "footpath_flush_join", label: "Footpath Flush Join", type: "bool" },
+      { path: "construction_standard", label: "Standard Type (1=urban, 2=rural)" },
     ],
   },
   {
@@ -98,6 +104,8 @@ const FIELD_GROUPS = [
     key: "property", label: "Property", icon: "🏠",
     fields: [
       { path: "is_corner_lot", label: "Corner Lot", type: "bool" },
+      { path: "is_battleaxe", label: "Battleaxe Lot", type: "bool" },
+      { path: "da_linked", label: "DA-Linked", type: "bool" },
       { path: "lot_number", label: "Lot Number" },
       { path: "street_address", label: "Address" },
     ],
