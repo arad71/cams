@@ -109,72 +109,8 @@ ENVEOF
   echo ""
 fi
 
-# ─── Step 4: Build and start ────────────────────────
-echo "═══ Step 4/5: Building & Starting Containers ═══"
-echo "  This takes 3-5 minutes on first run..."
+# ─── Step 4: Deploy test environment ────────────────
+echo "═══ Step 4/5: Deploying ═══"
 cd "$INSTALL_DIR"
-
-# Create swap if not enough RAM (needed for npm build on 2GB VMs)
-TOTAL_MEM=$(free -m | awk '/Mem:/{print $2}')
-if [ "$TOTAL_MEM" -lt 3500 ] && [ ! -f /swapfile ]; then
-  echo "  Creating 2GB swap (needed for build on ${TOTAL_MEM}MB RAM)..."
-  fallocate -l 2G /swapfile
-  chmod 600 /swapfile
-  mkswap /swapfile > /dev/null
-  swapon /swapfile
-  echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  echo "  ✓ 2GB swap enabled"
-fi
-
-docker compose -f docker-compose.prod.yml up -d --build 2>&1 | tail -5
-
-# ─── Step 5: Wait for ready ─────────────────────────
-echo ""
-echo "═══ Step 5/5: Waiting for Services ═══"
-READY=false
-for i in $(seq 1 24); do
-  sleep 5
-  if docker compose -f docker-compose.prod.yml logs approval-api 2>&1 | grep -q "assessment rules"; then
-    READY=true
-    break
-  fi
-  echo "  Waiting for database seed... (${i}0s)"
-done
-
-if [ "$READY" = false ]; then
-  echo ""
-  echo "  ⚠ Services may still be starting. Check logs:"
-  echo "    cd $INSTALL_DIR && docker compose -f docker-compose.prod.yml logs -f"
-fi
-
-# ─── Get public IP ──────────────────────────────────
-PUBLIC_IP=$(curl -s --max-time 5 ifconfig.me 2>/dev/null || \
-            curl -s --max-time 5 icanhazip.com 2>/dev/null || \
-            hostname -I | awk '{print $1}')
-
-# ─── Print status ──────────────────────────────────
-echo ""
-echo "═══════════════════════════════════════════════════"
-docker compose -f docker-compose.prod.yml ps 2>/dev/null || true
-echo "═══════════════════════════════════════════════════"
-echo ""
-echo "  ✅ CAMS is running!"
-echo ""
-echo "  Approval Portal: http://${PUBLIC_IP}:3001"
-echo "  API Docs:        http://${PUBLIC_IP}:3001/api/docs"
-echo ""
-echo "  Test Logins:"
-echo "    Admin:     admin@council.wa.gov.au  /  admin123"
-echo "    Manager:   manager@council.wa.gov.au  /  manager123"
-echo "    Engineer:  engineer@council.wa.gov.au     /  engineer123"
-echo "    Engineer:  engineer2@council.wa.gov.au  /  engineer123"
-echo "    Manager:   viewer@council.wa.gov.au     /  manager123"
-echo ""
-echo "  Commands:"
-echo "    cd $INSTALL_DIR"
-echo "    docker compose -f docker-compose.prod.yml logs -f           # view logs"
-echo "    docker compose -f docker-compose.prod.yml restart           # restart"
-echo "    docker compose -f docker-compose.prod.yml down              # stop"
-echo "    docker compose -f docker-compose.prod.yml down -v           # reset DB"
-echo "    git pull && docker compose -f docker-compose.prod.yml up -d --build  # update"
-echo ""
+chmod +x deploy.sh
+bash deploy.sh test

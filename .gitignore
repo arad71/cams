@@ -13,3 +13,8 @@ EOF
 .venv
 __pycache__/ 
 *.pyc
+
+# Environment — templates committed, actual .env never committed
+.env
+!.env.test
+!.env.production
