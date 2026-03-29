@@ -53,6 +53,8 @@ def run_seed():
         # ─── Users ───────────────────────────────────────────
         if db.query(User).count() == 0:
             users = [
+                User(name="System Administrator", email="superadmin@council.wa.gov.au", initials="SA",
+                     hashed_password=hash_password("superpassword123"), role="superadmin", department="IT"),
                 User(name="Admin User", email="admin@council.wa.gov.au", initials="AU",
                      hashed_password=hash_password("admin123"), role="admin", department="Asset Services"),
                 User(name="Manager User", email="manager@council.wa.gov.au", initials="MU",

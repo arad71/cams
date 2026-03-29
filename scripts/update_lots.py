@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Lot GeoJSON Weekly Updater — City of Kalamunda Cadastral Data
+Lot GeoJSON Weekly Updater — Council Cadastral Data
 
 Fetches lot boundary data from WA Landgate's public WFS service,
-filters to the City of Kalamunda LGA, and replaces lot.geojson.
+filters to the Council LGA, and replaces lot.geojson.
 
 Data source: Landgate SLIP (Shared Location Information Platform)
   WFS endpoint: https://services.slip.wa.gov.au/public/services/SLIP_Public_Services/MapServer/WFSServer
@@ -23,7 +23,7 @@ Usage:
 Environment variables:
   LANDGATE_WFS_URL  — override WFS endpoint (optional)
   LOT_GEOJSON_PATH  — output path (default: approval-frontend/public/lot.geojson)
-  KALAMUNDA_BBOX    — bounding box override (default: Kalamunda LGA)
+  COUNCIL_BBOX    — bounding box override (default: Council LGA)
 """
 
 import json
@@ -55,13 +55,13 @@ OUTPUT_PATH = Path(os.getenv(
 ))
 BACKUP_DIR = REPO_ROOT / "backups" / "lot_geojson"
 
-# City of Kalamunda bounding box (EPSG:7844 — GDA2020 geographic)
+# Council bounding box (EPSG:7844 — GDA2020 geographic)
 # Covers: Kalamunda, High Wycombe, Forrestfield, Maida Vale, Lesmurdie,
 #         Gooseberry Hill, Bickley, Carmel, Walliston, Wattle Grove, etc.
-BBOX = os.getenv("KALAMUNDA_BBOX", "115.95,-32.10,116.15,-31.87")
+BBOX = os.getenv("COUNCIL_BBOX", "115.95,-32.10,116.15,-31.87")
 
-# Kalamunda LGA localities for filtering
-KALAMUNDA_LOCALITIES = {
+# Council LGA localities for filtering
+COUNCIL_LOCALITIES = {
     "BICKLEY", "CANNING MILLS", "CARMEL", "FORRESTFIELD",
     "GOOSEBERRY HILL", "HACKETTS GULLY", "HIGH WYCOMBE",
     "KALAMUNDA", "LESMURDIE", "MAIDA VALE", "PAULLS VALLEY",
@@ -93,7 +93,7 @@ def fetch_wfs_page(start_index=0):
     print(f"  Fetching page {start_index // PAGE_SIZE + 1} (startIndex={start_index})...")
 
     req = Request(url, headers={
-        "User-Agent": "CAMS-LotUpdater/1.0 (City of Kalamunda)",
+        "User-Agent": "CAMS-LotUpdater/1.0 (Council)",
         "Accept": "application/json",
     })
 
@@ -142,15 +142,15 @@ def fetch_from_local_source():
 
 # ─── Processing ───────────────────────────────────────────
 
-def filter_kalamunda(features):
-    """Filter features to City of Kalamunda localities only."""
+def filter_council(features):
+    """Filter features to Council localities only."""
     filtered = []
     for f in features:
         props = f.get("properties", {})
         locality = (props.get("locality") or "").upper().strip()
-        if locality in KALAMUNDA_LOCALITIES:
+        if locality in COUNCIL_LOCALITIES:
             filtered.append(f)
-    print(f"  Filtered: {len(filtered)} Kalamunda lots from {len(features)} total")
+    print(f"  Filtered: {len(filtered)} Council lots from {len(features)} total")
     return filtered
 
 
@@ -272,9 +272,9 @@ def main():
         print("  ✕ No data available — keeping existing file")
         sys.exit(1)
 
-    # Filter to Kalamunda
-    print("\nStep 2: Filtering to City of Kalamunda...")
-    features = filter_kalamunda(features)
+    # Filter to Council area
+    print("\nStep 2: Filtering to Council...")
+    features = filter_council(features)
     if len(features) < 1000:
         print(f"  ⚠ Warning: only {len(features)} features — expected ~23,000")
         print("  This might indicate a WFS query issue. Keeping existing file.")

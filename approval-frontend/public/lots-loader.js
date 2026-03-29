@@ -1,7 +1,7 @@
 // public/lots-loader.js
 (() => {
   // Expose a Promise so the app can await if needed (optional)
-  window.__KALAMUNDA_LOTS_READY__ = (async () => {
+  window.__COUNCIL_LOTS_READY__ = (async () => {
     try {
       // Adjust path if your geojson lives elsewhere
       const res = await fetch('/lot.geojson', {
@@ -14,11 +14,11 @@
         throw new Error('Invalid GeoJSON: expected FeatureCollection');
       }
 
-      window.__KALAMUNDA_LOTS__ = geo;
+      window.__COUNCIL_LOTS__ = geo;
       return geo;
     } catch (err) {
       console.error('Failed to load lot.geojson:', err);
-      window.__KALAMUNDA_LOTS__ = null; // explicit null to stop any polling loops
+      window.__COUNCIL_LOTS__ = null; // explicit null to stop any polling loops
       throw err;
     }
   })();

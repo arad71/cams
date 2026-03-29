@@ -3,7 +3,7 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Kalamunda Crossover Application Portal"
+    APP_NAME: str = "Council Crossover Application Portal"
     DEBUG: bool = False
 
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/cams_applicant"

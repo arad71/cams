@@ -3,7 +3,7 @@
 Crossover Document AI Analyser → JSON Findings
 ================================================
 Sends PDF/image pages to Claude API (vision), extracts crossover-related
-data, checks compliance against Kalamunda Guideline v3.1, and writes
+data, checks compliance against Council Guideline v3.1, and writes
 a structured JSON findings file.
 
 Setup:
@@ -36,11 +36,11 @@ from pdf2image import convert_from_path
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 1. KALAMUNDA GUIDELINE RULES (v3.1, 23/06/2022)
+# 1. COUNCIL GUIDELINE RULES (v3.1, 23/06/2022)
 # ═════════════════════════════════════════════════════════════════════════════
 
 GUIDELINE = {
-    "name": "City of Kalamunda Crossover Guideline",
+    "name": "Council Crossover Guideline",
     "version": "3.1",
     "date": "23/06/2022",
     "rules": {
@@ -75,7 +75,7 @@ GUIDELINE = {
 # 2. CLAUDE PROMPT — CROSSOVER EXTRACTION
 # ═════════════════════════════════════════════════════════════════════════════
 
-SYSTEM_PROMPT = """You are a crossover siteplan document analyser for the City of Kalamunda, Western Australia.
+SYSTEM_PROMPT = """You are a crossover siteplan document analyser for the Council, Western Australia.
 
 A "crossover" is the driveway from the edge of the road surface to the property boundary.
 
@@ -231,7 +231,7 @@ def parse_json_response(raw):
 # ═════════════════════════════════════════════════════════════════════════════
 
 def check_compliance(data):
-    """Run extracted data against Kalamunda Guideline rules. Returns findings."""
+    """Run extracted data against Council Guideline rules. Returns findings."""
     R = GUIDELINE["rules"]
     dims = data.get("crossover_dimensions", {})
     cons = data.get("construction", {})

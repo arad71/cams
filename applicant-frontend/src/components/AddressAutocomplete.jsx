@@ -1,4 +1,4 @@
-// ─── Address Autocomplete (Nominatim; biased to City of Kalamunda) ───────────
+// ─── Address Autocomplete (Nominatim; biased to Council) ───────────
 import { useEffect, useRef, useState } from "react";
 
 function AddressAutocomplete({
@@ -10,7 +10,7 @@ function AddressAutocomplete({
   error,
   hint,
   inputStyle,
-  kalamundaBias = true,
+  councilBias = true,
 }) {
   const [q, setQ] = useState(value || "");
   const [open, setOpen] = useState(false);
@@ -49,8 +49,8 @@ function AddressAutocomplete({
         // Australia-only bias (optional)
         url.searchParams.set("countrycodes", "au");
 
-        if (kalamundaBias) {
-          // Viewbox roughly around City of Kalamunda (minLon,minLat,maxLon,maxLat)
+        if (councilBias) {
+          // Viewbox roughly around Council (minLon,minLat,maxLon,maxLat)
           // You can tweak bounds as needed.
           url.searchParams.set("viewbox", "115.95,-32.10,116.20,-31.85");
           url.searchParams.set("bounded", "1");
@@ -60,7 +60,7 @@ function AddressAutocomplete({
           method: "GET",
           headers: {
             "Accept": "application/json",
-            "User-Agent": "Kalamunda-App/1.0 (Applicant Portal)",
+            "User-Agent": "Council-App/1.0 (Applicant Portal)",
           },
           signal: ctl.signal,
         });
@@ -82,7 +82,7 @@ function AddressAutocomplete({
     }, 250);
 
     return () => { clearTimeout(id); ctl.abort(); };
-  }, [q, kalamundaBias, manual]);
+  }, [q, councilBias, manual]);
 
   function choose(item) {
     onChange(item.label);

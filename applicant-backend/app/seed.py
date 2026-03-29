@@ -127,7 +127,7 @@ try:
     if db.query(Applicant).count() == 0:
         applicants = [
             Applicant(full_name="Sarah Mitchell", email="sarah.m@email.com", phone="0412 345 678",
-                      postal_address="22 Canning Rd, Kalamunda WA 6076",
+                      postal_address="22 Canning Rd, Council Area WA 6076",
                       hashed_password=hash_password("applicant123")),
             Applicant(full_name="David Foster", email="d.foster@outlook.com", phone="0423 456 789",
                       postal_address="107 Welshpool Rd East, Wattle Grove WA 6107",
@@ -152,8 +152,8 @@ try:
             CrossoverApplication(
                 ref_number="CX-2026-0041", applicant_id=sarah.id, status="submitted", current_step=7,
                 owner_name="Sarah Mitchell", owner_phone="0412 345 678", owner_email="sarah.m@email.com",
-                owner_postal_address="22 Canning Rd, Kalamunda WA 6076",
-                property_address="22 Canning Rd, Kalamunda WA 6076",
+                owner_postal_address="22 Canning Rd, Council Area WA 6076",
+                property_address="22 Canning Rd, Council Area WA 6076",
                 lot_number="Lot 156", plan_number="P034521", lot_type="res_urban_green",
                 lot_frontage=18.5, road_type="local", road_name="Canning Road",
                 crossover_width=4.5, number_of_crossovers=1, surface_material="concrete",

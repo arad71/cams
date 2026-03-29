@@ -128,7 +128,7 @@ function useAIChat() {
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000,
-          system: `You are an expert AI assistant for the City of Kalamunda Crossover Application process. Help applicants with Crossover Guideline v3.1 (June 2022). Key rules: min 3m width, max 4.5m for lots ≤12.5m, max 6m for lots >12.5m. Trees: 3m clearance. Contribution: lesser of half cost or $474 (first crossover only). Processing: ~3 weeks.\n${context ? "Context:\n" + context : ""}`,
+          system: `You are an expert AI assistant for the Council Crossover Application process. Help applicants with Crossover Guideline v3.1 (June 2022). Key rules: min 3m width, max 4.5m for lots ≤12.5m, max 6m for lots >12.5m. Trees: 3m clearance. Contribution: lesser of half cost or $474 (first crossover only). Processing: ~3 weeks.\n${context ? "Context:\n" + context : ""}`,
           messages: [...messages, userMessage].map(m => ({ role: m.role, content: m.content })),
         }),
       });
@@ -222,7 +222,7 @@ function AuthScreen({ onAuth }) {
       <div style={{ background: "#fff", borderRadius: 20, padding: "40px 36px", maxWidth: 420, width: "100%", boxShadow: "0 8px 40px rgba(26,86,50,0.08)" }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ width: 56, height: 56, borderRadius: 14, background: "linear-gradient(135deg, #1a5632, #2d8a4e)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}><span style={{ fontSize: 28 }}>🏛️</span></div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1a5632", margin: "0 0 4px" }}>City of Kalamunda</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1a5632", margin: "0 0 4px" }}>Council</h1>
           <p style={{ fontSize: 12, color: "#6b7c6f", margin: 0 }}>Crossover Application Portal</p>
         </div>
 
@@ -547,7 +547,7 @@ function ApplicationWizard({ appId, user, refData, onBack }) {
               label="Postal Address"
               value={form.ownerPostalAddress}
               onChange={(val) => setForm({ ...form, ownerPostalAddress: val })}
-              placeholder="Start typing (e.g., 22 Canning Rd, Kalamunda)"
+              placeholder="Start typing (e.g., 22 Canning Rd, Council Area)"
               required={false}
               inputStyle={inputStyle}
             />
@@ -563,7 +563,7 @@ function ApplicationWizard({ appId, user, refData, onBack }) {
               label="Property Address"
               value={form.propertyAddress}
               onChange={(val) => setForm({ ...form, propertyAddress: val })}
-              placeholder="Start typing (e.g., 22 Canning Rd, Kalamunda)"
+              placeholder="Start typing (e.g., 22 Canning Rd, Council Area)"
               required={false}
               inputStyle={inputStyle}
             />
@@ -737,7 +737,7 @@ function StepWelcome() {
           </div>
         ))}
       </div>
-      <InfoCard title="📞 Need Help?" color="#2980b9">Call <strong>9257 9999</strong> or email <strong>enquiries@kalamunda.wa.gov.au</strong>. Processing takes approximately 3 weeks.</InfoCard>
+      <InfoCard title="📞 Need Help?" color="#2980b9">Call <strong>9257 9999</strong> or email <strong>enquiries@council.wa.gov.au</strong>. Processing takes approximately 3 weeks.</InfoCard>
     </div>
   );
 }
@@ -1071,7 +1071,7 @@ function SubmittedView({ app, onBack, onWithdraw }) {
 
         {/* Actions */}
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #e8ede9", display: "flex", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 11, color: "#95a5a6" }}>📞 9257 9999 | enquiries@kalamunda.wa.gov.au</div>
+          <div style={{ fontSize: 11, color: "#95a5a6" }}>📞 9257 9999 | enquiries@council.wa.gov.au</div>
           {canWithdraw && <button onClick={onWithdraw} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e74c3c30", background: "#fdedec", color: "#c0392b", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>🚫 Withdraw</button>}
         </div>
       </div>
@@ -1082,7 +1082,7 @@ function SubmittedView({ app, onBack, onWithdraw }) {
 // ═══════════════════════════════════════════════════════════
 //  MAIN APPLICATION
 // ═══════════════════════════════════════════════════════════
-export default function KalamundaCrossoverApp() {
+export default function CouncilCrossoverApp() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState("dashboard"); // dashboard | wizard
   const [selectedAppId, setSelectedAppId] = useState(null);
@@ -1133,7 +1133,7 @@ export default function KalamundaCrossoverApp() {
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #1a5632, #2d8a4e)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }} onClick={handleBackToDashboard}><span style={{ fontSize: 22 }}>🏛️</span></div>
-          <div><div style={{ fontWeight: 800, fontSize: 16, color: "#1a5632", cursor: "pointer" }} onClick={handleBackToDashboard}>City of Kalamunda</div><div style={{ fontSize: 12, color: "#6b7c6f" }}>Crossover Application Portal</div></div>
+          <div><div style={{ fontWeight: 800, fontSize: 16, color: "#1a5632", cursor: "pointer" }} onClick={handleBackToDashboard}>Council</div><div style={{ fontSize: 12, color: "#6b7c6f" }}>Crossover Application Portal</div></div>
           <div style={{ marginLeft: "auto", textAlign: "right", fontSize: 11, color: "#6b7c6f" }}>
             <div>{user.full_name}</div>
             <div style={{ fontSize: 10, color: "#b0bdb2" }}>{user.email}</div>
@@ -1149,7 +1149,7 @@ export default function KalamundaCrossoverApp() {
         )}
 
         <div style={{ textAlign: "center", fontSize: 11, color: "#8a9a8c", lineHeight: 1.6, marginTop: 20 }}>
-          City of Kalamunda | 2 Railway Road, Kalamunda WA 6076 | 9257 9999 | enquiries@kalamunda.wa.gov.au<br />Crossover Guideline v3.1 (23/06/2022)
+          Council | Council Office Address | 9257 9999 | enquiries@council.wa.gov.au<br />Crossover Guideline v3.1 (23/06/2022)
         </div>
       </div>
     </div>

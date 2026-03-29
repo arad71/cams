@@ -26,6 +26,7 @@ export const STATUS_CONFIG = {
 };
 
 export const ROLE_CONFIG = {
+  superadmin: { label: "Super Admin", icon: "⚡", color: "#8e44ad", permissions: ["all"], hidden: true },
   admin: { label: "Administrator", icon: "🛡️", color: "#e74c3c", permissions: ["all"] },
   manager: { label: "Manager", icon: "👔", color: "#2980b9", permissions: ["view_all", "assign", "approve", "refer", "reject"] },
   engineer: { label: "Engineer", icon: "🔧", color: "#27ae60", permissions: ["view_assigned", "assess", "note", "inspect"] },

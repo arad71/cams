@@ -61,6 +61,11 @@ export default function CouncilApprovalPortal() {
     api.getPublicSettings().then(s => { if (s && Object.keys(s).length > 0) setSiteSettings(s); }).catch(() => {});
   }, []);
 
+  // Update browser tab title from site settings
+  useEffect(() => {
+    document.title = `${S.orgName} — ${S.portalTitle}`;
+  }, [S.orgName, S.portalTitle]);
+
   // Load lot.geojson, Legal_Speed_Limits.geojson, and Road_Network.geojson
   useEffect(() => {
     let cancelled = false;

@@ -159,7 +159,7 @@ function UsersTab({ users, setUsers, currentUser, ROLE_CONFIG, departments }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {Object.entries(ROLE_CONFIG).map(([role, cfg]) => {
+          {Object.entries(ROLE_CONFIG).filter(([, cfg]) => !cfg.hidden).map(([role, cfg]) => {
             const cnt = users.filter(u => u.role === role && u.active).length;
             return <div key={role} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 20 }}>{cfg.icon}</span>
@@ -181,7 +181,7 @@ function UsersTab({ users, setUsers, currentUser, ROLE_CONFIG, departments }) {
               <input value={newUserForm.email} onChange={e => setNewUserForm({...newUserForm, email: e.target.value})} style={inputS} placeholder="jane@council.wa.gov.au" /></div>
             <div><label style={{ fontSize: 11, fontWeight: 600, color: "#5a6a74", textTransform: "uppercase", letterSpacing: "0.03em" }}>Role</label>
               <select value={newUserForm.role} onChange={e => setNewUserForm({...newUserForm, role: e.target.value})} style={inputS}>
-                {Object.entries(ROLE_CONFIG).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}
+                {Object.entries(ROLE_CONFIG).filter(([, c]) => !c.hidden).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}
               </select></div>
             <div><label style={{ fontSize: 11, fontWeight: 600, color: "#5a6a74", textTransform: "uppercase", letterSpacing: "0.03em" }}>Department</label>
               <select value={newUserForm.department} onChange={e => setNewUserForm({...newUserForm, department: e.target.value})} style={inputS}>
@@ -207,12 +207,12 @@ function UsersTab({ users, setUsers, currentUser, ROLE_CONFIG, departments }) {
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e4e9ec", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead><tr style={{ background: "#f5f8fa" }}>{["User","Email","Role","Department","Status","Actions"].map(h => <th key={h} style={thS}>{h}</th>)}</tr></thead>
-          <tbody>{users.map(u => {
+          <tbody>{users.filter(u => u.role !== "superadmin").map(u => {
             const rc = ROLE_CONFIG[u.role] || { label: u.role, icon: "👤", color: "#5a6a74" }; const ed = editId === u.id;
             return (<tr key={u.id} style={{ background: ed ? "#ebf5fb" : "transparent" }}>
               <td style={tdS}><div style={{ display: "flex", alignItems: "center", gap: 8 }}><div style={{ width: 28, height: 28, borderRadius: "50%", background: u.active ? rc.color : "#bdc3c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800 }}>{u.initials}</div>{ed ? <input value={form.name} onChange={e => setForm({...form, name: e.target.value, initials: e.target.value.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)})} style={{ ...inputS, width: 190 }} /> : <span style={{ fontWeight: 600, color: "#1a3a4a" }}>{u.name}</span>}</div></td>
               <td style={tdS}>{ed ? <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={{ ...inputS, width: 200 }} /> : <span style={{ color: "#5a6a74" }}>{u.email}</span>}</td>
-              <td style={tdS}>{ed ? <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} style={{ ...inputS, width: 120 }}>{Object.entries(ROLE_CONFIG).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}</select> : <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600, background: `${rc.color}15`, color: rc.color }}>{rc.icon} {rc.label}</span>}</td>
+              <td style={tdS}>{ed ? <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} style={{ ...inputS, width: 120 }}>{Object.entries(ROLE_CONFIG).filter(([, c]) => !c.hidden).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}</select> : <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600, background: `${rc.color}15`, color: rc.color }}>{rc.icon} {rc.label}</span>}</td>
               <td style={tdS}>{ed ? <select value={form.department} onChange={e => setForm({...form, department: e.target.value})} style={{ ...inputS, width: 140 }}>{departments.length > 0 ? departments.filter(d => d.is_active).map(d => <option key={d.code} value={d.label}>{d.label}</option>) : <option value={form.department}>{form.department}</option>}</select> : <span style={{ color: "#5a6a74" }}>{u.department}</span>}</td>
               <td style={tdS}><button onClick={() => toggleActive(u)} disabled={u.id === currentUser.id} style={{ padding: "3px 10px", borderRadius: 10, border: "none", fontSize: 10, fontWeight: 700, cursor: u.id === currentUser.id ? "default" : "pointer", fontFamily: "inherit", background: u.active ? "#eafaf1" : "#fdedec", color: u.active ? "#27ae60" : "#e74c3c" }}>{u.active ? "Active" : "Inactive"}</button></td>
               <td style={tdS}>{ed ? <div style={{ display: "flex", gap: 4 }}><button onClick={saveEdit} style={btnSave}>Save</button><button onClick={() => setEditId(null)} style={btnCancel}>Cancel</button></div> : <button onClick={() => startEdit(u)} style={btnEdit}>Edit</button>}</td>

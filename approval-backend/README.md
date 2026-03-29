@@ -1,11 +1,11 @@
-# Kalamunda Crossover Approval System — Backend API
+# Council Crossover Approval System — Backend API
 
-FastAPI + PostgreSQL backend for the City of Kalamunda crossover approval portal.
+FastAPI + PostgreSQL backend for the City of Council crossover approval portal.
 
 ## Architecture
 
 ```
-kalamunda-backend/
+council-backend/
 ├── app/
 │   ├── main.py              # FastAPI app entry point
 │   ├── seed.py              # Database seeder (users + sample applications)
@@ -45,7 +45,7 @@ This starts:
 
 ```bash
 # 1. Start PostgreSQL and create database
-createdb kalamunda_db
+createdb council_db
 
 # 2. Configure environment
 cp .env.example .env
@@ -81,11 +81,11 @@ Once running, visit:
 
 | Name          | Email                              | Role     |
 |---------------|-------------------------------------|----------|
-| M. Thompson   | m.thompson@kalamunda.wa.gov.au     | admin    |
-| K. Williams   | k.williams@kalamunda.wa.gov.au     | manager  |
-| S. Patel      | s.patel@kalamunda.wa.gov.au        | engineer |
-| J. Morrison   | j.morrison@kalamunda.wa.gov.au     | engineer |
-| R. Singh      | r.singh@kalamunda.wa.gov.au        | manager  |
+| M. Thompson   | m.thompson@council.wa.gov.au     | admin    |
+| K. Williams   | k.williams@council.wa.gov.au     | manager  |
+| S. Patel      | s.patel@council.wa.gov.au        | engineer |
+| J. Morrison   | j.morrison@council.wa.gov.au     | engineer |
+| R. Singh      | r.singh@council.wa.gov.au        | manager  |
 
 ---
 

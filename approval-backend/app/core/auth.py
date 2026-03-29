@@ -52,8 +52,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 def require_role(*roles: str):
-    """Dependency factory: require user has one of the given roles."""
+    """Dependency factory: require user has one of the given roles. Superadmin always passes."""
     def checker(current_user: User = Depends(get_current_user)):
+        if current_user.role == "superadmin":
+            return current_user
         if current_user.role not in roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Role '{current_user.role}' not permitted")
         return current_user

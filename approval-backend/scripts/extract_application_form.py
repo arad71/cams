@@ -2,7 +2,7 @@
 """
 Crossover Application Reader (Enhanced)
 =========================================
-Reads a filled-in City of Kalamunda Crossover Application PDF
+Reads a filled-in Council Crossover Application PDF
 and extracts the entered values as structured JSON.
 
 Enhanced features:
