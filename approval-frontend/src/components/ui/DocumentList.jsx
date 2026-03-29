@@ -68,6 +68,8 @@ function DocViewer({ doc, appDbId, onClose }) {
           <span style={{ fontSize: 10, opacity: 0.6 }}>{doc.type.toUpperCase()} · {doc.size}</span>
         </div>
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          <a href={fileUrl} download={doc.name} title="Download"
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px", textDecoration: "none", display: "flex", alignItems: "center" }}>📥</a>
           <button onClick={() => window.open(fileUrl, "_blank")} title="Open in new tab"
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>↗</button>
           <button onClick={toggleMaximize} title={maximized ? "Restore" : "Maximize"}
@@ -341,6 +343,13 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                   👁 View
                 </button>
+                {/* Download button */}
+                <a href={api.getDocumentFileUrl(appDbId, doc.id)} download={doc.name}
+                  onClick={(e) => e.stopPropagation()}
+                  title="Download file"
+                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #27ae6040", background: "#eafaf1", color: "#27ae60", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", textDecoration: "none", display: "inline-block" }}>
+                  📥 Download
+                </a>
                 {/* Measure button — for site plan docs */}
                 {(doc.category || "").toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && (
                   <button onClick={(e) => { e.stopPropagation(); setMeasureDocId(doc.id); setShowMeasure(true); }}
