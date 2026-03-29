@@ -80,59 +80,48 @@ Note the IP (e.g. `20.211.xx.xx`)
 
 ---
 
-## Step 5 — SSH and Install
+## Step 5 — SSH and Install (one command)
 
 ```bash
 ssh azureuser@20.211.xx.xx
 ```
 
-Then run the setup:
+Then run the setup script (one line — does everything):
 
 ```bash
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-newgrp docker
+curl -fsSL https://raw.githubusercontent.com/arad71/cams/feature/db-rules-refactor/setup-azure.sh | bash
+```
 
-# Clone the repo
-git clone https://github.com/arad71/cams.git
-cd cams
-git checkout feature/db-rules-refactor
+This script will:
+1. Install Docker
+2. Clone the CAMS repo
+3. Create `.env` with default config
+4. Build and start all containers
+5. Wait for database seed to complete
+6. Print the URL and login credentials
 
-# Generate a secret key
-SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+**Takes about 5 minutes.** When it finishes you'll see:
 
-# Create .env file
-cat > .env << EOF
-# Database
-POSTGRES_DB=cams_approval
-POSTGRES_USER=cams
-POSTGRES_PASSWORD=CamsAzure2026!Strong
+```
+═══════════════════════════════════════════════════
+  ✅ CAMS is running!
+═══════════════════════════════════════════════════
 
-# Backend
-SECRET_KEY=$SECRET
-CORS_ORIGINS=*
-API_WORKERS=2
+  Approval Portal:  http://20.211.xx.xx:3001
+  API Docs:         http://20.211.xx.xx:3001/api/docs
 
-# AI (optional — site plan analysis works without it)
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-AI_MODEL_DEFAULT=claude-sonnet-4-20250514
-PDF_RENDER_DPI=200
-MAX_IMAGE_DIM=2048
-AI_MAX_TOKENS=4096
+  Test Logins:
+    Admin:     m.thompson@kalamunda.wa.gov.au  /  admin123
+    Manager:   k.williams@kalamunda.wa.gov.au  /  manager123
+    Engineer:  s.patel@kalamunda.wa.gov.au     /  engineer123
+```
 
-# Frontend
-FRONTEND_PORT=3001
-
-# SSO (disabled for testing)
-ENTRA_ENABLED=false
-EOF
-
-# Build and start (takes 3-5 minutes)
-docker compose -f docker-compose.prod.yml up -d --build
-
-# Watch the logs until you see "Created 206 assessment rules"
-docker compose -f docker-compose.prod.yml logs -f
+**Optional — add your Anthropic API key** (for AI site plan analysis):
+```bash
+cd ~/cams
+nano .env
+# Set ANTHROPIC_API_KEY=sk-ant-your-key-here
+sudo docker compose -f docker-compose.prod.yml restart approval-api
 ```
 
 ---
