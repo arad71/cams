@@ -1,0 +1,100 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════
+#  CAMS — City of Kalamunda Approval Management System
+#  Production Docker Compose — External Database
+# ═══════════════════════════════════════════════════════════
+#
+#  This file does NOT include a database container.
+#  The database is hosted externally (Azure Postgres Flexible Server).
+#
+#  Setup:
+#    1. Create Azure Database for PostgreSQL — Flexible Server
+#    2. cp .env.production.example .env
+#    3. Edit .env with your database connection string
+#    4. docker compose -f docker-compose.external-db.yml up -d --build
+#
+# ═══════════════════════════════════════════════════════════
+
+services:
+  # ─── Backend API ───────────────────────────────────────
+  approval-api:
+    build:
+      context: ./approval-backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      # External database — set full connection string in .env
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (64+ random chars)}
+      DEBUG: "false"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}
+      PDF_RENDER_DPI: ${PDF_RENDER_DPI:-200}
+      MAX_IMAGE_DIM: ${MAX_IMAGE_DIM:-2048}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-4096}
+      DOCUMENT_DIR: /app/uploads/documents
+    volumes:
+      - approval_uploads:/app/uploads
+    command: >
+      sh -c '
+        echo "Waiting for database..."
+        python -c "
+        import time, sys
+        for i in range(30):
+            try:
+                from sqlalchemy import create_engine, text
+                e = create_engine(\"${DATABASE_URL}\")
+                with e.connect() as c: c.execute(text(\"SELECT 1\"))
+                print(\"Database ready\"); break
+            except: time.sleep(2); print(f\"Retry {i+1}/30...\")
+        else: print(\"WARNING: DB not ready after 60s\"); sys.exit(1)
+        " &&
+        python -c "from app.seed import run_seed; run_seed()" &&
+        gunicorn app.main:app -k uvicorn.workers.UvicornWorker
+        --bind 0.0.0.0:8000 --workers ${API_WORKERS:-2} --timeout 120
+      '
+    networks: [cams-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ─── Frontend (Nginx + React SPA) ─────────────────────
+  approval-frontend:
+    build:
+      context: ./approval-frontend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+    depends_on:
+      approval-api:
+        condition: service_healthy
+    networks: [cams-net]
+
+  # ─── Scheduled Tasks (weekly lot.geojson update) ───────
+  cams-cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.cron
+    restart: always
+    environment:
+      LOT_GEOJSON_PATH: /data/lot.geojson
+      KALAMUNDA_BBOX: "115.95,-32.10,116.15,-31.87"
+    volumes:
+      - lot_geojson_data:/data
+      - cron_logs:/var/log/cams
+    networks: [cams-net]
+
+volumes:
+  approval_uploads:
+  lot_geojson_data:
+  cron_logs:
+
+networks:
+  cams-net:
+    driver: bridge
