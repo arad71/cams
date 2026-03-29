@@ -207,10 +207,10 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
         <span style={{ fontSize: 18 }}>{cat.icon}</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a" }}>{cat.label}</div>
-          <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 1 }}>{cat.hint}</div>
+          <div style={{ fontSize: 12, color: "#7a8a94", marginTop: 1 }}>{cat.hint}</div>
         </div>
         {hasFile && <span style={{ fontSize: 14, color: "#27ae60" }}>✓</span>}
-        {skipped && !hasFile && <span style={{ fontSize: 10, color: "#95a5a6", fontWeight: 700 }}>Later</span>}
+        {skipped && !hasFile && <span style={{ fontSize: 12, color: "#95a5a6", fontWeight: 700 }}>Later</span>}
       </div>
       {hasFile ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: 6 }}>
@@ -243,7 +243,7 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
           color: processResult.success ? "#2c6e49" : "#7d6608" }}>
           {processResult.success ? (
             <><strong style={{ color: "#27ae60" }}>✅ {processResult.title}</strong> — {processResult.message}
-              {processResult.details && <div style={{ marginTop: 4, fontSize: 10, color: "#5a7a64" }}>{processResult.details}</div>}
+              {processResult.details && <div style={{ marginTop: 4, fontSize: 12, color: "#5a7a64" }}>{processResult.details}</div>}
             </>
           ) : (<><strong>⚠️ {processResult.title || "Issue"}</strong> — {processResult.message}</>)}
         </div>

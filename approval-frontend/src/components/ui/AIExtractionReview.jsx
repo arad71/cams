@@ -258,22 +258,22 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
         style={{ padding: "12px 16px", borderBottom: collapsed ? "none" : "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafb", cursor: "pointer", userSelect: "none" }}
         onMouseEnter={e => e.currentTarget.style.background = "#eef2f4"} onMouseLeave={e => e.currentTarget.style.background = "#f8fafb"}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 10, color: "#95a5a6", transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)" }}>▶</span>
+          <span style={{ fontSize: 12, color: "#95a5a6", transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)" }}>▶</span>
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: "#1a3a4a" }}>🤖 AI Site Plan Analysis</div>
-            <div style={{ fontSize: 10, color: "#7a8a94", marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: "#7a8a94", marginTop: 2 }}>
               {spd.ai_model || "Claude"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
               {hasCorrected && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 3, background: "#fef5e7", color: "#e67e22", fontWeight: 700, fontSize: 9 }}>✎ Officer Corrected</span>}
             </div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 800,
+          <span style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800,
             background: `${recColors[recommendation] || "#7f8c8d"}15`,
             color: recColors[recommendation] || "#7f8c8d" }}>
             {recommendation.replace(/_/g, " ")}
           </span>
-          <span style={{ fontSize: 10, color: "#95a5a6" }}>
+          <span style={{ fontSize: 12, color: "#95a5a6" }}>
             {summary.passed || 0}✓ {summary.failed || 0}✕ {summary.requires_verification || 0}?
           </span>
         </div>
@@ -288,7 +288,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
 
         return (
           <div key={group.key} style={{ borderBottom: "1px solid #f0f3f5" }}>
-            <div style={{ padding: "8px 16px", background: "#fafcfd", fontSize: 10, fontWeight: 800, color: "#5a6a74", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ padding: "8px 16px", background: "#fafcfd", fontSize: 12, fontWeight: 800, color: "#5a6a74", textTransform: "uppercase", letterSpacing: "0.04em" }}>
               {group.icon} {group.label}
             </div>
             {group.fields.map(field => {
@@ -307,7 +307,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
                       <input value={editValue} onChange={e => setEditValue(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") saveEdit(group.key, field.path, val); if (e.key === "Escape") cancelEdit(); }}
                         style={{ padding: "3px 6px", borderRadius: 4, border: "1.5px solid #f39c12", fontSize: 11, width: 100, fontFamily: "inherit", outline: "none" }} autoFocus />
-                      <button onClick={() => saveEdit(group.key, field.path, val)} style={{ padding: "2px 6px", borderRadius: 3, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>✓</button>
+                      <button onClick={() => saveEdit(group.key, field.path, val)} style={{ padding: "2px 6px", borderRadius: 3, border: "none", background: "#27ae60", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✓</button>
                       <button onClick={cancelEdit} style={{ padding: "2px 6px", borderRadius: 3, border: "1px solid #d5dde2", background: "#fff", fontSize: 9, cursor: "pointer" }}>✕</button>
                     </div>
                   ) : (
@@ -331,7 +331,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
 
       {/* Actions bar */}
       <div style={{ padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafb" }}>
-        <div style={{ fontSize: 10, color: "#7a8a94" }}>
+        <div style={{ fontSize: 12, color: "#7a8a94" }}>
           {corrections.length > 0 && <span style={{ color: "#e67e22", fontWeight: 700 }}>⚠ {corrections.length} correction{corrections.length > 1 ? "s" : ""} pending</span>}
           {saved && <span style={{ color: "#27ae60", fontWeight: 700, marginLeft: 8 }}>✅ Saved to training data</span>}
         </div>

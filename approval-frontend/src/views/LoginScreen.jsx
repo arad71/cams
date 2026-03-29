@@ -95,7 +95,7 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
 
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
               <div style={{ flex: 1, height: 1, background: "#e4e9ec" }} />
-              <span style={{ fontSize: 10, color: "#95a5a6", fontWeight: 600 }}>OR</span>
+              <span style={{ fontSize: 12, color: "#95a5a6", fontWeight: 600 }}>OR</span>
               <div style={{ flex: 1, height: 1, background: "#e4e9ec" }} />
             </div>
           </>
@@ -125,7 +125,7 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
 
         {/* Demo accounts — only show when Entra is not configured */}
         {!authConfig?.entra_enabled && (
-          <div style={{ marginTop: 16, padding: "10px", background: "#f8fafb", borderRadius: 8, fontSize: 10, color: "#7a8a94", lineHeight: 1.6 }}>
+          <div style={{ marginTop: 16, padding: "10px", background: "#f8fafb", borderRadius: 8, fontSize: 12, color: "#7a8a94", lineHeight: 1.6 }}>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Demo Accounts:</div>
             <div>🛡️ Admin: m.thompson@{emailDomain} / admin123</div>
             <div>👔 Manager: k.williams@{emailDomain} / manager123</div>

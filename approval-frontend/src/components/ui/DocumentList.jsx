@@ -138,10 +138,10 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
           <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", overflow: "hidden" }}>
             <div style={{ padding: "10px 14px", background: `${sc.color}08`, borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a", textTransform: "uppercase" }}>📋 Document Review</span>
-              {doc.reviewedBy && <span style={{ fontSize: 10, color: "#7a8a94" }}>Last reviewed by <strong>{doc.reviewedBy}</strong> on {doc.reviewedAt}</span>}
+              {doc.reviewedBy && <span style={{ fontSize: 12, color: "#7a8a94" }}>Last reviewed by <strong>{doc.reviewedBy}</strong> on {doc.reviewedAt}</span>}
             </div>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Status</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Status</div>
               <div style={{ display: "flex", gap: 6 }}>
                 {STATUS_OPTIONS.map(opt => (
                   <button key={opt.value} onClick={() => setStatus(opt.value)}
@@ -156,12 +156,12 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
               </div>
             </div>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Note</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Note</div>
               <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add review comments…" rows={3}
                 style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", background: "#fafbfc", color: "#1a3a4a", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
             </div>
             <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 10, color: "#95a5a6" }}>{currentUser && <span>Reviewing as <strong style={{ color: "#5a6a74" }}>{currentUser.name}</strong></span>}</div>
+              <div style={{ fontSize: 12, color: "#95a5a6" }}>{currentUser && <span>Reviewing as <strong style={{ color: "#5a6a74" }}>{currentUser.name}</strong></span>}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {saved && <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 600 }}>✅ Saved</span>}
                 <button onClick={handleSave} disabled={saving || !hasChanges}
@@ -279,12 +279,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
         <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: 0 }}>📎 Documents ({docs.length})</h4>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           {categories.map(c => (
-            <button key={c} onClick={() => setFilter(c)} style={{ padding: "3px 8px", borderRadius: 4, border: "none", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+            <button key={c} onClick={() => setFilter(c)} style={{ padding: "3px 8px", borderRadius: 4, border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
               background: filter === c ? "#1a3a4a" : "#f5f8fa", color: filter === c ? "#fff" : "#7a8a94" }}>{c}</button>
           ))}
           {canUpload && (
             <button onClick={() => setShowUpload(!showUpload)}
-              style={{ padding: "3px 10px", borderRadius: 4, border: showUpload ? "2px solid #1abc9c" : "1px solid #d5dde2", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              style={{ padding: "3px 10px", borderRadius: 4, border: showUpload ? "2px solid #1abc9c" : "1px solid #d5dde2", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
                 background: showUpload ? "#e8f8f5" : "#fff", color: showUpload ? "#1abc9c" : "#7a8a94", marginLeft: 4 }}>
               {showUpload ? "✕ Close" : "＋ Upload"}
             </button>
@@ -295,7 +295,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       {/* Upload panel */}
       {showUpload && canUpload && (
         <div style={{ padding: "10px 16px", background: "#f0faf7", borderBottom: "1px solid #d5f5e3" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#1abc9c", marginBottom: 6, textTransform: "uppercase" }}>Upload New Document</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#1abc9c", marginBottom: 6, textTransform: "uppercase" }}>Upload New Document</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select value={uploadCat} onChange={e => setUploadCat(e.target.value)}
               style={{ padding: "6px 10px", borderRadius: 6, border: "1.5px solid #d5dde2", fontSize: 11, fontFamily: "inherit", background: "#fff", color: "#1a3a4a", outline: "none", cursor: "pointer" }}>
@@ -332,7 +332,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 <span style={{ fontSize: 18 }}>{typeIcons[doc.type] || "📄"}</span>
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setSelectedDocId(isSelected ? null : doc.id)}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
-                  <div style={{ fontSize: 10, color: "#95a5a6" }}>
+                  <div style={{ fontSize: 12, color: "#95a5a6" }}>
                     {doc.type.toUpperCase()} · {doc.size} · {doc.date}
                     {doc.reviewedBy && <span style={{ marginLeft: 6, color: "#7a8a94" }}>· {doc.reviewedBy}</span>}
                   </div>
@@ -340,21 +340,21 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 {/* View button */}
                 <button onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}
                   title="Open document viewer"
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                   👁 View
                 </button>
                 {/* Download button */}
                 <a href={api.getDocumentFileUrl(appDbId, doc.id)} download={doc.name}
                   onClick={(e) => e.stopPropagation()}
                   title="Download file"
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #27ae6040", background: "#eafaf1", color: "#27ae60", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", textDecoration: "none", display: "inline-block" }}>
+                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #27ae6040", background: "#eafaf1", color: "#27ae60", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", textDecoration: "none", display: "inline-block" }}>
                   📥 Download
                 </a>
                 {/* Measure button — for site plan docs */}
                 {(doc.category || "").toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && (
                   <button onClick={(e) => { e.stopPropagation(); setMeasureDocId(doc.id); setShowMeasure(true); }}
                     title="Open measurement tool on this document"
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     📏 Measure
                   </button>
                 )}
@@ -362,7 +362,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 {canUpload && doc.type === "pdf" && (
                   <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); }}
                     title="Extract pages from this document"
-                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     ✂ Extract
                   </button>
                 )}
@@ -370,12 +370,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 {canUpload && (
                   <button onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
                     title="Delete document"
-                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #e4e9ec", background: "#fff", color: "#e74c3c", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #e4e9ec", background: "#fff", color: "#e74c3c", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     🗑
                   </button>
                 )}
                 {/* Status badge */}
-                <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
                   {sc.icon} {sc.label}
                 </span>
                 {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: "#e67e22" }}>💬</span>}
@@ -476,7 +476,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 Enter the page number(s) that contain the site plan. The selected pages will be extracted as a separate Site Plan document and automatically analysed by AI.
               </div>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Site Plan Page Number(s)</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Site Plan Page Number(s)</label>
                 <input
                   value={extractPages}
                   onChange={e => setExtractPages(e.target.value)}
@@ -485,7 +485,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", color: "#1a3a4a", fontWeight: 700 }}
                   autoFocus
                 />
-                <div style={{ fontSize: 9, color: "#95a5a6", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: "#95a5a6", marginTop: 4 }}>
                   Separate multiple pages with commas. Open the document viewer to identify the site plan page(s).
                 </div>
               </div>
