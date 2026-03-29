@@ -75,7 +75,7 @@ class AssessmentRule(Base):
     value = Column(String(200), nullable=True)      # threshold value (cast to appropriate type at runtime)
 
     # Result when condition matches
-    result = Column(String(10), nullable=False)     # pass | fail | review
+    result = Column(String(10), nullable=False)     # pass | fail | review | na
     confidence = Column(Float, default=0.8)
     reason_template = Column(String(500), nullable=False)  # Can use {field_value}, {threshold} placeholders
 
@@ -103,7 +103,7 @@ class CaseAssessment(Base):
     item_id = Column(Integer, ForeignKey("assessment_items.id"), nullable=False, index=True)
 
     # AI auto-assessment
-    ai_result = Column(String(20), nullable=True)        # pass | review | fail | null
+    ai_result = Column(String(20), nullable=True)        # pass | review | fail | na | null
     ai_confidence = Column(Float, nullable=True)          # 0.0–1.0 confidence score
     ai_reason = Column(Text, nullable=True)               # AI explanation
     ai_assessed_at = Column(DateTime(timezone=True), nullable=True)
@@ -129,7 +129,7 @@ class CaseAssessment(Base):
     # Constraints
     __table_args__ = (
         UniqueConstraint("application_id", "item_id", name="uq_case_item"),
-        CheckConstraint("ai_result IN ('pass','review','fail') OR ai_result IS NULL", name="ck_ai_result"),
+        CheckConstraint("ai_result IN ('pass','review','fail','na') OR ai_result IS NULL", name="ck_ai_result"),
         CheckConstraint("officer_result IN ('approved','rejected','not_required','referred','investigation') OR officer_result IS NULL", name="ck_officer_result"),
         CheckConstraint("status IN ('pending','pass','fail','waived','na')", name="ck_status"),
     )

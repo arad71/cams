@@ -340,7 +340,7 @@ function useAIAssessment() {
 
 // ─── Small UI Components ────────────────────────────────
 const StatusBadge = ({status}) => { const c=STATUS_CONFIG[status]||STATUS_CONFIG.pending_review; return <span style={{display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:6,fontSize:11,fontWeight:700,background:c.bg,color:c.color,whiteSpace:"nowrap"}}>{c.icon} {c.label}</span>;};
-const CheckIcon = ({status}) => { const c={pass:"#27ae60",fail:"#c0392b",needs_review:"#e67e22"},i={pass:"✓",fail:"✕",needs_review:"?"}; return <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:`${c[status]}18`,color:c[status],fontSize:12,fontWeight:800}}>{i[status]}</span>;};
+const CheckIcon = ({status}) => { const c={pass:"#27ae60",fail:"#c0392b",needs_review:"#e67e22",na:"#95a5a6"},i={pass:"✓",fail:"✕",needs_review:"?",na:"—"}; return <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:22,height:22,borderRadius:"50%",background:`${c[status]||c.na}18`,color:c[status]||c.na,fontSize:12,fontWeight:800}}>{i[status]||"—"}</span>;};
 const MetricCard = ({label,value,sub,color="#1a3a4a"}) => <div style={{background:"#fff",borderRadius:14,padding:"18px 20px",border:"1px solid #e4e9ec",flex:1,minWidth:140}}><div style={{fontSize:11,color:"#7a8a94",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{label}</div><div style={{fontSize:28,fontWeight:800,color,letterSpacing:"-0.02em",lineHeight:1}}>{value}</div>{sub&&<div style={{fontSize:11,color:"#95a5a6",marginTop:4}}>{sub}</div>}</div>;
 
 // ═══════════════════════════════════════════════════════════
@@ -1525,7 +1525,7 @@ function ApprovalChecklist({ app, checklist, setChecklist, onAssessAll }) {
   const setOfficer = (id, val) => setChecklist(p => ({ ...p, [id]: { ...p[id], officer: val, officerBy: "M. Thompson", officerDate: new Date().toISOString().split("T")[0] } }));
   const saveNote = (id) => { if (!noteText.trim()) return; setChecklist(p => ({ ...p, [id]: { ...p[id], note: noteText, noteBy: "M. Thompson", noteDate: new Date().toISOString().split("T")[0] } })); setNoteText(""); setEditNoteId(null); };
 
-  const ac = { pass: "#27ae60", review: "#e67e22", fail: "#c0392b" };
+  const ac = { pass: "#27ae60", review: "#e67e22", fail: "#c0392b", na: "#95a5a6" };
   const ai2 = { pass: "✓", review: "?", fail: "✕" };
   const al = { pass: "PASS", review: "REVIEW", fail: "FAIL" };
 
@@ -1841,7 +1841,7 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
       let rows = "";
       cat.items.forEach(item => {
         const r = cl[item.id] || {};
-        const aiColor = r.auto === "pass" ? "#27ae60" : r.auto === "fail" ? "#e74c3c" : "#e67e22";
+        const aiColor = r.auto === "pass" ? "#27ae60" : r.auto === "fail" ? "#e74c3c" : r.auto === "na" ? "#95a5a6" : "#e67e22";
         const offColor = r.officer === "approved" ? "#27ae60" : r.officer === "rejected" ? "#e74c3c" : "#999";
         rows += `<tr>
           <td style="padding:4px 8px;border:1px solid #ddd;font-size:11px;">${item.label}</td>
@@ -2013,7 +2013,7 @@ function ReportGenerator({ app, checklist, summary, currentUser }) {
                     return (
                       <div key={item.id} style={{ padding: "4px 10px 4px 24px", borderBottom: "1px solid #f8fafb", display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
                         <span style={{ width: 50, fontWeight: 700, fontSize: 10, textAlign: "center",
-                          color: r.auto === "pass" ? "#27ae60" : r.auto === "fail" ? "#e74c3c" : "#e67e22" }}>
+                          color: r.auto === "pass" ? "#27ae60" : r.auto === "fail" ? "#e74c3c" : r.auto === "na" ? "#95a5a6" : "#e67e22" }}>
                           {(r.auto || "—").toUpperCase()}
                         </span>
                         <span style={{ width: 60, fontWeight: 700, fontSize: 10, textAlign: "center",
