@@ -86,36 +86,46 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "date": "string or null",
     "drawing_title": "string or null",
     "prepared_by": "string or null",
-    "is_corner_lot": "boolean or null — true if lot is on a corner of two roads"
+    "is_corner_lot": "boolean or null — true if lot is on a corner of two roads",
+    "is_battleaxe": "boolean or null — true if rear lot accessed via narrow driveway leg",
+    "da_linked": "boolean or null — true if crossover is part of a Development Approval"
   },
   "crossover_dimensions": {
-    "width_at_boundary_m": "number or null — width at property boundary",
-    "splay_left_m": "number or null — left wing/flare",
-    "splay_right_m": "number or null — right wing/flare",
-    "total_width_at_road_m": "number or null — total where it meets road",
+    "width_at_boundary_m": "number or null — width at property boundary (min 3.0m per R-083)",
+    "splay_left_m": "number or null — left wing/flare (standard 1.5m per R-083)",
+    "splay_right_m": "number or null — right wing/flare (standard 1.5m per R-083)",
+    "total_width_at_road_m": "number or null — total where it meets road (max 6.0m per R-083)",
     "verge_depth_m": "number or null — property boundary to road edge",
     "crossover_length_m": "number or null",
+    "alignment_degrees": "number or null — angle of crossover to road centreline (should be ~90° per R-081)",
     "driveway_centreline_point_2_5m": "string or null — position 2.5m back from verge on driveway centreline (for sight triangle Point A), describe location",
-    "distance_to_left_boundary_m": "number or null — driveway edge to left side boundary",
-    "distance_to_right_boundary_m": "number or null — driveway edge to right side boundary",
+    "distance_to_left_boundary_m": "number or null — driveway edge to left side boundary (min 0.5m)",
+    "distance_to_right_boundary_m": "number or null — driveway edge to right side boundary (min 0.5m)",
     "distance_to_nearest_lot_corner_m": "number or null — driveway edge to nearest lot corner",
     "nearest_lot_corner": "string or null — which corner (e.g. 'SW corner', 'front-left')",
+    "distance_to_intersection_tangent_m": "number or null — distance from crossover to nearest intersection tangent point (min 6.0m per R-100)",
     "distance_to_building_corner_m": "number or null — driveway to nearest building corner",
     "nearest_building_corner": "string or null — which building corner"
   },
   "construction": {
-    "material": "string or null — Concrete, Asphalt, Brick paving, etc.",
-    "thickness_mm": "number or null",
-    "expansion_joints": "boolean or null",
-    "base_course_specified": "boolean or null",
-    "kerb_type": "string or null — Mountable, Semi-mountable, Barrier, Edge of seal",
-    "footpath_exists": "boolean or null"
+    "material": "string or null — Concrete, Asphalt, Brick paving, etc. (per R-120 permitted list)",
+    "thickness_mm": "number or null — surface thickness",
+    "base_course_specified": "boolean or null — whether base course is shown/specified",
+    "base_course_depth_mm": "number or null — base course depth (min 150mm per R-122)",
+    "compaction_mdd_pct": "number or null — compaction specification (should be 95% MDD per R-121)",
+    "expansion_joints": "boolean or null — concrete must have min 2 expansion joints (R-126)",
+    "kerb_type": "string or null — Mountable, Semi-mountable, Barrier, Edge of seal (R-140)",
+    "footpath_exists": "boolean or null — is there a footpath at crossover location",
+    "footpath_flush_join": "boolean or null — does crossover meet flush with footpath (R-110)",
+    "construction_standard": "string or null — Type 1 (urban, fully sealed) or Type 2 (rural, trafficable) per R-030"
   },
   "siteplan_measurements": {
     "property_boundary_to_road_m": "number or null",
     "existing_driveway_width_m": "number or null",
     "road_name": "string or null",
-    "lot_frontage_m": "number or null",
+    "road_speed_zone_kmh": "number or null — speed limit on the road",
+    "road_classification": "string or null — local, distributor, regional (red/blue), RAV route",
+    "lot_frontage_m": "number or null — lot frontage width (affects max crossover width: ≤12.5m→3.0m, >12.5m→6.0m per R-084/R-086)",
     "lot_depth_m": "number or null",
     "lot_areas_m2": "object — e.g. {\"Lot 20\": 350}",
     "total_area_m2": "number or null",
@@ -123,6 +133,7 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "building_setback_left_m": "number or null — building to left boundary",
     "building_setback_right_m": "number or null — building to right boundary",
     "building_setback_rear_m": "number or null — building to rear boundary",
+    "number_of_crossovers": "number or null — how many crossovers on this lot (second requires >20m frontage per R-100)",
     "all_dimensions_found": "array of strings — every measurement on the drawings"
   },
   "utilities": {
@@ -159,7 +170,7 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "adjacent_lots": "array of strings",
     "is_subdivision": "boolean",
     "is_development_application": "boolean",
-    "vegetation_on_verge": "boolean or null",
+    "vegetation_on_verge": "boolean or null — vegetation within 3m of crossover (R-056)",
     "trees_on_verge": "boolean or null — specific trees visible on verge area",
     "street_light_near_crossover": "boolean or null",
     "fire_hydrant_near_crossover": "boolean or null",
@@ -173,13 +184,21 @@ RULES:
 - Use numeric values (not strings) for measurements.
 - Verge depth = distance from property boundary line to road edge.
 - Distinguish crossover width (at boundary) from total width (at road, includes splays).
+- ALIGNMENT: Check if crossover is perpendicular (90°) to road. Estimate alignment_degrees if visible.
+- WIDTH RULES: Lot frontage ≤ 12.5m → max 3.0m (or 4.5m if double garage). Frontage > 12.5m → max 6.0m.
+- BATTLEAXE: If rear lot with narrow access leg, mark is_battleaxe=true. Single: min 3.0m + 0.5m garden bed. Adjoining: 6.0m combined.
 - UTILITIES: Look for any utility symbols, labels, or lines (power poles, water meters, gas mains, telco pits, sewer manholes, stormwater drains). Report conflicts if any utility is within or crosses the proposed crossover area.
 - SETBACKS: Measure distance from driveway edge to left boundary, right boundary, nearest lot corner, and nearest building corner.
-- CORNER LOT: Identify if the lot is on a corner (two road frontages). Corner lots have special sight triangle requirements.
+- CORNER LOT: Identify if the lot is on a corner (two road frontages). Corner lots have extended sight triangle requirements per AS 2890.1 §3.2.4.
+- INTERSECTION TANGENT: Measure distance from crossover to nearest intersection tangent point. Must be ≥ 6.0m per R-100.
 - DRIVEWAY CENTRELINE POINT: The point 2.5m back from the verge/road edge along the driveway centreline is the standard Point A for sight triangle analysis.
+- FOOTPATH: If a footpath crosses the crossover, check if flush join is shown (R-110). For concrete, check colour/jointing delineation (R-111).
+- CONSTRUCTION: Identify material, base course depth (min 150mm, R-122), compaction spec (95% MDD, R-121), expansion joints for concrete (min 2, R-126).
+- SPEED ZONE: Note speed limit if shown on plan or inferable from road classification.
+- SECOND CROSSOVER: If multiple crossovers shown, count them. Second requires lot boundary >20m and ≥6.0m from intersection tangent.
 - Return ONLY valid JSON. Nothing else."""
 
-USER_PROMPT = "Analyse the attached document page(s). Extract all crossover dimensions, construction specs, site plan measurements, utility locations and conflicts, drainage details, setbacks, and property info. Return structured JSON."
+USER_PROMPT = "Analyse the attached document page(s). Extract all crossover dimensions, construction specs, site plan measurements, utility locations and conflicts, drainage details, setbacks, property info, alignment, footpath details, and intersection distances. Check for corner lot, battleaxe, and DA-linked indicators. Return structured JSON."
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -366,6 +385,106 @@ def check_compliance(data: Dict[str, Any]) -> Dict[str, Any]:
         "Required with application",
         "Dimensions found" if has_dims else "Limited info",
         "PASS" if has_dims else "REQUIRES_VERIFICATION")
+
+    # ── NEW CHECKS aligned with R-001 to R-170 ──
+
+    # Alignment at 90° (R-081)
+    align = dims.get("alignment_degrees")
+    if align is not None:
+        ok = 85 <= align <= 95
+        add("Crossover alignment to road", "R-081",
+            "90° ± 5°", f"{align}°",
+            "PASS" if ok else "FAIL")
+
+    # Intersection tangent distance (R-100)
+    tangent = dims.get("distance_to_intersection_tangent_m")
+    if tangent is not None:
+        ok = tangent >= 6.0
+        add("Distance to intersection tangent", "R-100",
+            "≥ 6.0m", f"{tangent}m",
+            "PASS" if ok else "FAIL",
+            "Second crossover requires ≥ 6.0m from intersection tangent point" if not ok else None)
+
+    # Boundary setback (min 0.5m)
+    for side, label in [("distance_to_left_boundary_m", "Left"), ("distance_to_right_boundary_m", "Right")]:
+        d = dims.get(side)
+        if d is not None:
+            ok = d >= 0.5
+            add(f"{label} boundary setback", "§4.4",
+                "≥ 0.5m", f"{d}m",
+                "PASS" if ok else "FAIL")
+
+    # Footpath flush join (R-110)
+    fp_flush = cons.get("footpath_flush_join")
+    if cons.get("footpath_exists"):
+        add("Footpath flush join", "R-110, R-111",
+            "Must meet flush, delineated for concrete",
+            "Yes" if fp_flush else ("No" if fp_flush is False else "Not assessed"),
+            "PASS" if fp_flush else "REQUIRES_VERIFICATION")
+
+    # Base course depth (R-122)
+    bc_depth = cons.get("base_course_depth_mm")
+    if bc_depth is not None:
+        ok = bc_depth >= 150
+        add("Base course depth", "R-122",
+            "≥ 150mm", f"{bc_depth}mm",
+            "PASS" if ok else "FAIL")
+
+    # Compaction (R-121)
+    mdd = cons.get("compaction_mdd_pct")
+    if mdd is not None:
+        ok = mdd >= 95
+        add("Compaction to MDD", "R-121",
+            "≥ 95%", f"{mdd}%",
+            "PASS" if ok else "FAIL")
+
+    # Corner lot sight triangle (AS 2890.1 §3.2.4)
+    prop = data.get("property", {})
+    if prop.get("is_corner_lot"):
+        add("Corner lot sight triangle", "AS 2890.1 §3.2.4",
+            "Extended sight triangle required",
+            "Corner lot identified",
+            "REQUIRES_VERIFICATION",
+            "Corner lot: curve radius measurement and sight distance calculation needed")
+
+    # Battleaxe lot checks (R-087, R-088)
+    if prop.get("is_battleaxe"):
+        add("Battleaxe lot driveway", "R-087, R-088",
+            "Single: min 3.0m + 0.5m garden bed. Adjoining: 6.0m combined",
+            "Battleaxe lot identified",
+            "REQUIRES_VERIFICATION",
+            "Verify driveway width meets battleaxe requirements")
+
+    # Second crossover (R-100)
+    num_cx = site.get("number_of_crossovers")
+    frontage = site.get("lot_frontage_m")
+    if num_cx is not None and num_cx > 1:
+        if frontage is not None and frontage <= 20:
+            add("Second crossover eligibility", "R-100",
+                "Lot boundary > 20m required", f"Frontage {frontage}m",
+                "FAIL", "Second crossover REFUSED — frontage ≤ 20m")
+        else:
+            add("Second crossover eligibility", "R-100",
+                "All 4 conditions must be met",
+                f"{num_cx} crossovers, frontage {'>' + str(frontage) + 'm' if frontage else 'unknown'}",
+                "REQUIRES_VERIFICATION",
+                "Check: >20m frontage, all specs met, ≥6.0m from tangent, no tree impact")
+
+    # DA-linked contribution check (R-166)
+    if prop.get("da_linked"):
+        add("DA-linked contribution", "R-166",
+            "DA crossovers not eligible for contribution",
+            "DA-linked",
+            "FAIL" if prop.get("da_linked") else "PASS",
+            "DA crossovers cannot receive financial contribution")
+
+    # Road speed zone
+    speed = site.get("road_speed_zone_kmh")
+    if speed is not None:
+        add("Speed zone for sight distance", "§9.5",
+            "Speed determines sight distance requirements",
+            f"{speed} km/h",
+            "PASS")
 
     statuses = [c["status"] for c in checks]
     p = statuses.count("PASS")
