@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-//  CITY OF KALAMUNDA — CROSSOVER APPROVAL SYSTEM v3
+//  COUNCIL — CROSSOVER APPROVAL SYSTEM v3
 //  Static UI configuration constants
 //  NOTE: Assessment categories/items now come from the API
 //  NOTE: Speed roads data now loaded from /speed_roads.geojson

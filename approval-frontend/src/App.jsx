@@ -13,10 +13,10 @@ import ExecutiveDashboard from './views/ExecutiveDashboard';
 import Sidebar from './components/ui/Sidebar';
 
 // ═══════════════════════════════════════════════════════════
-//  CITY OF KALAMUNDA — CROSSOVER APPROVAL SYSTEM v3
+//  COUNCIL — CROSSOVER APPROVAL SYSTEM v3
 //  Root app component — state, routing, session management
 // ═══════════════════════════════════════════════════════════
-export default function KalamundaApprovalPortal() {
+export default function CouncilApprovalPortal() {
   const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [apps, setApps] = useState([]);
@@ -32,7 +32,7 @@ export default function KalamundaApprovalPortal() {
   const [siteSettings, setSiteSettings] = useState({});
 
   // Site branding helpers (used everywhere)
-  const _orgName = siteSettings.org_name || "City of Kalamunda";
+  const _orgName = siteSettings.org_name || "Council";
   const S = {
     orgName: _orgName,
     orgShort: siteSettings.org_short_name || _orgName.replace(/^City of /i, ""),

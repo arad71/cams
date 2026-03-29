@@ -846,7 +846,7 @@ Respond with JSON only:
         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
             style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🎯 Property</button>
-          <button onClick={() => setMapTool("zoomKalamunda")} title="Zoom to full extent"
+          <button onClick={() => setMapTool("zoomExtent")} title="Zoom to full extent"
             style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🗺️ Extent</button>
           <button onClick={() => setMapTool("print")} title="Export as image"
             style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🖨️ Print</button>

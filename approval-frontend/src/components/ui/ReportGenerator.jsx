@@ -81,7 +81,7 @@ function ReportGenerator({ app, checklist, summary, currentUser, categories = []
     <style>@media print{body{margin:0;padding:15px}table{page-break-inside:auto}tr{page-break-inside:avoid}}</style></head>
     <body style="font-family:Arial,sans-serif;max-width:850px;margin:0 auto;padding:20px;color:#333;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a3a4a;padding-bottom:12px;margin-bottom:16px;">
-        <div><h1 style="margin:0;font-size:20px;color:#1a3a4a;">City of Kalamunda</h1>
+        <div><h1 style="margin:0;font-size:20px;color:#1a3a4a;">Council</h1>
           <div style="font-size:12px;color:#666;">Crossover Approval Assessment Report</div></div>
         <div style="text-align:right;"><div style="font-size:14px;font-weight:700;color:#1a3a4a;">${report.id}</div>
           <div style="font-size:11px;color:#666;">Version ${report.version} · ${report.generatedAtLabel}</div>
@@ -120,7 +120,7 @@ function ReportGenerator({ app, checklist, summary, currentUser, categories = []
       <div style="border-top:2px solid #1a3a4a;padding-top:10px;margin-top:20px;display:flex;justify-content:space-between;font-size:10px;color:#999;">
         <span>Generated: ${report.generatedAtLabel} by ${report.generatedBy}</span>
         <span>${report.id} · Version ${report.version}</span>
-        <span>City of Kalamunda · Crossover Approval System v3.1</span>
+        <span>Council · Crossover Approval System v3.1</span>
       </div>
       <script>window.onload=()=>window.print();</script>
     </body></html>`);
