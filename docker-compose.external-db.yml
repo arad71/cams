@@ -52,8 +52,7 @@ services:
         else: print(\"WARNING: DB not ready after 60s\"); sys.exit(1)
         " &&
         python -c "from app.seed import run_seed; run_seed()" &&
-        gunicorn app.main:app -k uvicorn.workers.UvicornWorker
-        --bind 0.0.0.0:8000 --workers ${API_WORKERS:-2} --timeout 120
+        gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers ${API_WORKERS:-2} --timeout 120
       '
     networks: [cams-net]
     healthcheck:
