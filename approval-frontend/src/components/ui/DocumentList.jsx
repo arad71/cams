@@ -358,11 +358,11 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     📏 Measure
                   </button>
                 )}
-                {/* Extract Site Plan button — only for PDFs */}
-                {canUpload && doc.type === "pdf" && (
+                {/* Extract pages button — for multi-page PDFs (building apps, site plans, titles, other docs) */}
+                {canUpload && doc.type === "pdf" && ["Building Application", "Other Documents", "Site Plan", "Certificate of Title"].includes(doc.category) && (
                   <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); }}
                     title="Extract pages from this document"
-                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     ✂ Extract
                   </button>
                 )}
