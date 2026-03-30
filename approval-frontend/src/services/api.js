@@ -1,15 +1,12 @@
 // ═══════════════════════════════════════════════════════════
 //  API SERVICE LAYER
 // ═══════════════════════════════════════════════════════════
-// In production (nginx): use relative /api (proxied to backend)
-// In local dev (vite):   use http://localhost:8000/api
-const isDev = window.location.port === '5173' || window.location.port === '3000';
-export const API_BASE = isDev ? "http://localhost:8000/api" : "/api";
+export const API_BASE = "http://localhost:8000/api";
 
 const api = {
   _token: null,
-  _setToken(t) { this._token = t; if (t) localStorage.setItem("cams_token", t); else localStorage.removeItem("cams_token"); },
-  _getToken() { if (!this._token) this._token = localStorage.getItem("cams_token"); return this._token; },
+  _setToken(t) { this._token = t; if (t) localStorage.setItem("kala_token", t); else localStorage.removeItem("kala_token"); },
+  _getToken() { if (!this._token) this._token = localStorage.getItem("kala_token"); return this._token; },
   async _fetch(path, opts = {}) {
     const token = this._getToken();
     const headers = { ...opts.headers };
