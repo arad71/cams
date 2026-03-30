@@ -23,6 +23,7 @@ function DocViewer({ doc, appDbId, onClose }) {
   const prevState = useRef(null);
 
   const fileUrl = api.getDocumentFileUrl(appDbId, doc.id);
+  const downloadUrl = api.getDocumentDownloadUrl(appDbId, doc.id);
   const isImage = ["jpg", "jpeg", "png", "gif"].includes((doc.type || "").toLowerCase());
   const isPdf = (doc.type || "").toLowerCase() === "pdf";
 
@@ -68,7 +69,7 @@ function DocViewer({ doc, appDbId, onClose }) {
           <span style={{ fontSize: 10, opacity: 0.6 }}>{doc.type.toUpperCase()} · {doc.size}</span>
         </div>
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-          <a href={fileUrl} download={doc.name} title="Download"
+          <a href={downloadUrl} download={doc.name} title="Download"
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px", textDecoration: "none", display: "flex", alignItems: "center" }}>📥</a>
           <button onClick={() => window.open(fileUrl, "_blank")} title="Open in new tab"
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>↗</button>
@@ -90,7 +91,7 @@ function DocViewer({ doc, appDbId, onClose }) {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
             <span style={{ fontSize: 48 }}>{typeIcons[doc.type] || "📄"}</span>
             <div style={{ fontSize: 13, color: "#5a6a74", fontWeight: 600 }}>Preview not available for {doc.type.toUpperCase()} files</div>
-            <a href={fileUrl} download={doc.name}
+            <a href={downloadUrl} download={doc.name}
               style={{ padding: "8px 18px", borderRadius: 8, background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📥 Download File</a>
           </div>
         )}
@@ -344,7 +345,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   👁 View
                 </button>
                 {/* Download button */}
-                <a href={api.getDocumentFileUrl(appDbId, doc.id)} download={doc.name}
+                <a href={api.getDocumentDownloadUrl(appDbId, doc.id)} download={doc.name}
                   onClick={(e) => e.stopPropagation()}
                   title="Download file"
                   style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #27ae6040", background: "#eafaf1", color: "#27ae60", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", textDecoration: "none", display: "inline-block" }}>

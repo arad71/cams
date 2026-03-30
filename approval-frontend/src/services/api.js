@@ -83,6 +83,10 @@ const api = {
     const token = this._getToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/file?token=${encodeURIComponent(token || "")}`;
   },
+  getDocumentDownloadUrl(appId, docId) {
+    const token = this._getToken();
+    return `${API_BASE}/applications/${appId}/documents/${docId}/file?download=true&token=${encodeURIComponent(token || "")}`;
+  },
   getDocumentRenderUrl(appId, docId, page = 1) {
     const token = this._getToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/render?page=${page}&token=${encodeURIComponent(token || "")}`;

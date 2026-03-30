@@ -738,10 +738,11 @@ def _parse_correction_value(val):
 def download_document(
     app_id: int, doc_id: int,
     token: str = Query(None, description="Bearer token (for iframe/new window access)"),
+    download: bool = Query(False, description="Force download (attachment) instead of inline view"),
     db: Session = Depends(get_db),
 ):
-    """Serve the uploaded document file for viewing/downloading."""
-    from fastapi.responses import FileResponse
+    """Serve the uploaded document file. Default: inline (for viewer). ?download=true for saving."""
+    from fastapi.responses import FileResponse, Response
     from app.core.auth import get_current_user as _get_user
     from jose import jwt as jose_jwt, JWTError as JoseJWTError
 
@@ -775,8 +776,20 @@ def download_document(
     media_type = media_types.get(ext, "application/octet-stream")
 
     from app.services.audit import log_audit
-    log_audit(db=db, action="download", entity_type="document", user=user, entity_id=str(doc.id), description=f"Downloaded {doc.name}")
-    return FileResponse(file_path, media_type=media_type, filename=doc.name)
+    action = "download" if download else "view"
+    log_audit(db=db, action=action, entity_type="document", user=user, entity_id=str(doc.id), description=f"{action.title()} {doc.name}")
+
+    if download:
+        return FileResponse(file_path, media_type=media_type, filename=doc.name)
+    else:
+        # Inline: read file and return with Content-Disposition: inline
+        file_bytes = file_path.read_bytes()
+        safe_name = doc.name.replace('"', '\\"')
+        return Response(
+            content=file_bytes,
+            media_type=media_type,
+            headers={"Content-Disposition": f'inline; filename="{safe_name}"'}
+        )
 
 
 @router.get("/{app_id}/documents/{doc_id}/render")
