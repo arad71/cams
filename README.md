@@ -23,13 +23,28 @@ Crossover (driveway) permit assessment system for Western Australian local counc
 ## Quick Start
 
 ```bash
-# First-time Azure VM setup
+# First-time Azure VM setup (Docker)
 curl -fsSL https://raw.githubusercontent.com/arad71/cams/master/setup-azure.sh -o setup.sh
 sudo bash setup.sh
 
-# Or if repo is already cloned
+# Or if repo is already cloned (Docker)
 ./deploy.sh test       # Test environment (Docker DB)
 ./deploy.sh prod       # Production (external DB)
+```
+
+### Local Development (no Docker)
+
+```bash
+# Prerequisites: PostgreSQL on localhost:5432, Python 3.11+, Node 18+
+./run-local.sh setup     # Create DB, venv, install deps, seed
+./run-local.sh start     # Start backend (uvicorn :8000) + frontend (vite :5173)
+```
+
+Or run separately:
+```bash
+./run-local.sh backend   # uvicorn on :8000 with hot reload
+./run-local.sh frontend  # vite dev server on :5173
+./run-local.sh seed      # Re-seed database (clears all data)
 ```
 
 ## Deploy Commands
