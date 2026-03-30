@@ -537,29 +537,24 @@ def reseed_rules(db: Session = Depends(get_db),
                  current_user: User = Depends(require_role("admin"))):
     """Delete all applications, assessments, rules and re-seed from latest code. Admin only."""
     from app.services.audit import log_audit
-    from app.models.application import Application, ApplicationNote, Document, Inspection, Report
-    from app.models.ai_training import AITrainingSample, AITrainingCorrection
-    from app.models.sight_distance import SightDistance
+    from sqlalchemy import text
 
     old_rules = db.query(AssessmentRule).count()
     old_apps = db.query(Application).count()
 
-    # Delete application-related data (order matters for foreign keys)
-    db.query(AITrainingCorrection).delete()
-    db.query(AITrainingSample).delete()
-    db.query(CaseAssessment).delete()
-    db.query(SightDistance).delete()
-    db.query(Report).delete()
-    db.query(Inspection).delete()
-    db.query(ApplicationNote).delete()
-    db.query(Document).delete()
-    db.query(Application).delete()
-    db.commit()
-
-    # Delete all assessment rules, items, categories
-    db.query(AssessmentRule).delete()
-    db.query(AssessmentItem).delete()
-    db.query(AssessmentCategory).delete()
+    # Delete in dependency order — resilient to missing tables
+    tables = [
+        "ai_training_corrections", "ai_training_samples",
+        "case_assessments", "sight_distances",
+        "reports", "inspections", "application_notes",
+        "documents", "applications",
+        "assessment_rules", "assessment_items", "assessment_categories",
+    ]
+    for t in tables:
+        try:
+            db.execute(text(f"DELETE FROM {t}"))
+        except Exception:
+            db.rollback()
     db.commit()
 
     # Re-seed everything from latest code

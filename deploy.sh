@@ -210,26 +210,34 @@ case "${1:-help}" in
     echo -e "${BLUE}Re-seeding: clearing ALL applications and rules...${NC}"
     dc exec approval-api python -c "
 from app.core.database import SessionLocal
-from app.models.assessment import AssessmentRule, AssessmentItem, AssessmentCategory, CaseAssessment
-from app.models.application import Application, ApplicationNote, Document, Inspection, Report
-from app.models.ai_training import AITrainingSample, AITrainingCorrection
-from app.models.sight_distance import SightDistance
+from sqlalchemy import text
 db = SessionLocal()
-db.query(AITrainingCorrection).delete()
-db.query(AITrainingSample).delete()
-db.query(CaseAssessment).delete()
-db.query(SightDistance).delete()
-db.query(Report).delete()
-db.query(Inspection).delete()
-db.query(ApplicationNote).delete()
-db.query(Document).delete()
-db.query(Application).delete()
-db.query(AssessmentRule).delete()
-db.query(AssessmentItem).delete()
-db.query(AssessmentCategory).delete()
+
+# Delete in dependency order — use raw SQL with IF EXISTS for resilience
+tables_to_clear = [
+    'ai_training_corrections',
+    'ai_training_samples',
+    'case_assessments',
+    'sight_distances',
+    'reports',
+    'inspections',
+    'application_notes',
+    'documents',
+    'applications',
+    'assessment_rules',
+    'assessment_items',
+    'assessment_categories',
+]
+for t in tables_to_clear:
+    try:
+        db.execute(text(f'DELETE FROM {t}'))
+    except Exception as e:
+        db.rollback()
+        print(f'  Skip {t}: {e}')
 db.commit()
 db.close()
-print('Cleared all applications, assessments, and rules')
+print('Cleared all data')
+
 from app.seed import run_seed
 run_seed()
 "
