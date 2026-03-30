@@ -4,8 +4,6 @@ from fastapi import APIRouter, UploadFile, File, Query, HTTPException
 from app.models.extract_app_form import ExtractionAppResponse
 from app.services.extractor_app_form import read_application, get_field_map_brief
 from app.core.config import DEFAULT_OCR_MIN_CONFIDENCE, DEFAULT_DPI
-from app.services.address_to_geo import find_lot_geometry_for_address
-import json
 
 router = APIRouter(prefix="", tags=["extract_app_form"])
 
@@ -36,27 +34,6 @@ async def extract(
             debug=include_debug,
         )
         result["source_file"] = file.filename
-        print(f"Address extracted: {result['values']['property_address']}")
-        
-        # --- demo ------------------------------------------------------------------------
-
-        addr=result['values']['property_address']
-        path = Path("app/source_file/lot.geojson")
-
-        # Example queries that should match your sample rows:
-        # - "54 Stirling Cr High Wycombe"
-        # - "54 Stirling Crescent, High Wycombe"
-        # - "2 Maud Rd Maida Vale"
-
-        geom = find_lot_geometry_for_address(path, addr)
-        if geom:
-                        print(f"Address: {addr}")
-                        print("Lot geometry (GeoJSON):")
-                        print(json.dumps(geom, indent=2))
-                        print("-" * 60)
-        else:
-                        print(f"No match found for: {addr}")
-                   
         return result
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
