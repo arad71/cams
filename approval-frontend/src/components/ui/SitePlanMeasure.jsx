@@ -35,6 +35,66 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   const svgRef = useRef(null);
   const imgRef = useRef(null);
 
+  // Window position/size
+  const [winPos, setWinPos] = useState({ x: 40, y: 30 });
+  const [winSize, setWinSize] = useState({ w: Math.min(window.innerWidth - 80, 1200), h: Math.min(window.innerHeight - 60, 800) });
+  const [maximized, setMaximized] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [resizing, setResizing] = useState(false);
+  const dragOff = useRef({ x: 0, y: 0 });
+  const resizeStart = useRef({ x: 0, y: 0, w: 0, h: 0 });
+  const prevState = useRef(null);
+
+  // Drag header to move
+  const onHeaderMouseDown = (e) => {
+    if (maximized) return;
+    e.preventDefault();
+    setDragging(true);
+    dragOff.current = { x: e.clientX - winPos.x, y: e.clientY - winPos.y };
+  };
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => setWinPos({ x: e.clientX - dragOff.current.x, y: e.clientY - dragOff.current.y });
+    const onUp = () => setDragging(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [dragging]);
+
+  // Resize from bottom-right corner
+  const onResizeMouseDown = (e) => {
+    if (maximized) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setResizing(true);
+    resizeStart.current = { x: e.clientX, y: e.clientY, w: winSize.w, h: winSize.h };
+  };
+  useEffect(() => {
+    if (!resizing) return;
+    const onMove = (e) => {
+      const dw = e.clientX - resizeStart.current.x;
+      const dh = e.clientY - resizeStart.current.y;
+      setWinSize({ w: Math.max(600, resizeStart.current.w + dw), h: Math.max(400, resizeStart.current.h + dh) });
+    };
+    const onUp = () => setResizing(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [resizing]);
+
+  // Maximize/restore
+  const toggleMaximize = () => {
+    if (maximized) {
+      if (prevState.current) { setWinPos(prevState.current.pos); setWinSize(prevState.current.size); }
+      setMaximized(false);
+    } else {
+      prevState.current = { pos: { ...winPos }, size: { ...winSize } };
+      setWinPos({ x: 0, y: 0 });
+      setWinSize({ w: window.innerWidth, h: window.innerHeight });
+      setMaximized(true);
+    }
+  };
+
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [tool, setTool] = useState('measure');
@@ -293,10 +353,15 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
     </button>
   );
 
+  const winStyle = maximized
+    ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 10001 }
+    : { position: 'fixed', top: winPos.y, left: winPos.x, width: winSize.w, height: winSize.h, zIndex: 10001 };
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#f5f7fa', zIndex: 10001, display: 'flex', flexDirection: 'column', fontFamily: "'Outfit',sans-serif", color: '#1a3a4a' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 48, background: '#fff', borderBottom: '1px solid #e4e9ec', flexShrink: 0 }}>
+    <div style={{ ...winStyle, background: '#f5f7fa', display: 'flex', flexDirection: 'column', fontFamily: "'Outfit',sans-serif", color: '#1a3a4a', borderRadius: maximized ? 0 : 10, boxShadow: maximized ? 'none' : '0 12px 48px rgba(0,0,0,0.25)', border: maximized ? 'none' : '1px solid #d5dde2', overflow: 'hidden' }}>
+      {/* Header — drag to move, double-click to maximize */}
+      <div onMouseDown={onHeaderMouseDown} onDoubleClick={toggleMaximize}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 48, background: '#fff', borderBottom: '1px solid #e4e9ec', flexShrink: 0, cursor: maximized ? 'default' : 'move', userSelect: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, #1abc9c, #16a085)', borderRadius: 7, display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 11, color: '#fff' }}>SP</div>
           <span style={{ fontSize: 14, fontWeight: 600, color: '#1a3a4a' }}>Site Plan Measure</span>
@@ -313,6 +378,8 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>↩ Undo</button>
           <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>🗑 Clear</button>
           <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
+          <button onClick={toggleMaximize} title={maximized ? "Restore" : "Maximize"}
+            style={{ height: 32, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>{maximized ? '❐' : '□'}</button>
           <button onClick={onClose} style={{ height: 32, padding: '0 14px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 600 }}>✕ Close</button>
         </div>
       </div>
@@ -410,6 +477,18 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         <span>{Math.round(zoom * 100)}%</span>
         <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Calibrate</span>
       </div>
+
+      {/* Resize handle — bottom right corner */}
+      {!maximized && (
+        <div onMouseDown={onResizeMouseDown}
+          style={{ position: 'absolute', bottom: 0, right: 0, width: 18, height: 18, cursor: 'nwse-resize', zIndex: 2 }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" style={{ opacity: 0.3 }}>
+            <line x1="14" y1="4" x2="4" y2="14" stroke="#7a8a94" strokeWidth="1.5"/>
+            <line x1="14" y1="8" x2="8" y2="14" stroke="#7a8a94" strokeWidth="1.5"/>
+            <line x1="14" y1="12" x2="12" y2="14" stroke="#7a8a94" strokeWidth="1.5"/>
+          </svg>
+        </div>
+      )}
 
       {/* Save to AI field modal */}
       {saveModal && (
