@@ -207,21 +207,33 @@ case "${1:-help}" in
     ;;
 
   reseed)
-    echo -e "${BLUE}Re-seeding assessment rules...${NC}"
+    echo -e "${BLUE}Re-seeding: clearing ALL applications and rules...${NC}"
     dc exec approval-api python -c "
 from app.core.database import SessionLocal
-from app.models.assessment import AssessmentRule, AssessmentItem, AssessmentCategory
+from app.models.assessment import AssessmentRule, AssessmentItem, AssessmentCategory, CaseAssessment
+from app.models.application import Application, ApplicationNote, Document, Inspection, Report
+from app.models.ai_training import AITrainingSample, AITrainingCorrection
+from app.models.sight_distance import SightDistance
 db = SessionLocal()
+db.query(AITrainingCorrection).delete()
+db.query(AITrainingSample).delete()
+db.query(CaseAssessment).delete()
+db.query(SightDistance).delete()
+db.query(Report).delete()
+db.query(Inspection).delete()
+db.query(ApplicationNote).delete()
+db.query(Document).delete()
+db.query(Application).delete()
 db.query(AssessmentRule).delete()
 db.query(AssessmentItem).delete()
 db.query(AssessmentCategory).delete()
 db.commit()
 db.close()
-print('Cleared existing rules')
+print('Cleared all applications, assessments, and rules')
 from app.seed import run_seed
 run_seed()
 "
-    echo -e "${GREEN}✓ Rules re-seeded (12 categories, 70 items, 206 rules)${NC}"
+    echo -e "${GREEN}✓ Full reseed complete (rules + sample apps re-created)${NC}"
     ;;
 
   help|*)

@@ -535,45 +535,49 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db),
 @router.post("/assessment/reseed-rules")
 def reseed_rules(db: Session = Depends(get_db),
                  current_user: User = Depends(require_role("admin"))):
-    """Delete all assessment rules and re-seed from latest code. Admin only."""
+    """Delete all applications, assessments, rules and re-seed from latest code. Admin only."""
     from app.services.audit import log_audit
-    old_count = db.query(AssessmentRule).count()
+    from app.models.application import Application, ApplicationNote, Document, Inspection, Report
+    from app.models.ai_training import AITrainingSample, AITrainingCorrection
+    from app.models.sight_distance import SightDistance
 
-    # Delete all existing rules
-    db.query(AssessmentRule).delete()
+    old_rules = db.query(AssessmentRule).count()
+    old_apps = db.query(Application).count()
+
+    # Delete application-related data (order matters for foreign keys)
+    db.query(AITrainingCorrection).delete()
+    db.query(AITrainingSample).delete()
+    db.query(CaseAssessment).delete()
+    db.query(SightDistance).delete()
+    db.query(Report).delete()
+    db.query(Inspection).delete()
+    db.query(ApplicationNote).delete()
+    db.query(Document).delete()
+    db.query(Application).delete()
     db.commit()
 
-    # Re-seed rules (the seed code checks count == 0, which is now true)
-    item_map = {i.code: i.id for i in db.query(AssessmentItem).all()}
+    # Delete all assessment rules, items, categories
+    db.query(AssessmentRule).delete()
+    db.query(AssessmentItem).delete()
+    db.query(AssessmentCategory).delete()
+    db.commit()
 
-    def R(code, priority, source, field, operator, value, result, confidence, reason):
-        iid = item_map.get(code)
-        if not iid:
-            return
-        db.add(AssessmentRule(
-            item_id=iid, priority=priority, source=source, field=field,
-            operator=operator, value=value, result=result,
-            confidence=confidence, reason_template=reason,
-        ))
-
-    # Import and execute the rules from seed module
+    # Re-seed everything from latest code
     import importlib
     import app.seed as seed_module
-    importlib.reload(seed_module)  # Pick up latest code changes
+    importlib.reload(seed_module)
 
-    # Execute the seed by calling run_seed which will seed rules since count is 0
     from app.core.database import SessionLocal
     seed_db = SessionLocal()
     try:
-        # Rules are seeded inside run_seed when AssessmentRule count == 0
-        # Since we just deleted them, this will re-create them
         seed_module.run_seed()
     except Exception as e:
         print(f"Reseed error: {e}")
     finally:
         seed_db.close()
 
-    new_count = db.query(AssessmentRule).count()
+    new_rules = db.query(AssessmentRule).count()
+    new_apps = db.query(Application).count()
     log_audit(db=db, action="reseed_rules", entity_type="assessment", user=current_user,
-              description=f"Re-seeded assessment rules: {old_count} deleted, {new_count} created")
-    return {"message": f"Re-seeded: {old_count} old rules deleted, {new_count} new rules created"}
+              description=f"Full reseed: {old_apps} apps deleted, {old_rules} old rules deleted, {new_rules} new rules + {new_apps} sample apps created")
+    return {"message": f"Full reseed complete: {old_apps} applications removed, {old_rules}→{new_rules} rules, {new_apps} sample apps created"}
