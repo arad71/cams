@@ -23,10 +23,27 @@ cd "$SCRIPT_DIR"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 
-# Default local database settings (override with .env)
+# Load .env.test if no .env exists (local dev uses test config)
+if [ ! -f .env ] && [ -f .env.test ]; then
+  echo -e "${YELLOW}No .env found — copying .env.test → .env${NC}"
+  cp .env.test .env
+  # For local dev, override DB to use localhost (not Docker container)
+  if ! grep -q "DATABASE_URL" .env; then
+    echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cams_approval" >> .env
+  fi
+fi
+
+# Source .env file if it exists
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
+
+# Fallback defaults for local dev
 export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/cams_approval}"
 export SECRET_KEY="${SECRET_KEY:-local-dev-secret-key-not-for-production}"
-export CORS_ORIGINS="${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:5173}"
+export CORS_ORIGINS="${CORS_ORIGINS:-*}"
 export DEBUG="${DEBUG:-true}"
 
 case "${1:-help}" in
