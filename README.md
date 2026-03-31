@@ -90,7 +90,9 @@ cams/
 ├── setup-azure.sh             First-time VM setup
 ├── docker-compose.prod.yml    Test (Docker DB)
 ├── docker-compose.external-db.yml  Production (external DB)
-├── DEPLOY.md                  Production deployment guide
+├── DEPLOY-LOCAL.md            Local dev guide (uvicorn + vite)
+├── DEPLOY-TEST.md             Test deployment (Azure VM + Docker DB)
+├── DEPLOY.md                  Production deployment (Azure VM + external DB)
 ```
 
 ## Deployment Options
