@@ -95,6 +95,34 @@ cams/
 ├── DEPLOY.md                  Production deployment (Azure VM + external DB)
 ```
 
+## GeoData — Data WA Integration
+
+Lot boundaries, road network and speed limits are sourced from WA Landgate's
+[SLIP public ArcGIS REST services](https://public-services.slip.wa.gov.au/public/rest/services)
+(free, no API key).
+
+| Layer | Source | Update Frequency |
+|-------|--------|-----------------|
+| Lot boundaries | Cadastre Address (LGATE-002) | Weekly (Sunday 2am) |
+| Road network | Roads Simplified (LGATE-195) | Weekly (Sunday 2am) |
+| Speed limits | MRWA Road Network | Weekly (Sunday 2am) |
+
+```bash
+# Manual refresh (all layers)
+python scripts/update_geodata.py
+
+# Refresh a single layer
+python scripts/update_geodata.py --layer lots
+
+# Via API (admin)
+curl -X POST http://localhost:8000/api/geodata/refresh
+
+# Check status
+curl http://localhost:8000/api/geodata/status
+```
+
+Admin users can also trigger refreshes from **System Admin → GeoData (Data WA)** tab.
+
 ## Deployment Options
 
 | | Test | Production |

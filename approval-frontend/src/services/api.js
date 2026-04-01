@@ -170,6 +170,14 @@ const api = {
   async getAllSettings() { return this._fetch("/settings/"); },
   async updateSettings(updates) { return this._fetch("/settings/", { method: "PATCH", body: updates }); },
   async reseedRules() { return this._fetch("/assessment/reseed-rules", { method: "POST" }); },
+
+  // GeoData — Data WA SLIP integration
+  async getGeodataStatus() { return this._fetch("/geodata/status"); },
+  async refreshGeodata(layer = null) { const q = layer ? `?layer=${layer}` : ""; return this._fetch(`/geodata/refresh${q}`, { method: "POST" }); },
+  async getGeodataLots(opts = {}) { const q = new URLSearchParams(opts).toString(); return this._fetch(`/geodata/lots${q ? "?" + q : ""}`); },
+  async getGeodataRoads(bbox = null) { const q = bbox ? `?bbox=${bbox}` : ""; return this._fetch(`/geodata/roads${q}`); },
+  async getGeodataSpeedLimits() { return this._fetch("/geodata/speed-limits"); },
+  async lookupLot(address) { return this._fetch(`/geodata/lookup-lot?address=${encodeURIComponent(address)}`); },
 };
 
 export default api;

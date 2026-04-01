@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     # Document storage
     DOCUMENT_DIR: str = Field(default="./uploads/documents")
 
+    # === GeoData / Data WA SLIP ===
+    COUNCIL_BBOX: str = Field(default="115.95,-32.10,116.15,-31.87")
+    COUNCIL_LGA_NAME: str = Field(default="Kalamunda")
+    COUNCIL_LGA_NO: str = Field(default="102")
+    GEOJSON_OUTPUT_DIR: str = Field(default="")
+
     # === Microsoft Entra ID (Azure AD) SSO ===
     # Set these to enable "Sign in with Microsoft" alongside local auth
     ENTRA_ENABLED: bool = Field(default=False)

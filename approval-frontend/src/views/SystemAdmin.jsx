@@ -545,6 +545,129 @@ function SightDistTab() {
 // ═══════════════════════════════════════════════════════
 //  Main SystemAdmin Component
 // ═══════════════════════════════════════════════════════
+// ─── GeoData Tab (Data WA SLIP) ──────────────────────────
+function GeoDataTab() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(null); // null | 'all' | 'lots' | 'roads' | 'speed_limits'
+  const [msg, setMsg] = useState(null);
+
+  const loadStatus = useCallback(async () => {
+    try { const data = await api.getGeodataStatus(); setStatus(data); }
+    catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { loadStatus(); }, [loadStatus]);
+
+  // Poll status while refreshing
+  useEffect(() => {
+    if (!refreshing) return;
+    const iv = setInterval(loadStatus, 3000);
+    return () => clearInterval(iv);
+  }, [refreshing, loadStatus]);
+
+  const doRefresh = async (layer) => {
+    setRefreshing(layer || 'all');
+    setMsg(null);
+    try {
+      await api.refreshGeodata(layer);
+      setMsg({ type: 'ok', text: `Refresh started for ${layer || 'all layers'}. Polling for updates...` });
+      // Poll for ~60s then stop
+      setTimeout(() => { setRefreshing(null); loadStatus(); }, 60000);
+    } catch (e) {
+      setMsg({ type: 'err', text: e.message });
+      setRefreshing(null);
+    }
+  };
+
+  if (loading) return <div style={{ padding: 20, color: "#7a8a94" }}>Loading GeoData status...</div>;
+
+  const layers = [
+    { key: 'lots', label: 'Lot Boundaries', file: 'lot.geojson', icon: '🏠', desc: 'Cadastre Address (LGATE-002) — land parcel polygons with addresses' },
+    { key: 'roads', label: 'Road Network', file: 'Road_Network.geojson', icon: '🛣️', desc: 'Roads Simplified (LGATE-195) — road centrelines with classification' },
+    { key: 'speed_limits', label: 'Speed Limits', file: 'Legal_Speed_Limits.geojson', icon: '⚡', desc: 'MRWA Road Network — gazetted speed limits per road segment' },
+  ];
+
+  const fmtDate = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#1a3a4a" }}>GeoJSON Data — Data WA (SLIP)</div>
+          <div style={{ fontSize: 11, color: "#95a5a6", marginTop: 2 }}>
+            Lot boundaries, roads & speed limits from WA Landgate public services · LGA: {status?.config?.lga_name || 'Kalamunda'}
+          </div>
+        </div>
+        <button onClick={() => doRefresh(null)} disabled={!!refreshing}
+          style={{ ...btnAdd, opacity: refreshing ? 0.5 : 1 }}>
+          {refreshing ? '⏳ Refreshing...' : '🔄 Refresh All'}
+        </button>
+      </div>
+
+      {msg && (
+        <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 12, fontSize: 12,
+          background: msg.type === 'ok' ? "#e8f8f5" : "#fdf0ef",
+          color: msg.type === 'ok' ? "#1abc9c" : "#e74c3c",
+          border: `1px solid ${msg.type === 'ok' ? "#b8f0e0" : "#f5c6c2"}` }}>
+          {msg.text}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {layers.map(layer => {
+          const st = status?.layers?.[layer.key] || {};
+          const fileInfo = status?.files?.[layer.file];
+          const isRefreshing = refreshing === layer.key || refreshing === 'all';
+
+          return (
+            <div key={layer.key} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", padding: "14px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1a3a4a" }}>
+                    <span style={{ marginRight: 6 }}>{layer.icon}</span>{layer.label}
+                    {isRefreshing && <span style={{ marginLeft: 8, fontSize: 10, color: "#f39c12" }}>⏳ updating...</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#95a5a6", marginTop: 2 }}>{layer.desc}</div>
+
+                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: "#5a6a74" }}>
+                    <span title="Feature count">📊 {st.feature_count?.toLocaleString() || (fileInfo ? '✓ file exists' : '—')} features</span>
+                    <span title="File size">💾 {fileInfo ? `${fileInfo.size_mb} MB` : '—'}</span>
+                    <span title="Last refresh">🕐 {fmtDate(st.last_refresh || fileInfo?.modified)}</span>
+                    {st.duration_s > 0 && <span title="Refresh duration">⏱ {st.duration_s}s</span>}
+                  </div>
+
+                  {st.error && (
+                    <div style={{ fontSize: 11, color: "#e74c3c", marginTop: 4, padding: "4px 8px", background: "#fdf0ef", borderRadius: 4, display: "inline-block" }}>
+                      ⚠ {st.error}
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={() => doRefresh(layer.key)} disabled={!!refreshing}
+                  style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", fontSize: 11, cursor: refreshing ? "not-allowed" : "pointer", fontFamily: "inherit", color: "#5a6a74", fontWeight: 600 }}>
+                  🔄 Refresh
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {status?.config && (
+        <div style={{ marginTop: 14, padding: "10px 14px", background: "#f8f9fb", borderRadius: 8, fontSize: 11, color: "#7a8a94" }}>
+          <strong>Config:</strong> BBOX {status.config.bbox} · {status.config.localities?.length || 0} localities · Output: {status.config.output_dir}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PROP, roles, departments }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
   const [activeTab, setActiveTab] = useState('users');
@@ -554,6 +677,7 @@ function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PR
     { id: 'assessment', icon: '✅', label: 'Assessment Items' },
     { id: 'rules', icon: '⚙️', label: 'Assessment Rules' },
     { id: 'sight_dist', icon: '👁', label: 'Sight Distances' },
+    { id: 'geodata', icon: '🗺️', label: 'GeoData (Data WA)' },
   ];
 
   return (
@@ -574,6 +698,7 @@ function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PR
       {activeTab === 'assessment' && <AssessmentTab />}
       {activeTab === 'rules' && <RulesTab />}
       {activeTab === 'sight_dist' && <SightDistTab />}
+      {activeTab === 'geodata' && <GeoDataTab />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
-from app.api import auth, users, applications, assessments, sight_distance, extract_app_form, lookups, ai_training, audit, site_settings
+from app.api import auth, users, applications, assessments, sight_distance, extract_app_form, lookups, ai_training, audit, site_settings, geodata
 
 from app.schemas.ai import FindingsResponse, ErrorResponse
 from app.services.ai_analyser import analyse_document, GUIDELINE
@@ -46,6 +46,7 @@ app.include_router(lookups.router, prefix="/api")
 app.include_router(ai_training.router, prefix="/api")
 app.include_router(audit.router, prefix="/api")
 app.include_router(site_settings.router, prefix="/api")
+app.include_router(geodata.router, prefix="/api")
 
 
 @app.get("/ai/guideline")
