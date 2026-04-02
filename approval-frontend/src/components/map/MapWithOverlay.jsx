@@ -177,10 +177,100 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
     } return ff;
   };
 
-  const fetchElev3D = async (points) => {
+  // ── Elevation data: SLIP 2m contours (primary) → Open-Meteo DEM (fallback) ──
+  const SLIP_CONTOUR_URL = "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/Terrain/MapServer/0/query";
+
+  const fetchElevFromSLIP = async (points, bbox) => {
+    // Query SLIP 2m contour lines within the sight triangle bounding box
+    const geom = `${bbox.minLng},${bbox.minLat},${bbox.maxLng},${bbox.maxLat}`;
+    const params = new URLSearchParams({
+      where: "1=1",
+      geometry: geom,
+      geometryType: "esriGeometryEnvelope",
+      inSR: "7844",
+      outSR: "7844",
+      outFields: "elevation_m",
+      returnGeometry: "true",
+      f: "json",
+      resultRecordCount: "500",
+    });
+    const resp = await fetch(`${SLIP_CONTOUR_URL}?${params}`);
+    if (!resp.ok) throw new Error(`SLIP ${resp.status}`);
+    const data = await resp.json();
+    if (!data.features || data.features.length === 0) throw new Error("No SLIP contour data");
+
+    // Build a dense point cloud from contour polylines: each vertex has an elevation
+    const contourPts = []; // { lat, lng, elev }
+    for (const feat of data.features) {
+      const elev = feat.attributes?.elevation_m;
+      if (elev == null || elev === 0) continue;
+      const paths = feat.geometry?.paths || [];
+      for (const path of paths) {
+        for (const [lng, lat] of path) {
+          contourPts.push({ lat, lng, elev });
+        }
+      }
+    }
+    if (contourPts.length < 3) throw new Error("Too few contour points");
+
+    // For each query point, find elevation by inverse-distance weighted interpolation
+    // from the nearest contour vertices (use 4 nearest for smooth interpolation)
+    const elevations = points.map(pt => {
+      // Find distances to all contour points (fast for typical <2000 points)
+      const dists = contourPts.map((cp, i) => ({
+        i,
+        d: Math.sqrt((pt.lat - cp.lat) ** 2 + (pt.lng - cp.lng) ** 2),
+        e: cp.elev,
+      }));
+      dists.sort((a, b) => a.d - b.d);
+      const nearest = dists.slice(0, 6);
+
+      // If very close to a contour point, use it directly
+      if (nearest[0].d < 0.000005) return nearest[0].e; // ~0.5m
+
+      // Inverse distance weighting
+      let sumW = 0, sumWE = 0;
+      for (const n of nearest) {
+        const w = 1 / (n.d * n.d + 1e-12);
+        sumW += w;
+        sumWE += w * n.e;
+      }
+      return sumWE / sumW;
+    });
+
+    return { elevation: elevations, source: "slip_2m_contour", contourCount: data.features.length, pointCloud: contourPts.length };
+  };
+
+  const fetchElevFromOpenMeteo = async (points) => {
     const lats = points.map(p => p.lat.toFixed(6)).join(','), lngs = points.map(p => p.lng.toFixed(6)).join(',');
     const resp = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lngs}`);
-    if (!resp.ok) throw new Error(`Elev ${resp.status}`); return resp.json();
+    if (!resp.ok) throw new Error(`Elev ${resp.status}`);
+    const data = await resp.json();
+    return { elevation: data.elevation || [], source: "open_meteo_30m" };
+  };
+
+  const fetchElev3D = async (points, bbox) => {
+    // Try SLIP 2m contours first (LiDAR-derived, ~2m resolution), fall back to Open-Meteo
+    try {
+      const result = await fetchElevFromSLIP(points, bbox);
+      // Sanity check: if all elevations are 0 or identical, data might be bad
+      const unique = new Set(result.elevation.map(e => Math.round(e)));
+      if (unique.size >= 2 && !result.elevation.every(e => e === 0)) {
+        console.log(`Elevation: SLIP 2m contours (${result.contourCount} contours, ${result.pointCloud} vertices)`);
+        return result;
+      }
+      throw new Error("SLIP data quality check failed");
+    } catch (slipErr) {
+      console.warn("SLIP contour fetch failed, falling back to Open-Meteo:", slipErr.message);
+      try {
+        return await fetchElevFromOpenMeteo(points);
+      } catch (omErr) {
+        console.warn("Open-Meteo also failed:", omErr.message);
+        // Final fallback: estimate from lat (very rough — Kalamunda area ~250-350m)
+        const baseLine = 250 + Math.abs(points[0]?.lat || -32) * 3;
+        return { elevation: points.map((_, i) => baseLine + Math.sin(i * 0.3) * 2), source: "estimate" };
+      }
+    }
   };
 
   const losEngine3D = (A, C, D, feats, eg, eyeH, tgtH) => {
@@ -389,7 +479,7 @@ Respond with JSON only:
     const A = sightTriangle.ptA, C = sightTriangle.triLeft, D = sightTriangle.triRight;
     const eyeH = eyeHeight, tgtH = objectHeight;
     setAnalysisRunning(true); setAnalysisResult(null);
-    const steps = ['Querying OSM Overpass...', 'Processing features...', 'Fetching elevation (DEM)...', 'Ground elevations...', '3D line-of-sight (40 rays)...', 'Capturing satellite + street view...', 'AI Vision classification...', 'Done!'];
+    const steps = ['Querying OSM Overpass...', 'Processing features...', 'Fetching elevation (SLIP/DEM)...', 'Ground elevations...', '3D line-of-sight (40 rays)...', 'Capturing satellite + street view...', 'AI Vision classification...', 'Done!'];
     const ss = (n) => setAnalysisSteps(steps.map((s, i) => ({ text: s, status: i < n ? 'done' : i === n ? 'active' : 'pending' })));
     let feats = [], mode = 'live';
     try { ss(0); const ctr = { lat: (A.lat + C.lat + D.lat) / 3, lng: (A.lng + C.lng + D.lng) / 3 }; const r = Math.max(havDist3D(A, C), havDist3D(A, D), havDist3D(C, D)) + 80; const data = await fetchOSM3D(ctr, r); ss(1); feats = procOSM3D(data); if (!feats.length) mode = 'no_data'; } catch { mode = 'error'; }
@@ -399,7 +489,7 @@ Respond with JSON only:
     const mnLa = Math.min(A.lat, C.lat, D.lat) - .0002, mxLa = Math.max(A.lat, C.lat, D.lat) + .0002, mnLo = Math.min(A.lng, C.lng, D.lng) - .0003, mxLo = Math.max(A.lng, C.lng, D.lng) + .0003;
     for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) eSPts.push({ lat: mnLa + r / 3 * (mxLa - mnLa), lng: mnLo + c / 3 * (mxLo - mnLo) });
     const uPts = []; const sn = new Set(); for (const p of eSPts) { const k = p.lat.toFixed(5) + ',' + p.lng.toFixed(5); if (!sn.has(k)) { sn.add(k); uPts.push(p); } if (uPts.length >= 100) break; }
-    let elevs = []; try { const ed = await fetchElev3D(uPts); elevs = ed.elevation || []; } catch { const b = 10 + Math.abs(A.lat * 100 % 20); elevs = uPts.map((_, i) => b + Math.sin(i * .3) * 1.5); }
+    let elevs = [], elevSource = "estimate"; try { const bbox = { minLat: mnLa, maxLat: mxLa, minLng: mnLo, maxLng: mxLo }; const ed = await fetchElev3D(uPts, bbox); elevs = ed.elevation || []; elevSource = ed.source || "unknown"; } catch { const b = 10 + Math.abs(A.lat * 100 % 20); elevs = uPts.map((_, i) => b + Math.sin(i * .3) * 1.5); }
     const eg = { pts: uPts, elevs };
     ss(3); for (const f of feats) { const ct = f.geometry.length === 1 ? f.geometry[0] : { lat: f.geometry.reduce((s, g) => s + g.lat, 0) / f.geometry.length, lng: f.geometry.reduce((s, g) => s + g.lng, 0) / f.geometry.length }; f.groundElev = getElevAt3D(ct, eg); }
     ss(4); const res = losEngine3D(A, C, D, feats, eg, eyeH, tgtH);
@@ -449,7 +539,7 @@ Respond with JSON only:
     res.obstructions = res.obstructions.filter(o => o.point && ptInTri(o.point, A, C, D));
     ss(5); const elevA = getElevAt3D(A, eg), elevCD = getElevAt3D(mid, eg); const adv = (elevA + eyeH) - (elevCD + tgtH);
     const ai = await aiClassify3D(A, C, D, res.obstructions, feats, { elevA, elevCD, eyeH, tgtH, eyeAlt: elevA + eyeH, tgtAlt: elevCD + tgtH, advantage: adv, elevRange: Math.max(...elevs) - Math.min(...elevs) });
-    ss(6); setAnalysisResult({ ...res, ai, elevA, elevCD, eyeH, tgtH, feats, mode, cornerLineResult }); setAnalysisRunning(false);
+    ss(6); setAnalysisResult({ ...res, ai, elevA, elevCD, eyeH, tgtH, feats, mode, cornerLineResult, elevSource }); setAnalysisRunning(false);
   };
 
   const reset3DAnalysis = () => { setAnalysisResult(null); setAnalysisRunning(false); setAnalysisSteps([]); };
@@ -1235,7 +1325,7 @@ Respond with JSON only:
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 9, color: "#5a6a74", lineHeight: 1.5 }}>
               {[
                 { icon: "📡", label: "40 sight rays", desc: `from A to ${sightTriangle?.analysis?.baseWidth || '—'}m base (C→D), 25 samples each` },
-                { icon: "⛰️", label: "Terrain DEM", desc: `Open-Meteo ~30m resolution, ${analysisResult.elevA?.toFixed(0) || '?'}m→${analysisResult.elevCD?.toFixed(0) || '?'}m ASL` },
+                { icon: "⛰️", label: "Terrain DEM", desc: `${analysisResult.elevSource === "slip_2m_contour" ? "SLIP LiDAR 2m contours" : analysisResult.elevSource === "open_meteo_30m" ? "Open-Meteo ~30m" : "Estimated"}, ${analysisResult.elevA?.toFixed(0) || '?'}m→${analysisResult.elevCD?.toFixed(0) || '?'}m ASL` },
                 { icon: "🌳", label: `${analysisResult.feats?.length || 0} OSM features`, desc: "trees, fences, walls, buildings, hedges" },
                 { icon: "👁", label: `Eye ${analysisResult.eyeH}m`, desc: `object ${analysisResult.tgtH}m above ground` },
                 ...(analysisResult.cornerLineResult ? [{ icon: "↗️", label: "Corner sight line", desc: `A→curve point ${analysisResult.cornerLineResult.distance?.toFixed(0) || '?'}m, ${analysisResult.cornerLineResult.obstructions?.length || 0} obstructions` }] : []),
