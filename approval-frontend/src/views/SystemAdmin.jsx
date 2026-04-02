@@ -588,6 +588,10 @@ function GeoDataTab() {
     { key: 'roads', label: 'Road Network', file: 'Road_Network.geojson', icon: '🛣️', desc: 'Roads Simplified (LGATE-195) — road centrelines with classification' },
     { key: 'speed_limits', label: 'Speed Limits', file: 'Legal_Speed_Limits.geojson', icon: '⚡', desc: 'MRWA Road Network — gazetted speed limits per road segment' },
     { key: 'contours', label: '2m Contours', file: 'Contours_2m.geojson', icon: '⛰️', desc: 'DPIRD-072 — LiDAR-derived 2m contour lines for 3D sight analysis elevation' },
+    { key: 'urban_forest', label: 'Urban Forest', file: 'Urban_Forest.geojson', icon: '🌳', desc: 'DPLH-109 — Tree canopy height strata per parcel (0-3m, 3-8m, 8-15m, 15m+)' },
+    { key: 'drainage_pipes', label: 'Drainage Pipes', file: 'Drainage_Pipes.geojson', icon: '💧', desc: 'MRWA — Drainage pipes, culverts, open drains in Metro region' },
+    { key: 'drainage_pits', label: 'Drainage Pits', file: 'Drainage_Pits.geojson', icon: '🕳️', desc: 'MRWA — Street gullies, soak wells, junction pits in Metro region' },
+    { key: 'water_pipes', label: 'Water Pipes', file: 'Water_Pipes.geojson', icon: '🚰', desc: 'WaterCorp (WCORP-002) — Water main locations' },
   ];
 
   const fmtDate = (iso) => {

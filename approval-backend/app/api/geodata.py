@@ -76,6 +76,40 @@ LAYERS = {
         "output_file": "Contours_2m.geojson",
         "description": "DPIRD-072 — LiDAR-derived 2m contour lines for 3D sight analysis",
     },
+    "urban_forest": {
+        "url": f"{SLIP_BASE}/Environment/MapServer/125/query",
+        "max_record_count": 2000,
+        "where": "1=1",
+        "out_fields": "tree3to8m,tree8to15m,tree15mplus,tree0to3m,grass,totalcover,totalpcent,totalrange",
+        "output_file": "Urban_Forest.geojson",
+        "description": "DPLH-109 — Urban Forest tree canopy height strata per parcel",
+    },
+    "drainage_pipes": {
+        "url": "https://mrgis.mainroads.wa.gov.au/arcgis/rest/services/OpenData/Drainage_DataPortal/MapServer/2/query",
+        "max_record_count": 2000,
+        "where": "1=1",
+        "out_fields": "Pipe_Type,Length,Diameter_Width,Asset_Owner,Asset_Status",
+        "output_file": "Drainage_Pipes.geojson",
+        "description": "MRWA — Drainage pipes, culverts, open drains",
+        "in_sr": "4283",
+    },
+    "drainage_pits": {
+        "url": "https://mrgis.mainroads.wa.gov.au/arcgis/rest/services/OpenData/Drainage_DataPortal/MapServer/0/query",
+        "max_record_count": 2000,
+        "where": "1=1",
+        "out_fields": "Pit_Type,FSL,Depth,Asset_Owner,Asset_Status",
+        "output_file": "Drainage_Pits.geojson",
+        "description": "MRWA — Street gullies, soak wells, junction pits",
+        "in_sr": "4283",
+    },
+    "water_pipes": {
+        "url": f"{SLIP_BASE}/Infrastructure_and_Utilities/MapServer/20/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Water_Pipes.geojson",
+        "description": "WaterCorp (WCORP-002) — Water main locations",
+    },
 }
 
 # MRWA Road Network — separate service with speed limits
@@ -102,6 +136,10 @@ _refresh_status: dict = {
     "roads": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "speed_limits": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "contours": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "urban_forest": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "drainage_pipes": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "drainage_pits": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "water_pipes": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
 }
 _refresh_lock = asyncio.Lock()
 
@@ -129,6 +167,7 @@ async def _query_arcgis_layer(
     max_record_count: int = 1000,
     result_offset: int = 0,
     client: httpx.AsyncClient = None,
+    in_sr: str = "7844",
 ) -> dict:
     """
     Query a single page from an ArcGIS REST MapServer layer.
@@ -140,7 +179,7 @@ async def _query_arcgis_layer(
         "outFields": out_fields,
         "geometry": json.dumps(envelope),
         "geometryType": "esriGeometryEnvelope",
-        "inSR": "7844",
+        "inSR": in_sr,
         "spatialRel": "esriSpatialRelIntersects",
         "outSR": "7844",
         "f": "geojson",
@@ -180,6 +219,7 @@ async def _fetch_all_features(
     bbox: str = COUNCIL_BBOX,
     max_record_count: int = 1000,
     max_pages: int = 50,
+    in_sr: str = "7844",
 ) -> list[dict]:
     """Fetch all features from an ArcGIS REST layer with pagination."""
     all_features = []
@@ -196,6 +236,7 @@ async def _fetch_all_features(
                 max_record_count=max_record_count,
                 result_offset=offset,
                 client=client,
+                in_sr=in_sr,
             )
 
             features = data.get("features", [])
@@ -511,6 +552,42 @@ async def _refresh_contours() -> dict:
                 "error": str(e), "duration_s": duration, "changed": False}
 
 
+async def _refresh_generic_layer(layer_key: str) -> dict:
+    """Generic refresh for layers that just need fetch + write (no special normalisation)."""
+    t0 = time.time()
+    layer = LAYERS.get(layer_key)
+    if not layer:
+        return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0, "error": f"Unknown layer: {layer_key}", "duration_s": 0}
+    try:
+        in_sr = layer.get("in_sr", "7844")
+        features = await _fetch_all_features(
+            url=layer["url"],
+            where=layer["where"],
+            out_fields=layer["out_fields"],
+            max_record_count=layer["max_record_count"],
+            max_pages=100,
+            in_sr=in_sr,
+        )
+
+        if not features:
+            raise RuntimeError(f"No features returned for {layer_key}")
+
+        # Keep features as-is (geometry + properties)
+        geojson = _build_geojson(features)
+        changed, count = _write_geojson(geojson, layer["output_file"])
+
+        duration = round(time.time() - t0, 1)
+        logger.info(f"  {layer_key}: {count} features, {duration}s")
+        return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": count,
+                "error": None, "duration_s": duration, "changed": changed}
+
+    except Exception as e:
+        duration = round(time.time() - t0, 1)
+        logger.error(f"{layer_key} refresh failed: {e}")
+        return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0,
+                "error": str(e), "duration_s": duration, "changed": False}
+
+
 async def _refresh_all():
     """Refresh all GeoJSON layers from Data WA."""
     global _refresh_status
@@ -519,17 +596,29 @@ async def _refresh_all():
     logger.info(f"  GeoData Refresh — {datetime.utcnow().isoformat()}")
     logger.info("=" * 60)
 
-    logger.info("\n[1/4] Refreshing lots...")
+    logger.info("\n[1/8] Refreshing lots...")
     _refresh_status["lots"] = await _refresh_lots()
 
-    logger.info("\n[2/4] Refreshing roads...")
+    logger.info("\n[2/8] Refreshing roads...")
     _refresh_status["roads"] = await _refresh_roads()
 
-    logger.info("\n[3/4] Refreshing speed limits...")
+    logger.info("\n[3/8] Refreshing speed limits...")
     _refresh_status["speed_limits"] = await _refresh_speed_limits()
 
-    logger.info("\n[4/4] Refreshing 2m contours...")
+    logger.info("\n[4/8] Refreshing 2m contours...")
     _refresh_status["contours"] = await _refresh_contours()
+
+    logger.info("\n[5/8] Refreshing urban forest...")
+    _refresh_status["urban_forest"] = await _refresh_generic_layer("urban_forest")
+
+    logger.info("\n[6/8] Refreshing drainage pipes...")
+    _refresh_status["drainage_pipes"] = await _refresh_generic_layer("drainage_pipes")
+
+    logger.info("\n[7/8] Refreshing drainage pits...")
+    _refresh_status["drainage_pits"] = await _refresh_generic_layer("drainage_pits")
+
+    logger.info("\n[8/8] Refreshing water pipes...")
+    _refresh_status["water_pipes"] = await _refresh_generic_layer("water_pipes")
 
     logger.info("\nRefresh complete.")
     return _refresh_status
@@ -542,7 +631,7 @@ async def geodata_status():
     """Return last refresh timestamps and feature counts for all layers."""
     # Also check what files exist on disk
     files = {}
-    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson"]:
+    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson", "Urban_Forest.geojson", "Drainage_Pipes.geojson", "Drainage_Pits.geojson", "Water_Pipes.geojson"]:
         path = OUTPUT_DIR / name
         if path.exists():
             stat = path.stat()
@@ -568,7 +657,7 @@ async def geodata_status():
 @router.post("/refresh")
 async def refresh_geodata(
     background_tasks: BackgroundTasks,
-    layer: Optional[str] = Query(default=None, description="Refresh a specific layer: lots, roads, speed_limits, contours, or all"),
+    layer: Optional[str] = Query(default=None, description="Refresh a specific layer: lots, roads, speed_limits, contours, urban_forest, drainage_pipes, drainage_pits, water_pipes, or all"),
     # current_user: dict = Depends(get_current_admin),  # ⟵ uncomment to protect
 ):
     """
@@ -589,6 +678,14 @@ async def refresh_geodata(
                     _refresh_status["speed_limits"] = await _refresh_speed_limits()
                 elif layer == "contours":
                     _refresh_status["contours"] = await _refresh_contours()
+                elif layer == "urban_forest":
+                    _refresh_status["urban_forest"] = await _refresh_generic_layer("urban_forest")
+                elif layer == "drainage_pipes":
+                    _refresh_status["drainage_pipes"] = await _refresh_generic_layer("drainage_pipes")
+                elif layer == "drainage_pits":
+                    _refresh_status["drainage_pits"] = await _refresh_generic_layer("drainage_pits")
+                elif layer == "water_pipes":
+                    _refresh_status["water_pipes"] = await _refresh_generic_layer("water_pipes")
                 else:
                     return  # unknown layer, silently ignore in background
             else:

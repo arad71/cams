@@ -421,11 +421,42 @@ def refresh_contours(dry_run=False):
     return True
 
 
+def refresh_generic_layer(label, url, where, out_fields, filename, max_records=2000, in_sr="7844", dry_run=False):
+    """Generic refresh for layers that don't need special normalisation."""
+    print(f"\n[{label.upper().split('(')[0].strip()}] Fetching {label}...")
+
+    params_override = {}
+    if in_sr != "7844":
+        params_override["inSR"] = in_sr
+
+    features = fetch_all(
+        url,
+        where=where,
+        out_fields=out_fields,
+        bbox=COUNCIL_BBOX,
+        max_records=max_records,
+        max_pages=100,
+    )
+
+    if features is None:
+        print(f"  ✕ Failed to fetch {label}")
+        return False
+
+    if not features:
+        print(f"  ⚠ No features returned for {label}. Skipping.")
+        return False
+
+    geojson = build_geojson(features)
+    write_geojson(geojson, filename, dry_run)
+    print(f"  Total: {len(features)} features")
+    return True
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Refresh GeoJSON from Data WA SLIP")
-    parser.add_argument("--layer", choices=["lots", "roads", "speed", "contours", "all"], default="all",
+    parser.add_argument("--layer", choices=["lots", "roads", "speed", "contours", "urban_forest", "drainage_pipes", "drainage_pits", "water_pipes", "all"], default="all",
                         help="Which layer to refresh (default: all)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Fetch data but don't write files")
@@ -455,6 +486,46 @@ def main():
 
     if args.layer in ("contours", "all"):
         results["contours"] = refresh_contours(args.dry_run)
+
+    if args.layer in ("urban_forest", "all"):
+        results["urban_forest"] = refresh_generic_layer(
+            "Urban Forest (DPLH-109)",
+            f"{SLIP_BASE}/Environment/MapServer/125/query",
+            "1=1",
+            "tree3to8m,tree8to15m,tree15mplus,tree0to3m,grass,totalcover,totalpcent,totalrange",
+            "Urban_Forest.geojson",
+            max_records=2000, dry_run=args.dry_run,
+        )
+
+    if args.layer in ("drainage_pipes", "all"):
+        results["drainage_pipes"] = refresh_generic_layer(
+            "Drainage Pipes (MRWA)",
+            "https://mrgis.mainroads.wa.gov.au/arcgis/rest/services/OpenData/Drainage_DataPortal/MapServer/2/query",
+            "1=1",
+            "Pipe_Type,Length,Diameter_Width,Asset_Owner,Asset_Status",
+            "Drainage_Pipes.geojson",
+            max_records=2000, in_sr="4283", dry_run=args.dry_run,
+        )
+
+    if args.layer in ("drainage_pits", "all"):
+        results["drainage_pits"] = refresh_generic_layer(
+            "Drainage Pits (MRWA)",
+            "https://mrgis.mainroads.wa.gov.au/arcgis/rest/services/OpenData/Drainage_DataPortal/MapServer/0/query",
+            "1=1",
+            "Pit_Type,FSL,Depth,Asset_Owner,Asset_Status",
+            "Drainage_Pits.geojson",
+            max_records=2000, in_sr="4283", dry_run=args.dry_run,
+        )
+
+    if args.layer in ("water_pipes", "all"):
+        results["water_pipes"] = refresh_generic_layer(
+            "Water Pipes (WCORP-002)",
+            f"{SLIP_BASE}/Infrastructure_and_Utilities/MapServer/20/query",
+            "1=1",
+            "*",
+            "Water_Pipes.geojson",
+            max_records=5000, dry_run=args.dry_run,
+        )
 
     elapsed = round(time.time() - t0, 1)
 
