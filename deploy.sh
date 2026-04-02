@@ -182,7 +182,8 @@ case "${1:-help}" in
   update)
     echo -e "${BLUE}Pulling latest code...${NC}"
     git pull origin master
-    echo -e "${BLUE}Rebuilding containers...${NC}"
+    echo -e "${BLUE}Rebuilding containers (no-cache on frontend)...${NC}"
+    dc build --no-cache approval-frontend
     dc up -d --build
     echo -e "${GREEN}✓ Updated and running${NC}"
     ;;
