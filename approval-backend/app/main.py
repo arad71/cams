@@ -19,7 +19,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",  
     swagger_ui_parameters={
         "url": "/api/openapi.json"
-
+    }
 )
 
 
