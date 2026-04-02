@@ -99,10 +99,14 @@ function findLotByAddress(lotsData, address) {
       if (pType === q.road_type) score += 2;
     }
 
-    // Locality: exact (3), partial (1), not provided = neutral
+    // Locality: exact (3), partial (1), no-spaces match (2), not provided = neutral
     if (q.locality) {
+      const qLocNoSpace = q.locality.replace(/\s+/g, "");
+      const pLocNoSpace = pLoc.replace(/\s+/g, "");
       if (pLoc === q.locality) score += 3;
+      else if (pLocNoSpace === qLocNoSpace) score += 2;
       else if (pLoc.includes(q.locality) || q.locality.includes(pLoc)) score += 1;
+      else if (pLocNoSpace.includes(qLocNoSpace) || qLocNoSpace.includes(pLocNoSpace)) score += 1;
     }
 
     if (score > bestScore) { bestScore = score; bestFeat = feat; }
@@ -339,6 +343,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       // Build searchable text: include canonical type AND all variants
       const typeVariants = ROAD_TYPE_VARIANTS.current[type] ? [...ROAD_TYPE_VARIANTS.current[type]].join(" ") : type;
       const full = `${num} ${name} ${type} ${typeVariants} ${loc}`;
+      // Also build a no-spaces version for matching joined suburb names (e.g. WATTLEGROVE → WATTLE GROVE)
+      const fullNoSpaces = full.replace(/\s+/g, "");
 
       // Score: each matching token adds points
       let score = 0;
@@ -346,6 +352,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       for (const t of tokens) {
         if (full.includes(t)) {
           score += (t === num ? 3 : t === name ? 3 : t === type ? 2 : 1);
+        } else if (fullNoSpaces.includes(t)) {
+          // Joined-up match (e.g. "WATTLEGROVE" matches "WATTLE GROVE" when spaces stripped)
+          score += 1;
         } else {
           allMatch = false;
         }
