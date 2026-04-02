@@ -16,7 +16,10 @@ app = FastAPI(
     description="Council — Crossover Approval System Backend API",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    openapi_url="/api/openapi.json",  
+    swagger_ui_parameters={
+        "url": "/api/openapi.json"
+
 )
 
 
