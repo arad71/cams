@@ -323,20 +323,23 @@ export default function CouncilApprovalPortal() {
       {ChangePasswordModal}
       <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} uiMode={uiMode} />
       <div style={{ flex: "1 1 0%", padding: "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "6px 12px", background: `${ROLE_CONFIG[role].color}08`, borderRadius: 8, border: `1px solid ${ROLE_CONFIG[role].color}20` }}>
-          <span style={{ fontSize: 11, color: ROLE_CONFIG[role].color, fontWeight: 600 }}>{ROLE_CONFIG[role].icon} {currentUser.name} — {ROLE_CONFIG[role].label}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "6px 12px", background: `${(ROLE_CONFIG[role]||{color:"#7a8a94"}).color}08`, borderRadius: 8, border: `1px solid ${(ROLE_CONFIG[role]||{color:"#7a8a94"}).color}20` }}>
+          <span style={{ fontSize: 11, color: (ROLE_CONFIG[role]||{color:"#7a8a94"}).color, fontWeight: 600 }}>{(ROLE_CONFIG[role]||{icon:"👤"}).icon} {currentUser.name} — {(ROLE_CONFIG[role]||{label:role}).label}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {role === "engineer" && <span style={{ fontSize: 10, color: "#7a8a94" }}>{visibleApps.length} assigned case{visibleApps.length !== 1 ? "s" : ""}</span>}
-            <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1.5px solid #d5dde2" }}>
-              {["classic", "workflow"].map(m => (
-                <button key={m} onClick={() => handleUiModeChange(m)}
-                  style={{ padding: "4px 12px", border: "none", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-                    background: uiMode === m ? "#1a3a4a" : "#fff",
-                    color: uiMode === m ? "#fff" : "#7a8a94",
-                    textTransform: "capitalize" }}>
-                  {m}
-                </button>
-              ))}
+            <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", border: "2px solid #1a3a4a" }}>
+              <button onClick={() => handleUiModeChange("classic")}
+                style={{ padding: "5px 16px", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  background: uiMode === "classic" ? "#1a3a4a" : "#fff",
+                  color: uiMode === "classic" ? "#fff" : "#7a8a94" }}>
+                Classic
+              </button>
+              <button onClick={() => handleUiModeChange("workflow")}
+                style={{ padding: "5px 16px", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  background: uiMode === "workflow" ? "#1a3a4a" : "#fff",
+                  color: uiMode === "workflow" ? "#fff" : "#7a8a94" }}>
+                Workflow
+              </button>
             </div>
           </div>
         </div>

@@ -18,14 +18,13 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
   const baseNav = [
     { id: "exec_dashboard", icon: "📊", label: "Dashboard", roles: ["viewer"] },
     { id: "dashboard", icon: "📊", label: "Dashboard", roles: ["admin", "manager", "engineer"] },
-    { id: "map", icon: "🗺️", label: "Property Map", roles: ["admin", "manager", "engineer"] },
     { id: "applications", icon: "📋", label: role === "engineer" ? "My Cases" : "All Applications", badge: apps.length, roles: ["admin", "manager", "engineer"] },
     { id: "pending", icon: "⏳", label: "Pending Review", badge: pend, roles: ["admin", "manager"] },
     { id: "referrals", icon: "↗️", label: "Referrals", badge: refs, roles: ["admin", "manager"] },
     { id: "inspections", icon: "🔍", label: "Inspections", roles: ["admin", "manager", "engineer"] },
     { id: "admin", icon: "⚙️", label: "Administration", roles: ["admin"] },
   ];
-  const nav = baseNav.filter(n => n.roles.includes(role)).filter(n => !(uiMode === "workflow" && n.id === "map"));
+  const nav = baseNav.filter(n => n.roles.includes(role));
   const w = collapsed ? 52 : 220;
   return (
     <div style={{ width: w, minWidth: w, maxWidth: w, background: "#0c1f2e", minHeight: "100vh", display: "flex", flexDirection: "column", flexShrink: 0, flexGrow: 0, transition: "all 0.2s ease", overflow: "hidden" }}>
