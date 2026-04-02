@@ -854,8 +854,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const anyProcessing = Object.values(processing).some(v => v);
 
   return (
-    <div style={overlay} onClick={onClose}>
-      <div style={modalBox} onClick={e => e.stopPropagation()}>
+    <div style={overlay} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={modalBox}>
         <div style={{ padding: "18px 24px 14px", borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div><h2 style={{ fontSize: 18, fontWeight: 800, color: "#1a3a4a", margin: 0 }}>New Application</h2><div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>Crossover permit application — Council</div></div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: "#7a8a94", cursor: "pointer", padding: "2px 6px", borderRadius: 4 }} title="Close">&times;</button>
