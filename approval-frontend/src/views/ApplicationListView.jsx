@@ -669,22 +669,90 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const [skippedDocs, setSkippedDocs] = useState({});  // { catId: true }
   const [showDocUpload] = useState(true);
 
-  const renderStep0 = () => (
+  const renderStep0 = () => {
+    const uploadedList = Object.entries(documents).filter(([, f]) => f);
+    const catLabel = (id) => { const c = DOC_CATEGORIES.find(x => x.id === id); return c ? `${c.icon} ${c.label}` : id; };
+
+    return (
     <>
       <div style={sectionTitle}><span>📎</span> Upload Documents</div>
       <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 10, lineHeight: 1.5 }}>
-        Upload documents now or click <strong>"Add later"</strong> on any item to skip — you can always upload from the application detail page.
+        Select a document category and upload. Application Form and Site Plan will be automatically analysed by AI.
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
-        {DOC_CATEGORIES.map(cat => (
-          <DocUploadCard key={cat.id} cat={cat} file={documents[cat.id] || null}
-            onFileChange={f => handleDocChange(cat.id, f)}
-            processing={!!processing[cat.id]}
-            processResult={processResults[cat.id] || null}
-            skipped={!!skippedDocs[cat.id]}
-            onSkip={(val) => setSkippedDocs(prev => ({ ...prev, [cat.id]: val }))} />
-        ))}
+
+      {/* Dropdown upload bar */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 14px", background: "#f0faf7", borderRadius: 10, border: "1.5px solid #1abc9c40", marginBottom: 10 }}>
+        <select
+          id="newapp-doc-cat"
+          style={{ ...selectBase, flex: "1 1 200px", minWidth: 160 }}
+          defaultValue={DOC_CATEGORIES[0].id}>
+          {DOC_CATEGORIES.map(c => (
+            <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
+          ))}
+        </select>
+        <label style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: anyProcessing ? "default" : "pointer", fontFamily: "inherit", opacity: anyProcessing ? 0.6 : 1, whiteSpace: "nowrap" }}>
+          {anyProcessing ? "⏳ Processing…" : "📤 Choose File"}
+          <input type="file" accept="*" style={{ display: "none" }}
+            disabled={anyProcessing}
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const catId = document.getElementById("newapp-doc-cat").value;
+              handleDocChange(catId, file);
+              e.target.value = "";
+            }} />
+        </label>
       </div>
+
+      {/* Hint for selected category */}
+      <div style={{ fontSize: 10, color: "#5a6a74", marginBottom: 14, lineHeight: 1.4, padding: "0 4px" }}>
+        {DOC_CATEGORIES.find(c => c.id === (typeof document !== "undefined" && document.getElementById?.("newapp-doc-cat")?.value) || DOC_CATEGORIES[0].id)?.hint || ""}
+      </div>
+
+      {/* Uploaded files list */}
+      {uploadedList.length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", overflow: "hidden", marginBottom: 14 }}>
+          <div style={{ padding: "8px 14px", borderBottom: "1px solid #f0f3f5", fontSize: 10, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
+            <span>Uploaded ({uploadedList.length})</span>
+          </div>
+          {uploadedList.map(([catId, file]) => {
+            const cat = DOC_CATEGORIES.find(c => c.id === catId);
+            const pr = processResults[catId];
+            const isProcessing = !!processing[catId];
+            return (
+              <div key={catId} style={{ borderBottom: "1px solid #f8f9fb" }}>
+                <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 16 }}>{cat?.icon || "📄"}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
+                    <div style={{ fontSize: 10, color: "#95a5a6" }}>{cat?.label || catId} · {(file.size / 1024).toFixed(0)} KB</div>
+                  </div>
+                  {isProcessing && <span style={{ fontSize: 10, color: "#8e44ad", fontWeight: 700 }}>⏳ Analysing…</span>}
+                  {!isProcessing && pr?.success && <span style={{ fontSize: 10, color: "#27ae60", fontWeight: 700 }}>✅ {pr.title || "Done"}</span>}
+                  {!isProcessing && pr && !pr.success && <span style={{ fontSize: 10, color: "#e67e22", fontWeight: 700 }}>⚠ {pr.title || "Issue"}</span>}
+                  {!isProcessing && !pr && <span style={{ fontSize: 10, color: "#27ae60", fontWeight: 700 }}>✓</span>}
+                  <button onClick={() => handleDocChange(catId, null)}
+                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #e4e9ec", background: "#fff", color: "#c0392b", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
+                </div>
+                {pr && (
+                  <div style={{ padding: "6px 14px 8px", fontSize: 10, lineHeight: 1.4,
+                    background: pr.success ? "#eafaf1" : "#fef9e7",
+                    color: pr.success ? "#2c6e49" : "#7d6608" }}>
+                    {pr.message}{pr.details && <div style={{ marginTop: 2, color: "#5a7a64" }}>{pr.details}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {uploadedList.length === 0 && (
+        <div style={{ padding: "16px", textAlign: "center", color: "#95a5a6", fontSize: 11, border: "1.5px dashed #d5dde2", borderRadius: 10, marginBottom: 14 }}>
+          No documents uploaded yet — select a category above and choose a file
+        </div>
+      )}
+
       <div style={sectionTitle}><span>👤</span> Owner / Applicant Information</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
         <Field label="Full Name" required span={2}><input style={inputBase} value={form.owner_name} onChange={set("owner_name")} placeholder="e.g. John Smith" /></Field>
@@ -717,6 +785,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       {renderLotBanner()}
     </>
   );
+  };
 
   const renderStep1 = () => (
     <>
