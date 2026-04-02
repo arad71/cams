@@ -3,7 +3,7 @@ import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from '../../data/constants';
 // ═══════════════════════════════════════════════════════════
 //  SIDEBAR
 // ═══════════════════════════════════════════════════════════
-export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {} }) {
+export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {}, uiMode = "classic" }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
   const orgName = B.orgName || "Council";
   const portalTitle = B.portalTitle || "Approval Portal";
@@ -25,7 +25,7 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
     { id: "inspections", icon: "🔍", label: "Inspections", roles: ["admin", "manager", "engineer"] },
     { id: "admin", icon: "⚙️", label: "Administration", roles: ["admin"] },
   ];
-  const nav = baseNav.filter(n => n.roles.includes(role));
+  const nav = baseNav.filter(n => n.roles.includes(role)).filter(n => !(uiMode === "workflow" && n.id === "map"));
   const w = collapsed ? 52 : 220;
   return (
     <div style={{ width: w, minWidth: w, maxWidth: w, background: "#0c1f2e", minHeight: "100vh", display: "flex", flexDirection: "column", flexShrink: 0, flexGrow: 0, transition: "all 0.2s ease", overflow: "hidden" }}>

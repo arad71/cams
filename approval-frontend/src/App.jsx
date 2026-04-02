@@ -10,6 +10,7 @@ import ApplicationDetailView from './views/ApplicationDetailView';
 import InspectionsView from './views/InspectionsView';
 import SystemAdmin from './views/SystemAdmin';
 import ExecutiveDashboard from './views/ExecutiveDashboard';
+import WorkflowDashboard from './views/WorkflowDashboard';
 import Sidebar from './components/ui/Sidebar';
 
 // ═══════════════════════════════════════════════════════════
@@ -30,6 +31,13 @@ export default function CouncilApprovalPortal() {
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [siteSettings, setSiteSettings] = useState({});
+  const [uiMode, setUiMode] = useState(() => {
+    try { return localStorage.getItem("cams_ui_mode") || "classic"; } catch { return "classic"; }
+  });
+  const handleUiModeChange = (mode) => {
+    setUiMode(mode);
+    try { localStorage.setItem("cams_ui_mode", mode); } catch {}
+  };
 
   // Site branding helpers (used everywhere)
   const _orgName = siteSettings.org_name || "Council";
@@ -294,10 +302,12 @@ export default function CouncilApprovalPortal() {
     // Viewer role — only sees executive dashboard
     if (role === "viewer") return <ExecutiveDashboard apps={apps} branding={S} />;
 
-    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} />;
+    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} uiMode={uiMode} />;
     switch (activeView) {
       case "exec_dashboard": return <ExecutiveDashboard apps={apps} branding={S} />;
-      case "dashboard": return <DashboardView apps={visibleApps} allApps={apps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} currentUser={currentUser} users={users} />;
+      case "dashboard": return uiMode === "workflow"
+        ? <WorkflowDashboard apps={visibleApps} allApps={apps} onSelectApp={handleSelectApp} currentUser={currentUser} users={users} />
+        : <DashboardView apps={visibleApps} allApps={apps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} currentUser={currentUser} users={users} />;
       // case "map": return <FullMapView apps={visibleApps} onSelectApp={handleSelectApp} globalLotsData={globalLotsData} globalSpeedRoads={globalSpeedRoads} />;
       case "pending": return <ApplicationListView apps={visibleApps} filter="pending_review" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
       case "referrals": return <ApplicationListView apps={visibleApps} filter="referral_pending" onSelectApp={handleSelectApp} onAppCreated={handleAppCreated} globalLotsData={globalLotsData} />;
@@ -311,11 +321,24 @@ export default function CouncilApprovalPortal() {
     <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f0f3f5", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(26,188,156,0.1)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
       {ChangePasswordModal}
-      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} />
+      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} uiMode={uiMode} />
       <div style={{ flex: "1 1 0%", padding: "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "6px 12px", background: `${ROLE_CONFIG[role].color}08`, borderRadius: 8, border: `1px solid ${ROLE_CONFIG[role].color}20` }}>
           <span style={{ fontSize: 11, color: ROLE_CONFIG[role].color, fontWeight: 600 }}>{ROLE_CONFIG[role].icon} {currentUser.name} — {ROLE_CONFIG[role].label}</span>
-          {role === "engineer" && <span style={{ fontSize: 10, color: "#7a8a94" }}>{visibleApps.length} assigned case{visibleApps.length !== 1 ? "s" : ""}</span>}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {role === "engineer" && <span style={{ fontSize: 10, color: "#7a8a94" }}>{visibleApps.length} assigned case{visibleApps.length !== 1 ? "s" : ""}</span>}
+            <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1.5px solid #d5dde2" }}>
+              {["classic", "workflow"].map(m => (
+                <button key={m} onClick={() => handleUiModeChange(m)}
+                  style={{ padding: "4px 12px", border: "none", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                    background: uiMode === m ? "#1a3a4a" : "#fff",
+                    color: uiMode === m ? "#fff" : "#7a8a94",
+                    textTransform: "capitalize" }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         {renderView()}
         <div style={{ marginTop: 20, padding: "12px 0", borderTop: "1px solid #e4e9ec", textAlign: "center", fontSize: 10, color: "#95a5a6" }}>

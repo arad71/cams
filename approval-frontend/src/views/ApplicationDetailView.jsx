@@ -10,52 +10,24 @@ import AIExtractionReview from '../components/ui/AIExtractionReview';
 import ReportGenerator from '../components/ui/ReportGenerator';
 import WorkflowView from '../components/workflow/WorkflowView';
 
-// ─── View Mode Toggle ──────────────────────────────────
-function ViewToggle({ mode, onChange }) {
-  return (
-    <div style={{ display: "flex", borderRadius: 7, overflow: "hidden", border: "1.5px solid #d5dde2" }}>
-      {[
-        { id: "classic", label: "Classic" },
-        { id: "workflow", label: "Workflow" },
-      ].map(v => (
-        <button key={v.id} onClick={() => onChange(v.id)}
-          style={{
-            padding: "5px 14px", border: "none", fontSize: 11, fontWeight: 700,
-            cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-            background: mode === v.id ? "#1a3a4a" : "#fff",
-            color: mode === v.id ? "#fff" : "#7a8a94",
-          }}>
-          {v.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════
 //  Application Detail View
 // ═══════════════════════════════════════════════════════
 
-function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData, globalRoadNetwork }) {
+function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData, globalRoadNetwork, uiMode = "classic" }) {
   const [localApp, setLocalApp] = useState(JSON.parse(JSON.stringify(app)));
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
   const [measureCorrections, setMeasureCorrections] = useState([]);
   const [assignee, setAssignee] = useState(app.assessment.officer);
   const [categories, setCategories] = useState([]);
-  const [viewMode, setViewMode] = useState(() => {
-    try { return localStorage.getItem("cams_view_mode") || "classic"; } catch { return "classic"; }
-  });
+
+  // viewMode is now driven by the global uiMode prop
+  const viewMode = uiMode;
 
   const role = currentUser?.role || "engineer";
   const canAssign = role === "admin" || role === "manager";
   const canDecide = role === "admin" || role === "manager";
-
-  // Persist view mode
-  const handleViewModeChange = (mode) => {
-    setViewMode(mode);
-    try { localStorage.setItem("cams_view_mode", mode); } catch {}
-  };
 
   // Fetch assessment categories from API once
   useEffect(() => {
@@ -89,10 +61,12 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
   return (
     <div>
-      {/* Header with back + toggle */}
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: "#2980b9", fontWeight: 600, fontSize: 13, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>← Back</button>
-        <ViewToggle mode={viewMode} onChange={handleViewModeChange} />
+        <span style={{ fontSize: 10, color: "#7a8a94", padding: "4px 10px", borderRadius: 6, background: viewMode === "workflow" ? "#E6F1FB" : "#f0f2f5", border: `1px solid ${viewMode === "workflow" ? "#185FA520" : "#e4e9ec"}` }}>
+          {viewMode === "workflow" ? "🔄 Workflow view" : "📋 Classic view"}
+        </span>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
