@@ -94,7 +94,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null }) {
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(false);
   const [showStreetNames, setShowStreetNames] = useState(false);
@@ -177,7 +177,51 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
     } return ff;
   };
 
-  // ── Elevation data: SLIP 2m contours (primary) → Open-Meteo DEM (fallback) ──
+  // ── Build elevation point cloud from local Contours_2m.geojson ──
+  const buildContourPointCloud = (geojson, bbox) => {
+    if (!geojson?.features?.length) return null;
+    const pts = [];
+    for (const feat of geojson.features) {
+      const elev = feat.properties?.elevation_m;
+      if (elev == null || elev === 0) continue;
+      const geom = feat.geometry;
+      if (!geom) continue;
+      // GeoJSON LineString or MultiLineString
+      const lines = geom.type === "MultiLineString" ? geom.coordinates : geom.type === "LineString" ? [geom.coordinates] : [];
+      for (const line of lines) {
+        for (const coord of line) {
+          const lng = coord[0], lat = coord[1];
+          // Only include points within or near the bbox (with small margin)
+          if (lat >= bbox.minLat - 0.002 && lat <= bbox.maxLat + 0.002 &&
+              lng >= bbox.minLng - 0.002 && lng <= bbox.maxLng + 0.002) {
+            pts.push({ lat, lng, elev });
+          }
+        }
+      }
+    }
+    return pts.length >= 3 ? pts : null;
+  };
+
+  const fetchElevFromLocalContours = (points, bbox) => {
+    const contourPts = buildContourPointCloud(contoursData, bbox);
+    if (!contourPts) return null;
+
+    const elevations = points.map(pt => {
+      const dists = contourPts.map((cp, i) => ({
+        i, d: Math.sqrt((pt.lat - cp.lat) ** 2 + (pt.lng - cp.lng) ** 2), e: cp.elev,
+      }));
+      dists.sort((a, b) => a.d - b.d);
+      const nearest = dists.slice(0, 6);
+      if (nearest[0].d < 0.000005) return nearest[0].e;
+      let sumW = 0, sumWE = 0;
+      for (const n of nearest) { const w = 1 / (n.d * n.d + 1e-12); sumW += w; sumWE += w * n.e; }
+      return sumWE / sumW;
+    });
+
+    return { elevation: elevations, source: "local_contour_2m", contourCount: contoursData.features.length, pointCloud: contourPts.length };
+  };
+
+  // ── Elevation data: local Contours_2m.geojson → SLIP API → Open-Meteo DEM ──
   const SLIP_CONTOUR_URL = "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/Terrain/MapServer/0/query";
 
   const fetchElevFromSLIP = async (points, bbox) => {
@@ -250,23 +294,37 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   };
 
   const fetchElev3D = async (points, bbox) => {
-    // Try SLIP 2m contours first (LiDAR-derived, ~2m resolution), fall back to Open-Meteo
+    // 1. Try local Contours_2m.geojson (instant, no network)
+    if (contoursData?.features?.length) {
+      try {
+        const result = fetchElevFromLocalContours(points, bbox);
+        if (result) {
+          const unique = new Set(result.elevation.map(e => Math.round(e)));
+          if (unique.size >= 2 && !result.elevation.every(e => e === 0)) {
+            console.log(`Elevation: local Contours_2m.geojson (${result.pointCloud} vertices in bbox)`);
+            return result;
+          }
+        }
+      } catch (e) { console.warn("Local contour interpolation failed:", e.message); }
+    }
+
+    // 2. Try SLIP 2m contours API (network call)
     try {
       const result = await fetchElevFromSLIP(points, bbox);
-      // Sanity check: if all elevations are 0 or identical, data might be bad
       const unique = new Set(result.elevation.map(e => Math.round(e)));
       if (unique.size >= 2 && !result.elevation.every(e => e === 0)) {
-        console.log(`Elevation: SLIP 2m contours (${result.contourCount} contours, ${result.pointCloud} vertices)`);
+        console.log(`Elevation: SLIP 2m contours API (${result.contourCount} contours, ${result.pointCloud} vertices)`);
         return result;
       }
       throw new Error("SLIP data quality check failed");
     } catch (slipErr) {
       console.warn("SLIP contour fetch failed, falling back to Open-Meteo:", slipErr.message);
+      // 3. Try Open-Meteo DEM
       try {
         return await fetchElevFromOpenMeteo(points);
       } catch (omErr) {
         console.warn("Open-Meteo also failed:", omErr.message);
-        // Final fallback: estimate from lat (very rough — Kalamunda area ~250-350m)
+        // 4. Final fallback: estimate
         const baseLine = 250 + Math.abs(points[0]?.lat || -32) * 3;
         return { elevation: points.map((_, i) => baseLine + Math.sin(i * 0.3) * 2), source: "estimate" };
       }
@@ -1325,7 +1383,7 @@ Respond with JSON only:
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 9, color: "#5a6a74", lineHeight: 1.5 }}>
               {[
                 { icon: "📡", label: "40 sight rays", desc: `from A to ${sightTriangle?.analysis?.baseWidth || '—'}m base (C→D), 25 samples each` },
-                { icon: "⛰️", label: "Terrain DEM", desc: `${analysisResult.elevSource === "slip_2m_contour" ? "SLIP LiDAR 2m contours" : analysisResult.elevSource === "open_meteo_30m" ? "Open-Meteo ~30m" : "Estimated"}, ${analysisResult.elevA?.toFixed(0) || '?'}m→${analysisResult.elevCD?.toFixed(0) || '?'}m ASL` },
+                { icon: "⛰️", label: "Terrain DEM", desc: `${analysisResult.elevSource === "local_contour_2m" ? "Local LiDAR 2m contours" : analysisResult.elevSource === "slip_2m_contour" ? "SLIP LiDAR 2m contours" : analysisResult.elevSource === "open_meteo_30m" ? "Open-Meteo ~30m" : "Estimated"}, ${analysisResult.elevA?.toFixed(0) || '?'}m→${analysisResult.elevCD?.toFixed(0) || '?'}m ASL` },
                 { icon: "🌳", label: `${analysisResult.feats?.length || 0} OSM features`, desc: "trees, fences, walls, buildings, hedges" },
                 { icon: "👁", label: `Eye ${analysisResult.eyeH}m`, desc: `object ${analysisResult.tgtH}m above ground` },
                 ...(analysisResult.cornerLineResult ? [{ icon: "↗️", label: "Corner sight line", desc: `A→curve point ${analysisResult.cornerLineResult.distance?.toFixed(0) || '?'}m, ${analysisResult.cornerLineResult.obstructions?.length || 0} obstructions` }] : []),

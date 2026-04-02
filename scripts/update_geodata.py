@@ -368,11 +368,64 @@ def refresh_speed_limits(dry_run=False):
     return True
 
 
+def refresh_contours(dry_run=False):
+    """Fetch 2m contour lines from SLIP Terrain service (DPIRD-072)."""
+    CONTOUR_URL = "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/Terrain/MapServer/0/query"
+    print("\n[CONTOURS] Fetching 2m contours from SLIP Terrain (DPIRD-072)...")
+
+    features = fetch_all(
+        CONTOUR_URL,
+        where="1=1",
+        out_fields="elevation_m",
+        bbox=COUNCIL_BBOX,
+        max_records=5000,
+        max_pages=100,
+    )
+
+    if features is None:
+        print("  ✕ Failed to fetch contours from SLIP")
+        return False
+
+    if not features:
+        print("  ⚠ No contour features returned. Skipping.")
+        return False
+
+    # Normalise — keep elevation and geometry as-is
+    normalised = []
+    for f in features:
+        p = f.get("properties", {})
+        elev = p.get("elevation_m") or p.get("Elevation_m") or p.get("ELEVATION_M")
+        if elev is None:
+            continue
+        try:
+            elev = float(elev)
+        except (ValueError, TypeError):
+            continue
+        normalised.append({
+            "type": "Feature",
+            "properties": {"elevation_m": elev},
+            "geometry": f.get("geometry"),
+        })
+
+    if len(normalised) < 10:
+        print(f"  ⚠ Only {len(normalised)} contours — expected many more. Skipping write.")
+        return False
+
+    geojson = build_geojson(normalised)
+    write_geojson(geojson, "Contours_2m.geojson", dry_run)
+
+    # Summary
+    elevs = [f["properties"]["elevation_m"] for f in normalised]
+    print(f"  Total: {len(normalised)} contour lines")
+    print(f"  Elevation range: {min(elevs):.0f}m — {max(elevs):.0f}m")
+    return True
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Refresh GeoJSON from Data WA SLIP")
-    parser.add_argument("--layer", choices=["lots", "roads", "speed", "all"], default="all",
+    parser.add_argument("--layer", choices=["lots", "roads", "speed", "contours", "all"], default="all",
                         help="Which layer to refresh (default: all)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Fetch data but don't write files")
@@ -399,6 +452,9 @@ def main():
 
     if args.layer in ("speed", "all"):
         results["speed"] = refresh_speed_limits(args.dry_run)
+
+    if args.layer in ("contours", "all"):
+        results["contours"] = refresh_contours(args.dry_run)
 
     elapsed = round(time.time() - t0, 1)
 

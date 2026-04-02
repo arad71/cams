@@ -28,6 +28,7 @@ export default function CouncilApprovalPortal() {
   const [globalLotsData, setGlobalLotsData] = useState(null);
   const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
   const [globalRoadNetwork, setGlobalRoadNetwork] = useState(null);
+  const [globalContoursData, setGlobalContoursData] = useState(null);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [siteSettings, setSiteSettings] = useState({});
@@ -129,6 +130,11 @@ export default function CouncilApprovalPortal() {
           setGlobalRoadNetwork(data);
         }
       } catch (e) { console.warn('Road_Network.geojson not loaded:', e.message); }
+
+      try {
+        const r = await fetch('/Contours_2m.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) setGlobalContoursData(await r.json());
+      } catch (e) { console.warn('Contours_2m.geojson not loaded:', e.message); }
     }
     loadGeoData();
     return () => { cancelled = true; };
@@ -302,7 +308,7 @@ export default function CouncilApprovalPortal() {
     // Viewer role — only sees executive dashboard
     if (role === "viewer") return <ExecutiveDashboard apps={apps} branding={S} />;
 
-    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} uiMode={uiMode} />;
+    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData} uiMode={uiMode} />;
     switch (activeView) {
       case "exec_dashboard": return <ExecutiveDashboard apps={apps} branding={S} />;
       case "dashboard": return uiMode === "workflow"

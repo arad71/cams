@@ -14,7 +14,7 @@ import WorkflowView from '../components/workflow/WorkflowView';
 //  Application Detail View
 // ═══════════════════════════════════════════════════════
 
-function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData, globalRoadNetwork, uiMode = "classic" }) {
+function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, uiMode = "classic" }) {
   const [localApp, setLocalApp] = useState(JSON.parse(JSON.stringify(app)));
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
@@ -83,7 +83,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
           app={app} apps={apps} onSelectApp={onSelectApp}
           currentUser={currentUser} reloadApp={reloadApp} users={users}
           globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
-          globalRoadNetwork={globalRoadNetwork}
+          globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
           localApp={localApp} setLocalApp={setLocalApp}
           newNote={newNote} setNewNote={setNewNote} addNote={addNote}
           assignee={assignee} setAssignee={setAssignee}
@@ -99,7 +99,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
       {viewMode === "classic" && (
         <>
           {/* ★ MAP WITH OVERLAY ★ */}
-          <div style={{ marginBottom: 16 }}><MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp} speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork} /></div>
+          <div style={{ marginBottom: 16 }}><MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp} speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork} contoursData={globalContoursData} /></div>
 
           {/* Info Cards */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
