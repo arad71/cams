@@ -14,9 +14,10 @@ app = FastAPI(
     title=settings.APP_NAME,
     version="3.1.0",
     description="Council — Crossover Approval System Backend API",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json",
+    root_path="/api",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 
