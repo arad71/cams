@@ -498,7 +498,7 @@ def run_seed():
                     da_number="DA2025/0892",
                     offset_from_left=3.5,
                     trees_nearby=False, drainage_type="Piped to road drainage",
-                    officer_id=engineer_user.id if spatel else None,
+                    officer_id=engineer_user.id if engineer_user else None,
                     contribution_eligible=False, contribution_amount=0,
                 ),
                 Application(
@@ -553,7 +553,7 @@ def run_seed():
                     tree_protection="Multiple Jarrah/Marri within 10m — arborist assessment required.",
                     clearing=True,
                     drainage_type="Earthen table drain",
-                    officer_id=engineer2_user.id if jmorrison else None,
+                    officer_id=engineer2_user.id if engineer2_user else None,
                     contribution_eligible=False, contribution_amount=0,
                 ),
                 Application(
@@ -594,7 +594,7 @@ def run_seed():
                     culvert=True,
                     lot_polygon=[[-31.995169,115.98427],[-31.995169,115.98436],[-31.995354,115.984577],
                                  [-31.995463,115.984449],[-31.995239,115.984187],[-31.995169,115.98427]],
-                    officer_id=engineer_user.id if spatel else None,
+                    officer_id=engineer_user.id if engineer_user else None,
                     contribution_eligible=False, contribution_amount=0,
                 ),
             ]
