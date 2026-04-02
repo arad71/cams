@@ -1,7 +1,9 @@
 // ═══════════════════════════════════════════════════════════
 //  API SERVICE LAYER
 // ═══════════════════════════════════════════════════════════
-export const API_BASE = "http://localhost:8000/api";
+// API base: use relative /api path in production (nginx proxies to backend).
+// For local dev without Docker, set VITE_API_BASE=http://localhost:8000/api
+export const API_BASE = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE) || "/api";
 
 const api = {
   _token: null,
@@ -160,7 +162,8 @@ const api = {
     const token = this._getToken();
     const headers = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(`${API_BASE.replace('/api', '')}/ai/analyse`, { method: "POST", headers, body: formData });
+    const aiBase = API_BASE.endsWith("/api") ? API_BASE.slice(0, -4) : API_BASE.replace("/api", "");
+    const res = await fetch(`${aiBase}/ai/analyse`, { method: "POST", headers, body: formData });
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Site plan analysis failed"); }
     return res.json();
   },
