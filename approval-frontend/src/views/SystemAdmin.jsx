@@ -587,6 +587,7 @@ function GeoDataTab() {
     { key: 'lots', label: 'Lot Boundaries', file: 'lot.geojson', icon: '🏠', desc: 'Cadastre Address (LGATE-002) — land parcel polygons with addresses' },
     { key: 'roads', label: 'Road Network', file: 'Road_Network.geojson', icon: '🛣️', desc: 'Roads Simplified (LGATE-195) — road centrelines with classification' },
     { key: 'speed_limits', label: 'Speed Limits', file: 'Legal_Speed_Limits.geojson', icon: '⚡', desc: 'MRWA Road Network — gazetted speed limits per road segment' },
+    { key: 'contours', label: '2m Contours', file: 'Contours_2m.geojson', icon: '⛰️', desc: 'DPIRD-072 — LiDAR-derived 2m contour lines for 3D sight analysis elevation' },
   ];
 
   const fmtDate = (iso) => {

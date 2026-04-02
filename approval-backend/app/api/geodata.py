@@ -68,6 +68,14 @@ LAYERS = {
         "output_file": "Road_Network.geojson",
         "description": "Roads Simplified (LGATE-195) — road centrelines with classification",
     },
+    "contours": {
+        "url": "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/Terrain/MapServer/0/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "elevation_m",
+        "output_file": "Contours_2m.geojson",
+        "description": "DPIRD-072 — LiDAR-derived 2m contour lines for 3D sight analysis",
+    },
 }
 
 # MRWA Road Network — separate service with speed limits
@@ -93,6 +101,7 @@ _refresh_status: dict = {
     "lots": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "roads": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "speed_limits": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "contours": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
 }
 _refresh_lock = asyncio.Lock()
 
@@ -449,6 +458,59 @@ async def _refresh_speed_limits() -> dict:
                 "error": str(e), "duration_s": duration, "changed": False}
 
 
+async def _refresh_contours() -> dict:
+    """Fetch 2m contour lines from SLIP Terrain service (DPIRD-072)."""
+    t0 = time.time()
+    layer = LAYERS["contours"]
+    try:
+        features = await _fetch_all_features(
+            url=layer["url"],
+            where=layer["where"],
+            out_fields=layer["out_fields"],
+            max_record_count=layer["max_record_count"],
+            max_pages=100,
+        )
+
+        if not features:
+            raise RuntimeError("No features returned from SLIP Terrain contour query")
+
+        # Keep features with valid elevation
+        normalised = []
+        for f in features:
+            p = f.get("properties", {})
+            elev = p.get("elevation_m") or p.get("Elevation_m") or p.get("ELEVATION_M")
+            if elev is None:
+                continue
+            try:
+                elev = float(elev)
+            except (ValueError, TypeError):
+                continue
+            normalised.append({
+                "type": "Feature",
+                "properties": {"elevation_m": elev},
+                "geometry": f.get("geometry"),
+            })
+
+        if len(normalised) < 10:
+            raise RuntimeError(f"Only {len(normalised)} contour features — expected many more")
+
+        geojson = _build_geojson(normalised)
+        changed, count = _write_geojson(geojson, layer["output_file"])
+
+        elevs = [f["properties"]["elevation_m"] for f in normalised]
+        logger.info(f"  Contours: {count} lines, {min(elevs):.0f}m–{max(elevs):.0f}m")
+
+        duration = round(time.time() - t0, 1)
+        return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": count,
+                "error": None, "duration_s": duration, "changed": changed}
+
+    except Exception as e:
+        duration = round(time.time() - t0, 1)
+        logger.error(f"Contours refresh failed: {e}")
+        return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0,
+                "error": str(e), "duration_s": duration, "changed": False}
+
+
 async def _refresh_all():
     """Refresh all GeoJSON layers from Data WA."""
     global _refresh_status
@@ -457,14 +519,17 @@ async def _refresh_all():
     logger.info(f"  GeoData Refresh — {datetime.utcnow().isoformat()}")
     logger.info("=" * 60)
 
-    logger.info("\n[1/3] Refreshing lots...")
+    logger.info("\n[1/4] Refreshing lots...")
     _refresh_status["lots"] = await _refresh_lots()
 
-    logger.info("\n[2/3] Refreshing roads...")
+    logger.info("\n[2/4] Refreshing roads...")
     _refresh_status["roads"] = await _refresh_roads()
 
-    logger.info("\n[3/3] Refreshing speed limits...")
+    logger.info("\n[3/4] Refreshing speed limits...")
     _refresh_status["speed_limits"] = await _refresh_speed_limits()
+
+    logger.info("\n[4/4] Refreshing 2m contours...")
+    _refresh_status["contours"] = await _refresh_contours()
 
     logger.info("\nRefresh complete.")
     return _refresh_status
@@ -477,7 +542,7 @@ async def geodata_status():
     """Return last refresh timestamps and feature counts for all layers."""
     # Also check what files exist on disk
     files = {}
-    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson"]:
+    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson"]:
         path = OUTPUT_DIR / name
         if path.exists():
             stat = path.stat()
@@ -503,7 +568,7 @@ async def geodata_status():
 @router.post("/refresh")
 async def refresh_geodata(
     background_tasks: BackgroundTasks,
-    layer: Optional[str] = Query(default=None, description="Refresh a specific layer: lots, roads, speed_limits, or all"),
+    layer: Optional[str] = Query(default=None, description="Refresh a specific layer: lots, roads, speed_limits, contours, or all"),
     # current_user: dict = Depends(get_current_admin),  # ⟵ uncomment to protect
 ):
     """
@@ -522,6 +587,8 @@ async def refresh_geodata(
                     _refresh_status["roads"] = await _refresh_roads()
                 elif layer == "speed_limits":
                     _refresh_status["speed_limits"] = await _refresh_speed_limits()
+                elif layer == "contours":
+                    _refresh_status["contours"] = await _refresh_contours()
                 else:
                     return  # unknown layer, silently ignore in background
             else:
