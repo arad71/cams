@@ -168,9 +168,11 @@ async def _query_arcgis_layer(
     result_offset: int = 0,
     client: httpx.AsyncClient = None,
     in_sr: str = "7844",
+    max_retries: int = 3,
 ) -> dict:
     """
     Query a single page from an ArcGIS REST MapServer layer.
+    Retries up to max_retries times on connection failure.
     Returns raw JSON response with 'features' array.
     """
     envelope = _bbox_to_envelope(bbox)
@@ -192,20 +194,43 @@ async def _query_arcgis_layer(
     if own_client:
         client = httpx.AsyncClient(timeout=QUERY_TIMEOUT)
 
+    last_error = None
     try:
-        resp = await client.get(url, params=params, headers={
-            "User-Agent": "CAMS-GeoData/1.0 (Council)",
-            "Accept": "application/json",
-        })
-        resp.raise_for_status()
-        data = resp.json()
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = await client.get(url, params=params, headers={
+                    "User-Agent": "CAMS-GeoData/1.0 (Council)",
+                    "Accept": "application/json",
+                })
+                resp.raise_for_status()
+                data = resp.json()
 
-        # ArcGIS error handling
-        if "error" in data:
-            err = data["error"]
-            raise RuntimeError(f"ArcGIS error {err.get('code')}: {err.get('message')}")
+                # ArcGIS error handling
+                if "error" in data:
+                    err = data["error"]
+                    raise RuntimeError(f"ArcGIS error {err.get('code')}: {err.get('message')}")
 
-        return data
+                return data
+
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+                    httpx.RemoteProtocolError, httpx.PoolTimeout, ConnectionError, OSError) as e:
+                last_error = e
+                if attempt < max_retries:
+                    wait = attempt * 3  # 3s, 6s, 9s
+                    logger.warning(f"    Connection failed (attempt {attempt}/{max_retries}): {e}. Retrying in {wait}s...")
+                    await asyncio.sleep(wait)
+                else:
+                    logger.error(f"    Connection failed after {max_retries} attempts: {e}")
+                    raise RuntimeError(f"Connection failed after {max_retries} attempts: {e}") from e
+
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                if e.response.status_code in (502, 503, 504, 429) and attempt < max_retries:
+                    wait = attempt * 5
+                    logger.warning(f"    HTTP {e.response.status_code} (attempt {attempt}/{max_retries}). Retrying in {wait}s...")
+                    await asyncio.sleep(wait)
+                else:
+                    raise
 
     finally:
         if own_client:
@@ -400,7 +425,7 @@ async def _refresh_lots() -> dict:
         duration = round(time.time() - t0, 1)
         logger.error(f"Lots refresh failed: {e}")
         return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0,
-                "error": str(e), "duration_s": duration, "changed": False}
+                "error": str(e), "duration_s": duration, "changed": False, "last_failed": datetime.utcnow().isoformat()}
 
 
 async def _refresh_roads() -> dict:
@@ -430,7 +455,7 @@ async def _refresh_roads() -> dict:
         duration = round(time.time() - t0, 1)
         logger.error(f"Roads refresh failed: {e}")
         return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0,
-                "error": str(e), "duration_s": duration, "changed": False}
+                "error": str(e), "duration_s": duration, "changed": False, "last_failed": datetime.utcnow().isoformat()}
 
 
 async def _refresh_speed_limits() -> dict:
@@ -496,7 +521,7 @@ async def _refresh_speed_limits() -> dict:
         duration = round(time.time() - t0, 1)
         logger.error(f"Speed limits refresh failed: {e}")
         return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0,
-                "error": str(e), "duration_s": duration, "changed": False}
+                "error": str(e), "duration_s": duration, "changed": False, "last_failed": datetime.utcnow().isoformat()}
 
 
 async def _refresh_contours() -> dict:
@@ -549,7 +574,7 @@ async def _refresh_contours() -> dict:
         duration = round(time.time() - t0, 1)
         logger.error(f"Contours refresh failed: {e}")
         return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0,
-                "error": str(e), "duration_s": duration, "changed": False}
+                "error": str(e), "duration_s": duration, "changed": False, "last_failed": datetime.utcnow().isoformat()}
 
 
 async def _refresh_generic_layer(layer_key: str) -> dict:
@@ -585,7 +610,7 @@ async def _refresh_generic_layer(layer_key: str) -> dict:
         duration = round(time.time() - t0, 1)
         logger.error(f"{layer_key} refresh failed: {e}")
         return {"last_refresh": datetime.utcnow().isoformat(), "feature_count": 0,
-                "error": str(e), "duration_s": duration, "changed": False}
+                "error": str(e), "duration_s": duration, "changed": False, "last_failed": datetime.utcnow().isoformat()}
 
 
 async def _refresh_all():

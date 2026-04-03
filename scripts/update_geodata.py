@@ -91,8 +91,8 @@ def bbox_envelope(bbox_str):
 
 
 def query_arcgis(url, where="1=1", out_fields="*", bbox=COUNCIL_BBOX,
-                 max_records=1000, offset=0, timeout=120):
-    """Query one page from an ArcGIS REST MapServer layer."""
+                 max_records=1000, offset=0, timeout=120, max_retries=3):
+    """Query one page from an ArcGIS REST MapServer layer. Retries up to max_retries on connection failure."""
     params = {
         "where": where,
         "outFields": out_fields,
@@ -107,19 +107,25 @@ def query_arcgis(url, where="1=1", out_fields="*", bbox=COUNCIL_BBOX,
         "returnGeometry": "true",
     }
     full_url = f"{url}?{urlencode(params)}"
-    req = Request(full_url, headers=HEADERS)
 
-    try:
-        with urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            if "error" in data:
-                err = data["error"]
-                print(f"    ✕ ArcGIS error {err.get('code')}: {err.get('message')}")
+    for attempt in range(1, max_retries + 1):
+        try:
+            req = Request(full_url, headers=HEADERS)
+            with urlopen(req, timeout=timeout) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if "error" in data:
+                    err = data["error"]
+                    print(f"    ✕ ArcGIS error {err.get('code')}: {err.get('message')}")
+                    return None
+                return data.get("features", [])
+        except (URLError, HTTPError, ConnectionError, OSError) as e:
+            if attempt < max_retries:
+                wait = attempt * 3
+                print(f"    ⚠ Connection failed (attempt {attempt}/{max_retries}): {e}. Retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"    ✕ Failed after {max_retries} attempts: {e}")
                 return None
-            return data.get("features", [])
-    except (URLError, HTTPError) as e:
-        print(f"    ✕ Request error: {e}")
-        return None
 
 
 def fetch_all(url, where="1=1", out_fields="*", bbox=COUNCIL_BBOX,

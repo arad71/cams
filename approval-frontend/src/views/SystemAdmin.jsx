@@ -652,6 +652,11 @@ function GeoDataTab() {
                       ⚠ {st.error}
                     </div>
                   )}
+                  {st.last_failed && (
+                    <div style={{ fontSize: 10, color: "#c0392b", marginTop: 2 }}>
+                      Last failed: {fmtDate(st.last_failed)}
+                    </div>
+                  )}
                 </div>
 
                 <button onClick={() => doRefresh(layer.key)} disabled={!!refreshing}
