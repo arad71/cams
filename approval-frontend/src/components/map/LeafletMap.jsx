@@ -284,10 +284,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       style: () => ({ color: '#2196F3', weight: 3, opacity: 0.7, dashArray: '6,3' }),
       onEachFeature: (feature, layer) => {
         const p = feature.properties || {};
-        const tips = [`<b>💧 ${p.Pipe_Type || 'Drainage Pipe'}</b>`];
-        if (p.Diameter_Width) tips.push(`Ø ${p.Diameter_Width}mm`);
-        if (p.Length) tips.push(`${Math.round(p.Length)}m`);
-        if (p.Asset_Owner) tips.push(p.Asset_Owner);
+        const tips = [`<b>💧 ${p.mainname || p.drainnum || 'Drainage Pipe'}</b>`];
+        if (p.pipe_material) tips.push(`Material: ${p.pipe_material}`);
+        if (p.size_height) tips.push(`Size: ${p.size_height}`);
+        if (p.status) tips.push(`Status: ${p.status}`);
+        if (p.owner) tips.push(p.owner);
         layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
       },
     }).addTo(mapInstanceRef.current);
@@ -304,10 +305,10 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 4, fillColor: '#9C27B0', color: '#6A1B9A', weight: 1.5, fillOpacity: 0.8 }),
       onEachFeature: (feature, layer) => {
         const p = feature.properties || {};
-        const tips = [`<b>🕳️ ${p.Pit_Type || 'Drainage Pit'}</b>`];
-        if (p.FSL) tips.push(`FSL: ${p.FSL}m`);
-        if (p.Depth) tips.push(`Depth: ${p.Depth}mm`);
-        if (p.Asset_Owner) tips.push(p.Asset_Owner);
+        const tips = [`<b>🕳️ ${p.mainname || p.drainnum || 'Drain Inlet'}</b>`];
+        if (p.pit_type) tips.push(`Type: ${p.pit_type}`);
+        if (p.status) tips.push(`Status: ${p.status}`);
+        if (p.owner) tips.push(p.owner);
         layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
       },
     }).addTo(mapInstanceRef.current);

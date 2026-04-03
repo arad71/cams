@@ -505,22 +505,22 @@ def main():
 
     if args.layer in ("drainage_pipes", "all"):
         results["drainage_pipes"] = refresh_generic_layer(
-            "Drainage Pipes (MRWA)",
-            "https://mrgis.mainroads.wa.gov.au/arcgis/rest/services/OpenData/Drainage_DataPortal/MapServer/2/query",
+            "Drainage Pipes (WCORP-080)",
+            f"{SLIP_BASE}/Infrastructure_and_Utilities/MapServer/23/query",
             "1=1",
-            "Pipe_Type,Length,Diameter_Width,Asset_Owner,Asset_Status",
+            "*",
             "Drainage_Pipes.geojson",
-            max_records=2000, in_sr="4283", dry_run=args.dry_run,
+            max_records=5000, dry_run=args.dry_run,
         )
 
     if args.layer in ("drainage_pits", "all"):
         results["drainage_pits"] = refresh_generic_layer(
-            "Drainage Pits (MRWA)",
-            "https://mrgis.mainroads.wa.gov.au/arcgis/rest/services/OpenData/Drainage_DataPortal/MapServer/0/query",
+            "Drainage Pits (WCORP-290)",
+            f"{SLIP_BASE}/Infrastructure_and_Utilities/MapServer/15/query",
             "1=1",
-            "Pit_Type,FSL,Depth,Asset_Owner,Asset_Status",
+            "*",
             "Drainage_Pits.geojson",
-            max_records=2000, in_sr="4283", dry_run=args.dry_run,
+            max_records=5000, dry_run=args.dry_run,
         )
 
     if args.layer in ("water_pipes", "all"):
