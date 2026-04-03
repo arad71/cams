@@ -607,6 +607,126 @@ Respond with JSON only:
   };
 
   const reset3DAnalysis = () => { setAnalysisResult(null); setAnalysisRunning(false); setAnalysisSteps([]); };
+  const [roadWidthResult, setRoadWidthResult] = useState(null);
+  const [roadWidthRunning, setRoadWidthRunning] = useState(false);
+
+  // ── AI Road Width Measurement from Satellite Imagery ──
+  const measureRoadWidth = async () => {
+    if (!sightTriangle?.ptA || !sightTriangle?.ptB) return;
+    const A = sightTriangle.ptA; // driveway point
+    const B = sightTriangle.ptB; // road centre point
+    setRoadWidthRunning(true); setRoadWidthResult(null);
+
+    try {
+      // Capture satellite image at high zoom (20) centred on the road near the crossover
+      // At zoom 20, 640px covers ~75m, so 1px ≈ 0.12m
+      // At zoom 19, 640px covers ~150m, so 1px ≈ 0.23m
+      const zoom = 20;
+      const pxPerMetre = Math.pow(2, zoom) * Math.cos(B.lat * Math.PI / 180) / (156543.03392);
+      const imgWidth = 640, imgHeight = 640;
+      const metresAcross = imgWidth / pxPerMetre;
+
+      const satUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${B.lat},${B.lng}&zoom=${zoom}&size=${imgWidth}x${imgHeight}&maptype=satellite&markers=color:red|label:A|${A.lat},${A.lng}&markers=color:yellow|label:R|${B.lat},${B.lng}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
+      const satResp = await fetch(satUrl);
+      if (!satResp.ok) throw new Error(`Satellite image fetch failed: ${satResp.status}`);
+
+      const satBlob = await satResp.blob();
+      const satB64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(satBlob); });
+
+      // Also get street view perpendicular to the road
+      const roadBearing = Math.round(Math.atan2(B.lng - A.lng, B.lat - A.lat) * 180 / Math.PI + 90) || 0;
+      let svB64 = null;
+      try {
+        const svUrl = `https://maps.googleapis.com/maps/api/streetview?size=640x400&location=${B.lat},${B.lng}&heading=${roadBearing}&pitch=-10&fov=90&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
+        const svResp = await fetch(svUrl);
+        if (svResp.ok && svResp.headers.get("content-type")?.includes("image")) {
+          const blob = await svResp.blob();
+          svB64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(blob); });
+        }
+      } catch (e) { console.log("Street view skipped:", e.message); }
+
+      // Build the AI prompt
+      const imgContent = [
+        { type: "image", source: { type: "base64", media_type: "image/png", data: satB64 } },
+        { type: "text", text: `[SATELLITE IMAGE - ZOOM ${zoom}] Top-down aerial view centred on the road near the crossover. Red marker A = driveway. Yellow marker R = road centre point. The image is ${imgWidth}x${imgHeight} pixels covering approximately ${metresAcross.toFixed(1)}m × ${metresAcross.toFixed(1)}m. Scale: 1 pixel ≈ ${(1/pxPerMetre).toFixed(3)}m.` },
+      ];
+      if (svB64) {
+        imgContent.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: svB64 } });
+        imgContent.push({ type: "text", text: `[STREET VIEW] Ground-level view from near the road centre, looking along the road. Use this to verify road features: lane markings, kerb type, verge width, median, road surface.` });
+      }
+
+      const prompt = `You are a road geometry specialist measuring road width from aerial and street-level imagery in Western Australia.
+
+IMAGE CALIBRATION:
+- Satellite image: ${imgWidth}x${imgHeight}px at zoom ${zoom}
+- Scale: 1 pixel ≈ ${(1/pxPerMetre).toFixed(3)} metres
+- Total image coverage: ~${metresAcross.toFixed(0)}m × ${metresAcross.toFixed(0)}m
+- Location: ${B.lat.toFixed(6)}, ${B.lng.toFixed(6)}
+- Red marker A = driveway/crossover. Yellow marker R = road point.
+
+TASK: Measure the road dimensions at the section nearest to marker A (the crossover).
+
+From the SATELLITE image, identify and measure:
+1. KERB-TO-KERB width — the sealed carriageway between kerb lines
+2. ROAD RESERVE width — full width between property boundaries on each side (includes verges)
+3. Number of traffic lanes and approximate lane width
+4. Verge width on the driveway side
+5. Whether there is a median, turning lane, or centre line
+6. Road surface type (asphalt, concrete, gravel)
+7. Is this a corner lot? (frontage to 2+ roads visible)
+
+MEASUREMENT METHOD: Count the pixels between kerb edges in the satellite image, then multiply by the scale factor (${(1/pxPerMetre).toFixed(3)}m/px). Report measurements in metres.
+
+If a street view image is provided, use it to confirm or refine your satellite measurements.
+
+WA TYPICAL ROAD WIDTHS (for reference):
+- Local access road: 6.0-7.2m kerb-to-kerb (15-18m reserve)
+- Local distributor: 7.0-10.0m (18-20m reserve)
+- District distributor: 10.0-14.0m (20-30m reserve)
+- Primary distributor: 14.0+ (30m+ reserve)
+
+Respond with JSON only:
+{
+  "carriageway_width_m": 0.0,
+  "road_reserve_width_m": 0.0,
+  "verge_width_driveway_side_m": 0.0,
+  "verge_width_opposite_side_m": 0.0,
+  "lane_count": 0,
+  "lane_width_m": 0.0,
+  "has_median": false,
+  "has_centre_line": false,
+  "has_turning_lane": false,
+  "road_surface": "asphalt|concrete|gravel|unsealed",
+  "road_classification": "local_access|local_distributor|district_distributor|primary_distributor",
+  "is_corner_lot": false,
+  "corner_roads": [],
+  "measurement_confidence": "high|medium|low",
+  "measurement_method": "Description of how measurements were taken from the image...",
+  "notes": "Any additional observations about the road geometry..."
+}`;
+
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1500,
+          messages: [{ role: "user", content: [...imgContent, { type: "text", text: prompt }] }],
+        }),
+      });
+
+      const data = await resp.json();
+      const text = (data.content || []).map(c => c.text || "").join("").replace(/```json|```/g, "").trim();
+      const result = JSON.parse(text);
+      setRoadWidthResult(result);
+    } catch (err) {
+      console.error("Road width measurement failed:", err);
+      setRoadWidthResult({ error: err.message });
+    } finally {
+      setRoadWidthRunning(false);
+    }
+  };
+
   const ratingMap3D = { CLEAR: { color: '#27ae60', bg: '#eafaf1', label: '✓ CLEAR' }, PARTIALLY_OBSTRUCTED: { color: '#e67e22', bg: '#fef5e7', label: '◐ PARTIAL' }, SEVERELY_OBSTRUCTED: { color: '#c0392b', bg: '#fdedec', label: '◑ SEVERE' }, BLOCKED: { color: '#c0392b', bg: '#fdedec', label: '✗ BLOCKED' } };
   const hInputStyle = { background: "#f8fafb", border: "1.5px solid #d5dde2", color: "#1a3a4a", borderRadius: 5, padding: "4px 6px", width: 52, fontSize: 11, fontWeight: 700, fontFamily: "inherit", textAlign: "center", outline: "none" };
 
@@ -1053,9 +1173,13 @@ Respond with JSON only:
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
             {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
-            {sightTriangle && !drawMode && !analysisRunning && (
-              <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
+            {sightTriangle && !drawMode && !analysisRunning && !roadWidthRunning && (
+              <>
+                <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
+                <button onClick={measureRoadWidth} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(21,101,192,0.3)" }}>📏 Road Width</button>
+              </>
             )}
+            {roadWidthRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#1565C0", background: "#E3F2FD", padding: "3px 8px", borderRadius: 4 }}>📏 Measuring...</span>}
             {analysisRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
             <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Reset</button>
           </div>
@@ -1582,6 +1706,66 @@ Respond with JSON only:
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ═══ Road Width Results ═══ */}
+      {roadWidthResult && !roadWidthRunning && (
+        <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "linear-gradient(135deg, #E3F2FD, #fff)", borderBottom: "2px solid #1976D2" }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#1565C0" }}>📏 Road Width Measurement</div>
+              <div style={{ fontSize: 10, color: "#5A6A74", marginTop: 2 }}>AI analysis from satellite + street view imagery</div>
+            </div>
+            <button onClick={() => setRoadWidthResult(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 14, color: "#95A5A6" }}>✕</button>
+          </div>
+          {roadWidthResult.error ? (
+            <div style={{ padding: 16, color: "#e74c3c" }}>⚠ {roadWidthResult.error}</div>
+          ) : (
+            <div style={{ padding: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                {[
+                  { label: "Carriageway", value: `${roadWidthResult.carriageway_width_m?.toFixed(1) || '?'}m`, color: "#1565C0", sub: "kerb to kerb" },
+                  { label: "Road Reserve", value: `${roadWidthResult.road_reserve_width_m?.toFixed(1) || '?'}m`, color: "#5C6BC0", sub: "boundary to boundary" },
+                  { label: "Lanes", value: `${roadWidthResult.lane_count || '?'} × ${roadWidthResult.lane_width_m?.toFixed(1) || '?'}m`, color: "#7B1FA2", sub: "count × width" },
+                ].map((s, i) => (
+                  <div key={i} style={{ background: "#F5F8FF", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#5A6A74", marginTop: 2 }}>{s.label}</div>
+                    <div style={{ fontSize: 8, color: "#95A5A6" }}>{s.sub}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                <div style={{ background: "#F5F8FF", borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#7A8A94" }}>VERGE (DRIVEWAY SIDE)</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#2E7D32" }}>{roadWidthResult.verge_width_driveway_side_m?.toFixed(1) || '?'}m</div>
+                </div>
+                <div style={{ background: "#F5F8FF", borderRadius: 8, padding: "8px 12px" }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "#7A8A94" }}>VERGE (OPPOSITE)</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: "#2E7D32" }}>{roadWidthResult.verge_width_opposite_side_m?.toFixed(1) || '?'}m</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                {roadWidthResult.road_surface && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#ECEFF1", color: "#546E7A", fontWeight: 600 }}>🛣️ {roadWidthResult.road_surface}</span>}
+                {roadWidthResult.road_classification && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#E8EAF6", color: "#3F51B5", fontWeight: 600 }}>{roadWidthResult.road_classification.replace(/_/g, ' ')}</span>}
+                {roadWidthResult.has_median && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#FFF3E0", color: "#E65100", fontWeight: 600 }}>Median ✓</span>}
+                {roadWidthResult.has_centre_line && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#F3E5F5", color: "#7B1FA2", fontWeight: 600 }}>Centre Line ✓</span>}
+                {roadWidthResult.has_turning_lane && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#FCE4EC", color: "#C62828", fontWeight: 600 }}>Turning Lane ✓</span>}
+                {roadWidthResult.is_corner_lot && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#FFF8E1", color: "#E65100", fontWeight: 700 }}>🔀 CORNER LOT</span>}
+              </div>
+              {roadWidthResult.is_corner_lot && roadWidthResult.corner_roads?.length > 0 && (
+                <div style={{ fontSize: 10, color: "#5A6A74", marginBottom: 8 }}>Corner roads: {roadWidthResult.corner_roads.join(", ")}</div>
+              )}
+              <div style={{ fontSize: 10, color: "#7A8A94", borderTop: "1px solid #F0F3F5", paddingTop: 8, marginTop: 4 }}>
+                <span style={{ fontWeight: 700, color: roadWidthResult.measurement_confidence === "high" ? "#27ae60" : roadWidthResult.measurement_confidence === "medium" ? "#e67e22" : "#c0392b" }}>
+                  Confidence: {roadWidthResult.measurement_confidence || "unknown"}
+                </span>
+                {roadWidthResult.notes && <div style={{ marginTop: 4, fontStyle: "italic" }}>{roadWidthResult.notes}</div>}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
