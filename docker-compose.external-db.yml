@@ -37,6 +37,7 @@ services:
       DOCUMENT_DIR: /app/uploads/documents
     volumes:
       - approval_uploads:/app/uploads
+      - geojson_data:/app/geojson
     command: >
       sh -c '
         echo "Waiting for database..."
@@ -73,6 +74,8 @@ services:
     depends_on:
       approval-api:
         condition: service_healthy
+    volumes:
+      - geojson_data:/usr/share/nginx/html/geojson
     networks: [cams-net]
 
   # ─── Scheduled Tasks (weekly lot.geojson update) ───────
@@ -91,6 +94,7 @@ services:
 
 volumes:
   approval_uploads:
+  geojson_data:
   lot_geojson_data:
   cron_logs:
 

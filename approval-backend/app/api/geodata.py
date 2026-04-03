@@ -125,7 +125,7 @@ MRWA_WFS_URL = os.getenv(
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent  # cams/
 OUTPUT_DIR = Path(os.getenv(
     "GEOJSON_OUTPUT_DIR",
-    str(REPO_ROOT / "approval-frontend" / "public"),
+    "/app/geojson" if Path("/app/geojson").exists() else str(REPO_ROOT / "approval-frontend" / "public"),
 ))
 
 # Refresh state
