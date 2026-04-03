@@ -206,7 +206,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         layer.bindTooltip(`<b>${p.rd}</b><br/>${p.sp} km/h<br/><i>${p.nt}</i>`, { sticky: true, className: 'lot-tooltip' });
       },
     }).addTo(mapInstanceRef.current);
-  }, [showSpeedRoads, leafletLoaded]);
+  }, [showSpeedRoads, speedRoadsData, leafletLoaded]);
 
   // Render road network with street names from Road_Network.geojson
   const streetLayerRef = useRef(null);
