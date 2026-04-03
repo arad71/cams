@@ -29,6 +29,10 @@ export default function CouncilApprovalPortal() {
   const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
   const [globalRoadNetwork, setGlobalRoadNetwork] = useState(null);
   const [globalContoursData, setGlobalContoursData] = useState(null);
+  const [globalUrbanForestData, setGlobalUrbanForestData] = useState(null);
+  const [globalDrainagePipesData, setGlobalDrainagePipesData] = useState(null);
+  const [globalDrainagePitsData, setGlobalDrainagePitsData] = useState(null);
+  const [globalWaterPipesData, setGlobalWaterPipesData] = useState(null);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [siteSettings, setSiteSettings] = useState({});
@@ -135,6 +139,26 @@ export default function CouncilApprovalPortal() {
         const r = await fetch('/Contours_2m.geojson', { cache: 'no-cache' });
         if (!cancelled && r.ok) setGlobalContoursData(await r.json());
       } catch (e) { console.warn('Contours_2m.geojson not loaded:', e.message); }
+
+      try {
+        const r = await fetch('/Urban_Forest.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) setGlobalUrbanForestData(await r.json());
+      } catch (e) { console.warn('Urban_Forest.geojson not loaded:', e.message); }
+
+      try {
+        const r = await fetch('/Drainage_Pipes.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) setGlobalDrainagePipesData(await r.json());
+      } catch (e) { console.warn('Drainage_Pipes.geojson not loaded:', e.message); }
+
+      try {
+        const r = await fetch('/Drainage_Pits.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) setGlobalDrainagePitsData(await r.json());
+      } catch (e) { console.warn('Drainage_Pits.geojson not loaded:', e.message); }
+
+      try {
+        const r = await fetch('/Water_Pipes.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) setGlobalWaterPipesData(await r.json());
+      } catch (e) { console.warn('Water_Pipes.geojson not loaded:', e.message); }
     }
     loadGeoData();
     return () => { cancelled = true; };
@@ -308,7 +332,7 @@ export default function CouncilApprovalPortal() {
     // Viewer role — only sees executive dashboard
     if (role === "viewer") return <ExecutiveDashboard apps={apps} branding={S} />;
 
-    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData} uiMode={uiMode} />;
+    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData} globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData} globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData} uiMode={uiMode} />;
     switch (activeView) {
       case "exec_dashboard": return <ExecutiveDashboard apps={apps} branding={S} />;
       case "dashboard": return uiMode === "workflow"

@@ -6,7 +6,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -227,6 +227,111 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
     }).addTo(mapInstanceRef.current);
   }, [showStreetNames, roadNetworkData, leafletLoaded]);
+
+  // Render 2m contour lines
+  const contourLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (contourLayerRef.current) { mapInstanceRef.current.removeLayer(contourLayerRef.current); contourLayerRef.current = null; }
+    if (!showContours || !contoursData?.features) return;
+    const L = window.L;
+    contourLayerRef.current = L.geoJSON(contoursData, {
+      style: (feature) => {
+        const elev = feature.properties?.elevation_m || 0;
+        const isMajor = elev % 10 === 0;
+        return { color: "#854F0B", weight: isMajor ? 1.5 : 0.7, opacity: isMajor ? 0.6 : 0.3 };
+      },
+      onEachFeature: (feature, layer) => {
+        const elev = feature.properties?.elevation_m;
+        if (elev != null) layer.bindTooltip(`${elev}m`, { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showContours, contoursData, leafletLoaded]);
+
+  // Render urban forest (tree canopy per parcel)
+  const urbanForestLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (urbanForestLayerRef.current) { mapInstanceRef.current.removeLayer(urbanForestLayerRef.current); urbanForestLayerRef.current = null; }
+    if (!showUrbanForest || !urbanForestData?.features) return;
+    const L = window.L;
+    urbanForestLayerRef.current = L.geoJSON(urbanForestData, {
+      style: (feature) => {
+        const pct = feature.properties?.totalpcent || 0;
+        const color = pct > 60 ? '#1B5E20' : pct > 40 ? '#2E7D32' : pct > 20 ? '#4CAF50' : pct > 5 ? '#81C784' : '#C8E6C9';
+        return { color, fillColor: color, weight: 0.5, opacity: 0.7, fillOpacity: 0.3 };
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const tips = [];
+        if (p.totalpcent) tips.push(`Canopy: ${Math.round(p.totalpcent)}%`);
+        if (p.tree15mplus > 0) tips.push(`15m+: ${Math.round(p.tree15mplus)}m²`);
+        if (p.tree8to15m > 0) tips.push(`8-15m: ${Math.round(p.tree8to15m)}m²`);
+        if (p.tree3to8m > 0) tips.push(`3-8m: ${Math.round(p.tree3to8m)}m²`);
+        if (tips.length) layer.bindTooltip(`<b>🌳 Urban Forest</b><br/>${tips.join('<br/>')}`, { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showUrbanForest, urbanForestData, leafletLoaded]);
+
+  // Render drainage pipes
+  const drainagePipesLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (drainagePipesLayerRef.current) { mapInstanceRef.current.removeLayer(drainagePipesLayerRef.current); drainagePipesLayerRef.current = null; }
+    if (!showDrainagePipes || !drainagePipesData?.features) return;
+    const L = window.L;
+    drainagePipesLayerRef.current = L.geoJSON(drainagePipesData, {
+      style: () => ({ color: '#2196F3', weight: 3, opacity: 0.7, dashArray: '6,3' }),
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const tips = [`<b>💧 ${p.Pipe_Type || 'Drainage Pipe'}</b>`];
+        if (p.Diameter_Width) tips.push(`Ø ${p.Diameter_Width}mm`);
+        if (p.Length) tips.push(`${Math.round(p.Length)}m`);
+        if (p.Asset_Owner) tips.push(p.Asset_Owner);
+        layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showDrainagePipes, drainagePipesData, leafletLoaded]);
+
+  // Render drainage pits
+  const drainagePitsLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (drainagePitsLayerRef.current) { mapInstanceRef.current.removeLayer(drainagePitsLayerRef.current); drainagePitsLayerRef.current = null; }
+    if (!showDrainagePits || !drainagePitsData?.features) return;
+    const L = window.L;
+    drainagePitsLayerRef.current = L.geoJSON(drainagePitsData, {
+      pointToLayer: (feature, latlng) => L.circleMarker(latlng, { radius: 4, fillColor: '#9C27B0', color: '#6A1B9A', weight: 1.5, fillOpacity: 0.8 }),
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const tips = [`<b>🕳️ ${p.Pit_Type || 'Drainage Pit'}</b>`];
+        if (p.FSL) tips.push(`FSL: ${p.FSL}m`);
+        if (p.Depth) tips.push(`Depth: ${p.Depth}mm`);
+        if (p.Asset_Owner) tips.push(p.Asset_Owner);
+        layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showDrainagePits, drainagePitsData, leafletLoaded]);
+
+  // Render water pipes
+  const waterPipesLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (waterPipesLayerRef.current) { mapInstanceRef.current.removeLayer(waterPipesLayerRef.current); waterPipesLayerRef.current = null; }
+    if (!showWaterPipes || !waterPipesData?.features) return;
+    const L = window.L;
+    waterPipesLayerRef.current = L.geoJSON(waterPipesData, {
+      style: () => ({ color: '#00BCD4', weight: 2.5, opacity: 0.7 }),
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const name = p.PIPE_NAME || p.pipe_name || p.ROAD_NAME || p.road_name || 'Water Pipe';
+        const diameter = p.DIAMETER || p.diameter || p.PIPE_DIAM || p.pipe_diam || '';
+        const tips = [`<b>🚰 ${name}</b>`];
+        if (diameter) tips.push(`Ø ${diameter}mm`);
+        layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showWaterPipes, waterPipesData, leafletLoaded]);
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);

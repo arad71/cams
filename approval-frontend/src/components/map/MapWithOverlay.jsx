@@ -94,7 +94,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null }) {
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(false);
   const [showStreetNames, setShowStreetNames] = useState(false);
@@ -1210,6 +1210,11 @@ Respond with JSON only:
           crossover: app?.site_crossover_latlon || null,
         } : null}
         waLayers={waLayers}
+        showContours={showContours} contoursData={contoursData}
+        showUrbanForest={showUrbanForest} urbanForestData={urbanForestData}
+        showDrainagePipes={showDrainagePipes} drainagePipesData={drainagePipesData}
+        showDrainagePits={showDrainagePits} drainagePitsData={drainagePitsData}
+        showWaterPipes={showWaterPipes} waterPipesData={waterPipesData}
         mapTool={mapTool} setMapTool={setMapTool}
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}

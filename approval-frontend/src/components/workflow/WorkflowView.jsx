@@ -236,12 +236,15 @@ function StepExtract({ app, currentUser, onReload, measureCorrections, onMeasure
   );
 }
 
-function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, categories, currentUser }) {
+function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, categories, currentUser }) {
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
         <MapWithOverlay app={app} apps={apps} onSelectApp={onSelectApp}
-          speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork} contoursData={globalContoursData} />
+          speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork}
+          contoursData={globalContoursData} urbanForestData={globalUrbanForestData}
+          drainagePipesData={globalDrainagePipesData} drainagePitsData={globalDrainagePitsData}
+          waterPipesData={globalWaterPipesData} />
       </div>
       <ApprovalChecklist app={app} categories={categories} currentUser={currentUser} />
     </div>
@@ -375,6 +378,7 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
 export default function WorkflowView({
   app, apps, onSelectApp, currentUser, reloadApp, users,
   globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData,
+  globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData,
   // Shared state from parent
   localApp, setLocalApp, newNote, setNewNote, addNote,
   assignee, setAssignee, newStatus, setNewStatus, saveChanges,
@@ -437,7 +441,10 @@ export default function WorkflowView({
           {currentStep === 3 && (
             <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
               globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
-              globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData} categories={categories}
+              globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
+              globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
+              globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
+              categories={categories}
               currentUser={currentUser} />
           )}
           {currentStep === 4 && (
