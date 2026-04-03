@@ -99,6 +99,12 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showSpeedRoads, setShowSpeedRoads] = useState(false);
   const [showStreetNames, setShowStreetNames] = useState(false);
   const [showBoundaries, setShowBoundaries] = useState(false);
+  const [showContours, setShowContours] = useState(false);
+  const [showUrbanForest, setShowUrbanForest] = useState(false);
+  const [showDrainagePipes, setShowDrainagePipes] = useState(false);
+  const [showDrainagePits, setShowDrainagePits] = useState(false);
+  const [showWaterPipes, setShowWaterPipes] = useState(false);
+  const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
   const [mapTool, setMapTool] = useState(null); // "measure" | "draw" | null
@@ -961,24 +967,57 @@ Respond with JSON only:
     <div style={fullscreenContainerStyle}>
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: isFullscreen ? "5px 12px" : "0 0 4px", background: isFullscreen ? "#f8fafb" : "transparent", borderBottom: isFullscreen ? "1px solid #e4e9ec" : "none", flexWrap: "wrap", gap: 3 }}>
-        {/* Left: Layers */}
+        {/* Left: Layers dropdown + tools */}
         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-          {[
-            { key: "lots", state: showLots, set: () => setShowLots(!showLots), label: "Lots", color: "#2980b9" },
-            { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), label: "Speed", color: "#e67e22" },
-            { key: "streets", state: showStreetNames, set: () => setShowStreetNames(!showStreetNames), label: "Streets", color: "#16a085" },
-          ].map(l => (
-            <button key={l.key} onClick={l.set}
-              style={{ padding: "3px 7px", borderRadius: 4, border: l.state ? `1.5px solid ${l.color}` : "1px solid #dce1e6", background: l.state ? `${l.color}10` : "#fff", color: l.state ? l.color : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
-              {l.label}
+          <div style={{ position: "relative" }}>
+            <button onClick={() => setShowLayerPanel(!showLayerPanel)}
+              style={{ padding: "3px 8px", borderRadius: 4, border: showLayerPanel ? "1.5px solid #1a3a4a" : "1px solid #dce1e6", background: showLayerPanel ? "#1a3a4a" : "#fff", color: showLayerPanel ? "#fff" : "#5a6a74", fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 3 }}>
+              🗂️ Layers <span style={{ fontSize: 7, opacity: 0.7 }}>▼</span>
             </button>
-          ))}
-          {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary) && (
-            <button onClick={() => setShowBoundaries(!showBoundaries)}
-              style={{ padding: "3px 7px", borderRadius: 4, border: showBoundaries ? "1.5px solid #8e44ad" : "1px solid #dce1e6", background: showBoundaries ? "#8e44ad10" : "#fff", color: showBoundaries ? "#8e44ad" : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
-              Bounds
-            </button>
-          )}
+            {showLayerPanel && (
+              <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 2, zIndex: 1000, background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", minWidth: 220, padding: "6px 0" }}
+                onMouseLeave={() => setShowLayerPanel(false)}>
+                <div style={{ padding: "4px 12px 6px", fontSize: 9, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", borderBottom: "1px solid #f0f3f5" }}>Map Layers</div>
+                {[
+                  { key: "lots", state: showLots, set: () => setShowLots(!showLots), label: "Lot Boundaries", icon: "🏠", color: "#2980b9", data: lotsData },
+                  { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), label: "Speed Limits", icon: "⚡", color: "#e67e22", data: speedRoadsData },
+                  { key: "streets", state: showStreetNames, set: () => setShowStreetNames(!showStreetNames), label: "Street Names", icon: "🛣️", color: "#16a085", data: roadNetworkData },
+                  { key: "contours", state: showContours, set: () => setShowContours(!showContours), label: "2m Contours", icon: "⛰️", color: "#854F0B", data: contoursData },
+                  { key: "urban", state: showUrbanForest, set: () => setShowUrbanForest(!showUrbanForest), label: "Urban Forest", icon: "🌳", color: "#27ae60", data: null },
+                  { key: "dpipes", state: showDrainagePipes, set: () => setShowDrainagePipes(!showDrainagePipes), label: "Drainage Pipes", icon: "💧", color: "#2980b9", data: null },
+                  { key: "dpits", state: showDrainagePits, set: () => setShowDrainagePits(!showDrainagePits), label: "Drainage Pits", icon: "🕳️", color: "#8e44ad", data: null },
+                  { key: "water", state: showWaterPipes, set: () => setShowWaterPipes(!showWaterPipes), label: "Water Pipes", icon: "🚰", color: "#3498db", data: null },
+                ].map(l => (
+                  <div key={l.key} onClick={l.set}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11, transition: "background 0.1s" }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <div style={{ width: 16, height: 16, borderRadius: 3, border: l.state ? `2px solid ${l.color}` : "1.5px solid #d5dde2", background: l.state ? `${l.color}20` : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {l.state && <span style={{ fontSize: 10, color: l.color, fontWeight: 700 }}>✓</span>}
+                    </div>
+                    <span style={{ fontSize: 12 }}>{l.icon}</span>
+                    <span style={{ flex: 1, fontWeight: l.state ? 600 : 400, color: l.state ? l.color : "#5a6a74" }}>{l.label}</span>
+                    {l.data === null && !["urban", "dpipes", "dpits", "water"].includes(l.key) && <span style={{ fontSize: 8, color: "#c0392b", fontWeight: 600 }}>no data</span>}
+                  </div>
+                ))}
+                {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary) && (
+                  <>
+                    <div style={{ height: 1, background: "#f0f3f5", margin: "4px 0" }} />
+                    <div onClick={() => setShowBoundaries(!showBoundaries)}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11 }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      <div style={{ width: 16, height: 16, borderRadius: 3, border: showBoundaries ? "2px solid #8e44ad" : "1.5px solid #d5dde2", background: showBoundaries ? "#8e44ad20" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {showBoundaries && <span style={{ fontSize: 10, color: "#8e44ad", fontWeight: 700 }}>✓</span>}
+                      </div>
+                      <span style={{ fontSize: 12 }}>📐</span>
+                      <span style={{ flex: 1, fontWeight: showBoundaries ? 600 : 400, color: showBoundaries ? "#8e44ad" : "#5a6a74" }}>Site Boundaries</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <div style={{ width: 1, height: 16, background: "#e4e9ec", margin: "0 2px" }} />
           {/* Map tools */}
           {[
