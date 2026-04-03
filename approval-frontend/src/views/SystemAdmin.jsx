@@ -640,16 +640,21 @@ function GeoDataTab() {
                   </div>
                   <div style={{ fontSize: 11, color: "#95a5a6", marginTop: 2 }}>{layer.desc}</div>
 
-                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: "#5a6a74" }}>
-                    <span title="Feature count">📊 {st.feature_count?.toLocaleString() || (fileInfo ? '✓ file exists' : '—')} features</span>
+                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: "#5a6a74", flexWrap: "wrap" }}>
+                    <span title="Feature count">📊 {st.feature_count?.toLocaleString() || (st.feature_count_on_disk ? `${st.feature_count_on_disk.toLocaleString()} (on disk)` : fileInfo ? '✓ file exists' : '—')} features</span>
                     <span title="File size">💾 {fileInfo ? `${fileInfo.size_mb} MB` : '—'}</span>
                     <span title="Last refresh">🕐 {fmtDate(st.last_refresh || fileInfo?.modified)}</span>
                     {st.duration_s > 0 && <span title="Refresh duration">⏱ {st.duration_s}s</span>}
                   </div>
 
                   {st.error && (
-                    <div style={{ fontSize: 11, color: "#e74c3c", marginTop: 4, padding: "4px 8px", background: "#fdf0ef", borderRadius: 4, display: "inline-block" }}>
+                    <div style={{ fontSize: 11, color: "#e74c3c", marginTop: 4, padding: "4px 8px", background: "#fdf0ef", borderRadius: 4 }}>
                       ⚠ {st.error}
+                      {st.feature_count_on_disk > 0 && (
+                        <span style={{ color: "#27ae60", marginLeft: 8, fontWeight: 600 }}>
+                          ✓ Existing file preserved ({st.feature_count_on_disk.toLocaleString()} features)
+                        </span>
+                      )}
                     </div>
                   )}
                   {st.last_failed && (

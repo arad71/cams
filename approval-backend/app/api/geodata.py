@@ -654,8 +654,9 @@ async def _refresh_all():
 @router.get("/status")
 async def geodata_status():
     """Return last refresh timestamps and feature counts for all layers."""
-    # Also check what files exist on disk
+    # Check what files exist on disk
     files = {}
+    file_feature_counts = {}
     for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson", "Urban_Forest.geojson", "Drainage_Pipes.geojson", "Drainage_Pits.geojson", "Water_Pipes.geojson"]:
         path = OUTPUT_DIR / name
         if path.exists():
@@ -664,11 +665,33 @@ async def geodata_status():
                 "size_mb": round(stat.st_size / 1048576, 2),
                 "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
             }
+            # Read feature count from file if in-memory status shows 0/error
+            try:
+                with open(path, "r") as f:
+                    data = json.load(f)
+                    file_feature_counts[name] = len(data.get("features", []))
+            except Exception:
+                file_feature_counts[name] = 0
         else:
             files[name] = None
+            file_feature_counts[name] = 0
+
+    # Build layer status — enrich with file-based counts when refresh failed
+    layer_file_map = {
+        "lots": "lot.geojson", "roads": "Road_Network.geojson",
+        "speed_limits": "Legal_Speed_Limits.geojson", "contours": "Contours_2m.geojson",
+        "urban_forest": "Urban_Forest.geojson", "drainage_pipes": "Drainage_Pipes.geojson",
+        "drainage_pits": "Drainage_Pits.geojson", "water_pipes": "Water_Pipes.geojson",
+    }
+    enriched = {}
+    for layer_key, st in _refresh_status.items():
+        enriched[layer_key] = {**st}
+        fname = layer_file_map.get(layer_key)
+        if fname and st.get("feature_count", 0) == 0 and file_feature_counts.get(fname, 0) > 0:
+            enriched[layer_key]["feature_count_on_disk"] = file_feature_counts[fname]
 
     return {
-        "layers": _refresh_status,
+        "layers": enriched,
         "files": files,
         "config": {
             "bbox": COUNCIL_BBOX,
