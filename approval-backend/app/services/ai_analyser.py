@@ -179,6 +179,10 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "street_light_near_crossover": "boolean or null",
     "fire_hydrant_near_crossover": "boolean or null",
     "letterbox_relocation_needed": "boolean or null",
+    "fence_left_of_crossover": "object or null — {\"exists\": boolean, \"type\": \"timber/colorbond/brick/retaining/hedge\", \"height_m\": number or null, \"distance_from_crossover_m\": number or null, \"truncated\": boolean or null — true if fence is cut back/splayed at sight line}",
+    "fence_right_of_crossover": "object or null — {\"exists\": boolean, \"type\": \"timber/colorbond/brick/retaining/hedge\", \"height_m\": number or null, \"distance_from_crossover_m\": number or null, \"truncated\": boolean or null — true if fence is cut back/splayed at sight line}",
+    "retaining_wall_near_crossover": "object or null — {\"exists\": boolean, \"side\": \"left/right/both\", \"height_m\": number or null, \"distance_from_crossover_m\": number or null}",
+    "sight_obstruction_notes": "string or null — describe any fences, walls, hedges, structures between 0.65m-1.5m height within 2.5m of crossover that could block driver sight lines",
     "notes": "string or null"
   }
 }
@@ -199,6 +203,8 @@ RULES:
 - FOOTPATH: If a footpath crosses the crossover, check if flush join is shown (R-110). For concrete, check colour/jointing delineation (R-111).
 - CONSTRUCTION: Identify material, base course depth (min 150mm, R-122), compaction spec (95% MDD, R-121), expansion joints for concrete (min 2, R-126).
 - SPEED ZONE: Note speed limit if shown on plan or inferable from road classification.
+- FENCES & WALLS: Look carefully for fences, walls, retaining walls, and hedges on BOTH sides of the crossover. Read the plan for fence type (colorbond, timber, brick, retaining wall), height, and distance from crossover edge. If a fence is shown truncated/splayed/cut back near the crossover for sight distance, note truncated=true. ANY solid structure above 0.65m within the sight triangle is a potential obstruction. Check for: boundary fences running to the front boundary, front fences along the street, retaining walls at the crossover, garden walls or letterbox walls.
+- RETAINING WALLS: If the site has a level difference (cut/fill, different levels to neighbours), check for retaining walls near the crossover. Note height and side.
 - SECOND CROSSOVER: If multiple crossovers shown, count them. Second requires lot boundary >20m and ≥6.0m from intersection tangent.
 - Return ONLY valid JSON. Nothing else."""
 
