@@ -25,7 +25,10 @@ const FIELD_GROUPS = [
       { path: "verge_depth_m", label: "Verge Depth", unit: "m" },
       { path: "crossover_length_m", label: "Crossover Length", unit: "m" },
       { path: "distance_to_left_boundary_m", label: "→ Left Boundary", unit: "m" },
+      { path: "left_boundary_feature", label: "Left Boundary Feature" },
       { path: "distance_to_right_boundary_m", label: "→ Right Boundary", unit: "m" },
+      { path: "right_boundary_feature", label: "Right Boundary Feature" },
+      { path: "constrained_side", label: "Constrained Side" },
       { path: "distance_to_nearest_lot_corner_m", label: "→ Nearest Lot Corner", unit: "m" },
       { path: "nearest_lot_corner", label: "Which Corner" },
       { path: "distance_to_building_corner_m", label: "→ Building Corner", unit: "m" },
@@ -82,7 +85,12 @@ const FIELD_GROUPS = [
       { path: "lot_frontage_m", label: "Lot Frontage", unit: "m" },
       { path: "lot_depth_m", label: "Lot Depth", unit: "m" },
       { path: "existing_driveway_width_m", label: "Existing Driveway", unit: "m" },
-      { path: "road_name", label: "Road Name" },
+      { path: "road_name", label: "Primary Road" },
+      { path: "secondary_road_name", label: "Secondary Road (corner)" },
+      { path: "crossover_on_road", label: "Crossover On Road" },
+      { path: "road_speed_zone_kmh", label: "Speed Zone", unit: "km/h" },
+      { path: "secondary_road_speed_kmh", label: "Secondary Road Speed", unit: "km/h" },
+      { path: "road_classification", label: "Road Classification" },
       { path: "building_setback_front_m", label: "Building Setback Front", unit: "m" },
       { path: "building_setback_left_m", label: "Building Setback Left", unit: "m" },
       { path: "building_setback_right_m", label: "Building Setback Right", unit: "m" },
@@ -96,6 +104,10 @@ const FIELD_GROUPS = [
       { path: "trees_on_verge", label: "Trees on Verge", type: "bool" },
       { path: "street_light_near_crossover", label: "Street Light Nearby", type: "bool" },
       { path: "fire_hydrant_near_crossover", label: "Fire Hydrant Nearby", type: "bool" },
+      { path: "fence_left_of_crossover", label: "Fence Left of Crossover" },
+      { path: "fence_right_of_crossover", label: "Fence Right of Crossover" },
+      { path: "retaining_wall_near_crossover", label: "Retaining Wall" },
+      { path: "sight_obstruction_notes", label: "Sight Obstruction Notes" },
       { path: "is_subdivision", label: "Subdivision", type: "bool" },
       { path: "notes", label: "Notes" },
     ],
@@ -104,6 +116,7 @@ const FIELD_GROUPS = [
     key: "property", label: "Property", icon: "🏠",
     fields: [
       { path: "is_corner_lot", label: "Corner Lot", type: "bool" },
+      { path: "corner_roads", label: "Corner Roads" },
       { path: "is_battleaxe", label: "Battleaxe Lot", type: "bool" },
       { path: "da_linked", label: "DA-Linked", type: "bool" },
       { path: "lot_number", label: "Lot Number" },
@@ -115,6 +128,19 @@ const FIELD_GROUPS = [
 function formatValue(val, type) {
   if (val === null || val === undefined) return "—";
   if (type === "bool") return val ? "Yes ✅" : "No ❌";
+  if (Array.isArray(val)) return val.join(", ") || "—";
+  if (typeof val === "object") {
+    // For fence/wall objects, format nicely
+    if (val.exists === false) return "None";
+    const parts = [];
+    if (val.type) parts.push(val.type);
+    if (val.height_m) parts.push(`${val.height_m}m`);
+    if (val.distance_from_crossover_m) parts.push(`${val.distance_from_crossover_m}m away`);
+    if (val.side) parts.push(val.side);
+    if (val.truncated) parts.push("truncated ✓");
+    if (val.exists && parts.length === 0) return "Yes";
+    return parts.join(", ") || JSON.stringify(val);
+  }
   return String(val);
 }
 
