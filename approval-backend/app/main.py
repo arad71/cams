@@ -116,6 +116,7 @@ def _backfill_columns():
     """Backfill NULL values for columns added after initial deployment."""
     from app.core.database import SessionLocal
     from app.models.user import User
+    from sqlalchemy import text
 
     db = SessionLocal()
     try:
@@ -125,6 +126,13 @@ def _backfill_columns():
             db.commit()
             if n1: print(f"  ✓ Backfilled auth_provider='local' on {n1} users")
             if n2: print(f"  ✓ Backfilled must_change_password=False on {n2} users")
+
+        # Add extraction_locked column if it doesn't exist
+        try:
+            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE"))
+            db.commit()
+        except Exception:
+            db.rollback()  # Column might already exist or DB doesn't support IF NOT EXISTS
     except Exception as e:
         print(f"  ⚠ Backfill error: {e}")
         db.rollback()

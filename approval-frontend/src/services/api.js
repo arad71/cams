@@ -17,7 +17,9 @@ const api = {
     const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
     if (res.status === 401) { this._setToken(null); throw new Error("Session expired"); }
     if (res.status === 204) return null;
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error(!res.ok ? `Server error (${res.status})` : `Invalid response from server`); }
     if (!res.ok) throw new Error(data.detail || JSON.stringify(data));
     return data;
   },
@@ -26,7 +28,13 @@ const api = {
   async login(email, password) {
     const body = new URLSearchParams({ username: email, password });
     const res = await fetch(`${API_BASE}/auth/login`, { method: "POST", body });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Login failed"); }
+    if (!res.ok) {
+      try { const e = await res.json(); throw new Error(e.detail || "Login failed"); }
+      catch (parseErr) {
+        if (parseErr.message && !parseErr.message.includes("Unexpected")) throw parseErr;
+        throw new Error(`Server error (${res.status}). Backend may not be running — check deployment.`);
+      }
+    }
     const data = await res.json();
     this._setToken(data.access_token);
     return data.user;
