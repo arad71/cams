@@ -912,6 +912,49 @@ Respond with JSON only:
     resetTriangle();
     let isCorner = false;
     let cornerSource = null;
+    let crossoverRoad = null;
+    let constrainedSide = null;
+    let crossoverWidth = null;
+    let leftBoundaryDist = null;
+    let rightBoundaryDist = null;
+    let leftBoundaryFeature = null;
+    let rightBoundaryFeature = null;
+    let autoY = 4.0; // default fence distance
+
+    // Extract AI data (officer-corrected first, then original)
+    const ext = app?.cor_site_plan_data?.extraction
+      || (app?.site_plan_data || app?.org_site_plan_data)?.extraction;
+
+    if (ext) {
+      // Crossover road
+      crossoverRoad = ext.siteplan_measurements?.crossover_on_road
+        || ext.siteplan_measurements?.road_name || null;
+
+      // Constrained side and boundary distances
+      constrainedSide = ext.crossover_dimensions?.constrained_side || null;
+      leftBoundaryDist = ext.crossover_dimensions?.distance_to_left_boundary_m;
+      rightBoundaryDist = ext.crossover_dimensions?.distance_to_right_boundary_m;
+      leftBoundaryFeature = ext.crossover_dimensions?.left_boundary_feature || null;
+      rightBoundaryFeature = ext.crossover_dimensions?.right_boundary_feature || null;
+
+      // Crossover width
+      crossoverWidth = ext.crossover_dimensions?.width_at_boundary_m
+        || ext.crossover_dimensions?.total_width_at_road_m || null;
+
+      // Auto-calculate Y (fence/side distance for Point A)
+      // Point A lateral position = constrained side distance + 0.5 * crossover width
+      if (constrainedSide && crossoverWidth) {
+        const constrainedDist = constrainedSide === "left" ? leftBoundaryDist : rightBoundaryDist;
+        if (constrainedDist != null) {
+          autoY = constrainedDist + 0.5 * crossoverWidth;
+        }
+      } else if (leftBoundaryDist != null && rightBoundaryDist != null && crossoverWidth) {
+        // If no constrained side set, use the shorter one
+        const minDist = Math.min(leftBoundaryDist, rightBoundaryDist);
+        constrainedSide = leftBoundaryDist <= rightBoundaryDist ? "left" : "right";
+        autoY = minDist + 0.5 * crossoverWidth;
+      }
+    }
 
     // PRIORITY 1: Officer-corrected AI data (final authority)
     const corExtraction = app?.cor_site_plan_data?.extraction;
@@ -1056,7 +1099,8 @@ Respond with JSON only:
     } // end: geometry fallback (priority 3)
 
     setSightPhase(isCorner ? "corner_draw" : "offset_road");
-    setSightConfig(c => ({ ...c, isCorner, cornerSource }));
+    setSightConfig(c => ({ ...c, isCorner, cornerSource, crossoverRoad, constrainedSide, crossoverWidth, leftBoundaryDist, rightBoundaryDist, leftBoundaryFeature, rightBoundaryFeature, y: autoY }));
+    setOffsetState(s => ({ ...s, x: 2.5, y: autoY, isCorner: false, cornerR: null, cornerV: null }));
     if (isCorner) {
       setMapTool("radius");
     } else {
@@ -1177,7 +1221,9 @@ Respond with JSON only:
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
             <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a", letterSpacing: -0.3 }}>Sight Analysis</span>
+            {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>🛣️ {sightConfig.crossoverRoad}</span>}
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
+            {sightConfig.constrainedSide && <span style={{ fontSize: 8, background: "#FFF3E0", color: "#E65100", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>⚠ {sightConfig.constrainedSide} constrained</span>}
             {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
             {sightTriangle && !drawMode && !analysisRunning && !roadWidthRunning && (
@@ -1210,21 +1256,31 @@ Respond with JSON only:
             <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightTriangle ? "#fff" : (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "#fff" : "#f5f5f5",
               border: sightTriangle ? "1.5px solid #27ae60" : (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "1.5px solid #2e7d32" : "1px solid #e4e9ec",
               opacity: sightTriangle || sightPhase === "offset_road" || sightPhase === "offset_boundary" ? 1 : 0.5 }}>
-              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Driveway Location</div>
+              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Point A Location</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
-                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>Verge</span>
+                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>x</span>
                   <input type="number" value={sightConfig.x} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, x: v})); setOffsetState(s => ({...s, x: v})); }} step="0.5" min="0"
                     style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
-                  <span style={{ color: "#a0aab0", fontSize: 9 }}>m</span>
+                  <span style={{ color: "#a0aab0", fontSize: 8 }}>kerb</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
-                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>Fence</span>
+                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>y</span>
                   <input type="number" value={sightConfig.y} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, y: v})); setOffsetState(s => ({...s, y: v})); }} step="0.5" min="0"
                     style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
-                  <span style={{ color: "#a0aab0", fontSize: 9 }}>m</span>
+                  <span style={{ color: "#a0aab0", fontSize: 8 }}>side</span>
                 </div>
               </div>
+              {(sightConfig.leftBoundaryDist != null || sightConfig.rightBoundaryDist != null) && (
+                <div style={{ marginTop: 3, fontSize: 8, color: "#7a8a94", lineHeight: 1.4 }}>
+                  {sightConfig.leftBoundaryDist != null && <div>L: {sightConfig.leftBoundaryDist.toFixed(1)}m{sightConfig.leftBoundaryFeature ? ` — ${sightConfig.leftBoundaryFeature}` : ''}</div>}
+                  {sightConfig.rightBoundaryDist != null && <div>R: {sightConfig.rightBoundaryDist.toFixed(1)}m{sightConfig.rightBoundaryFeature ? ` — ${sightConfig.rightBoundaryFeature}` : ''}</div>}
+                  {sightConfig.crossoverWidth && <div>Width: {sightConfig.crossoverWidth.toFixed(1)}m</div>}
+                  {sightConfig.constrainedSide && sightConfig.crossoverWidth && (
+                    <div style={{ color: "#E65100", fontWeight: 600, marginTop: 1 }}>y = {(sightConfig.constrainedSide === "left" ? sightConfig.leftBoundaryDist : sightConfig.rightBoundaryDist)?.toFixed(1)} + {(0.5 * sightConfig.crossoverWidth).toFixed(1)} = {sightConfig.y.toFixed(1)}m</div>
+                  )}
+                </div>
+              )}
             </div>
             <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightTriangle ? "#fff" : "#f5f5f5",
               border: sightTriangle ? "1.5px solid #283593" : "1px solid #e4e9ec", opacity: sightTriangle ? 1 : 0.5 }}>
