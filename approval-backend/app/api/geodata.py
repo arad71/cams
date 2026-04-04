@@ -674,7 +674,7 @@ async def geodata_status():
             files[name] = None
             file_feature_counts[name] = 0
 
-    # Build layer status — enrich with file-based counts when refresh failed
+    # Build layer status — use file-based counts when in-memory is 0 (e.g. after restart)
     layer_file_map = {
         "lots": "lot.geojson", "roads": "Road_Network.geojson",
         "speed_limits": "Legal_Speed_Limits.geojson", "contours": "Contours_2m.geojson",
@@ -685,8 +685,16 @@ async def geodata_status():
     for layer_key, st in _refresh_status.items():
         enriched[layer_key] = {**st}
         fname = layer_file_map.get(layer_key)
-        if fname and st.get("feature_count", 0) == 0 and file_feature_counts.get(fname, 0) > 0:
-            enriched[layer_key]["feature_count_on_disk"] = file_feature_counts[fname]
+        if fname:
+            disk_count = file_feature_counts.get(fname, 0)
+            file_info = files.get(fname)
+            # If in-memory shows 0 but file exists with features, use disk values
+            if st.get("feature_count", 0) == 0 and disk_count > 0:
+                enriched[layer_key]["feature_count"] = disk_count
+                enriched[layer_key]["feature_count_on_disk"] = disk_count
+                # Also set last_refresh from file modified time if not set
+                if not st.get("last_refresh") and file_info:
+                    enriched[layer_key]["last_refresh"] = file_info["modified"]
 
     return {
         "layers": enriched,
