@@ -15,6 +15,18 @@ def run_seed():
     # Ensure tables exist
     Base.metadata.create_all(bind=engine)
 
+    # Add columns that may not exist on older deployments
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        for stmt in [
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
+        ]:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+
     db = SessionLocal()
 
     try:
