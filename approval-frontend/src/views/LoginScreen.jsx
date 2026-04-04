@@ -127,9 +127,10 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
         {!authConfig?.entra_enabled && (
           <div style={{ marginTop: 16, padding: "10px", background: "#f8fafb", borderRadius: 8, fontSize: 12, color: "#7a8a94", lineHeight: 1.6 }}>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Demo Accounts:</div>
-            <div>🛡️ Admin: m.thompson@{emailDomain} / admin123</div>
-            <div>👔 Manager: k.williams@{emailDomain} / manager123</div>
-            <div>🔧 Engineer: s.patel@{emailDomain} / engineer123</div>
+            <div>🛡️ Admin: admin@{emailDomain} / admin123</div>
+            <div>👔 Manager: manager@{emailDomain} / manager123</div>
+            <div>🔧 Engineer: engineer@{emailDomain} / engineer123</div>
+            <div>👁 Viewer: viewer@{emailDomain} / viewer123</div>
           </div>
         )}
 
