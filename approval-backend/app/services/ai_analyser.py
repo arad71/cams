@@ -100,8 +100,11 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "crossover_length_m": "number or null",
     "alignment_degrees": "number or null — angle of crossover to road centreline (should be ~90° per R-081)",
     "driveway_centreline_point_2_5m": "string or null — position 2.5m back from verge on driveway centreline (for sight triangle Point A), describe location",
-    "distance_to_left_boundary_m": "number or null — driveway edge to left side boundary (min 0.5m)",
-    "distance_to_right_boundary_m": "number or null — driveway edge to right side boundary (min 0.5m)",
+    "distance_to_left_boundary_m": "number or null — driveway edge to left side boundary (min 0.5m). Left = left when facing road from driveway.",
+    "left_boundary_feature": "string or null — what is on the left boundary near the crossover (e.g. 'neighbour colorbond fence 1.8m', 'retaining wall 0.6m', 'open/vacant', 'hedge 1.2m', 'brick wall garage')",
+    "distance_to_right_boundary_m": "number or null — driveway edge to right side boundary (min 0.5m). Right = right when facing road from driveway.",
+    "right_boundary_feature": "string or null — what is on the right boundary near the crossover (e.g. 'neighbour colorbond fence 1.8m', 'retaining wall 0.6m', 'open/vacant')",
+    "constrained_side": "string or null — 'left' or 'right' — the side with the shorter distance to boundary (more restricted sight triangle)",
     "distance_to_nearest_lot_corner_m": "number or null — driveway edge to nearest lot corner",
     "nearest_lot_corner": "string or null — which corner (e.g. 'SW corner', 'front-left')",
     "distance_to_intersection_tangent_m": "number or null — distance from crossover to nearest intersection tangent point (min 6.0m per R-100)",
@@ -196,7 +199,7 @@ RULES:
 - WIDTH RULES: Lot frontage ≤ 12.5m → max 3.0m (or 4.5m if double garage). Frontage > 12.5m → max 6.0m.
 - BATTLEAXE: If rear lot with narrow access leg, mark is_battleaxe=true. Single: min 3.0m + 0.5m garden bed. Adjoining: 6.0m combined.
 - UTILITIES: Look for any utility symbols, labels, or lines (power poles, water meters, gas mains, telco pits, sewer manholes, stormwater drains). Report conflicts if any utility is within or crosses the proposed crossover area.
-- SETBACKS: Measure distance from driveway edge to left boundary, right boundary, nearest lot corner, and nearest building corner.
+- SETBACKS: Measure distance from driveway edge to left boundary, right boundary, nearest lot corner, and nearest building corner. LEFT means the left side when standing in the driveway looking at the road. RIGHT is the other side. Read dimensions from the plan — look for measurements between the crossover/driveway edge and the side boundary lines. The nearest lot corner is critical for sight distance: the closer the crossover is to a lot corner, the more restricted the sight triangle. Also identify what is on each boundary side (neighbour's fence, retaining wall, garage wall, vacant, hedge) as this affects visibility.
 - CORNER LOT: Identify if the lot is on a corner (two road frontages). Check all boundaries for road names — if two or more boundaries have road names written along them, it is a corner lot. Set corner_roads to ALL road names found. Set crossover_on_road to the road where the crossover/driveway is drawn (look for the crossover symbol, paved area, or dimensioned driveway meeting the kerb — it may be on the SIDE road, not the main frontage). Corner lots have extended sight triangle requirements per AS 2890.1 §3.2.4 — sight distance must be checked on BOTH roads.
 - INTERSECTION TANGENT: Measure distance from crossover to nearest intersection tangent point. Must be ≥ 6.0m per R-100.
 - DRIVEWAY CENTRELINE POINT: The point 2.5m back from the verge/road edge along the driveway centreline is the standard Point A for sight triangle analysis.
