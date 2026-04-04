@@ -87,6 +87,7 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "drawing_title": "string or null",
     "prepared_by": "string or null",
     "is_corner_lot": "boolean or null — true if lot is on a corner of two roads",
+    "corner_roads": "array of strings or null — names of all roads the lot fronts (e.g. ['Fennell Crescent', 'Plumosa Way']). Include even for non-corner lots (single road).",
     "is_battleaxe": "boolean or null — true if rear lot accessed via narrow driveway leg",
     "da_linked": "boolean or null — true if crossover is part of a Development Approval"
   },
@@ -122,8 +123,11 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
   "siteplan_measurements": {
     "property_boundary_to_road_m": "number or null",
     "existing_driveway_width_m": "number or null",
-    "road_name": "string or null",
-    "road_speed_zone_kmh": "number or null — speed limit on the road",
+    "road_name": "string or null — primary road the lot fronts (main/longer frontage)",
+    "secondary_road_name": "string or null — second road for corner lots (side road). null if not a corner lot.",
+    "crossover_on_road": "string or null — which road the crossover is actually on. Read from the plan: the road where the driveway/crossover meets the kerb. For corner lots this may be the side road, not the main frontage.",
+    "road_speed_zone_kmh": "number or null — speed limit on the crossover road (the road the crossover is on)",
+    "secondary_road_speed_kmh": "number or null — speed limit on the other road (for corner lot sight distance on both roads)",
     "road_classification": "string or null — local, distributor, regional (red/blue), RAV route",
     "lot_frontage_m": "number or null — lot frontage width (affects max crossover width: ≤12.5m→3.0m, >12.5m→6.0m per R-084/R-086)",
     "lot_depth_m": "number or null",
@@ -189,7 +193,7 @@ RULES:
 - BATTLEAXE: If rear lot with narrow access leg, mark is_battleaxe=true. Single: min 3.0m + 0.5m garden bed. Adjoining: 6.0m combined.
 - UTILITIES: Look for any utility symbols, labels, or lines (power poles, water meters, gas mains, telco pits, sewer manholes, stormwater drains). Report conflicts if any utility is within or crosses the proposed crossover area.
 - SETBACKS: Measure distance from driveway edge to left boundary, right boundary, nearest lot corner, and nearest building corner.
-- CORNER LOT: Identify if the lot is on a corner (two road frontages). Corner lots have extended sight triangle requirements per AS 2890.1 §3.2.4.
+- CORNER LOT: Identify if the lot is on a corner (two road frontages). Check all boundaries for road names — if two or more boundaries have road names written along them, it is a corner lot. Set corner_roads to ALL road names found. Set crossover_on_road to the road where the crossover/driveway is drawn (look for the crossover symbol, paved area, or dimensioned driveway meeting the kerb — it may be on the SIDE road, not the main frontage). Corner lots have extended sight triangle requirements per AS 2890.1 §3.2.4 — sight distance must be checked on BOTH roads.
 - INTERSECTION TANGENT: Measure distance from crossover to nearest intersection tangent point. Must be ≥ 6.0m per R-100.
 - DRIVEWAY CENTRELINE POINT: The point 2.5m back from the verge/road edge along the driveway centreline is the standard Point A for sight triangle analysis.
 - FOOTPATH: If a footpath crosses the crossover, check if flush join is shown (R-110). For concrete, check colour/jointing delineation (R-111).
