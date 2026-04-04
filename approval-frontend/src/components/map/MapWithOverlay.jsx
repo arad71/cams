@@ -1218,12 +1218,13 @@ Respond with JSON only:
       {(sightPhase || sightTriangle || drawMode) ? (
         <div style={{ background: "linear-gradient(180deg, #f0f2f5 0%, #f8f9fb 100%)", borderBottom: "2px solid #1a3a4a20", padding: "8px 14px" }}>
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
             <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a", letterSpacing: -0.3 }}>Sight Analysis</span>
             {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>🛣️ {sightConfig.crossoverRoad}</span>}
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
-            {sightConfig.constrainedSide && <span style={{ fontSize: 8, background: "#FFF3E0", color: "#E65100", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>⚠ {sightConfig.constrainedSide} constrained</span>}
+            {sightConfig.constrainedSide && <span style={{ fontSize: 8, background: "#FFF3E0", color: "#E65100", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>⚠ {sightConfig.constrainedSide} side</span>}
+            {!sightConfig.crossoverRoad && !sightTriangle && <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>⚠ No site plan data — set x, y manually</span>}
             {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
             {sightTriangle && !drawMode && !analysisRunning && !roadWidthRunning && (
@@ -1271,7 +1272,7 @@ Respond with JSON only:
                   <span style={{ color: "#a0aab0", fontSize: 8 }}>side</span>
                 </div>
               </div>
-              {(sightConfig.leftBoundaryDist != null || sightConfig.rightBoundaryDist != null) && (
+              {(sightConfig.leftBoundaryDist != null || sightConfig.rightBoundaryDist != null) ? (
                 <div style={{ marginTop: 3, fontSize: 8, color: "#7a8a94", lineHeight: 1.4 }}>
                   {sightConfig.leftBoundaryDist != null && <div>L: {sightConfig.leftBoundaryDist.toFixed(1)}m{sightConfig.leftBoundaryFeature ? ` — ${sightConfig.leftBoundaryFeature}` : ''}</div>}
                   {sightConfig.rightBoundaryDist != null && <div>R: {sightConfig.rightBoundaryDist.toFixed(1)}m{sightConfig.rightBoundaryFeature ? ` — ${sightConfig.rightBoundaryFeature}` : ''}</div>}
@@ -1279,6 +1280,11 @@ Respond with JSON only:
                   {sightConfig.constrainedSide && sightConfig.crossoverWidth && (
                     <div style={{ color: "#E65100", fontWeight: 600, marginTop: 1 }}>y = {(sightConfig.constrainedSide === "left" ? sightConfig.leftBoundaryDist : sightConfig.rightBoundaryDist)?.toFixed(1)} + {(0.5 * sightConfig.crossoverWidth).toFixed(1)} = {sightConfig.y.toFixed(1)}m</div>
                   )}
+                </div>
+              ) : (
+                <div style={{ marginTop: 3, fontSize: 8, color: "#F57F17", lineHeight: 1.4 }}>
+                  x = distance from kerb (default 2.5m)<br/>
+                  y = boundary setback + ½ crossover width
                 </div>
               )}
             </div>
