@@ -618,22 +618,28 @@ Respond with JSON only:
     setRoadWidthRunning(true); setRoadWidthResult(null);
 
     try {
-      // Capture satellite image at high zoom (20) centred on the road near the crossover
-      // At zoom 20, 640px covers ~75m, so 1px ≈ 0.12m
-      // At zoom 19, 640px covers ~150m, so 1px ≈ 0.23m
-      const zoom = 20;
-      const pxPerMetre = Math.pow(2, zoom) * Math.cos(B.lat * Math.PI / 180) / (156543.03392);
-      const imgWidth = 640, imgHeight = 640;
+      // ── Capture satellite image from Esri World Imagery (same as Detail map view) ──
+      // Esri export map API — free, no API key, same tiles as the Detail view
+      const zoom = 19; // high zoom for road detail
+      const pxPerMetre = Math.pow(2, zoom) * Math.cos(B.lat * Math.PI / 180) / 156543.03392;
+      const imgWidth = 800, imgHeight = 800;
       const metresAcross = imgWidth / pxPerMetre;
+      const halfM = metresAcross / 2;
 
-      const satUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${B.lat},${B.lng}&zoom=${zoom}&size=${imgWidth}x${imgHeight}&maptype=satellite&markers=color:red|label:A|${A.lat},${A.lng}&markers=color:yellow|label:R|${B.lat},${B.lng}&key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8`;
-      const satResp = await fetch(satUrl);
+      // Calculate bbox in metres from centre
+      const mPerLat = 111320, mPerLng = 111320 * Math.cos(B.lat * Math.PI / 180);
+      const dLat = halfM / mPerLat, dLng = halfM / mPerLng;
+      const bbox = `${B.lng - dLng},${B.lat - dLat},${B.lng + dLng},${B.lat + dLat}`;
+
+      // Esri World Imagery export (same imagery as the Detail satellite base layer)
+      const esriUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${bbox}&bboxSR=4326&imageSR=4326&size=${imgWidth},${imgHeight}&format=png&f=image`;
+      const satResp = await fetch(esriUrl);
       if (!satResp.ok) throw new Error(`Satellite image fetch failed: ${satResp.status}`);
 
       const satBlob = await satResp.blob();
       const satB64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result.split(",")[1]); fr.readAsDataURL(satBlob); });
 
-      // Also get street view perpendicular to the road
+      // Also try street view (Google — may fail, that's OK)
       const roadBearing = Math.round(Math.atan2(B.lng - A.lng, B.lat - A.lat) * 180 / Math.PI + 90) || 0;
       let svB64 = null;
       try {
@@ -648,7 +654,7 @@ Respond with JSON only:
       // Build the AI prompt
       const imgContent = [
         { type: "image", source: { type: "base64", media_type: "image/png", data: satB64 } },
-        { type: "text", text: `[SATELLITE IMAGE - ZOOM ${zoom}] Top-down aerial view centred on the road near the crossover. Red marker A = driveway. Yellow marker R = road centre point. The image is ${imgWidth}x${imgHeight} pixels covering approximately ${metresAcross.toFixed(1)}m × ${metresAcross.toFixed(1)}m. Scale: 1 pixel ≈ ${(1/pxPerMetre).toFixed(3)}m.` },
+        { type: "text", text: `[SATELLITE IMAGE - ESRI WORLD IMAGERY] Top-down aerial view centred on the road near the crossover at ${B.lat.toFixed(6)}, ${B.lng.toFixed(6)}. The image is ${imgWidth}x${imgHeight} pixels covering approximately ${metresAcross.toFixed(1)}m × ${metresAcross.toFixed(1)}m. Scale: 1 pixel ≈ ${(1/pxPerMetre).toFixed(3)}m. Point A (driveway) is at approximately ${A.lat.toFixed(6)}, ${A.lng.toFixed(6)}. The road runs near the centre of the image.` },
       ];
       if (svB64) {
         imgContent.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: svB64 } });
@@ -658,11 +664,12 @@ Respond with JSON only:
       const prompt = `You are a road geometry specialist measuring road width from aerial and street-level imagery in Western Australia.
 
 IMAGE CALIBRATION:
-- Satellite image: ${imgWidth}x${imgHeight}px at zoom ${zoom}
+- Satellite image: ${imgWidth}x${imgHeight}px from Esri World Imagery
 - Scale: 1 pixel ≈ ${(1/pxPerMetre).toFixed(3)} metres
 - Total image coverage: ~${metresAcross.toFixed(0)}m × ${metresAcross.toFixed(0)}m
-- Location: ${B.lat.toFixed(6)}, ${B.lng.toFixed(6)}
-- Red marker A = driveway/crossover. Yellow marker R = road point.
+- Centre location: ${B.lat.toFixed(6)}, ${B.lng.toFixed(6)}
+- Driveway (A) at: ${A.lat.toFixed(6)}, ${A.lng.toFixed(6)}
+- The road runs through the image near the driveway point A.
 
 TASK: Measure the road dimensions at the section nearest to marker A (the crossover).
 
