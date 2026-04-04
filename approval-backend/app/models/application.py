@@ -68,6 +68,7 @@ class Application(Base):
     site_plan_data = Column(JSON, nullable=True)          # Active data used by assessment (= corrected if corrections exist, else original)
     org_site_plan_data = Column(JSON, nullable=True)      # Original AI extraction (never modified after initial analysis)
     cor_site_plan_data = Column(JSON, nullable=True)      # Officer-corrected extraction (updated when officer corrects values)
+    extraction_locked = Column(Boolean, default=False)    # When locked, AI re-analysis is disabled
 
     # Officer-drawn boundaries from site plan image
     site_lot_boundary = Column(JSON, nullable=True)         # [[x,y], ...] polygon points on site plan image

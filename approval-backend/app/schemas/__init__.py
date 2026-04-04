@@ -147,6 +147,7 @@ class ApplicationUpdate(BaseModel):
     referral_status: Optional[str] = None
     site_plan_data: Optional[dict] = None
     cor_site_plan_data: Optional[dict] = None
+    extraction_locked: Optional[bool] = None
     site_plan_measures: Optional[list] = None
 
 class NoteOut(BaseModel):
@@ -224,6 +225,7 @@ class ApplicationOut(BaseModel):
     site_plan_data: Optional[dict] = None
     org_site_plan_data: Optional[dict] = None
     cor_site_plan_data: Optional[dict] = None
+    extraction_locked: Optional[bool] = False
     site_lot_boundary: Optional[list] = None
     site_building_boundary: Optional[list] = None
     site_crossover: Optional[list] = None

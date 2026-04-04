@@ -131,6 +131,32 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
   const [editValue, setEditValue] = useState("");
   const [corrections, setCorrections] = useState([]);
 
+  // Lock state — prevents re-running analysis
+  const [locked, setLocked] = useState(() => app?.extraction_locked || false);
+  const [rerunning, setRerunning] = useState(false);
+
+  const toggleLock = async () => {
+    const newLocked = !locked;
+    setLocked(newLocked);
+    try {
+      await api.updateApp(app._dbId, { extraction_locked: newLocked });
+    } catch (e) { console.warn("Lock save failed:", e); }
+  };
+
+  const rerunAnalysis = async () => {
+    if (locked || rerunning) return;
+    const sitePlanDoc = app?.documents?.find(d =>
+      d.category?.toLowerCase().includes("site") || d.doc_type?.toLowerCase().includes("site")
+    );
+    if (!sitePlanDoc) { alert("No site plan document found. Upload a site plan first."); return; }
+    setRerunning(true);
+    try {
+      await api.analyseDocument(app._dbId, sitePlanDoc.id);
+      if (onReload) await onReload();
+    } catch (e) { console.error("Re-run failed:", e); alert("Analysis failed: " + e.message); }
+    setRerunning(false);
+  };
+
   // Merge incoming measure corrections into pending corrections
   const prevMeasureLen = useRef(0);
   useEffect(() => {
@@ -267,7 +293,21 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+          {/* Re-run analysis button */}
+          {!locked && (
+            <button onClick={rerunAnalysis} disabled={rerunning}
+              title="Re-run AI site plan analysis"
+              style={{ padding: "4px 8px", borderRadius: 5, border: "none", background: rerunning ? "#E8EAF6" : "linear-gradient(135deg,#8e44ad,#6c3483)", color: rerunning ? "#5C6BC0" : "#fff", fontWeight: 700, fontSize: 9, cursor: rerunning ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+              {rerunning ? "⟳ Running..." : "🔄 Re-run"}
+            </button>
+          )}
+          {/* Lock/unlock button */}
+          <button onClick={toggleLock}
+            title={locked ? "Unlock — allow re-running analysis" : "Lock — prevent re-running analysis"}
+            style={{ padding: "4px 8px", borderRadius: 5, border: locked ? "1.5px solid #e74c3c" : "1px solid #dce1e6", background: locked ? "#fdedec" : "#fff", color: locked ? "#e74c3c" : "#95a5a6", fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
+            {locked ? "🔒 Locked" : "🔓 Lock"}
+          </button>
           <span style={{ padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800,
             background: `${recColors[recommendation] || "#7f8c8d"}15`,
             color: recColors[recommendation] || "#7f8c8d" }}>
