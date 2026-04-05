@@ -79,7 +79,7 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
 {
   "property": {
     "lot_number": "string or null",
-    "street_address": "string or null",
+    "street_address": "string or null — full street address from the title block or plan header (e.g. '85 Fennell Crescent'). Look in title block, header, client info, or address fields.",
     "suburb": "string or null",
     "project_number": "string or null",
     "client_name": "string or null",
@@ -193,6 +193,16 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
 RULES:
 - Read ALL measurements from drawings, including rotated and vertical text.
 - Use numeric values (not strings) for measurements.
+- ROAD NAMES: Look carefully for road/street names written ANYWHERE on the plan:
+  (a) Along the bottom or sides of the lot boundary (e.g. "Sheffield Road", "Fennell Crescent")
+  (b) In the title block (Suburb, Address, Street fields)
+  (c) On the location/vicinity map in the corner of the plan
+  (d) Near the kerb line, footpath, or crossover markings
+  (e) In notes referring to "crossover to Shire requirement" or road surface type
+  Set road_name to the road where the lot has its MAIN frontage.
+  Set crossover_on_road to the road where the crossover/driveway is drawn.
+  For corner lots, set secondary_road_name to the other road.
+  Also set corner_roads array with ALL road names found adjacent to the lot.
 - Verge depth = distance from property boundary line to road edge.
 - Distinguish crossover width (at boundary) from total width (at road, includes splays).
 - ALIGNMENT: Check if crossover is perpendicular (90°) to road. Estimate alignment_degrees if visible.
