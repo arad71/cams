@@ -91,11 +91,6 @@ const FIELD_GROUPS = [
     ],
   },
 ];
-      { path: "lot_number", label: "Lot Number" },
-      { path: "street_address", label: "Address" },
-    ],
-  },
-];
 
 function formatValue(val, type) {
   if (val === null || val === undefined) return "—";
