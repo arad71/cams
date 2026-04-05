@@ -139,6 +139,28 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
     db.refresh(app)
     if changes:
         log_audit(db=db, action="update", entity_type="application", user=current_user, entity_id=str(app.id), entity_ref=app.ref_number, description=f"Updated {', '.join(changes.keys())}", field_changes=changes, request=request)
+
+    # Send email notification on status change
+    if "status" in changes and app.assigned_officer:
+        from app.services.email import notify_status_change
+        from app.models.site_settings import SiteSetting
+        council_setting = db.query(SiteSetting).filter(SiteSetting.key == "council_name").first()
+        council_name = council_setting.value if council_setting else "Council"
+        portal_setting = db.query(SiteSetting).filter(SiteSetting.key == "portal_url").first()
+        portal_url = portal_setting.value if portal_setting else ""
+
+        notify_status_change(
+            to_email=app.assigned_officer.email,
+            to_name=app.assigned_officer.name,
+            app_ref=app.ref_number,
+            property_address=app.property_address or "",
+            old_status=changes["status"]["old"] or "—",
+            new_status=changes["status"]["new"] or "—",
+            changed_by=current_user.name,
+            portal_url=portal_url,
+            council_name=council_name,
+        )
+
     return get_application(app.id, db, current_user)
 
 
@@ -165,6 +187,26 @@ def assign_officer(
     db.refresh(app)
     from app.services.audit import log_audit
     log_audit(db=db, action="assign_officer", entity_type="application", user=current_user, entity_id=str(app.id), entity_ref=app.ref_number, description=f"Assigned officer {officer.name} to {app.ref_number}", field_changes={"officer_id": {"old": None, "new": str(officer_id)}})
+
+    # Send email notification to assigned officer
+    from app.services.email import notify_officer_assigned
+    from app.models.site_settings import SiteSetting
+    council_setting = db.query(SiteSetting).filter(SiteSetting.key == "council_name").first()
+    council_name = council_setting.value if council_setting else "Council"
+    portal_setting = db.query(SiteSetting).filter(SiteSetting.key == "portal_url").first()
+    portal_url = portal_setting.value if portal_setting else ""
+
+    notify_officer_assigned(
+        officer_email=officer.email,
+        officer_name=officer.name,
+        app_ref=app.ref_number,
+        property_address=app.property_address or "—",
+        owner_name=app.owner_name or "—",
+        assigned_by=current_user.name,
+        portal_url=portal_url,
+        council_name=council_name,
+    )
+
     return get_application(app.id, db, current_user)
 
 

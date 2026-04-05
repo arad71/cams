@@ -28,6 +28,7 @@ DEFAULTS = [
     ("contact_phone",      "(08) 9257 9999",                         "contact",  "Contact Phone",           True),
     ("contact_address",    "Council Office Address",      "contact",  "Street Address",          True),
     ("website_url",        "https://www.council.wa.gov.au",        "contact",  "Website URL",             True),
+    ("portal_url",         "",                                       "contact",  "CAMS Portal URL (for email links)", True),
 
     # Legal
     ("copyright_text",     "© 2026 Council. All rights reserved.", "legal", "Copyright Text",     True),

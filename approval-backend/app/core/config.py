@@ -47,6 +47,16 @@ class Settings(BaseSettings):
     ENTRA_AUTO_CREATE_USER: bool = Field(default=True) # Auto-create user on first SSO login
     ENTRA_DEFAULT_ROLE: str = Field(default="engineer") # Default role for auto-created SSO users
 
+    # Email (SMTP)
+    SMTP_ENABLED: bool = Field(default=False)
+    SMTP_HOST: str = Field(default="smtp.gmail.com")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: str = Field(default="")
+    SMTP_PASSWORD: str = Field(default="")
+    SMTP_FROM_EMAIL: str = Field(default="noreply@council.wa.gov.au")
+    SMTP_FROM_NAME: str = Field(default="CAMS Crossover System")
+    SMTP_USE_TLS: bool = Field(default=True)
+
     # Pydantic v2 settings config
     model_config = SettingsConfigDict(
         env_file=".env",
