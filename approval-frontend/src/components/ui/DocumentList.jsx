@@ -184,6 +184,7 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
 
 // Upload categories available in assessment view
 const UPLOAD_CATEGORIES = [
+  { id: "Application Form", icon: "📄", accept: ".pdf" },
   { id: "Site Plan", icon: "📐", accept: ".pdf,.jpg,.jpeg,.png" },
   { id: "Building Application", icon: "🏗️", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx" },
   { id: "Certificate of Title", icon: "📜", accept: ".pdf,.jpg,.jpeg,.png" },
@@ -246,16 +247,69 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
     setExtracting(false);
   };
 
+  const [formExtracting, setFormExtracting] = useState(false);
+  const [formExtractResult, setFormExtractResult] = useState(null);
+
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file || !appDbId) return;
     setUploading(true);
     setUploadSuccess(null);
+    setFormExtractResult(null);
     try {
       await api.uploadDocument(appDbId, file, uploadCat);
       setUploadSuccess(file.name);
       if (onDocUpdated) onDocUpdated();
-      setTimeout(() => { setUploadSuccess(null); setShowUpload(false); }, 2000);
+
+      // Auto-extract fields from Application Form PDF
+      if (uploadCat === "Application Form" && file.name.toLowerCase().endsWith(".pdf")) {
+        setFormExtracting(true);
+        try {
+          const result = await api.extractAppForm(file);
+          const values = result.values || {};
+          const mapping = {
+            lot_owner_name: "owner_name", phone: "owner_phone", email: "owner_email",
+            postal_address: "owner_postal_address", property_address: "property_address",
+            estimated_construction_date: "crossover_est_date",
+            dev_application_number: "da_number", date_signed: "date_signed",
+          };
+          const updates = {};
+          const filled = [];
+          const names = {
+            lot_owner_name: "Owner", phone: "Phone", email: "Email",
+            postal_address: "Postal Address", property_address: "Property Address",
+            estimated_construction_date: "Est. Date", dev_application_number: "DA Number",
+            lot_owner_signature: "Signature",
+          };
+          for (const [extractKey, appKey] of Object.entries(mapping)) {
+            const val = values[extractKey];
+            if (val && typeof val === "string" && val.trim()) {
+              updates[appKey] = val.trim();
+              filled.push(extractKey);
+            }
+          }
+          // Handle signature
+          const sig = values.lot_owner_signature;
+          if (sig && sig.trim() && sig.trim().toLowerCase() !== "not signed" && sig.trim() !== "-") {
+            updates.declaration_signed = true;
+            filled.push("lot_owner_signature");
+          }
+          // Save extracted fields to the application
+          if (Object.keys(updates).length > 0) {
+            await api.updateApp(appDbId, updates);
+            if (onDocUpdated) onDocUpdated();
+          }
+          setFormExtractResult({
+            success: true,
+            message: `Extracted ${filled.length} fields: ${filled.map(f => names[f] || f).join(", ")}`,
+          });
+        } catch (err) {
+          setFormExtractResult({ success: false, message: `Extraction failed: ${err.message}` });
+        }
+        setFormExtracting(false);
+      }
+
+      setTimeout(() => { setUploadSuccess(null); if (!formExtracting) setShowUpload(false); }, 3000);
     } catch (err) {
       console.error("Upload failed:", err);
       setUploadSuccess(null);
@@ -309,6 +363,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
               <input ref={fileInputRef} type="file" accept={UPLOAD_CATEGORIES.find(c => c.id === uploadCat)?.accept || "*"} onChange={handleUpload} disabled={uploading} style={{ display: "none" }} />
             </label>
             {uploadSuccess && <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 600 }}>✅ {uploadSuccess} uploaded</span>}
+            {formExtracting && <span style={{ fontSize: 11, color: "#8e44ad", fontWeight: 600 }}>🤖 Extracting form fields...</span>}
+            {formExtractResult && (
+              <span style={{ fontSize: 11, color: formExtractResult.success ? "#27ae60" : "#e74c3c", fontWeight: 600 }}>
+                {formExtractResult.success ? "✅" : "⚠"} {formExtractResult.message}
+              </span>
+            )}
           </div>
         </div>
       )}
