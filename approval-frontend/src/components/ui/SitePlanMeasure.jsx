@@ -4,37 +4,28 @@ const COLORS = ['#00e4c8','#ff5c72','#ffcf40','#5cacff','#4dff91','#a77dff','#ff
 
 // AI extraction fields that can be overridden via correctSitePlan
 const AI_FIELDS = [
-  { key: 'crossover_dimensions.width_at_boundary_m', label: 'Crossover Width at Boundary', unit: 'm' },
-  { key: 'crossover_dimensions.width_at_road_m', label: 'Crossover Width at Road', unit: 'm' },
-  { key: 'crossover_dimensions.total_width_at_road_m', label: 'Total Width at Road (incl wings)', unit: 'm' },
-  { key: 'crossover_dimensions.length_m', label: 'Crossover Length', unit: 'm' },
-  { key: 'crossover_dimensions.distance_to_left_boundary_m', label: 'Dist to Left Boundary', unit: 'm' },
-  { key: 'crossover_dimensions.left_boundary_feature', label: 'Left Boundary Feature', unit: '' },
-  { key: 'crossover_dimensions.distance_to_right_boundary_m', label: 'Dist to Right Boundary', unit: 'm' },
-  { key: 'crossover_dimensions.right_boundary_feature', label: 'Right Boundary Feature', unit: '' },
-  { key: 'crossover_dimensions.constrained_side', label: 'Constrained Side (left/right)', unit: '' },
-  { key: 'crossover_dimensions.distance_to_nearest_lot_corner_m', label: 'Dist to Nearest Corner', unit: 'm' },
-  { key: 'crossover_dimensions.distance_to_intersection_tangent_m', label: 'Dist to Intersection Tangent', unit: 'm' },
-  { key: 'crossover_dimensions.alignment_degrees', label: 'Crossover Alignment to Road', unit: '°' },
+  // ── Crossover ──
+  { key: 'crossover_dimensions.width_at_boundary_m', label: 'Crossover Width', unit: 'm' },
   { key: 'crossover_dimensions.verge_depth_m', label: 'Verge Depth', unit: 'm' },
-  { key: 'crossover_dimensions.driveway_centreline_point_2_5m', label: 'Point A (2.5m from verge)', unit: '' },
+  { key: 'crossover_dimensions.distance_to_left_boundary_m', label: 'Left Boundary Dist', unit: 'm' },
+  { key: 'crossover_dimensions.left_boundary_feature', label: 'Left Boundary Feature', unit: '' },
+  { key: 'crossover_dimensions.distance_to_right_boundary_m', label: 'Right Boundary Dist', unit: 'm' },
+  { key: 'crossover_dimensions.right_boundary_feature', label: 'Right Boundary Feature', unit: '' },
+  { key: 'crossover_dimensions.constrained_side', label: 'Constrained Side', unit: '' },
+  { key: 'crossover_dimensions.distance_to_nearest_lot_corner_m', label: 'Dist to Lot Corner', unit: 'm' },
+  { key: 'crossover_dimensions.distance_to_intersection_tangent_m', label: 'Dist to Intersection', unit: 'm' },
+  // ── Road ──
+  { key: 'siteplan_measurements.crossover_on_road', label: 'Crossover Road', unit: '' },
+  { key: 'siteplan_measurements.road_name', label: 'Primary Road', unit: '' },
+  { key: 'siteplan_measurements.secondary_road_name', label: 'Secondary Road', unit: '' },
+  { key: 'siteplan_measurements.road_speed_zone_kmh', label: 'Speed Zone', unit: 'km/h' },
+  // ── Lot ──
   { key: 'siteplan_measurements.lot_frontage_m', label: 'Lot Frontage', unit: 'm' },
   { key: 'siteplan_measurements.lot_depth_m', label: 'Lot Depth', unit: 'm' },
   { key: 'siteplan_measurements.building_setback_front_m', label: 'Front Setback', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_left_m', label: 'Left Setback', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_right_m', label: 'Right Setback', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_rear_m', label: 'Rear Setback', unit: 'm' },
-  { key: 'siteplan_measurements.existing_driveway_width_m', label: 'Existing Driveway Width', unit: 'm' },
-  { key: 'road.width_m', label: 'Road Width', unit: 'm' },
-  { key: 'road.speed_zone_kmh', label: 'Speed Zone', unit: 'km/h' },
-  { key: 'siteplan_measurements.crossover_on_road', label: 'Crossover On Road', unit: '' },
-  { key: 'siteplan_measurements.road_name', label: 'Primary Road Name', unit: '' },
-  { key: 'siteplan_measurements.secondary_road_name', label: 'Secondary Road (corner)', unit: '' },
-  { key: 'siteplan_measurements.road_speed_zone_kmh', label: 'Road Speed', unit: 'km/h' },
-  { key: 'siteplan_measurements.secondary_road_speed_kmh', label: 'Secondary Road Speed', unit: 'km/h' },
+  // ── Construction ──
   { key: 'construction.material', label: 'Surface Material', unit: '' },
-  { key: 'construction.thickness_mm', label: 'Surface Thickness', unit: 'mm' },
-  { key: 'construction.base_course_depth_mm', label: 'Base Course Depth', unit: 'mm' },
+  { key: 'construction.kerb_type', label: 'Kerb Type', unit: '' },
 ];
 
 export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData }) {
