@@ -926,6 +926,20 @@ Respond with JSON only:
       || (app?.site_plan_data || app?.org_site_plan_data)?.extraction;
 
     if (ext) {
+      console.log("Sight Analysis AI data:", JSON.stringify({
+        crossover_on_road: ext.siteplan_measurements?.crossover_on_road,
+        road_name: ext.siteplan_measurements?.road_name,
+        constrained_side: ext.crossover_dimensions?.constrained_side,
+        left_dist: ext.crossover_dimensions?.distance_to_left_boundary_m,
+        right_dist: ext.crossover_dimensions?.distance_to_right_boundary_m,
+        left_feat: ext.crossover_dimensions?.left_boundary_feature,
+        right_feat: ext.crossover_dimensions?.right_boundary_feature,
+        width: ext.crossover_dimensions?.width_at_boundary_m,
+        total_width: ext.crossover_dimensions?.total_width_at_road_m,
+        is_corner: ext.property?.is_corner_lot,
+        corner_roads: ext.property?.corner_roads,
+      }, null, 2));
+
       // Crossover road
       crossoverRoad = ext.siteplan_measurements?.crossover_on_road
         || ext.siteplan_measurements?.road_name || null;
