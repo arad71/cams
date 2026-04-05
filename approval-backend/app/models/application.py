@@ -70,6 +70,10 @@ class Application(Base):
     cor_site_plan_data = Column(JSON, nullable=True)      # Officer-corrected extraction (updated when officer corrects values)
     extraction_locked = Column(Boolean, default=False)    # When locked, AI re-analysis is disabled
 
+    # Decision
+    conditions = Column(JSON, nullable=True)              # Array of condition strings applied to approval
+    decision_note = Column(Text, nullable=True)           # Free-text decision/recommendation note
+
     # Officer-drawn boundaries from site plan image
     site_lot_boundary = Column(JSON, nullable=True)         # [[x,y], ...] polygon points on site plan image
     site_building_boundary = Column(JSON, nullable=True)    # [[x,y], ...] building footprint on site plan

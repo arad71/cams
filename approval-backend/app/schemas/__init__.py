@@ -149,6 +149,8 @@ class ApplicationUpdate(BaseModel):
     cor_site_plan_data: Optional[dict] = None
     extraction_locked: Optional[bool] = None
     site_plan_measures: Optional[list] = None
+    conditions: Optional[list] = None
+    decision_note: Optional[str] = None
 
 class NoteOut(BaseModel):
     id: int
@@ -227,6 +229,8 @@ class ApplicationOut(BaseModel):
     cor_site_plan_data: Optional[dict] = None
     extraction_locked: Optional[bool] = False
     site_lot_boundary: Optional[list] = None
+    conditions: Optional[list] = None
+    decision_note: Optional[str] = None
     site_building_boundary: Optional[list] = None
     site_crossover: Optional[list] = None
     site_lot_boundary_latlon: Optional[list] = None

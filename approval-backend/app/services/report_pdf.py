@@ -327,6 +327,41 @@ def generate_assessment_pdf(report_data: dict, council_name: str = "City of Kala
             story.append(Spacer(1, 4))
 
     # ══════════════════════════════════════════════════════════
+    # CONDITIONS OF APPROVAL
+    # ══════════════════════════════════════════════════════════
+    conditions_list = app.get("conditions", []) or []
+    decision_note = app.get("decision_note", "") or ""
+
+    if conditions_list:
+        story.append(Paragraph("Conditions of Approval", styles["SectionHead"]))
+
+        cond_rows = [["#", "Condition"]]
+        for i, cond in enumerate(conditions_list, 1):
+            cond_rows.append([str(i), Paragraph(cond, styles["Body"])])
+
+        cond_table = Table(cond_rows, colWidths=[10 * mm, 160 * mm])
+        cond_table.setStyle(TableStyle([
+            ("FONT", (0, 0), (-1, 0), "Helvetica-Bold", 8),
+            ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+            ("TEXTCOLOR", (0, 0), (-1, 0), WHITE),
+            ("FONT", (0, 1), (0, -1), "Helvetica-Bold", 9),
+            ("FONT", (1, 1), (1, -1), "Helvetica", 9),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#e4e9ec")),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+        ]))
+        story.append(cond_table)
+        story.append(Spacer(1, 6))
+
+    if decision_note:
+        story.append(Paragraph("Decision Note", styles["SectionHead"]))
+        story.append(Paragraph(decision_note, styles["Body"]))
+        story.append(Spacer(1, 6))
+
+    # ══════════════════════════════════════════════════════════
     # OFFICER NOTES
     # ══════════════════════════════════════════════════════════
     if notes:

@@ -20,6 +20,8 @@ def run_seed():
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT NULL",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS decision_note TEXT DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(stmt))

@@ -1208,6 +1208,8 @@ def generate_report(app_id: int, db: Session = Depends(get_db), current_user: Us
         "crossover_width": app.crossover_width, "crossover_surface": app.crossover_surface,
         "crossover_count": app.crossover_count,
         "officer": app.assigned_officer.name if app.assigned_officer else None,
+        "conditions": app.conditions or [],
+        "decision_note": app.decision_note or "",
     }
 
     notes_snap = [

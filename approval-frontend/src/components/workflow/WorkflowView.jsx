@@ -333,25 +333,74 @@ function StepReview({ app, categories, currentUser }) {
   );
 }
 
+const CONDITION_TEMPLATES = [
+  { cat: "Construction", items: [
+    "Crossover to be constructed to Type 1 standard (urban, fully sealed) per R-030.",
+    "Crossover surface to be concrete, minimum 100mm thickness on 150mm compacted base course per R-120/R-122.",
+    "Crossover to include minimum two expansion joints per R-126.",
+    "Crossover to be constructed flush with existing footpath per R-110.",
+  ]},
+  { cat: "Dimensions", items: [
+    "Crossover width at property boundary not to exceed 3.0m per R-083.",
+    "Crossover width at property boundary not to exceed 6.0m (includes 1.5m splays each side) per R-083.",
+    "Crossover to be perpendicular (90 degrees) to road centreline per R-081.",
+    "Minimum 6.0m separation from intersection tangent point per R-100.",
+  ]},
+  { cat: "Sight Distance", items: [
+    "Fence/wall within sight triangle to be truncated to 0.75m maximum height per AS 2890.1.",
+    "Vegetation within sight triangle to be maintained below 0.65m height.",
+    "No obstruction between 0.65m and 1.5m height within the sight triangle area.",
+    "Existing fence to be cut back at 45 degrees within 1.5m of crossover edge.",
+  ]},
+  { cat: "Drainage & Verge", items: [
+    "Stormwater runoff from crossover not to discharge onto road surface or adjacent properties.",
+    "Existing street tree to be protected during construction — no root disturbance within drip line.",
+    "Verge to be reinstated to council standard after crossover construction.",
+    "Existing crossover to be removed and verge reinstated at owner's expense.",
+  ]},
+  { cat: "Services & Safety", items: [
+    "Dial Before You Dig enquiry to be completed prior to excavation.",
+    "Any damaged kerb, footpath, or verge to be repaired to council standard at owner's expense.",
+    "Street light/power pole clearance to be maintained — minimum 1.0m from crossover edge.",
+    "Fire hydrant access to be maintained — no obstruction within 1.0m.",
+  ]},
+];
+
 function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) {
+  const [conditions, setConditions] = useState(app.conditions || []);
+  const [decisionNote, setDecisionNote] = useState(app.decision_note || "");
+  const [customCondition, setCustomCondition] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const addCondition = (text) => {
+    if (!conditions.includes(text)) setConditions(prev => [...prev, text]);
+  };
+  const removeCondition = (idx) => setConditions(prev => prev.filter((_, i) => i !== idx));
+
+  const saveDecision = async (newStatus) => {
+    setSaving(true);
+    try {
+      await api.updateApp(app._dbId, { status: newStatus, conditions, decision_note: decisionNote });
+      const fresh = await reloadApp(app._dbId);
+      if (fresh) setLocalApp(fresh);
+    } catch (e) { console.error(e); }
+    setSaving(false);
+  };
+
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        {/* Left: Decision + Conditions */}
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", marginBottom: 8 }}>Decision</div>
           {[
             { s: "approved", l: "Approve", desc: "All requirements met", c: "#27ae60" },
-            { s: "on_hold", l: "Approve with conditions", desc: "Approved subject to conditions", c: "#2980b9" },
+            { s: "conditionally_approved", l: "Approve with Conditions", desc: "Approved subject to conditions below", c: "#2980b9" },
             { s: "rejected", l: "Reject", desc: "Does not meet requirements", c: "#c0392b" },
           ].map(opt => (
-            <label key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: 8, marginBottom: 6, cursor: "pointer", background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
-              onClick={async () => {
-                try {
-                  await api.updateApp(app._dbId, { status: opt.s });
-                  const fresh = await reloadApp(app._dbId);
-                  if (fresh) setLocalApp(fresh);
-                } catch (e) { console.error(e); }
-              }}>
+            <div key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: 8, marginBottom: 6, cursor: saving ? "not-allowed" : "pointer", background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
+              onClick={() => { if (!saving) saveDecision(opt.s); }}>
               <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${app.status === opt.s ? opt.c : "#d5dde2"}`, marginTop: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {app.status === opt.s && <div style={{ width: 6, height: 6, borderRadius: "50%", background: opt.c }} />}
               </div>
@@ -359,11 +408,90 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
                 <div style={{ fontSize: 12, fontWeight: 700, color: opt.c }}>{opt.l}</div>
                 <div style={{ fontSize: 10, color: "#7a8a94" }}>{opt.desc}</div>
               </div>
-            </label>
+            </div>
           ))}
+
+          {/* Decision note */}
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", marginBottom: 4 }}>Decision Note</div>
+            <textarea value={decisionNote} onChange={e => setDecisionNote(e.target.value)}
+              onBlur={async () => { try { await api.updateApp(app._dbId, { decision_note: decisionNote }); } catch {} }}
+              placeholder="Optional — reason for decision..."
+              style={{ width: "100%", minHeight: 50, padding: "8px 10px", borderRadius: 6, border: "1px solid #e4e9ec", fontSize: 11, fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }} />
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <ReportGenerator app={app} />
+          </div>
         </div>
+
+        {/* Right: Conditions */}
         <div>
-          <ReportGenerator app={app} currentUser={currentUser} categories={categories} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase" }}>Conditions ({conditions.length})</div>
+            <button onClick={() => setShowTemplates(!showTemplates)}
+              style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid #2980b9", background: showTemplates ? "#ebf5fb" : "#fff", color: "#2980b9", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              {showTemplates ? "Hide Templates" : "Add from Templates"}
+            </button>
+          </div>
+
+          {/* Current conditions */}
+          {conditions.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+              {conditions.map((c, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "6px 10px", background: "#f5f8fa", borderRadius: 6, border: "1px solid #eef2f4" }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "#2980b9", marginTop: 1, flexShrink: 0 }}>{i + 1}.</span>
+                  <span style={{ fontSize: 10, color: "#1a3a4a", flex: 1, lineHeight: 1.4 }}>{c}</span>
+                  <button onClick={() => removeCondition(i)} style={{ background: "none", border: "none", color: "#bdc3c7", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>x</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ padding: 12, textAlign: "center", color: "#bdc3c7", fontSize: 11, background: "#fafbfc", borderRadius: 6, marginBottom: 10 }}>
+              No conditions added. Use templates or type custom.
+            </div>
+          )}
+
+          {/* Custom condition input */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+            <input value={customCondition} onChange={e => setCustomCondition(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && customCondition.trim()) { addCondition(customCondition.trim()); setCustomCondition(""); } }}
+              placeholder="Type custom condition..."
+              style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid #e4e9ec", fontSize: 10, fontFamily: "inherit", outline: "none" }} />
+            <button onClick={() => { if (customCondition.trim()) { addCondition(customCondition.trim()); setCustomCondition(""); } }}
+              disabled={!customCondition.trim()}
+              style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: customCondition.trim() ? "#2980b9" : "#bdc3c7", color: "#fff", fontSize: 10, fontWeight: 700, cursor: customCondition.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>Add</button>
+          </div>
+
+          {/* Save conditions */}
+          {conditions.length > 0 && (
+            <button onClick={async () => { try { await api.updateApp(app._dbId, { conditions }); const fresh = await reloadApp(app._dbId); if (fresh) setLocalApp(fresh); } catch {} }}
+              style={{ width: "100%", padding: "7px 0", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #2980b9, #3498db)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginBottom: 10 }}>
+              Save {conditions.length} Condition{conditions.length !== 1 ? "s" : ""}
+            </button>
+          )}
+
+          {/* Template picker */}
+          {showTemplates && (
+            <div style={{ border: "1px solid #e4e9ec", borderRadius: 8, overflow: "hidden", maxHeight: 300, overflowY: "auto" }}>
+              {CONDITION_TEMPLATES.map(cat => (
+                <div key={cat.cat}>
+                  <div style={{ padding: "6px 12px", background: "#f5f8fa", fontSize: 10, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", borderBottom: "1px solid #eef2f4" }}>{cat.cat}</div>
+                  {cat.items.map((item, i) => {
+                    const added = conditions.includes(item);
+                    return (
+                      <div key={i} onClick={() => { if (!added) addCondition(item); }}
+                        style={{ padding: "6px 12px", fontSize: 10, color: added ? "#27ae60" : "#1a3a4a", cursor: added ? "default" : "pointer", borderBottom: "1px solid #f5f7f8", background: added ? "#eafaf115" : "transparent", lineHeight: 1.4 }}
+                        onMouseEnter={e => { if (!added) e.currentTarget.style.background = "#f0f8ff"; }}
+                        onMouseLeave={e => { if (!added) e.currentTarget.style.background = "transparent"; }}>
+                        {added ? "✅ " : "＋ "}{item}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
