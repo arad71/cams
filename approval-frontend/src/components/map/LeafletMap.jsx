@@ -819,6 +819,33 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     // Find nearest boundary segment of SELECTED APP's lot polygon (within 30m)
     const snapToBoundary = (latlng) => {
       let lotPoly = selectedApp?.lot_polygon;
+      // Fallback: try boundaryData.lot (from site plan boundaries)
+      if ((!lotPoly || lotPoly.length < 3) && boundaryData?.lot) {
+        lotPoly = boundaryData.lot;
+      }
+      // Fallback: try site_lot_boundary_latlon
+      if ((!lotPoly || lotPoly.length < 3) && selectedApp?.site_lot_boundary_latlon) {
+        lotPoly = selectedApp.site_lot_boundary_latlon;
+      }
+      // Fallback: search allLotsData by app coordinates
+      if ((!lotPoly || lotPoly.length < 3) && allLotsData?.features && selectedApp) {
+        const appLat = selectedApp.lat || selectedApp.property?.lat;
+        const appLng = selectedApp.lng || selectedApp.property?.lng;
+        if (appLat && appLng) {
+          for (const feat of allLotsData.features) {
+            const g = feat.geometry;
+            if (!g) continue;
+            const ring = g.type === "Polygon" ? g.coordinates?.[0] : g.type === "MultiPolygon" ? g.coordinates?.[0]?.[0] : null;
+            if (!ring || ring.length < 3) continue;
+            // Quick bbox check
+            const lats = ring.map(c => c[1]), lngs = ring.map(c => c[0]);
+            if (appLat >= Math.min(...lats) && appLat <= Math.max(...lats) && appLng >= Math.min(...lngs) && appLng <= Math.max(...lngs)) {
+              lotPoly = ring.map(c => [c[1], c[0]]); // [lng,lat] → [lat,lng]
+              break;
+            }
+          }
+        }
+      }
       if (!lotPoly || lotPoly.length < 3) return null;
       // Auto-detect [lng,lat] vs [lat,lng]
       if (Math.abs(lotPoly[0][0]) > 90) lotPoly = lotPoly.map(p => [p[1], p[0]]);
@@ -1191,7 +1218,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       map.doubleClickZoom.disable();
     }
     return () => { map.off("preclick", onClick); map.off("dblclick", onDblClick); map.doubleClickZoom.enable(); map.getContainer().style.cursor = ""; };
-  }, [mapTool, offsetState, leafletLoaded, speedRoadsData, roadNetworkData, allLotsData]);
+  }, [mapTool, offsetState, leafletLoaded, speedRoadsData, roadNetworkData, allLotsData, selectedApp, boundaryData]);
 
   // ── Clear draw annotations ──
   const clearDrawAnnotations = () => {
