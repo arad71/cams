@@ -457,11 +457,11 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                   <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 600, color: it.type === 'cal' ? '#e67e22' : '#2980b9', whiteSpace: 'nowrap' }}>
                     {it.type === 'measure' ? fmtDist(it.pxDist) : it.type === 'area' ? fmtArea(it.pxArea) : it.type === 'cal' ? Math.round(it.pxDist) + ' px' : 'Marker'}
                   </div>
-                  {/* Save to AI field button */}
-                  {it.type === 'measure' && calPx && onSaveField && (
-                    <button onClick={() => setSaveModal({ itemId: it.id, value: getRealValue(it) })}
-                      style={{ background: 'none', border: 'none', color: '#1abc9c', cursor: 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}
-                      title="Save to AI field">💾</button>
+                  {/* Save to AI field button — always visible */}
+                  {it.type === 'measure' && onSaveField && (
+                    <button onClick={() => setSaveModal({ itemId: it.id, value: calPx ? getRealValue(it) : it.pxDist.toFixed(1) })}
+                      style={{ background: '#e8f8f5', border: '1px solid #1abc9c', color: '#1abc9c', cursor: 'pointer', fontSize: 9, padding: '1px 5px', borderRadius: 4, fontWeight: 700, fontFamily: 'inherit' }}
+                      title="Save to AI field">💾 Save</button>
                   )}
                   <button onClick={() => deleteItem(it.id)}
                     style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>×</button>
@@ -482,6 +482,11 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           {tool.charAt(0).toUpperCase() + tool.slice(1)}
         </span>
         {mouse && <span>X:{Math.round(mouse.x)} Y:{Math.round(mouse.y)}</span>}
+        {onSaveField && (
+          <button onClick={() => setSaveModal({ itemId: null, value: '', isManual: true })}
+            style={{ background: '#E3F2FD', border: '1px solid #1565C0', color: '#1565C0', cursor: 'pointer', fontSize: 9, padding: '1px 8px', borderRadius: 4, fontWeight: 700, fontFamily: 'inherit' }}
+            title="Manually set an AI field value">✏️ Set Field</button>
+        )}
         <span>{Math.round(zoom * 100)}%</span>
         <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Calibrate</span>
       </div>
@@ -503,11 +508,19 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 10002, display: 'grid', placeItems: 'center' }}
           onClick={(e) => { if (e.target === e.currentTarget) setSaveModal(null); }}>
           <div style={{ background: '#fff', border: '1px solid #e4e9ec', borderRadius: 14, padding: 24, width: 420, maxHeight: '70vh', overflow: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.15)' }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#1a3a4a', marginBottom: 4 }}>💾 Save Measurement as Correction</div>
-            <div style={{ fontSize: 12, color: '#7a8a94', marginBottom: 16 }}>
-              Measured: <span style={{ color: '#1abc9c', fontFamily: 'monospace', fontWeight: 600 }}>{saveModal.value} {calUnit}</span>
-              — This will override the AI-extracted value and re-run assessment.
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1a3a4a', marginBottom: 4 }}>💾 {saveModal.isManual ? 'Set AI Field Value' : 'Save Measurement as Correction'}</div>
+            <div style={{ fontSize: 12, color: '#7a8a94', marginBottom: 8 }}>
+              {saveModal.isManual ? 'Enter a value and select the field to save it to.' : <>Measured: <span style={{ color: '#1abc9c', fontFamily: 'monospace', fontWeight: 600 }}>{saveModal.value} {calUnit}</span></>}
+              {!saveModal.isManual && ' — This will override the AI-extracted value and re-run assessment.'}
             </div>
+            {/* Editable value input */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#5a6a74' }}>Value:</span>
+              <input type="text" value={saveModal.value} onChange={e => setSaveModal(m => ({...m, value: e.target.value}))}
+                style={{ flex: 1, padding: '6px 10px', borderRadius: 6, border: '1.5px solid #1abc9c', fontSize: 13, fontFamily: 'monospace', fontWeight: 700, color: '#1a3a4a', outline: 'none' }}
+                autoFocus placeholder="Enter value..." />
+            </div>
+            <div style={{ fontSize: 10, color: '#7a8a94', marginBottom: 8, fontWeight: 600 }}>Select field to save to:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {AI_FIELDS.map(f => {
                 const spd = appData?.cor_site_plan_data || appData?.site_plan_data;
@@ -516,14 +529,16 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                 let current = extraction;
                 for (const p of parts) { current = current?.[p]; }
                 const currentStr = current != null ? String(current) : '—';
+                const newVal = saveModal.value;
                 return (
-                  <button key={f.key} onClick={() => { if (onSaveField) onSaveField(f.key, parseFloat(saveModal.value), calUnit); setSaveModal(null); }}
-                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: 8, color: '#1a3a4a', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s', gap: 8 }}
-                    onMouseEnter={e => e.currentTarget.style.borderColor = '#1abc9c'} onMouseLeave={e => e.currentTarget.style.borderColor = '#e4e9ec'}>
+                  <button key={f.key} onClick={() => { if (onSaveField) { const v = isNaN(newVal) ? newVal : parseFloat(newVal); onSaveField(f.key, v, f.unit || calUnit); } setSaveModal(null); }}
+                    disabled={!newVal && newVal !== 0}
+                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: 8, color: '#1a3a4a', cursor: newVal ? 'pointer' : 'not-allowed', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s', gap: 8, opacity: newVal ? 1 : 0.5 }}
+                    onMouseEnter={e => { if (newVal) e.currentTarget.style.borderColor = '#1abc9c'; }} onMouseLeave={e => e.currentTarget.style.borderColor = '#e4e9ec'}>
                     <span style={{ flex: 1, textAlign: 'left' }}>{f.label}</span>
-                    <span style={{ fontSize: 10, color: '#e74c3c', fontFamily: 'monospace', minWidth: 50, textAlign: 'right' }}>{currentStr}</span>
+                    <span style={{ fontSize: 10, color: '#e74c3c', fontFamily: 'monospace', minWidth: 60, textAlign: 'right' }}>{currentStr}</span>
                     <span style={{ fontSize: 10, color: '#95a5a6' }}>→</span>
-                    <span style={{ fontSize: 10, color: '#1abc9c', fontFamily: 'monospace', fontWeight: 600, minWidth: 50, textAlign: 'right' }}>{saveModal.value}</span>
+                    <span style={{ fontSize: 10, color: '#1abc9c', fontFamily: 'monospace', fontWeight: 600, minWidth: 60, textAlign: 'right' }}>{newVal || '...'}</span>
                   </button>
                 );
               })}
