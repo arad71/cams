@@ -199,18 +199,22 @@ RULES:
   (c) On the location/vicinity map in the corner of the plan
   (d) Near the kerb line, footpath, or crossover markings
   (e) In notes referring to "crossover to Shire requirement" or road surface type
-  Set road_name to the road where the lot has its MAIN frontage.
-  Set crossover_on_road to the road where the crossover/driveway is drawn.
+  Set road_name to the road where the lot has its MAIN frontage (usually the longest boundary facing a road).
+  Set crossover_on_road to the road where the CROSSOVER/DRIVEWAY is drawn. This is CRITICAL:
+    - Look for labels: "CROSSOVER", "DRIVEWAY", "BPAVED DRIVEWAY", "CROSSOVER TO SHIRE"
+    - Follow the GARAGE opening direction - the driveway connects to THAT road
+    - The crossover is where the paved area meets the kerb/road
+    - It may be on the SIDE road, not the main frontage (very common in WA)
+    - Example: lot address is Fennell Crescent but garage/driveway faces Plumosa Way then crossover_on_road = "Plumosa Way"
   For corner lots, set secondary_road_name to the other road.
   Also set corner_roads array with ALL road names found adjacent to the lot.
-- Verge depth = distance from property boundary line to road edge.
-- Distinguish crossover width (at boundary) from total width (at road, includes splays).
-- ALIGNMENT: Check if crossover is perpendicular (90°) to road. Estimate alignment_degrees if visible.
-- WIDTH RULES: Lot frontage ≤ 12.5m → max 3.0m (or 4.5m if double garage). Frontage > 12.5m → max 6.0m.
-- BATTLEAXE: If rear lot with narrow access leg, mark is_battleaxe=true. Single: min 3.0m + 0.5m garden bed. Adjoining: 6.0m combined.
-- UTILITIES: Look for any utility symbols, labels, or lines (power poles, water meters, gas mains, telco pits, sewer manholes, stormwater drains). Report conflicts if any utility is within or crosses the proposed crossover area.
-- SETBACKS: Measure distance from driveway edge to left boundary, right boundary, nearest lot corner, and nearest building corner. LEFT means the left side when standing in the driveway looking at the road. RIGHT is the other side. Read dimensions from the plan — look for measurements between the crossover/driveway edge and the side boundary lines. The nearest lot corner is critical for sight distance: the closer the crossover is to a lot corner, the more restricted the sight triangle. Also identify what is on each boundary side (neighbour's fence, retaining wall, garage wall, vacant, hedge) as this affects visibility.
-- CORNER LOT: Identify if the lot is on a corner (two road frontages). Check all boundaries for road names — if two or more boundaries have road names written along them, it is a corner lot. Set corner_roads to ALL road names found. Set crossover_on_road to the road where the crossover/driveway is drawn (look for the crossover symbol, paved area, or dimensioned driveway meeting the kerb — it may be on the SIDE road, not the main frontage). Corner lots have extended sight triangle requirements per AS 2890.1 §3.2.4 — sight distance must be checked on BOTH roads.
+- CORNER LOT: A lot is a corner lot if it has road frontage on TWO or more sides. Check:
+  (a) Are there two different road names along two different lot boundaries?
+  (b) Is there kerb/footpath shown along two sides of the lot?
+  (c) Does the vicinity map show the lot at an intersection?
+  If yes then is_corner_lot = true, corner_roads = all road names.
+  The crossover may be on EITHER road - check where the garage faces and where CROSSOVER is labelled.
+  Sight distance must be checked on BOTH roads for corner lots.
 - INTERSECTION TANGENT: Measure distance from crossover to nearest intersection tangent point. Must be ≥ 6.0m per R-100.
 - DRIVEWAY CENTRELINE POINT: The point 2.5m back from the verge/road edge along the driveway centreline is the standard Point A for sight triangle analysis.
 - FOOTPATH: If a footpath crosses the crossover, check if flush join is shown (R-110). For concrete, check colour/jointing delineation (R-111).
