@@ -1232,3 +1232,69 @@ def get_report(app_id: int, version: int, db: Session = Depends(get_db), current
         checklist_snapshot=report.checklist_snapshot, app_snapshot=report.app_snapshot,
         notes_snapshot=report.notes_snapshot, created_at=report.created_at,
     )
+
+
+@router.get("/{app_id}/reports/{version}/pdf")
+def download_report_pdf(app_id: int, version: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Download a report as a formatted PDF."""
+    from fastapi.responses import Response
+    from app.services.report_pdf import generate_assessment_pdf
+    from app.models.assessment import AssessmentCategory, AssessmentItem
+
+    report = (
+        db.query(Report)
+        .filter(Report.application_id == app_id, Report.version == version)
+        .options(joinedload(Report.generated_by))
+        .first()
+    )
+    if not report:
+        raise HTTPException(status_code=404, detail="Report version not found")
+
+    # Build categories with items for the PDF
+    cats = (
+        db.query(AssessmentCategory)
+        .filter(AssessmentCategory.is_active == True)
+        .order_by(AssessmentCategory.sort_order)
+        .all()
+    )
+    categories = []
+    for cat in cats:
+        items = (
+            db.query(AssessmentItem)
+            .filter(AssessmentItem.category_id == cat.id, AssessmentItem.is_active == True)
+            .order_by(AssessmentItem.sort_order)
+            .all()
+        )
+        categories.append({
+            "code": cat.code,
+            "label": cat.label,
+            "icon": cat.icon or "",
+            "items": [{"code": it.code, "label": it.label, "reference": it.reference or ""} for it in items],
+        })
+
+    # Get council name from site settings
+    from app.models.site_settings import SiteSetting
+    council_setting = db.query(SiteSetting).filter(SiteSetting.key == "council_name").first()
+    council_name = council_setting.value if council_setting else "Council"
+
+    report_data = {
+        "app_snapshot": report.app_snapshot or {},
+        "summary_data": report.summary_data or {},
+        "checklist_snapshot": report.checklist_snapshot or {},
+        "notes_snapshot": report.notes_snapshot or [],
+        "recommendation": report.recommendation or "REVIEW",
+        "categories": categories,
+        "status_at_generation": report.status_at_generation or "—",
+        "generated_by_name": report.generated_by.name if report.generated_by else "—",
+        "version": report.version,
+    }
+
+    pdf_bytes = generate_assessment_pdf(report_data, council_name)
+    app_ref = (report.app_snapshot or {}).get("ref_number", f"APP-{app_id}")
+    filename = f"CAMS_Report_{app_ref}_v{version}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

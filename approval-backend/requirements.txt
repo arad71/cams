@@ -23,3 +23,4 @@ numpy==1.26.4
 
 # Production
 gunicorn==22.0.0
+reportlab>=4.0

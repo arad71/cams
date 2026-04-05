@@ -145,7 +145,7 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
 
           {/* ★ REPORT GENERATOR ★ */}
           <div style={{ marginBottom: 14 }}>
-            <ReportGenerator app={localApp} currentUser={currentUser} categories={categories} />
+            <ReportGenerator app={localApp} />
           </div>
 
           {/* Officer + Notes */}

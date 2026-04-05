@@ -155,6 +155,20 @@ const api = {
   async generateReport(appId) { return this._fetch(`/applications/${appId}/reports`, { method: "POST" }); },
   async listReports(appId) { return this._fetch(`/applications/${appId}/reports`); },
   async getReport(appId, version) { return this._fetch(`/applications/${appId}/reports/${version}`); },
+  async downloadReportPdf(appId, version) {
+    const token = this._getToken();
+    const res = await fetch(`${API_BASE}/applications/${appId}/reports/${version}/pdf`, {
+      headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`PDF download failed: ${res.status}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `CAMS_Report_v${version}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
 
   // Extract application form data from uploaded PDF
   async extractAppForm(file) {
