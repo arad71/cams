@@ -62,6 +62,14 @@ for arg in "$@"; do
   esac
 done
 
+# ── Step 2.5: Ensure swap exists (prevents npm build OOM) ──
+if [ ! -f /swapfile ] && [ "$(id -u)" = "0" ]; then
+  echo -e "${YELLOW}  Creating 2GB swap (prevents build OOM)...${NC}"
+  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile 2>/dev/null || true
+elif [ -f /swapfile ]; then
+  swapon /swapfile 2>/dev/null || true
+fi
+
 # ── Step 3: Rebuild ──
 if [ -n "$TARGET" ]; then
   echo -e "${BLUE}[2/4] Rebuilding ${TARGET}...${NC}"
@@ -70,12 +78,12 @@ if [ -n "$TARGET" ]; then
   dc up -d --no-deps "$TARGET"
 else
   echo -e "${BLUE}[2/4] Rebuilding all containers${NO_CACHE:+ (no-cache)}...${NC}"
-  if [ -n "$NO_CACHE" ]; then
-    dc build --no-cache approval-frontend
-    dc build approval-api
-  else
-    dc build
-  fi
+  echo -e "  Building backend..."
+  dc build $NO_CACHE approval-api
+  echo -e "  Clearing Docker build cache..."
+  docker builder prune -f --filter "until=1h" 2>/dev/null || true
+  echo -e "  Building frontend (this takes a minute)..."
+  dc build $NO_CACHE approval-frontend
   echo -e "${BLUE}[3/4] Restarting services...${NC}"
   dc up -d
 fi
