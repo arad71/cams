@@ -22,6 +22,12 @@ def run_seed():
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT NULL",
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS decision_note TEXT DEFAULT NULL",
+            "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS completed_date TIMESTAMPTZ DEFAULT NULL",
+            "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS gps_lat DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS gps_lng DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS gps_accuracy_m DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS field_checklist JSONB DEFAULT NULL",
+            "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(stmt))

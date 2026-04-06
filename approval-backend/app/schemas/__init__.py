@@ -183,8 +183,15 @@ class InspectionOut(BaseModel):
     id: int
     inspection_type: Optional[str] = None
     scheduled_date: Optional[datetime] = None
+    completed_date: Optional[datetime] = None
     status: str = "scheduled"
     notes: Optional[str] = None
+    inspector_id: Optional[int] = None
+    gps_lat: Optional[float] = None
+    gps_lng: Optional[float] = None
+    gps_accuracy_m: Optional[float] = None
+    field_checklist: Optional[dict] = None
+    photos: Optional[list] = None
     class Config:
         from_attributes = True
 
@@ -278,6 +285,12 @@ class InspectionCreate(BaseModel):
 class InspectionUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
+    gps_lat: Optional[float] = None
+    gps_lng: Optional[float] = None
+    gps_accuracy_m: Optional[float] = None
+    field_checklist: Optional[dict] = None
+    photos: Optional[list] = None
+    completed_date: Optional[str] = None
 
 
 # ─── Assessment Master ───────────────────────────────────

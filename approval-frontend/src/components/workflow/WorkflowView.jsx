@@ -7,6 +7,7 @@ import DocumentList from '../ui/DocumentList';
 import ApprovalChecklist from '../ui/ApprovalChecklist';
 import AIExtractionReview from '../ui/AIExtractionReview';
 import ReportGenerator from '../ui/ReportGenerator';
+import MobileInspection from '../ui/MobileInspection';
 
 // ─── Workflow Steps ─────────────────────────────────────
 const STEPS = [
@@ -73,13 +74,39 @@ function Stepper({ currentStep, completedUpTo, onStepClick }) {
 
 
 // ─── Sidebar ────────────────────────────────────────────
-function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNote, setNewNote, addNote, assignee, setAssignee, newStatus, setNewStatus, saveChanges, canAssign, canDecide }) {
+function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNote, setNewNote, addNote, assignee, setAssignee, newStatus, setNewStatus, saveChanges, canAssign, canDecide, onInspect }) {
   const docs = app.documents || [];
   const spd = app?.cor_site_plan_data || app?.site_plan_data;
   const ext = spd?.extraction || spd || {};
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Field Inspection button */}
+      <div style={card}>
+        <div style={{ padding: "10px 12px", display: "flex", gap: 8 }}>
+          <button onClick={() => onInspect && onInspect("Pre-construction")}
+            style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #e67e22, #f39c12)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            🔍 Pre-Inspect
+          </button>
+          <button onClick={() => onInspect && onInspect("Post-construction")}
+            style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #27ae60, #2ecc71)", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            🔍 Post-Inspect
+          </button>
+        </div>
+        {(app.inspections || []).length > 0 && (
+          <div style={{ padding: "0 12px 8px", fontSize: 10, color: "#7a8a94" }}>
+            {(app.inspections || []).map((insp, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                <span>{insp.inspection_type}</span>
+                <span style={{ fontWeight: 700, color: insp.status === "passed" ? "#27ae60" : insp.status === "failed" ? "#e74c3c" : "#3498db" }}>
+                  {insp.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Documents quick access */}
       <div style={card}>
         <div style={cardHdr}><span>📎 Documents ({docs.length})</span></div>
@@ -515,6 +542,26 @@ export default function WorkflowView({
 }) {
   const autoStep = statusToStep(localApp.status);
   const [currentStep, setCurrentStep] = useState(autoStep);
+  const [showInspection, setShowInspection] = useState(false);
+  const [activeInspection, setActiveInspection] = useState(null);
+
+  const startInspection = async (type) => {
+    try {
+      // Find existing in-progress inspection or create new one
+      const existing = (localApp.inspections || []).find(i => i.inspection_type === type && (i.status === "scheduled" || i.status === "in_progress"));
+      if (existing) {
+        setActiveInspection(existing);
+      } else {
+        const newInsp = await api.scheduleInspection(localApp._dbId, {
+          inspection_type: type,
+          scheduled_date: new Date().toISOString(),
+          inspector_id: currentUser?.id,
+        });
+        setActiveInspection(newInsp);
+      }
+      setShowInspection(true);
+    } catch (e) { console.error("Failed to start inspection:", e); }
+  };
 
   // Update step when status changes
   useEffect(() => { setCurrentStep(statusToStep(localApp.status)); }, [localApp.status]);
@@ -590,8 +637,19 @@ export default function WorkflowView({
           onReload={onDocUpdated} newNote={newNote} setNewNote={setNewNote} addNote={addNote}
           assignee={assignee} setAssignee={setAssignee} newStatus={newStatus} setNewStatus={setNewStatus}
           saveChanges={saveChanges} canAssign={canAssign} canDecide={canDecide}
+          onInspect={startInspection}
         />
       </div>
+
+      {/* Mobile Inspection Overlay */}
+      {showInspection && activeInspection && (
+        <MobileInspection
+          app={localApp}
+          inspection={activeInspection}
+          onClose={() => setShowInspection(false)}
+          onUpdate={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }}
+        />
+      )}
     </div>
   );
 }

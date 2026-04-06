@@ -1141,11 +1141,51 @@ def update_inspection(app_id: int, insp_id: int, data: InspectionUpdate, db: Ses
         raise HTTPException(status_code=404, detail="Inspection not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    # Merge field_checklist instead of replacing
+    if "field_checklist" in update_data and insp.field_checklist:
+        merged = {**(insp.field_checklist or {}), **update_data["field_checklist"]}
+        update_data["field_checklist"] = merged
     for key, value in update_data.items():
         setattr(insp, key, value)
     db.commit()
     db.refresh(insp)
     return insp
+
+
+@router.post("/{app_id}/inspections/{insp_id}/photo")
+async def upload_inspection_photo(app_id: int, insp_id: int, file: UploadFile = File(...), caption: str = "", checklist_item: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Upload a photo for an inspection."""
+    from pathlib import Path
+    import uuid
+    insp = db.query(Inspection).filter(Inspection.id == insp_id, Inspection.application_id == app_id).first()
+    if not insp:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+
+    # Save file
+    upload_dir = Path("/app/uploads/inspections") if Path("/app").exists() else Path("uploads/inspections")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(file.filename).suffix or ".jpg"
+    photo_id = str(uuid.uuid4())[:8]
+    filename = f"insp_{insp_id}_{photo_id}{ext}"
+    filepath = upload_dir / filename
+    content = await file.read()
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    # Add to photos list
+    photos = insp.photos or []
+    photos.append({
+        "id": photo_id,
+        "filename": filename,
+        "caption": caption,
+        "checklist_item": checklist_item,
+        "timestamp": datetime.utcnow().isoformat(),
+        "size_bytes": len(content),
+    })
+    insp.photos = photos
+    db.commit()
+    db.refresh(insp)
+    return {"id": photo_id, "filename": filename}
 
 # ─── Reports (versioned snapshots) ───────────────────────
 @router.post("/{app_id}/reports", response_model=ReportOut, status_code=status.HTTP_201_CREATED)

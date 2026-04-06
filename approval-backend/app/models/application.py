@@ -143,11 +143,18 @@ class Inspection(Base):
     inspector_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     inspection_type = Column(String(50))  # Pre-construction | Post-construction
     scheduled_date = Column(DateTime(timezone=True))
-    status = Column(String(20), default="scheduled")  # scheduled | passed | failed | cancelled
+    completed_date = Column(DateTime(timezone=True), nullable=True)
+    status = Column(String(20), default="scheduled")  # scheduled | in_progress | passed | failed | cancelled
     notes = Column(Text, nullable=True)
+    gps_lat = Column(Float, nullable=True)
+    gps_lng = Column(Float, nullable=True)
+    gps_accuracy_m = Column(Float, nullable=True)
+    field_checklist = Column(JSON, nullable=True)  # {item_code: {result: pass/fail/na, note: str, photo_ids: []}}
+    photos = Column(JSON, nullable=True)            # [{id, filename, caption, checklist_item, timestamp}]
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     application = relationship("Application", back_populates="inspections")
+    inspector = relationship("User", foreign_keys=[inspector_id])
 
 
 class Report(Base):

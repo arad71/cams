@@ -105,6 +105,19 @@ const api = {
   async extractSiteplan(appId, docId, pages) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-siteplan?pages=${encodeURIComponent(pages)}`, { method: "POST" }); },
   async saveBoundaries(appId, data) { return this._fetch(`/applications/${appId}/boundaries`, { method: "PUT", body: data }); },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
+  async updateInspection(appId, inspId, data) { return this._fetch(`/applications/${appId}/inspections/${inspId}`, { method: "PATCH", body: data }); },
+  async uploadInspectionPhoto(appId, inspId, file, caption = "", checklistItem = "") {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("caption", caption);
+    formData.append("checklist_item", checklistItem);
+    const token = this._getToken();
+    const res = await fetch(`${API_BASE}/applications/${appId}/inspections/${inspId}/photo`, {
+      method: "POST", body: formData, headers: token ? { "Authorization": `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+    return res.json();
+  },
 
   // Document AI analysis
   async analyseDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}/analyse`, { method: "POST" }); },
