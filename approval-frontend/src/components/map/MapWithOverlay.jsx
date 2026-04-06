@@ -1243,13 +1243,11 @@ Respond with JSON only:
             {!sightConfig.crossoverRoad && !sightTriangle && <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>⚠ No site plan data — set x, y manually</span>}
             {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
-            {sightTriangle && !drawMode && !analysisRunning && !roadWidthRunning && (
+            {sightTriangle && !drawMode && !analysisRunning && (
               <>
                 <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
-                <button onClick={measureRoadWidth} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #1565C0, #1976D2)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(21,101,192,0.3)" }}>📏 Road Width</button>
               </>
             )}
-            {roadWidthRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#1565C0", background: "#E3F2FD", padding: "3px 8px", borderRadius: 4 }}>📏 Measuring...</span>}
             {analysisRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
             <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Reset</button>
           </div>
@@ -1794,65 +1792,6 @@ Respond with JSON only:
         </div>
       )}
 
-      {/* ═══ Road Width Results ═══ */}
-      {roadWidthResult && !roadWidthRunning && (
-        <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: "linear-gradient(135deg, #E3F2FD, #fff)", borderBottom: "2px solid #1976D2" }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: "#1565C0" }}>📏 Road Width Measurement</div>
-              <div style={{ fontSize: 10, color: "#5A6A74", marginTop: 2 }}>AI analysis from satellite + street view imagery</div>
-            </div>
-            <button onClick={() => setRoadWidthResult(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 14, color: "#95A5A6" }}>✕</button>
-          </div>
-          {roadWidthResult.error ? (
-            <div style={{ padding: 16, color: "#e74c3c" }}>⚠ {roadWidthResult.error}</div>
-          ) : (
-            <div style={{ padding: 16 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
-                {[
-                  { label: "Carriageway", value: `${roadWidthResult.carriageway_width_m?.toFixed(1) || '?'}m`, color: "#1565C0", sub: "kerb to kerb" },
-                  { label: "Road Reserve", value: `${roadWidthResult.road_reserve_width_m?.toFixed(1) || '?'}m`, color: "#5C6BC0", sub: "boundary to boundary" },
-                  { label: "Lanes", value: `${roadWidthResult.lane_count || '?'} × ${roadWidthResult.lane_width_m?.toFixed(1) || '?'}m`, color: "#7B1FA2", sub: "count × width" },
-                ].map((s, i) => (
-                  <div key={i} style={{ background: "#F5F8FF", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: s.color }}>{s.value}</div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "#5A6A74", marginTop: 2 }}>{s.label}</div>
-                    <div style={{ fontSize: 8, color: "#95A5A6" }}>{s.sub}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-                <div style={{ background: "#F5F8FF", borderRadius: 8, padding: "8px 12px" }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: "#7A8A94" }}>VERGE (DRIVEWAY SIDE)</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "#2E7D32" }}>{roadWidthResult.verge_width_driveway_side_m?.toFixed(1) || '?'}m</div>
-                </div>
-                <div style={{ background: "#F5F8FF", borderRadius: 8, padding: "8px 12px" }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: "#7A8A94" }}>VERGE (OPPOSITE)</div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: "#2E7D32" }}>{roadWidthResult.verge_width_opposite_side_m?.toFixed(1) || '?'}m</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                {roadWidthResult.road_surface && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#ECEFF1", color: "#546E7A", fontWeight: 600 }}>🛣️ {roadWidthResult.road_surface}</span>}
-                {roadWidthResult.road_classification && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#E8EAF6", color: "#3F51B5", fontWeight: 600 }}>{roadWidthResult.road_classification.replace(/_/g, ' ')}</span>}
-                {roadWidthResult.has_median && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#FFF3E0", color: "#E65100", fontWeight: 600 }}>Median ✓</span>}
-                {roadWidthResult.has_centre_line && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#F3E5F5", color: "#7B1FA2", fontWeight: 600 }}>Centre Line ✓</span>}
-                {roadWidthResult.has_turning_lane && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#FCE4EC", color: "#C62828", fontWeight: 600 }}>Turning Lane ✓</span>}
-                {roadWidthResult.is_corner_lot && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "#FFF8E1", color: "#E65100", fontWeight: 700 }}>🔀 CORNER LOT</span>}
-              </div>
-              {roadWidthResult.is_corner_lot && roadWidthResult.corner_roads?.length > 0 && (
-                <div style={{ fontSize: 10, color: "#5A6A74", marginBottom: 8 }}>Corner roads: {roadWidthResult.corner_roads.join(", ")}</div>
-              )}
-              <div style={{ fontSize: 10, color: "#7A8A94", borderTop: "1px solid #F0F3F5", paddingTop: 8, marginTop: 4 }}>
-                <span style={{ fontWeight: 700, color: roadWidthResult.measurement_confidence === "high" ? "#27ae60" : roadWidthResult.measurement_confidence === "medium" ? "#e67e22" : "#c0392b" }}>
-                  Confidence: {roadWidthResult.measurement_confidence || "unknown"}
-                </span>
-                {roadWidthResult.notes && <div style={{ marginTop: 4, fontStyle: "italic" }}>{roadWidthResult.notes}</div>}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
