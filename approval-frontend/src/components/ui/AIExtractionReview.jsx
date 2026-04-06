@@ -4,7 +4,7 @@ import api from '../../services/api';
 /**
  * AI Extraction Review Panel
  * 
- * Shows the structured data Claude extracted from the site plan.
+ * Shows the structured data AI extracted from the site plan.
  * Officers can:
  *   ✓ Verify — confirm AI was correct (green tick)
  *   ✎ Correct — edit any value inline (saves as ground truth for model training)
@@ -285,7 +285,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: "#1a3a4a" }}>🤖 AI Site Plan Analysis</div>
             <div style={{ fontSize: 12, color: "#7a8a94", marginTop: 2 }}>
-              {spd.ai_model || "Claude"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
+              {spd.ai_model ? "AI" : "AI"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
               {hasCorrected && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 3, background: "#fef5e7", color: "#e67e22", fontWeight: 700, fontSize: 9 }}>✎ Officer Corrected</span>}
             </div>
           </div>

@@ -59,7 +59,7 @@ def ai_guideline():
 @app.post("/ai/analyse", response_model=FindingsResponse | ErrorResponse)
 async def ai_analyse(
     file: UploadFile = File(..., description="PDF or image (.pdf/.jpg/.jpeg/.png)"),
-    model: str = Query(default=settings.AI_MODEL_DEFAULT, description="Claude vision-capable model"),
+    model: str = Query(default=settings.AI_MODEL_DEFAULT, description="AI vision model"),
     api_key_query: str | None = Query(default=None, alias="api_key"),
     api_key_header: str | None = Header(default=None, alias="X-Anthropic-Api-Key"),
     # current_user: dict = Depends(get_current_user),  # ⟵ uncomment to protect route
@@ -67,7 +67,7 @@ async def ai_analyse(
     # We accept any content-type; detection happens in service; it returns a clean error for bad bytes.
     api_key = api_key_query or api_key_header or settings.ANTHROPIC_API_KEY
     if not api_key:
-        raise HTTPException(status_code=400, detail="Missing Anthropic API key. Provide ?api_key=..., header 'X-Anthropic-Api-Key', or set ANTHROPIC_API_KEY env var.")
+        raise HTTPException(status_code=400, detail="Missing AI API key. Set ANTHROPIC_API_KEY in .env")
 
     try:
         data = await file.read()

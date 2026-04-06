@@ -37,11 +37,11 @@ def training_stats(db: Session = Depends(get_db), current_user: User = Depends(r
     p3 = ai_cfg.phase3_threshold
 
     if total >= p3:
-        phase = "Phase 3 — YOLO primary, Claude fallback"
+        phase = "Phase 3 — Local primary, AI fallback"
     elif total >= p2:
-        phase = "Phase 2 — Hybrid YOLO + Claude"
+        phase = "Phase 2 — Hybrid mode"
     else:
-        phase = f"Phase 1 — Claude only ({p2 - total} more samples needed for Phase 2)"
+        phase = f"Phase 1 — AI only ({p2 - total} more samples needed for Phase 2)"
 
     return {
         "total_samples": total,

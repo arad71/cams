@@ -190,7 +190,7 @@ const api = {
     return this._fetch("/extract_app_form", { method: "POST", body: formData });
   },
 
-  // Analyse site plan via AI (Claude vision)
+  // Analyse site plan via AI vision
   async analyseSitePlan(file) {
     const formData = new FormData();
     formData.append("file", file);

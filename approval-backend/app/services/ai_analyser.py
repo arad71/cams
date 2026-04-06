@@ -528,7 +528,7 @@ def analyse_document(
     model: str | None = None,
 ) -> Dict[str, Any]:
     """
-    Full pipeline: bytes → images → Claude → compliance → findings JSON
+    Full pipeline: bytes → images → AI → compliance → findings JSON
     Returns either a findings dict OR an {error, raw_response, ...} dict.
     """
     api_key = api_key or settings.ANTHROPIC_API_KEY
@@ -557,7 +557,7 @@ def analyse_document(
         "analysed_at": datetime.now().isoformat(),
         "source_file": filename,
         "source_pages": len(images),
-        "ai_provider": "Anthropic Claude",
+        "ai_provider": "AI Vision",
         "ai_model": model,
         "guideline": {
             "name": GUIDELINE["name"],

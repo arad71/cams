@@ -3,7 +3,7 @@ Building Application Site Plan Extractor
 
 When a Building Application PDF is uploaded:
 1. Convert all pages to images
-2. Send each page to Claude Vision: "Is this a site plan?"
+2. Send each page to AI Vision: "Is this a site plan?"
 3. Extract identified site plan pages as a separate PDF
 4. Save as a "Site Plan" document on the application
 5. Run AI site plan analysis on the extracted pages only
@@ -19,7 +19,7 @@ settings = get_settings()
 
 
 def identify_site_plan_pages(file_bytes: bytes, filename: str, api_key: str, model: str) -> List[int]:
-    """Use Claude Vision to identify which pages of a building application are site plans.
+    """Use AI Vision to identify which pages of a building application are site plans.
     Returns list of 1-based page numbers."""
     from app.services.ai_analyser import file_to_images_from_upload
 
@@ -31,7 +31,7 @@ def identify_site_plan_pages(file_bytes: bytes, filename: str, api_key: str, mod
     if len(images) == 1:
         return [1]
 
-    # Send all page thumbnails to Claude in one request
+    # Send all page thumbnails to AI in one request
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)

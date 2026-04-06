@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
-    # === AI / Claude analyser settings ===
+    # === AI analyser settings ===
     # IMPORTANT: do not cast with int(os.getenv(...)) here; let Pydantic parse and
     # ignore empty env values so defaults apply.
     ANTHROPIC_API_KEY: str | None = Field(default=None)

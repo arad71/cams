@@ -432,7 +432,7 @@ async def extract_siteplan_pages(
 
 
 def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
-    """Run AI analysis using configured mode (claude / yolo / hybrid)."""
+    """Run AI analysis."""
     from app.services.ai_analyser import analyse_document, save_training_sample
     from app.services.ai_config import get_ai_config
     settings = get_settings()
@@ -446,13 +446,13 @@ def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
     if ai_cfg.mode in ("yolo", "hybrid") and ai_cfg.yolo_model_path:
         findings = _run_yolo_inference(file_bytes, doc.name, ai_cfg)
         if findings and ai_cfg.mode == "hybrid":
-            # Check confidence — fallback to Claude if too low
+            # Check confidence — fallback to AI if too low
             conf = findings.get("_yolo_confidence", 0)
-            if conf < ai_cfg.yolo_confidence and ai_cfg.fallback_to_claude:
-                print(f"  ℹ YOLO confidence {conf:.2f} < {ai_cfg.yolo_confidence} — falling back to Claude")
-                findings = None  # will fall through to Claude below
+            if conf < ai_cfg.yolo_confidence and ai_cfg.fallback_to_ai:
+                print(f"  ℹ YOLO confidence {conf:.2f} < {ai_cfg.yolo_confidence} — falling back to AI")
+                findings = None  # will fall through to AI below
 
-    # ── Claude mode (or fallback) ──
+    # ── AI mode (or fallback) ──
     if findings is None:
         if not settings.ANTHROPIC_API_KEY:
             return

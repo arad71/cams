@@ -1,14 +1,14 @@
 """
 AI Training Data Pipeline
 
-Collects site plan analyses (Claude Vision) + officer corrections as labeled
+Collects site plan analyses (AI Vision) + officer corrections as labeled
 training data. When enough samples accumulate, a custom model (YOLOv8 or
-fine-tuned vision model) can be trained to replace or supplement Claude.
+fine-tuned vision model) can be trained to replace or supplement AI.
 
 Three-phase deployment:
-  Phase 1 (current): Claude Vision API for all analysis
-  Phase 2 (100+ samples): Train YOLOv8 on collected data, hybrid YOLO+Claude
-  Phase 3 (500+ samples): YOLO primary, Claude fallback for low-confidence
+  Phase 1 (current): AI Vision API for all analysis
+  Phase 2 (100+ samples): Train YOLOv8 on collected data, hybrid YOLO+AI
+  Phase 3 (500+ samples): YOLO primary, AI fallback for low-confidence
 
 Tables:
   ai_training_samples — one row per analysed document page
@@ -32,12 +32,12 @@ class AITrainingSample(Base):
     page_number = Column(Integer, default=1)
     image_path = Column(String(1000))  # Path to saved page image on disk
 
-    # AI extraction results (what Claude returned)
+    # AI extraction results (what AI returned)
     ai_model = Column(String(100))
     ai_provider = Column(String(50), default="anthropic")
     extraction_json = Column(JSON)  # Full extraction output
     compliance_json = Column(JSON)  # Compliance check results
-    raw_response = Column(Text, nullable=True)  # Raw Claude response for debugging
+    raw_response = Column(Text, nullable=True)  # Raw AI response for debugging
 
     # Key extracted values (denormalised for quick querying/filtering)
     width_at_boundary = Column(Float, nullable=True)
@@ -73,7 +73,7 @@ class AITrainingCorrection(Base):
 
     # What was corrected
     field_path = Column(String(200))  # e.g. "crossover_dimensions.width_at_boundary_m"
-    ai_value = Column(String(500))     # What Claude said
+    ai_value = Column(String(500))     # What AI said
     correct_value = Column(String(500))  # What the officer corrected it to
     correction_type = Column(String(20))  # "value_wrong" | "missing" | "spurious" | "confirmed"
 

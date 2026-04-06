@@ -1639,7 +1639,7 @@ Respond with JSON only:
                 { icon: "👁", label: `Eye ${analysisResult.eyeH}m`, desc: `object ${analysisResult.tgtH}m above ground` },
                 ...(analysisResult.cornerLineResult ? [{ icon: "↗️", label: "Corner sight line", desc: `A→curve point ${analysisResult.cornerLineResult.distance?.toFixed(0) || '?'}m, ${analysisResult.cornerLineResult.obstructions?.length || 0} obstructions` }] : []),
                 { icon: "🛰️", label: "Street view", desc: "multi-angle imagery for AI classification" },
-                { icon: "🤖", label: "AI Vision", desc: "Claude analyses satellite + street view photos" },
+                { icon: "🤖", label: "AI Vision", desc: "AI analyses satellite + street view photos" },
               ].map((item, i) => (
                 <div key={i} style={{ flex: "1 1 180px", display: "flex", gap: 4, alignItems: "flex-start", padding: "3px 6px", background: "#fff", borderRadius: 4, border: "1px solid #eef2f4" }}>
                   <span style={{ fontSize: 11 }}>{item.icon}</span>

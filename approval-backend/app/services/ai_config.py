@@ -5,11 +5,11 @@ Usage:
     from app.services.ai_config import get_ai_config
     cfg = get_ai_config(db)
     if cfg.mode == "claude":
-        # use Claude API
+        # use AI API
     elif cfg.mode == "yolo":
         # use YOLO model
     elif cfg.mode == "hybrid":
-        # try YOLO first, fallback to Claude if low confidence
+        # try YOLO first, fallback to AI if low confidence
 """
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
@@ -25,7 +25,7 @@ class AIConfig:
     phase2_threshold: int         # samples needed for hybrid mode
     phase3_threshold: int         # samples needed for YOLO-primary mode
     auto_analyse: bool            # auto-run on site plan upload
-    fallback_to_claude: bool      # YOLO fallback to Claude when low confidence
+    fallback_to_ai: bool      # YOLO fallback to AI when low confidence
 
 
 def get_ai_config(db: Session) -> AIConfig:
@@ -41,5 +41,5 @@ def get_ai_config(db: Session) -> AIConfig:
         phase2_threshold=int(s.get("ai_phase2_sample_threshold", "100")),
         phase3_threshold=int(s.get("ai_phase3_sample_threshold", "500")),
         auto_analyse=s.get("ai_auto_analyse_on_upload", "true").lower() == "true",
-        fallback_to_claude=s.get("ai_fallback_to_claude", "true").lower() == "true",
+        fallback_to_ai=s.get("ai_fallback_to_ai", "true").lower() == "true",
     )
