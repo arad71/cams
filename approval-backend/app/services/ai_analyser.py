@@ -130,8 +130,10 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "building_setback_left_m": "number or null — building to left boundary",
     "building_setback_right_m": "number or null — building to right boundary",
     "building_setback_rear_m": "number or null — building to rear boundary",
-    "garage_setback_to_crossover_road_m": "number or null — garage/carport to the property boundary on the crossover road side. For corner lots this may be the side setback, not the front.",
-    "garage_to_kerb_m": "number or null — total distance from garage door to road kerb/edge (= setback + verge depth). Measure or calculate from the plan.",
+    "garage_setback_to_crossover_road_m": "number or null — garage/carport to the property boundary on the crossover road side.",
+    "garage_to_kerb_m": "number or null — total distance from garage door to road kerb/edge (= setback + verge depth).",
+    "garage_nearest_boundary_m": "number or null — distance from garage/carport to the nearest side boundary (not the road boundary). Read from the plan setback dimensions.",
+    "garage_nearest_boundary_side": "string or null — which boundary is nearest to the garage: 'left', 'right', 'front', or 'rear'. Left/right when facing the crossover road from the driveway.",
     "number_of_crossovers": "number or null",
     "all_dimensions_found": "array of strings — every measurement on the drawings"
   },

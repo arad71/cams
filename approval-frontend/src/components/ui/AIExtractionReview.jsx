@@ -58,6 +58,8 @@ const FIELD_GROUPS = [
       { path: "building_setback_rear_m", label: "Rear Setback", unit: "m" },
       { path: "garage_setback_to_crossover_road_m", label: "Garage to Crossover Road", unit: "m" },
       { path: "garage_to_kerb_m", label: "Garage to Kerb", unit: "m" },
+      { path: "garage_nearest_boundary_m", label: "Garage to Nearest Boundary", unit: "m" },
+      { path: "garage_nearest_boundary_side", label: "Nearest Boundary Side" },
     ],
   },
   {
