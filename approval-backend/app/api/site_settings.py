@@ -43,8 +43,8 @@ DEFAULTS = [
     ("guideline_date",     "23/06/2022",                             "system",   "Guideline Date",          False),
 
     # AI Pipeline (not public)
-    ("ai_analysis_mode",            "claude",                        "ai",       "Analysis Mode",       False),
-    ("ai_claude_model",             "claude-sonnet-4-20250514",      "ai",       "AI Model ID",                             False),
+    ("ai_analysis_mode",            "ai",                        "ai",       "Analysis Mode",       False),
+    ("ai_claude_model",             "claude-sonnet-4-20250514",      "ai",       "AI Model",                             False),
     ("ai_yolo_model_path",          "",                              "ai",       "YOLO Model File Path (.pt)",                  False),
     ("ai_yolo_confidence_threshold","0.7",                           "ai",       "YOLO Confidence Threshold (0.0-1.0)",         False),
     ("ai_phase2_sample_threshold",  "100",                           "ai",       "Phase 2 (Hybrid) Min Training Samples",       False),
