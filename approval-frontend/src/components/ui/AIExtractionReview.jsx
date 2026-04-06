@@ -56,6 +56,7 @@ const FIELD_GROUPS = [
       { path: "building_setback_left_m", label: "Left Setback", unit: "m" },
       { path: "building_setback_right_m", label: "Right Setback", unit: "m" },
       { path: "building_setback_rear_m", label: "Rear Setback", unit: "m" },
+      { path: "garage_setback_to_crossover_road_m", label: "Garage to Crossover Road", unit: "m" },
     ],
   },
   {
