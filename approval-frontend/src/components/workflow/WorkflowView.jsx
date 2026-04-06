@@ -95,14 +95,51 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
         </div>
         {(app.inspections || []).length > 0 && (
           <div style={{ padding: "0 12px 8px", fontSize: 10, color: "#7a8a94" }}>
-            {(app.inspections || []).map((insp, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-                <span>{insp.inspection_type}</span>
-                <span style={{ fontWeight: 700, color: insp.status === "passed" ? "#27ae60" : insp.status === "failed" ? "#e74c3c" : "#3498db" }}>
-                  {insp.status}
-                </span>
-              </div>
-            ))}
+            {(app.inspections || []).map((insp, i) => {
+              const fc = insp.field_checklist || {};
+              const photos = insp.photos || [];
+              const passCount = Object.values(fc).filter(v => v.result === "pass").length;
+              const failCount = Object.values(fc).filter(v => v.result === "fail").length;
+              const statusColor = insp.status === "passed" ? "#27ae60" : insp.status === "failed" ? "#e74c3c" : "#3498db";
+              return (
+                <details key={i} style={{ marginBottom: 4 }}>
+                  <summary style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", padding: "3px 0", listStyle: "none" }}>
+                    <span>{insp.inspection_type}</span>
+                    <span style={{ fontWeight: 700, color: statusColor }}>{insp.status} {passCount > 0 && `(${passCount}✓ ${failCount}✕)`}</span>
+                  </summary>
+                  <div style={{ padding: "4px 0 4px 8px", borderLeft: `2px solid ${statusColor}`, marginTop: 2 }}>
+                    {/* Checklist summary */}
+                    {Object.entries(fc).map(([code, data]) => (
+                      <div key={code} style={{ display: "flex", gap: 4, alignItems: "center", padding: "1px 0" }}>
+                        <span style={{ color: data.result === "pass" ? "#27ae60" : data.result === "fail" ? "#e74c3c" : "#95a5a6", fontWeight: 700 }}>
+                          {data.result === "pass" ? "✓" : data.result === "fail" ? "✕" : "—"}
+                        </span>
+                        <span style={{ flex: 1 }}>{code.replace(/_/g, " ")}</span>
+                      </div>
+                    ))}
+                    {insp.notes && <div style={{ marginTop: 4, fontStyle: "italic", color: "#5a6a74" }}>{insp.notes}</div>}
+                    {/* Photos */}
+                    {photos.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+                        {photos.map((p, j) => (
+                          <a key={j} href={`/api/applications/${app._dbId}/inspections/${insp.id}/photos/${p.filename}`} target="_blank" rel="noreferrer"
+                            style={{ width: 48, height: 48, borderRadius: 4, overflow: "hidden", border: "1px solid #d5dde2", display: "block" }}>
+                            <img src={`/api/applications/${app._dbId}/inspections/${insp.id}/photos/${p.filename}`}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                              alt={p.checklist_item || "inspection"} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {insp.gps_lat && (
+                      <div style={{ marginTop: 4, fontSize: 9, color: "#95a5a6" }}>
+                        GPS: {insp.gps_lat.toFixed(5)}, {insp.gps_lng?.toFixed(5)} ({insp.gps_accuracy_m?.toFixed(0)}m)
+                      </div>
+                    )}
+                  </div>
+                </details>
+              );
+            })}
           </div>
         )}
       </div>

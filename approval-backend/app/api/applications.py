@@ -1187,6 +1187,25 @@ async def upload_inspection_photo(app_id: int, insp_id: int, file: UploadFile = 
     db.refresh(insp)
     return {"id": photo_id, "filename": filename}
 
+
+@router.get("/{app_id}/inspections/{insp_id}/photos/{filename}")
+def get_inspection_photo(app_id: int, insp_id: int, filename: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Serve an inspection photo."""
+    from fastapi.responses import FileResponse
+    from pathlib import Path
+    insp = db.query(Inspection).filter(Inspection.id == insp_id, Inspection.application_id == app_id).first()
+    if not insp:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+
+    upload_dir = Path("/app/uploads/inspections") if Path("/app").exists() else Path("uploads/inspections")
+    file_path = upload_dir / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    media_types = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    media_type = media_types.get(file_path.suffix.lower(), "image/jpeg")
+    return FileResponse(file_path, media_type=media_type)
+
 # ─── Reports (versioned snapshots) ───────────────────────
 @router.post("/{app_id}/reports", response_model=ReportOut, status_code=status.HTTP_201_CREATED)
 def generate_report(app_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

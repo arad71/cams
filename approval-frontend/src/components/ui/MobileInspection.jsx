@@ -227,12 +227,17 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
             <div style={{ fontSize: 11, fontWeight: 800, color: "#7a8a94", textTransform: "uppercase", padding: "6px 0", borderBottom: "1px solid #e4e9ec", marginBottom: 6 }}>Photos ({photos.length})</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {photos.map((p, i) => (
-                <div key={i} style={{ width: 72, height: 72, borderRadius: 6, background: "#e4e9ec", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#7a8a94", overflow: "hidden", border: "1px solid #d5dde2" }}>
-                  <div style={{ textAlign: "center", padding: 4 }}>
-                    <div style={{ fontSize: 18 }}>📷</div>
-                    <div>{p.checklist_item || "general"}</div>
-                  </div>
-                </div>
+                <a key={i} href={`/api/applications/${app._dbId}/inspections/${inspection.id}/photos/${p.filename}`} target="_blank" rel="noreferrer"
+                  style={{ width: 72, height: 72, borderRadius: 6, overflow: "hidden", border: "1px solid #d5dde2", display: "block", position: "relative" }}>
+                  <img src={`/api/applications/${app._dbId}/inspections/${inspection.id}/photos/${p.filename}`}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    alt={p.checklist_item || "inspection"} />
+                  {p.checklist_item && (
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 8, padding: "2px 4px", textAlign: "center" }}>
+                      {p.checklist_item.replace(/_/g, " ")}
+                    </div>
+                  )}
+                </a>
               ))}
             </div>
           </div>
