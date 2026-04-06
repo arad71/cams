@@ -23,6 +23,7 @@ const AI_FIELDS = [
   { key: 'siteplan_measurements.lot_frontage_m', label: 'Lot Frontage', unit: 'm' },
   { key: 'siteplan_measurements.lot_depth_m', label: 'Lot Depth', unit: 'm' },
   { key: 'siteplan_measurements.building_setback_front_m', label: 'Front Setback', unit: 'm' },
+  { key: 'siteplan_measurements.garage_to_kerb_m', label: 'Garage to Kerb', unit: 'm' },
   // ── Construction ──
   { key: 'construction.material', label: 'Surface Material', unit: '' },
   { key: 'construction.kerb_type', label: 'Kerb Type', unit: '' },
