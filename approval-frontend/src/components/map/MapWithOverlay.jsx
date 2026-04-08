@@ -1411,11 +1411,11 @@ Respond with JSON only:
         onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
         forceLayer={null}
         showBoundaries={showBoundaries}
-        boundaryData={showBoundaries ? {
+        boundaryData={{
           lot: app?.site_lot_boundary_latlon || app?.lot_polygon || null,
           building: app?.site_building_boundary_latlon || null,
           crossover: app?.site_crossover_latlon || null,
-        } : null}
+        }}
         waLayers={waLayers}
         showContours={showContours} contoursData={contoursData}
         showUrbanForest={showUrbanForest} urbanForestData={urbanForestData}

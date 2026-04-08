@@ -827,26 +827,30 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       if ((!lotPoly || lotPoly.length < 3) && selectedApp?.site_lot_boundary_latlon) {
         lotPoly = selectedApp.site_lot_boundary_latlon;
       }
-      // Fallback: search allLotsData by app coordinates
-      if ((!lotPoly || lotPoly.length < 3) && allLotsData?.features && selectedApp) {
-        const appLat = selectedApp.lat || selectedApp.property?.lat;
-        const appLng = selectedApp.lng || selectedApp.property?.lng;
-        if (appLat && appLng) {
-          for (const feat of allLotsData.features) {
-            const g = feat.geometry;
-            if (!g) continue;
-            const ring = g.type === "Polygon" ? g.coordinates?.[0] : g.type === "MultiPolygon" ? g.coordinates?.[0]?.[0] : null;
-            if (!ring || ring.length < 3) continue;
-            // Quick bbox check
-            const lats = ring.map(c => c[1]), lngs = ring.map(c => c[0]);
-            if (appLat >= Math.min(...lats) && appLat <= Math.max(...lats) && appLng >= Math.min(...lngs) && appLng <= Math.max(...lngs)) {
-              lotPoly = ring.map(c => [c[1], c[0]]); // [lng,lat] → [lat,lng]
-              break;
+      // Fallback: find the lot polygon from allLotsData that is nearest to the CLICK point
+      if ((!lotPoly || lotPoly.length < 3) && allLotsData?.features) {
+        let bestFeatDist = Infinity;
+        for (const feat of allLotsData.features) {
+          const g = feat.geometry;
+          if (!g) continue;
+          const ring = g.type === "Polygon" ? g.coordinates?.[0] : g.type === "MultiPolygon" ? g.coordinates?.[0]?.[0] : null;
+          if (!ring || ring.length < 3) continue;
+          // Find closest vertex to click
+          for (const c of ring) {
+            const d = latlng.distanceTo(L.latLng(c[1], c[0]));
+            if (d < bestFeatDist) {
+              bestFeatDist = d;
+              if (d < 50) { // within 50m of a lot vertex
+                lotPoly = ring.map(c => [c[1], c[0]]);
+              }
             }
           }
         }
       }
-      if (!lotPoly || lotPoly.length < 3) return null;
+      if (!lotPoly || lotPoly.length < 3) {
+        console.log("snapToBoundary: no lot polygon found");
+        return null;
+      }
       // Auto-detect [lng,lat] vs [lat,lng]
       if (Math.abs(lotPoly[0][0]) > 90) lotPoly = lotPoly.map(p => [p[1], p[0]]);
       // Ensure closed
@@ -870,7 +874,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
           best = { point: snap, a, b, bearing };
         }
       }
-      return bestDist < 30 ? best : null;
+      return bestDist < 50 ? best : null;
     };
 
     // Corner lot radius collection ref
