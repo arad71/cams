@@ -319,16 +319,28 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
 
   // Search lot.geojson features by partial address text
   const searchLots = useCallback((query) => {
-    if (!query || query.length < 2 || !globalLotsData?.features) { setSuggestions([]); return; }
+    if (!query || query.length < 2) { setSuggestions([]); return; }
+    if (!globalLotsData?.features) {
+      setSuggestions([{ display: "Lot data not loaded — check GeoData in admin", score: 0 }]);
+      return;
+    }
     // Clean: remove commas, strip postcodes (4-digit numbers), normalise whitespace
     const cleaned = query.toUpperCase().replace(/,/g, " ").replace(/\b\d{4}\b/g, "").replace(/\s+/g, " ").trim();
     if (!cleaned) { setSuggestions([]); return; }
 
-    // Normalise each token: convert road type variants to canonical form
+    // Normalise tokens: only convert road type abbreviations, not suburb words
+    // "10 RUCK ST WATTLE GROVE" → tokens ["10", "RUCK", "ST", "WATTLE", "GROVE"]
+    // Only normalise the FIRST road-type-looking word (position after street name)
     const rawTokens = cleaned.split(" ").filter(Boolean);
-    const tokens = rawTokens.map(t => {
+    let roadTypeFound = false;
+    const tokens = rawTokens.map((t, i) => {
+      if (roadTypeFound) return t; // after road type, everything is locality — don't normalise
       const canonical = ROAD_TYPE_MAP[t];
-      return canonical || t; // normalise "CRESCENT" → "CR", "ROAD" → "RD", etc.
+      if (canonical && i >= 2) { // road type should be at position 2+ (after number + name)
+        roadTypeFound = true;
+        return canonical;
+      }
+      return t;
     });
 
     const results = [];
