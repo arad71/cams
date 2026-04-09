@@ -1112,17 +1112,118 @@ Respond with JSON only:
     }
     } // end: geometry fallback (priority 3)
 
-    setSightPhase(isCorner ? "corner_draw" : "offset_road");
+    setSightPhase("offset_road");
     setSightConfig(c => ({ ...c, isCorner, cornerSource, crossoverRoad, constrainedSide, crossoverWidth, leftBoundaryDist, rightBoundaryDist, leftBoundaryFeature, rightBoundaryFeature, y: autoY }));
     setOffsetState(s => ({ ...s, x: 2.5, y: autoY, isCorner: false, cornerR: null, cornerV: null }));
 
-    // Manual draw mode — officer clicks road edge then boundary
-    if (isCorner) {
-      setMapTool("radius");
-    } else {
-      setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: autoY, isCorner: false, cornerR: null, cornerV: null });
-      setMapTool("offset");
+    // ── AUTO-DRAW: compute Point A and B from known data ──
+    const missing = [];
+    if (!crossoverRoad) missing.push("crossover road");
+    const constrainedDist = constrainedSide === "left" ? leftBoundaryDist : (constrainedSide === "right" ? rightBoundaryDist : null);
+    if (constrainedDist == null && leftBoundaryDist == null && rightBoundaryDist == null) missing.push("boundary distance");
+    if (!crossoverWidth) missing.push("crossover width");
+    if (!lotPoly || lotPoly.length < 4) missing.push("lot polygon");
+
+    const hasRoadData = [speedRoadsData, roadNetworkData].some(s => s?.features?.length > 0);
+    if (!hasRoadData) missing.push("road data");
+
+    if (missing.length === 0) {
+      const mPerLat = 111320, mPerLng = 111320 * Math.cos(lotPoly[0][0] * Math.PI / 180);
+
+      // 1. Find the lot edge nearest to the crossover road
+      let bestEdge = null, bestDist = Infinity;
+      for (let i = 0; i < lotPoly.length - 1; i++) {
+        const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
+        const midLng = (lotPoly[i][1] + lotPoly[i + 1][1]) / 2;
+        const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mPerLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mPerLng) ** 2);
+        if (edgeLen < 3) continue;
+        for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+          for (const feat of src.features) {
+            const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "").toUpperCase();
+            if (!rn || !crossoverRoad.toUpperCase().includes(rn.split(" ")[0])) continue;
+            const g = feat.geometry;
+            if (!g || g.type !== "LineString") continue;
+            for (const pt of g.coordinates) {
+              const d = Math.sqrt(((midLat - pt[1]) * mPerLat) ** 2 + ((midLng - pt[0]) * mPerLng) ** 2);
+              if (d < bestDist) { bestDist = d; bestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] }; }
+            }
+          }
+        }
+      }
+
+      if (bestEdge && bestDist < 25) {
+        // 2. Compute inward/outward normals from the road-facing edge
+        const edgeDx = (bestEdge.to[1] - bestEdge.from[1]) * mPerLng;
+        const edgeDy = (bestEdge.to[0] - bestEdge.from[0]) * mPerLat;
+        const edgeAngle = Math.atan2(edgeDx, edgeDy);
+        const lotCLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
+        const lotCLng = lotPoly.reduce((s, p) => s + p[1], 0) / lotPoly.length;
+        const n1 = edgeAngle + Math.PI / 2, n2 = edgeAngle - Math.PI / 2;
+        const t1Lat = bestEdge.midLat + Math.cos(n1) * 5 / mPerLat;
+        const t1Lng = bestEdge.midLng + Math.sin(n1) * 5 / mPerLng;
+        const t2Lat = bestEdge.midLat + Math.cos(n2) * 5 / mPerLat;
+        const t2Lng = bestEdge.midLng + Math.sin(n2) * 5 / mPerLng;
+        const d1 = Math.sqrt(((t1Lat - lotCLat) * mPerLat) ** 2 + ((t1Lng - lotCLng) * mPerLng) ** 2);
+        const d2 = Math.sqrt(((t2Lat - lotCLat) * mPerLat) ** 2 + ((t2Lng - lotCLng) * mPerLng) ** 2);
+        const inward = d1 < d2 ? n1 : n2;
+        const outward = d1 < d2 ? n2 : n1;
+
+        // 3. Position along edge: y metres from constrained side
+        const yOffset = autoY;
+        const edgeFrac = Math.min(0.9, Math.max(0.1, yOffset / bestEdge.edgeLen));
+        const ptOnEdgeLat = bestEdge.from[0] + (bestEdge.to[0] - bestEdge.from[0]) * edgeFrac;
+        const ptOnEdgeLng = bestEdge.from[1] + (bestEdge.to[1] - bestEdge.from[1]) * edgeFrac;
+
+        // 4. Point A = 2.5m inward from road edge
+        const xOffset = 2.5;
+        const autoPtA = {
+          lat: ptOnEdgeLat + Math.cos(inward) * xOffset / mPerLat,
+          lng: ptOnEdgeLng + Math.sin(inward) * xOffset / mPerLng,
+        };
+
+        // 5. Point B = project Point A onto nearest road centreline (perpendicular)
+        let autoPtB = null, bestProjDist = Infinity;
+        for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+          for (const feat of src.features) {
+            const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "").toUpperCase();
+            if (!rn || !crossoverRoad.toUpperCase().includes(rn.split(" ")[0])) continue;
+            const g = feat.geometry;
+            if (!g || g.type !== "LineString") continue;
+            for (let j = 0; j < g.coordinates.length - 1; j++) {
+              const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
+              const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
+              const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
+              const lenSq = dx * dx + dy * dy;
+              if (lenSq < 1e-10) continue;
+              const t = Math.max(0, Math.min(1, (((autoPtA.lng - aLng) * mPerLng * dx + (autoPtA.lat - aLat) * mPerLat * dy) / lenSq)));
+              const projLat = aLat + t * (bLat - aLat);
+              const projLng = aLng + t * (bLng - aLng);
+              const dist = Math.sqrt(((autoPtA.lat - projLat) * mPerLat) ** 2 + ((autoPtA.lng - projLng) * mPerLng) ** 2);
+              if (dist < bestProjDist) { bestProjDist = dist; autoPtB = { lat: projLat, lng: projLng }; }
+            }
+          }
+        }
+
+        if (autoPtB && bestProjDist < 30) {
+          // Auto-draw: set points — triangle useEffect fires automatically
+          setPtA(autoPtA);
+          setPtB(autoPtB);
+          setSightPhase("complete");
+          setDrawMode(null);
+          setMapTool(null);
+          setSightConfig(c => ({ ...c, autoDrawn: true }));
+          console.log(`Auto-drew triangle: road=${crossoverRoad}, x=${xOffset}m, y=${yOffset.toFixed(1)}m, constrained=${constrainedSide}`);
+          return;
+        }
+      }
+      // If road edge found but projection failed, add to missing
+      if (!bestEdge || bestDist >= 25) missing.push("road not near lot");
     }
+
+    // ── FALLBACK: manual mode with missing data info ──
+    setSightConfig(c => ({ ...c, missingData: missing.length > 0 ? missing : null, autoDrawn: false }));
+    setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: autoY, isCorner: false, cornerR: null, cornerV: null });
+    setMapTool("offset");
   };
 
   // Clicked lot from map
@@ -1240,12 +1341,24 @@ Respond with JSON only:
             {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>🛣️ {sightConfig.crossoverRoad}</span>}
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
             {sightConfig.constrainedSide && <span style={{ fontSize: 8, background: "#FFF3E0", color: "#E65100", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>⚠ {sightConfig.constrainedSide} side</span>}
-            {!sightConfig.crossoverRoad && !sightTriangle && <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>⚠ No site plan data — set x, y manually</span>}
+            {!sightConfig.crossoverRoad && !sightTriangle && !sightConfig.missingData && <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>⚠ No site plan data — set x, y manually</span>}
+            {sightConfig.missingData && (
+              <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>⚠ Missing: {sightConfig.missingData.join(", ")}</span>
+            )}
+            {sightConfig.autoDrawn && <span style={{ fontSize: 8, background: "#E8F5E9", color: "#2E7D32", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>Auto-drawn</span>}
             {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
             {sightTriangle && !drawMode && !analysisRunning && (
               <>
                 <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
+                {sightConfig.isCorner && !sightConfig.cornerR && (
+                  <button onClick={() => { setSightPhase("corner_draw"); setMapTool("radius"); }}
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1.5px solid #e65100", background: "#fff", color: "#e65100", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>🔄 Add Curve</button>
+                )}
+                {sightConfig.autoDrawn && (
+                  <button onClick={() => { resetTriangle(); setSightConfig(c => ({ ...c, autoDrawn: false, missingData: null })); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: sightConfig.y || 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); setSightPhase("offset_road"); }}
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #7a8a94", background: "#fff", color: "#7a8a94", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>Manual</button>
+                )}
               </>
             )}
             {analysisRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
