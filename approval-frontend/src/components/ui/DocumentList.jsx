@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import api from '../../services/api';
 import SitePlanMeasure from './SitePlanMeasure';
+import { T, S, cx } from '../../styles/tokens';
 
 const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
 const STATUS_OPTIONS = [
-  { value: "received",  label: "Received",  color: "#3498db", icon: "📥", bg: "#ebf5fb" },
-  { value: "verified",  label: "Verified",  color: "#27ae60", icon: "✅", bg: "#eafaf1" },
-  { value: "rejected",  label: "Rejected",  color: "#e74c3c", icon: "❌", bg: "#fdedec" },
+  { value: "received",  label: "Received",  color: T.c.info, icon: "📥", bg: "#ebf5fb" },
+  { value: "verified",  label: "Verified",  color: T.c.success, icon: "✅", bg: "#eafaf1" },
+  { value: "rejected",  label: "Rejected",  color: T.c.danger, icon: "❌", bg: "#fdedec" },
 ];
 
 function getStatusConfig(status) {
@@ -59,24 +60,24 @@ function DocViewer({ doc, appDbId, onClose }) {
     : { position: "fixed", top: pos.y, left: pos.x, width: size.w, height: size.h, zIndex: 10001 };
 
   return (
-    <div style={{ ...style, background: "#fff", borderRadius: maximized ? 0 : 12, boxShadow: "0 12px 48px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", overflow: "hidden", border: maximized ? "none" : "1px solid #d5dde2" }}>
+    <div style={{ ...style, background: T.c.card, borderRadius: maximized ? 0 : 12, boxShadow: "0 12px 48px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", overflow: "hidden", border: maximized ? "none" : "1px solid #d5dde2" }}>
       {/* Title bar */}
       <div onMouseDown={onMouseDown}
-        style={{ padding: "8px 12px", background: "#1a3a4a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: maximized ? "default" : "move", flexShrink: 0, userSelect: "none" }}>
+        style={{ padding: "8px 12px", background: "#1a3a4a", color: T.c.white, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: maximized ? "default" : "move", flexShrink: 0, userSelect: "none" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <span style={{ fontSize: 14 }}>{typeIcons[doc.type] || "📄"}</span>
-          <span style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
+          <span style={{ fontSize: 12, fontWeight: T.w.bold, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
           <span style={{ fontSize: 10, opacity: 0.6 }}>{doc.type.toUpperCase()} · {doc.size}</span>
         </div>
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
           <a href={downloadUrl} download={doc.name} title="Download"
-            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px", textDecoration: "none", display: "flex", alignItems: "center" }}>📥</a>
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 12, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px", textDecoration: "none", display: "flex", alignItems: "center" }}>📥</a>
           <button onClick={() => window.open(fileUrl, "_blank")} title="Open in new tab"
-            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>↗</button>
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 12, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px" }}>↗</button>
           <button onClick={toggleMaximize} title={maximized ? "Restore" : "Maximize"}
-            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 12, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>{maximized ? "❐" : "□"}</button>
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 12, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px" }}>{maximized ? "❐" : "□"}</button>
           <button onClick={onClose} title="Close"
-            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", fontSize: 14, cursor: "pointer", borderRadius: 4, padding: "2px 6px" }}>✕</button>
+            style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 14, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px" }}>✕</button>
         </div>
       </div>
       {/* Content */}
@@ -85,14 +86,14 @@ function DocViewer({ doc, appDbId, onClose }) {
           <iframe src={fileUrl} style={{ width: "100%", height: "100%", border: "none" }} title={doc.name} />
         ) : isImage ? (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", padding: 12 }}>
-            <img src={fileUrl} alt={doc.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 4, boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }} />
+            <img src={fileUrl} alt={doc.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: T.r.sm, boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }} />
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
             <span style={{ fontSize: 48 }}>{typeIcons[doc.type] || "📄"}</span>
-            <div style={{ fontSize: 13, color: "#5a6a74", fontWeight: 600 }}>Preview not available for {doc.type.toUpperCase()} files</div>
+            <div style={{ fontSize: 13, color: T.c.grey800, fontWeight: T.w.semi }}>Preview not available for {doc.type.toUpperCase()} files</div>
             <a href={downloadUrl} download={doc.name}
-              style={{ padding: "8px 18px", borderRadius: 8, background: "#2980b9", color: "#fff", fontWeight: 700, fontSize: 12, textDecoration: "none" }}>📥 Download File</a>
+              style={{ padding: "8px 18px", borderRadius: T.r.md, background: "#2980b9", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, textDecoration: "none" }}>📥 Download File</a>
           </div>
         )}
       </div>
@@ -125,28 +126,28 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
   };
 
   return (
-    <div style={{ borderTop: "2px solid #2980b9", background: "#f8fafb" }}>
+    <div style={{ borderTop: "2px solid #2980b9", background: T.c.bgAlt }}>
       <div style={{ padding: "14px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1a3a4a" }}>{typeIcons[doc.type] || "📄"} {doc.name}</div>
-          <div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>{doc.category} · {doc.type.toUpperCase()} · {doc.size} · Uploaded: {doc.date}</div>
+          <div style={{ fontSize: 14, fontWeight: T.w.bold, color: T.c.text }}>{typeIcons[doc.type] || "📄"} {doc.name}</div>
+          <div style={{ fontSize: 11, color: T.c.textSecondary, marginTop: 2 }}>{doc.category} · {doc.type.toUpperCase()} · {doc.size} · Uploaded: {doc.date}</div>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: "#95a5a6" }}>✕</button>
+        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: T.c.textMuted }}>✕</button>
       </div>
 
       {canReview && (
         <div style={{ padding: "0 16px 14px" }}>
-          <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+          <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
             <div style={{ padding: "10px 14px", background: `${sc.color}08`, borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a", textTransform: "uppercase" }}>📋 Document Review</span>
-              {doc.reviewedBy && <span style={{ fontSize: 12, color: "#7a8a94" }}>Last reviewed by <strong>{doc.reviewedBy}</strong> on {doc.reviewedAt}</span>}
+              <span style={{ fontSize: 11, fontWeight: T.w.black, color: T.c.text, textTransform: "uppercase" }}>📋 Document Review</span>
+              {doc.reviewedBy && <span style={{ fontSize: 12, color: T.c.textSecondary }}>Last reviewed by <strong>{doc.reviewedBy}</strong> on {doc.reviewedAt}</span>}
             </div>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Status</div>
+              <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.grey800, marginBottom: 6, textTransform: "uppercase" }}>Review Status</div>
               <div style={{ display: "flex", gap: 6 }}>
                 {STATUS_OPTIONS.map(opt => (
                   <button key={opt.value} onClick={() => setStatus(opt.value)}
-                    style={{ flex: 1, padding: "8px 10px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit",
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: T.r.md, cursor: "pointer", fontFamily: "inherit",
                       border: status === opt.value ? `2px solid ${opt.color}` : "1.5px solid #d5dde2",
                       background: status === opt.value ? opt.bg : "#fff",
                       color: status === opt.value ? opt.color : "#7a8a94",
@@ -157,18 +158,18 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
               </div>
             </div>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #f5f7f8" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#5a6a74", marginBottom: 6, textTransform: "uppercase" }}>Review Note</div>
+              <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.grey800, marginBottom: 6, textTransform: "uppercase" }}>Review Note</div>
               <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add review comments…" rows={3}
-                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", background: "#fafbfc", color: "#1a3a4a", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
+                style={{ width: "100%", padding: "8px 10px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", background: "#fafbfc", color: T.c.text, outline: "none", resize: "vertical", boxSizing: "border-box" }} />
             </div>
             <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 12, color: "#95a5a6" }}>{currentUser && <span>Reviewing as <strong style={{ color: "#5a6a74" }}>{currentUser.name}</strong></span>}</div>
+              <div style={{ fontSize: 12, color: T.c.textMuted }}>{currentUser && <span>Reviewing as <strong style={{ color: T.c.grey800 }}>{currentUser.name}</strong></span>}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {saved && <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 600 }}>✅ Saved</span>}
+                {saved && <span style={{ fontSize: 11, color: T.c.success, fontWeight: T.w.semi }}>✅ Saved</span>}
                 <button onClick={handleSave} disabled={saving || !hasChanges}
-                  style={{ padding: "7px 18px", borderRadius: 8, border: "none",
-                    background: hasChanges ? `linear-gradient(135deg, ${sc.color}, ${sc.color}dd)` : "#d5dde2",
-                    color: hasChanges ? "#fff" : "#95a5a6", fontWeight: 700, fontSize: 12,
+                  style={{ padding: "7px 18px", borderRadius: T.r.md, border: "none",
+                    background: hasChanges ? `linear-gradient(135deg, ${sc.color}, ${sc.color}dd)` : T.c.grey400,
+                    color: hasChanges ? "#fff" : "#95a5a6", fontWeight: T.w.bold, fontSize: 12,
                     cursor: hasChanges ? "pointer" : "default", fontFamily: "inherit" }}>
                   {saving ? "Saving…" : hasChanges ? `💾 Save as ${getStatusConfig(status).label}` : "No Changes"}
                 </button>
@@ -328,18 +329,18 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
   const pending = docs.length - verified - rejected;
 
   return (
-    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+    <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid #f0f3f5", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: 0 }}>📎 Documents ({docs.length})</h4>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.c.borderLight}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h4 style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", margin: 0 }}>📎 Documents ({docs.length})</h4>
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           {categories.map(c => (
-            <button key={c} onClick={() => setFilter(c)} style={{ padding: "3px 8px", borderRadius: 4, border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+            <button key={c} onClick={() => setFilter(c)} style={{ padding: "3px 8px", borderRadius: T.r.sm, border: "none", fontSize: 11, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit",
               background: filter === c ? "#1a3a4a" : "#f5f8fa", color: filter === c ? "#fff" : "#7a8a94" }}>{c}</button>
           ))}
           {canUpload && (
             <button onClick={() => setShowUpload(!showUpload)}
-              style={{ padding: "3px 10px", borderRadius: 4, border: showUpload ? "2px solid #1abc9c" : "1px solid #d5dde2", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              style={{ padding: "3px 10px", borderRadius: T.r.sm, border: showUpload ? "2px solid #1abc9c" : "1px solid #d5dde2", fontSize: 11, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit",
                 background: showUpload ? "#e8f8f5" : "#fff", color: showUpload ? "#1abc9c" : "#7a8a94", marginLeft: 4 }}>
               {showUpload ? "✕ Close" : "＋ Upload"}
             </button>
@@ -350,22 +351,22 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       {/* Upload panel */}
       {showUpload && canUpload && (
         <div style={{ padding: "10px 16px", background: "#f0faf7", borderBottom: "1px solid #d5f5e3" }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#1abc9c", marginBottom: 6, textTransform: "uppercase" }}>Upload New Document</div>
+          <div style={{ fontSize: 12, fontWeight: T.w.semi, color: "#1abc9c", marginBottom: 6, textTransform: "uppercase" }}>Upload New Document</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select value={uploadCat} onChange={e => setUploadCat(e.target.value)}
-              style={{ padding: "6px 10px", borderRadius: 6, border: "1.5px solid #d5dde2", fontSize: 11, fontFamily: "inherit", background: "#fff", color: "#1a3a4a", outline: "none", cursor: "pointer" }}>
+              style={{ padding: "6px 10px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 11, fontFamily: "inherit", background: T.c.card, color: T.c.text, outline: "none", cursor: "pointer" }}>
               {UPLOAD_CATEGORIES.map(c => (
                 <option key={c.id} value={c.id}>{c.icon} {c.id}</option>
               ))}
             </select>
-            <label style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: uploading ? "default" : "pointer", fontFamily: "inherit", opacity: uploading ? 0.6 : 1 }}>
+            <label style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontSize: 11, fontWeight: T.w.bold, cursor: uploading ? "default" : "pointer", fontFamily: "inherit", opacity: uploading ? 0.6 : 1 }}>
               {uploading ? "⟳ Uploading..." : "📤 Choose File"}
               <input ref={fileInputRef} type="file" accept={UPLOAD_CATEGORIES.find(c => c.id === uploadCat)?.accept || "*"} onChange={handleUpload} disabled={uploading} style={{ display: "none" }} />
             </label>
-            {uploadSuccess && <span style={{ fontSize: 11, color: "#27ae60", fontWeight: 600 }}>✅ {uploadSuccess} uploaded</span>}
-            {formExtracting && <span style={{ fontSize: 11, color: "#8e44ad", fontWeight: 600 }}>🤖 Extracting form fields...</span>}
+            {uploadSuccess && <span style={{ fontSize: 11, color: T.c.success, fontWeight: T.w.semi }}>✅ {uploadSuccess} uploaded</span>}
+            {formExtracting && <span style={{ fontSize: 11, color: "#8e44ad", fontWeight: T.w.semi }}>🤖 Extracting form fields...</span>}
             {formExtractResult && (
-              <span style={{ fontSize: 11, color: formExtractResult.success ? "#27ae60" : "#e74c3c", fontWeight: 600 }}>
+              <span style={{ fontSize: 11, color: formExtractResult.success ? "#27ae60" : "#e74c3c", fontWeight: T.w.semi }}>
                 {formExtractResult.success ? "✅" : "⚠"} {formExtractResult.message}
               </span>
             )}
@@ -374,10 +375,10 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       )}
 
       {/* Summary bar */}
-      <div style={{ padding: "6px 16px", background: "#f8fafb", borderBottom: "1px solid #f0f3f5", display: "flex", gap: 14, fontSize: 10 }}>
-        <span style={{ color: "#27ae60", fontWeight: 700 }}>✅ {verified} verified</span>
-        <span style={{ color: "#e74c3c", fontWeight: 700 }}>❌ {rejected} rejected</span>
-        <span style={{ color: "#3498db", fontWeight: 700 }}>📥 {pending} pending</span>
+      <div style={{ padding: "6px 16px", background: T.c.bgAlt, borderBottom: `1px solid ${T.c.borderLight}`, display: "flex", gap: 14, fontSize: 10 }}>
+        <span style={{ color: T.c.success, fontWeight: T.w.bold }}>✅ {verified} verified</span>
+        <span style={{ color: T.c.danger, fontWeight: T.w.bold }}>❌ {rejected} rejected</span>
+        <span style={{ color: T.c.info, fontWeight: T.w.bold }}>📥 {pending} pending</span>
       </div>
 
       {/* Document rows */}
@@ -392,30 +393,30 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? "#ebf5fb" : "transparent"; }}>
                 <span style={{ fontSize: 18 }}>{typeIcons[doc.type] || "📄"}</span>
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setSelectedDocId(isSelected ? null : doc.id)}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
-                  <div style={{ fontSize: 12, color: "#95a5a6" }}>
+                  <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
+                  <div style={{ fontSize: 12, color: T.c.textMuted }}>
                     {doc.type.toUpperCase()} · {doc.size} · {doc.date}
-                    {doc.reviewedBy && <span style={{ marginLeft: 6, color: "#7a8a94" }}>· {doc.reviewedBy}</span>}
+                    {doc.reviewedBy && <span style={{ marginLeft: 6, color: T.c.textSecondary }}>· {doc.reviewedBy}</span>}
                   </div>
                 </div>
                 {/* View button */}
                 <button onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}
                   title="Open document viewer"
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: "#fff", color: "#2980b9", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: T.c.card, color: T.c.info, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                   👁 View
                 </button>
                 {/* Download button */}
                 <a href={api.getDocumentDownloadUrl(appDbId, doc.id)} download={doc.name}
                   onClick={(e) => e.stopPropagation()}
                   title="Download file"
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #27ae6040", background: "#eafaf1", color: "#27ae60", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", textDecoration: "none", display: "inline-block" }}>
+                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #27ae6040", background: T.c.successLight, color: T.c.success, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", textDecoration: "none", display: "inline-block" }}>
                   📥 Download
                 </a>
                 {/* Measure button — for site plan docs */}
                 {(doc.category || "").toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && (
                   <button onClick={(e) => { e.stopPropagation(); setMeasureDocId(doc.id); setShowMeasure(true); }}
                     title="Open measurement tool on this document"
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     📏 Measure
                   </button>
                 )}
@@ -423,7 +424,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 {canUpload && doc.type === "pdf" && ["Building Application", "Other Documents", "Site Plan", "Certificate of Title"].includes(doc.category) && (
                   <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); }}
                     title="Extract pages from this document"
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ padding: "6px 14px", borderRadius: T.r.md, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     ✂ Extract
                   </button>
                 )}
@@ -431,17 +432,17 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 {canUpload && (
                   <button onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
                     title="Delete document"
-                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #e4e9ec", background: "#fff", color: "#e74c3c", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, background: T.c.card, color: T.c.danger, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     🗑
                   </button>
                 )}
                 {/* Status badge */}
-                <span style={{ padding: "3px 8px", borderRadius: 4, fontSize: 12, fontWeight: 600, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
+                <span style={{ padding: "3px 8px", borderRadius: T.r.sm, fontSize: 12, fontWeight: T.w.semi, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
                   {sc.icon} {sc.label}
                 </span>
-                {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: "#e67e22" }}>💬</span>}
+                {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: T.c.amber400 }}>💬</span>}
                 <span onClick={() => setSelectedDocId(isSelected ? null : doc.id)}
-                  style={{ fontSize: 10, color: "#bdc3c7", cursor: "pointer", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                  style={{ fontSize: 10, color: T.c.grey400, cursor: "pointer", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
               </div>
             </div>
           );
@@ -463,16 +464,16 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       {deleteDoc && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setDeleteDoc(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, width: 400, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: T.c.card, borderRadius: 16, width: 400, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #fde8e8", background: "#fef5f5" }}>
-              <div style={{ fontSize: 15, fontWeight: 800, color: "#e74c3c" }}>🗑 Delete Document</div>
+              <div style={{ fontSize: 15, fontWeight: T.w.black, color: T.c.danger }}>🗑 Delete Document</div>
             </div>
             <div style={{ padding: "16px 20px" }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a", marginBottom: 8 }}>{deleteDoc.name}</div>
-              <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 12 }}>{deleteDoc.category} · {deleteDoc.type?.toUpperCase()} · {deleteDoc.size}</div>
+              <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.text, marginBottom: 8 }}>{deleteDoc.name}</div>
+              <div style={{ fontSize: 11, color: T.c.textSecondary, marginBottom: 12 }}>{deleteDoc.category} · {deleteDoc.type?.toUpperCase()} · {deleteDoc.size}</div>
 
-              <div style={{ background: "#fef5e7", borderRadius: 8, padding: "10px 12px", marginBottom: 12, border: "1px solid #f9e79f" }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: "#b7950b", marginBottom: 4 }}>⚠ Warning — This action cannot be undone</div>
+              <div style={{ background: "#fef5e7", borderRadius: T.r.md, padding: "10px 12px", marginBottom: 12, border: "1px solid #f9e79f" }}>
+                <div style={{ fontSize: 10, fontWeight: T.w.black, color: "#b7950b", marginBottom: 4 }}>⚠ Warning — This action cannot be undone</div>
                 <div style={{ fontSize: 10, color: "#7d6608", lineHeight: 1.5 }}>
                   The following will be permanently deleted:
                 </div>
@@ -493,7 +494,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
 
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button onClick={() => setDeleteDoc(null)}
-                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ padding: "8px 16px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, color: T.c.grey800, fontWeight: T.w.semi, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
                   Cancel
                 </button>
                 <button onClick={async () => {
@@ -508,10 +509,10 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   }
                   setDeleting(false);
                 }} disabled={deleting}
-                  style={{ padding: "8px 20px", borderRadius: 8, border: "none",
-                    background: deleting ? "#d5dde2" : "linear-gradient(135deg, #e74c3c, #c0392b)",
+                  style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none",
+                    background: deleting ? T.c.grey400 : "linear-gradient(135deg, #e74c3c, #c0392b)",
                     color: deleting ? "#95a5a6" : "#fff",
-                    fontWeight: 700, fontSize: 12, cursor: deleting ? "default" : "pointer", fontFamily: "inherit" }}>
+                    fontWeight: T.w.bold, fontSize: 12, cursor: deleting ? "default" : "pointer", fontFamily: "inherit" }}>
                   {deleting ? "⟳ Deleting..." : "🗑 Delete Permanently"}
                 </button>
               </div>
@@ -524,63 +525,63 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       {extractDoc && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setExtractDoc(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: T.c.card, borderRadius: 16, width: 420, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.c.borderLight}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: "#1a3a4a" }}>📐 Extract Site Plan Pages</div>
-                <div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>From: {extractDoc.name}</div>
+                <div style={{ fontSize: 15, fontWeight: T.w.black, color: T.c.text }}>📐 Extract Site Plan Pages</div>
+                <div style={{ fontSize: 11, color: T.c.textSecondary, marginTop: 2 }}>From: {extractDoc.name}</div>
               </div>
-              <button onClick={() => setExtractDoc(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#95a5a6" }}>✕</button>
+              <button onClick={() => setExtractDoc(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.c.textMuted }}>✕</button>
             </div>
             <div style={{ padding: "16px 20px" }}>
-              <div style={{ fontSize: 11, color: "#5a6a74", marginBottom: 10, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 11, color: T.c.grey800, marginBottom: 10, lineHeight: 1.5 }}>
                 Enter the page number(s) that contain the site plan. The selected pages will be extracted as a separate Site Plan document and automatically analysed by AI.
               </div>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Site Plan Page Number(s)</label>
+                <label style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Site Plan Page Number(s)</label>
                 <input
                   value={extractPages}
                   onChange={e => setExtractPages(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleExtractSiteplan()}
                   placeholder="e.g. 3 or 3,4"
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", color: "#1a3a4a", fontWeight: 700 }}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", color: T.c.text, fontWeight: T.w.bold }}
                   autoFocus
                 />
-                <div style={{ fontSize: 11, color: "#95a5a6", marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: T.c.textMuted, marginTop: 4 }}>
                   Separate multiple pages with commas. Open the document viewer to identify the site plan page(s).
                 </div>
               </div>
               {extractResult && (
-                <div style={{ padding: "8px 12px", borderRadius: 8, marginBottom: 12,
+                <div style={{ padding: "8px 12px", borderRadius: T.r.md, marginBottom: 12,
                   background: extractResult.success ? "#eafaf1" : "#fdedec",
                   color: extractResult.success ? "#27ae60" : "#e74c3c",
-                  fontSize: 11, fontWeight: 600 }}>
+                  fontSize: 11, fontWeight: T.w.semi }}>
                   {extractResult.success ? `✅ ${extractResult.message}` : `⚠ ${extractResult.message}`}
-                  {extractResult.analyseError && <div style={{ color: "#e74c3c", marginTop: 4 }}>⚠ {extractResult.analyseError}</div>}
+                  {extractResult.analyseError && <div style={{ color: T.c.danger, marginTop: 4 }}>⚠ {extractResult.analyseError}</div>}
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button onClick={() => setExtractDoc(null)}
-                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ padding: "8px 16px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, color: T.c.grey800, fontWeight: T.w.semi, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
                   {extractResult?.success ? "Close" : "Cancel"}
                 </button>
                 {/* Extract button — shown before extraction */}
                 {!extractResult?.success && (
                   <button onClick={handleExtractSiteplan} disabled={extracting || !extractPages.trim()}
-                    style={{ padding: "8px 20px", borderRadius: 8, border: "none",
-                      background: extractPages.trim() && !extracting ? "linear-gradient(135deg, #8e44ad, #6c3483)" : "#d5dde2",
+                    style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none",
+                      background: extractPages.trim() && !extracting ? "linear-gradient(135deg, #8e44ad, #6c3483)" : T.c.grey400,
                       color: extractPages.trim() && !extracting ? "#fff" : "#95a5a6",
-                      fontWeight: 700, fontSize: 12, cursor: extractPages.trim() && !extracting ? "pointer" : "default", fontFamily: "inherit" }}>
+                      fontWeight: T.w.bold, fontSize: 12, cursor: extractPages.trim() && !extracting ? "pointer" : "default", fontFamily: "inherit" }}>
                     {extracting ? "⟳ Extracting..." : "✂ Extract Pages"}
                   </button>
                 )}
                 {/* Analyse button — shown after successful extraction */}
                 {extractResult?.success && !extractResult?.analysed && (
                   <button onClick={handleAnalyseExtracted} disabled={extracting}
-                    style={{ padding: "8px 20px", borderRadius: 8, border: "none",
-                      background: extracting ? "#d5dde2" : "linear-gradient(135deg, #27ae60, #1e8449)",
+                    style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none",
+                      background: extracting ? T.c.grey400 : "linear-gradient(135deg, #27ae60, #1e8449)",
                       color: extracting ? "#95a5a6" : "#fff",
-                      fontWeight: 700, fontSize: 12, cursor: extracting ? "default" : "pointer", fontFamily: "inherit" }}>
+                      fontWeight: T.w.bold, fontSize: 12, cursor: extracting ? "default" : "pointer", fontFamily: "inherit" }}>
                     {extracting ? "⟳ Analysing..." : "🤖 Analyse Site Plan"}
                   </button>
                 )}
@@ -603,8 +604,8 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
           return (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 10001, display: 'grid', placeItems: 'center' }}
               onClick={() => { setShowMeasure(false); setMeasureDocId(null); }}>
-              <div style={{ background: '#1a2a3a', color: '#fff', padding: 24, borderRadius: 12, textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>No Site Plan Found</div>
+              <div style={{ background: '#1a2a3a', color: '#fff', padding: 24, borderRadius: T.r.lg, textAlign: 'center' }}>
+                <div style={{ fontSize: 16, fontWeight: T.w.bold, marginBottom: 8 }}>No Site Plan Found</div>
                 <div style={{ fontSize: 12, color: '#7a8a94' }}>Upload a document with category "Site Plan" first.</div>
               </div>
             </div>

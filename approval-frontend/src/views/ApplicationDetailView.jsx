@@ -9,6 +9,7 @@ import ApprovalChecklist from '../components/ui/ApprovalChecklist';
 import AIExtractionReview from '../components/ui/AIExtractionReview';
 import ReportGenerator from '../components/ui/ReportGenerator';
 import WorkflowView from '../components/workflow/WorkflowView';
+import { T, S, cx } from '../styles/tokens';
 
 // ═══════════════════════════════════════════════════════
 //  Application Detail View
@@ -60,13 +61,13 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
     <div>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#2980b9", fontWeight: 600, fontSize: 13, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>← Back</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: T.c.info, fontWeight: T.w.semi, fontSize: 13, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>← Back</button>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a3a4a", margin: "0 0 4px" }}>{localApp.id}</h2>
-          <p style={{ color: "#7a8a94", fontSize: 13, margin: 0 }}>{localApp.owner.name} — {new Date(localApp.submittedDate).toLocaleDateString("en-AU")}</p>
+          <h2 style={{ fontSize: 22, fontWeight: T.w.black, color: T.c.text, margin: "0 0 4px" }}>{localApp.id}</h2>
+          <p style={{ color: T.c.textSecondary, fontSize: 13, margin: 0 }}>{localApp.owner.name} — {new Date(localApp.submittedDate).toLocaleDateString("en-AU")}</p>
         </div>
         <StatusBadge status={localApp.status} />
       </div>

@@ -7,13 +7,13 @@ import { T, S, cx } from '../styles/tokens';
 
 // ─── Styles ────────────────────────────────────────────
 const overlay = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(12,31,46,0.55)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
-const modalBox = { background: "#fff", borderRadius: 16, width: "min(720px, 94vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(12,31,46,0.28)", overflow: "hidden" };
-const inputBase = { width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: "#fafbfc", color: "#1a3a4a", outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" };
+const modalBox = { background: T.c.card, borderRadius: 16, width: "min(720px, 94vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(12,31,46,0.28)", overflow: "hidden" };
+const inputBase = { width: "100%", padding: "9px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: "#fafbfc", color: T.c.text, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" };
 const selectBase = { ...inputBase, appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b8090' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 };
-const labelStyle = { display: "block", fontSize: 10, fontWeight: 700, color: "#5a6a74", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" };
-const sectionTitle = { fontSize: 12, fontWeight: 800, color: "#1a3a4a", margin: "18px 0 10px", paddingBottom: 6, borderBottom: "1px solid #edf1f4", display: "flex", alignItems: "center", gap: 6 };
-const btnPrimary = { padding: "10px 28px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(26,188,156,0.25)", transition: "opacity 0.15s" };
-const btnSecondary = { padding: "10px 24px", borderRadius: 10, border: "1.5px solid #d5dde2", background: "#fff", color: "#5a6a74", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" };
+const labelStyle = { display: "block", fontSize: 10, fontWeight: T.w.bold, color: T.c.grey800, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" };
+const sectionTitle = { fontSize: 12, fontWeight: T.w.black, color: T.c.text, margin: "18px 0 10px", paddingBottom: 6, borderBottom: "1px solid #edf1f4", display: "flex", alignItems: "center", gap: 6 };
+const btnPrimary = { padding: "10px 28px", borderRadius: T.r.lg, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontWeight: T.w.bold, fontSize: 13, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(26,188,156,0.25)", transition: "opacity 0.15s" };
+const btnSecondary = { padding: "10px 24px", borderRadius: T.r.lg, border: "1.5px solid #d5dde2", background: T.c.card, color: T.c.grey800, fontWeight: T.w.semi, fontSize: 13, cursor: "pointer", fontFamily: "inherit" };
 
 function Field({ label, required, span, children }) {
   return (
@@ -207,34 +207,34 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
   const inputRef = useRef(null);
   const hasFile = !!file;
   return (
-    <div style={{ padding: "12px 14px", borderRadius: 10, border: hasFile ? "1.5px solid #27ae60" : skipped ? "1.5px solid #95a5a6" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : skipped ? "#f8f9fa" : "#fafcfa", transition: "all 0.2s", opacity: skipped ? 0.7 : 1 }}>
+    <div style={{ padding: "12px 14px", borderRadius: T.r.lg, border: hasFile ? "1.5px solid #27ae60" : skipped ? "1.5px solid #95a5a6" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : skipped ? "#f8f9fa" : "#fafcfa", transition: "all 0.2s", opacity: skipped ? 0.7 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <span style={{ fontSize: 18 }}>{cat.icon}</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a" }}>{cat.label}</div>
-          <div style={{ fontSize: 12, color: "#7a8a94", marginTop: 1 }}>{cat.hint}</div>
+          <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.text }}>{cat.label}</div>
+          <div style={{ fontSize: 12, color: T.c.textSecondary, marginTop: 1 }}>{cat.hint}</div>
         </div>
-        {hasFile && <span style={{ fontSize: 14, color: "#27ae60" }}>✓</span>}
-        {skipped && !hasFile && <span style={{ fontSize: 12, color: "#95a5a6", fontWeight: 700 }}>Later</span>}
+        {hasFile && <span style={{ fontSize: 14, color: T.c.success }}>✓</span>}
+        {skipped && !hasFile && <span style={{ fontSize: 12, color: T.c.textMuted, fontWeight: T.w.bold }}>Later</span>}
       </div>
       {hasFile ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: 6 }}>
-          <span style={{ fontSize: 11, color: "#2c6e49", fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
-          <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "2px 6px" }}>✕</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: T.r.md }}>
+          <span style={{ fontSize: 11, color: "#2c6e49", fontWeight: T.w.semi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+          <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 12, fontWeight: T.w.bold, padding: "2px 6px" }}>✕</button>
         </div>
       ) : skipped ? (
         <button onClick={() => onSkip(false)}
-          style={{ width: "100%", padding: "7px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#2980b9", fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: "7px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, cursor: "pointer", fontSize: 10, fontWeight: T.w.semi, color: T.c.info, fontFamily: "inherit" }}>
           ↩ Upload now instead
         </button>
       ) : (
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => inputRef.current?.click()} disabled={processing}
-            style={{ flex: 1, padding: "8px", borderRadius: 6, border: "1px solid #d5dde2", background: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#5a6a74", fontFamily: "inherit" }}>
+            style={{ flex: 1, padding: "8px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, cursor: "pointer", fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, fontFamily: "inherit" }}>
             {processing ? "⏳ Analysing…" : "Choose File"}
           </button>
           <button onClick={() => onSkip(true)}
-            style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid #e4e9ec", background: "#f8f9fa", cursor: "pointer", fontSize: 10, fontWeight: 600, color: "#95a5a6", fontFamily: "inherit" }}>
+            style={{ padding: "8px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, background: "#f8f9fa", cursor: "pointer", fontSize: 10, fontWeight: T.w.semi, color: T.c.textMuted, fontFamily: "inherit" }}>
             Add later
           </button>
         </div>
@@ -242,12 +242,12 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
       <input ref={inputRef} type="file" accept={cat.accept} style={{ display: "none" }}
         onChange={e => { const f = e.target.files?.[0]; if (f) { onSkip(false); onFileChange(f); } e.target.value = ""; }} />
       {processResult && (
-        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 6, fontSize: 11, lineHeight: 1.5,
+        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: T.r.md, fontSize: 11, lineHeight: 1.5,
           background: processResult.success ? "#eafaf1" : "#fef9e7",
           border: processResult.success ? "1px solid #d4efdf" : "1px solid #f9e79f",
           color: processResult.success ? "#2c6e49" : "#7d6608" }}>
           {processResult.success ? (
-            <><strong style={{ color: "#27ae60" }}>✅ {processResult.title}</strong> — {processResult.message}
+            <><strong style={{ color: T.c.success }}>✅ {processResult.title}</strong> — {processResult.message}
               {processResult.details && <div style={{ marginTop: 4, fontSize: 12, color: "#5a7a64" }}>{processResult.details}</div>}
             </>
           ) : (<><strong>⚠️ {processResult.title || "Issue"}</strong> — {processResult.message}</>)}
@@ -679,9 +679,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   // ── Lot match banner ──────────────────────────────────
   const renderLotBanner = () => {
     if (!lotMatch) return null;
-    if (lotMatch === "found") { const fp = matchedFeatureProps || {}; return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#eafaf1", borderRadius: 8, border: "1px solid #d4efdf", fontSize: 12, lineHeight: 1.6 }}><div style={{ fontWeight: 800, color: "#27ae60", marginBottom: 4 }}>✅ Lot Boundary Found</div><div style={{ color: "#2c6e49", fontSize: 11 }}>Matched: <strong>{fp.road_number_1} {fp.road_name} {fp.road_type}</strong>, {fp.locality}{fp.lot_number && <> — Lot {fp.lot_number}</>} — {lotPolygon?.length || 0} boundary points.</div></div>); }
-    if (lotMatch === "not_found") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#fef9e7", borderRadius: 8, border: "1px solid #f9e79f", fontSize: 12 }}><strong style={{ color: "#b7950b" }}>⚠️ No Exact Lot Match</strong> <span style={{ color: "#7d6608", fontSize: 11 }}>— Boundary not found. You can still proceed — the lot boundary can be added later. Try format: <strong>54 Stirling Cr, High Wycombe</strong></span></div>);
-    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: 8, border: "1px solid #e6d5d5", fontSize: 12 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse Address</strong> <span style={{ color: "#784040", fontSize: 11 }}>— You can still proceed. Try: <strong>12 Railway Rd, Council Area</strong> or <strong>5 Mead St Council Area</strong></span></div>);
+    if (lotMatch === "found") { const fp = matchedFeatureProps || {}; return (<div style={{ marginTop: 10, padding: "10px 14px", background: T.c.successLight, borderRadius: T.r.md, border: "1px solid #d4efdf", fontSize: 12, lineHeight: 1.6 }}><div style={{ fontWeight: T.w.black, color: T.c.success, marginBottom: 4 }}>✅ Lot Boundary Found</div><div style={{ color: "#2c6e49", fontSize: 11 }}>Matched: <strong>{fp.road_number_1} {fp.road_name} {fp.road_type}</strong>, {fp.locality}{fp.lot_number && <> — Lot {fp.lot_number}</>} — {lotPolygon?.length || 0} boundary points.</div></div>); }
+    if (lotMatch === "not_found") return (<div style={{ marginTop: 10, padding: "10px 14px", background: T.c.warningLight, borderRadius: T.r.md, border: "1px solid #f9e79f", fontSize: 12 }}><strong style={{ color: "#b7950b" }}>⚠️ No Exact Lot Match</strong> <span style={{ color: "#7d6608", fontSize: 11 }}>— Boundary not found. You can still proceed — the lot boundary can be added later. Try format: <strong>54 Stirling Cr, High Wycombe</strong></span></div>);
+    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: T.r.md, border: "1px solid #e6d5d5", fontSize: 12 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse Address</strong> <span style={{ color: "#784040", fontSize: 11 }}>— You can still proceed. Try: <strong>12 Railway Rd, Council Area</strong> or <strong>5 Mead St Council Area</strong></span></div>);
     return null;
   };
 
@@ -698,12 +698,12 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     return (
     <>
       <div style={sectionTitle}><span>📎</span> Upload Documents</div>
-      <div style={{ fontSize: 11, color: "#7a8a94", marginBottom: 10, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 11, color: T.c.textSecondary, marginBottom: 10, lineHeight: 1.5 }}>
         Select a document category and upload. Application Form and Site Plan will be automatically analysed by AI.
       </div>
 
       {/* Dropdown upload bar */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 14px", background: "#f0faf7", borderRadius: 10, border: "1.5px solid #1abc9c40", marginBottom: 10 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "10px 14px", background: "#f0faf7", borderRadius: T.r.lg, border: "1.5px solid #1abc9c40", marginBottom: 10 }}>
         <select
           id="newapp-doc-cat"
           style={{ ...selectBase, flex: "1 1 200px", minWidth: 160 }}
@@ -712,7 +712,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
           ))}
         </select>
-        <label style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: anyProcessing ? "default" : "pointer", fontFamily: "inherit", opacity: anyProcessing ? 0.6 : 1, whiteSpace: "nowrap" }}>
+        <label style={{ padding: "8px 18px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: anyProcessing ? "default" : "pointer", fontFamily: "inherit", opacity: anyProcessing ? 0.6 : 1, whiteSpace: "nowrap" }}>
           {anyProcessing ? "⏳ Processing…" : "📤 Choose File"}
           <input type="file" accept="*" style={{ display: "none" }}
             disabled={anyProcessing}
@@ -727,14 +727,14 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       </div>
 
       {/* Hint for selected category */}
-      <div style={{ fontSize: 10, color: "#5a6a74", marginBottom: 14, lineHeight: 1.4, padding: "0 4px" }}>
+      <div style={{ fontSize: 10, color: T.c.grey800, marginBottom: 14, lineHeight: 1.4, padding: "0 4px" }}>
         {DOC_CATEGORIES.find(c => c.id === (typeof document !== "undefined" && document.getElementById?.("newapp-doc-cat")?.value) || DOC_CATEGORIES[0].id)?.hint || ""}
       </div>
 
       {/* Uploaded files list */}
       {uploadedList.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", overflow: "hidden", marginBottom: 14 }}>
-          <div style={{ padding: "8px 14px", borderBottom: "1px solid #f0f3f5", fontSize: 10, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden", marginBottom: 14 }}>
+          <div style={{ padding: "8px 14px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 10, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
             <span>Uploaded ({uploadedList.length})</span>
           </div>
           {uploadedList.map(([catId, file]) => {
@@ -746,15 +746,15 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
                 <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 16 }}>{cat?.icon || "📄"}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
-                    <div style={{ fontSize: 10, color: "#95a5a6" }}>{cat?.label || catId} · {(file.size / 1024).toFixed(0)} KB</div>
+                    <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
+                    <div style={{ fontSize: 10, color: T.c.textMuted }}>{cat?.label || catId} · {(file.size / 1024).toFixed(0)} KB</div>
                   </div>
-                  {isProcessing && <span style={{ fontSize: 10, color: "#8e44ad", fontWeight: 700 }}>⏳ Analysing…</span>}
-                  {!isProcessing && pr?.success && <span style={{ fontSize: 10, color: "#27ae60", fontWeight: 700 }}>✅ {pr.title || "Done"}</span>}
-                  {!isProcessing && pr && !pr.success && <span style={{ fontSize: 10, color: "#e67e22", fontWeight: 700 }}>⚠ {pr.title || "Issue"}</span>}
-                  {!isProcessing && !pr && <span style={{ fontSize: 10, color: "#27ae60", fontWeight: 700 }}>✓</span>}
+                  {isProcessing && <span style={{ fontSize: 10, color: "#8e44ad", fontWeight: T.w.bold }}>⏳ Analysing…</span>}
+                  {!isProcessing && pr?.success && <span style={{ fontSize: 10, color: T.c.success, fontWeight: T.w.bold }}>✅ {pr.title || "Done"}</span>}
+                  {!isProcessing && pr && !pr.success && <span style={{ fontSize: 10, color: T.c.amber400, fontWeight: T.w.bold }}>⚠ {pr.title || "Issue"}</span>}
+                  {!isProcessing && !pr && <span style={{ fontSize: 10, color: T.c.success, fontWeight: T.w.bold }}>✓</span>}
                   <button onClick={() => handleDocChange(catId, null)}
-                    style={{ padding: "4px 8px", borderRadius: 5, border: "1px solid #e4e9ec", background: "#fff", color: "#c0392b", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
+                    style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, background: T.c.card, color: "#c0392b", fontSize: 11, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
                 </div>
                 {pr && (
                   <div style={{ padding: "6px 14px 8px", fontSize: 10, lineHeight: 1.4,
@@ -770,7 +770,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       )}
 
       {uploadedList.length === 0 && (
-        <div style={{ padding: "16px", textAlign: "center", color: "#95a5a6", fontSize: 11, border: "1.5px dashed #d5dde2", borderRadius: 10, marginBottom: 14 }}>
+        <div style={{ padding: "16px", textAlign: "center", color: T.c.textMuted, fontSize: 11, border: "1.5px dashed #d5dde2", borderRadius: T.r.lg, marginBottom: 14 }}>
           No documents uploaded yet — select a category above and choose a file
         </div>
       )}
@@ -785,19 +785,19 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>📍</span> Property Address</div>
       <Field label="Property Address" required>
         <div style={{ position: "relative" }} ref={suggestionsRef}>
-          <input style={{ ...inputBase, borderColor: lotMatch === "found" ? "#27ae60" : lotMatch === "not_found" ? "#f39c12" : "#d5dde2" }}
+          <input style={{ ...inputBase, borderColor: lotMatch === "found" ? "#27ae60" : lotMatch === "not_found" ? "#f39c12" : T.c.grey400 }}
             value={form.property_address} onChange={handleAddressInput} onBlur={handleAddressBlur}
             onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
             placeholder="Start typing an address... e.g. 54 Stirling" autoComplete="off" />
           {showSuggestions && suggestions.length > 0 && (
-            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: "#fff", borderRadius: "0 0 8px 8px", border: "1.5px solid #d5dde2", borderTop: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", maxHeight: 220, overflowY: "auto" }}
+            <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: T.c.card, borderRadius: "0 0 8px 8px", border: "1.5px solid #d5dde2", borderTop: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", maxHeight: 220, overflowY: "auto" }}
               onMouseDown={e => e.preventDefault()}>
               {suggestions.map((s, i) => (
                 <div key={i} onClick={(e) => { e.stopPropagation(); selectSuggestion(s); }}
-                  style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f5f7f8", fontSize: 12, color: "#1a3a4a" }}
+                  style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f5f7f8", fontSize: 12, color: T.c.text }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f0f8ff"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <div style={{ fontWeight: 600 }}>{s.display}</div>
+                  <div style={{ fontWeight: T.w.semi }}>{s.display}</div>
                 </div>
               ))}
             </div>
@@ -820,7 +820,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         <Field label="Depth (m)"><input style={inputBase} type="number" step="0.1" value={form.depth} onChange={set("depth")} placeholder="0.0" /></Field>
         <Field label="DA / Approval Number"><input style={inputBase} value={form.da_number} onChange={set("da_number")} placeholder="Optional" /></Field>
       </div>
-      {lotMatch === "found" && lotPolygon && (<div style={{ marginTop: 14, padding: "10px 14px", background: "#eafaf1", borderRadius: 8, border: "1px solid #d4efdf", fontSize: 11, color: "#2c6e49" }}><strong style={{ color: "#27ae60" }}>✅ Lot Boundary:</strong> {lotPolygon.length} points captured.</div>)}
+      {lotMatch === "found" && lotPolygon && (<div style={{ marginTop: 14, padding: "10px 14px", background: T.c.successLight, borderRadius: T.r.md, border: "1px solid #d4efdf", fontSize: 11, color: "#2c6e49" }}><strong style={{ color: T.c.success }}>✅ Lot Boundary:</strong> {lotPolygon.length} points captured.</div>)}
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>🛣️</span> Road Information</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px 14px" }}>
         <Field label="Road Name" span={2}><input style={inputBase} value={form.road_name} onChange={set("road_name")} placeholder="e.g. Railway Road" /></Field>
@@ -841,8 +841,8 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         <Field label="Offset from Left Boundary (m)"><input style={inputBase} type="number" step="0.1" value={form.offset_from_left} onChange={set("offset_from_left")} placeholder="0.0" /></Field>
         <Field label="Est. Construction Date" span={2}><input style={inputBase} type="text" value={form.crossover_est_date} onChange={set("crossover_est_date")} placeholder="e.g. 15/03/2026" /></Field>
       </div>
-      {sitePlanData && (<div style={{ marginTop: 14, padding: "10px 14px", background: "#ebf5fb", borderRadius: 8, border: "1px solid #d4e6f1", fontSize: 11, color: "#2471a3", lineHeight: 1.6 }}><strong>📐 AI Site Plan Data:</strong> Full extraction with {(sitePlanData.compliance?.checks || []).length} compliance checks stored. Recommendation: <strong>{(sitePlanData.compliance?.recommendation || "N/A").replace(/_/g, " ")}</strong></div>)}
-      <div style={{ marginTop: 14, padding: "10px 14px", background: "#f5f8fa", borderRadius: 8, fontSize: 11, color: "#5a6a74", lineHeight: 1.6 }}><strong style={{ color: "#1a3a4a" }}>ℹ️ Width Guidelines:</strong> Minimum 3.0m at property boundary. Maximum depends on lot frontage. Second crossover permitted only if frontage exceeds 20m.</div>
+      {sitePlanData && (<div style={{ marginTop: 14, padding: "10px 14px", background: T.c.infoLight, borderRadius: T.r.md, border: "1px solid #d4e6f1", fontSize: 11, color: "#2471a3", lineHeight: 1.6 }}><strong>📐 AI Site Plan Data:</strong> Full extraction with {(sitePlanData.compliance?.checks || []).length} compliance checks stored. Recommendation: <strong>{(sitePlanData.compliance?.recommendation || "N/A").replace(/_/g, " ")}</strong></div>)}
+      <div style={{ marginTop: 14, padding: "10px 14px", background: T.c.bg, borderRadius: T.r.md, fontSize: 11, color: T.c.grey800, lineHeight: 1.6 }}><strong style={{ color: T.c.text }}>ℹ️ Width Guidelines:</strong> Minimum 3.0m at property boundary. Maximum depends on lot frontage. Second crossover permitted only if frontage exceeds 20m.</div>
     </>
   );
 
@@ -870,10 +870,10 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     <div style={overlay} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={modalBox}>
         <div style={{ padding: "18px 24px 14px", borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div><h2 style={{ fontSize: 18, fontWeight: 800, color: "#1a3a4a", margin: 0 }}>New Application</h2><div style={{ fontSize: 11, color: "#7a8a94", marginTop: 2 }}>Crossover permit application — Council</div></div>
-          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: "#7a8a94", cursor: "pointer", padding: "2px 6px", borderRadius: 4 }} title="Close">&times;</button>
+          <div><h2 style={{ fontSize: 18, fontWeight: T.w.black, color: T.c.text, margin: 0 }}>New Application</h2><div style={{ fontSize: 11, color: T.c.textSecondary, marginTop: 2 }}>Crossover permit application — Council</div></div>
+          <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: T.c.textSecondary, cursor: "pointer", padding: "2px 6px", borderRadius: T.r.sm }} title="Close">&times;</button>
         </div>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px", background: "#f8fafb", borderBottom: "1px solid #edf1f4" }}>
+        <div style={{ display: "flex", gap: 0, padding: "0 24px", background: T.c.bgAlt, borderBottom: "1px solid #edf1f4" }}>
           {steps.map((s, i) => (
             <button key={i} onClick={() => { if (i <= step || canGoNext()) setStep(i); }}
               style={{ flex: 1, padding: "10px 6px", background: "none", border: "none", borderBottom: step === i ? "2.5px solid #1abc9c" : "2.5px solid transparent", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
@@ -884,14 +884,14 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         </div>
         <div style={{ padding: "16px 24px 20px", overflowY: "auto", flex: 1 }}>
           {stepRenderers[step]()}
-          {error && <div style={{ marginTop: 14, padding: "10px 14px", background: "#fdedec", borderRadius: 8, fontSize: 12, color: "#c0392b", fontWeight: 600 }}>⚠️ {error}</div>}
+          {error && <div style={{ marginTop: 14, padding: "10px 14px", background: T.c.dangerLight, borderRadius: T.r.md, fontSize: 12, color: "#c0392b", fontWeight: T.w.semi }}>⚠️ {error}</div>}
         </div>
-        <div style={{ padding: "14px 24px", borderTop: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafb" }}>
+        <div style={{ padding: "14px 24px", borderTop: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: T.c.bgAlt }}>
           <div style={{ fontSize: 11, color: "#9aabb5" }}>
             Step {step + 1} of {steps.length}
-            {docCount > 0 && <span style={{ color: "#2980b9", marginLeft: 10 }}>📎 {docCount} doc{docCount > 1 ? "s" : ""}</span>}
+            {docCount > 0 && <span style={{ color: T.c.info, marginLeft: 10 }}>📎 {docCount} doc{docCount > 1 ? "s" : ""}</span>}
             {sitePlanData && <span style={{ color: "#8e44ad", marginLeft: 10 }}>🤖 AI</span>}
-            {lotMatch === "found" && <span style={{ color: "#27ae60", marginLeft: 10 }}>📐 Boundary</span>}
+            {lotMatch === "found" && <span style={{ color: T.c.success, marginLeft: 10 }}>📐 Boundary</span>}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             {step > 0 && <button style={btnSecondary} onClick={() => setStep(s => s - 1)}>← Back</button>}
@@ -916,24 +916,24 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a3a4a", margin: 0 }}>{filter === "pending_review" ? "Pending Review" : filter === "referral_pending" ? "Referrals" : "All Applications"}</h2>
+        <h2 style={{ fontSize: 22, fontWeight: T.w.black, color: T.c.text, margin: 0 }}>{filter === "pending_review" ? "Pending Review" : filter === "referral_pending" ? "Referrals" : "All Applications"}</h2>
         <button onClick={() => setShowNewModal(true)} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", fontSize: 12 }}><span style={{ fontSize: 15, lineHeight: 1 }}>＋</span> New Application</button>
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by reference, applicant, or address…" style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: "#fff", outline: "none" }} />
-        <select value={sf} onChange={e => setSf(e.target.value)} style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: "#fff" }}><option value="all">All Statuses</option>{Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by reference, applicant, or address…" style={{ flex: 1, padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: T.c.card, outline: "none" }} />
+        <select value={sf} onChange={e => setSf(e.target.value)} style={{ padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: T.c.card }}><option value="all">All Statuses</option>{Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
       </div>
-      <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e4e9ec", overflow: "hidden" }}>
+      <div style={{ background: T.c.card, borderRadius: 14, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr style={{ background: "#f5f8fa" }}>{["Ref", "Applicant", "Property", "Road", "Width", "Status"].map(h => <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: 700, color: "#5a6a74", fontSize: 10, textTransform: "uppercase", borderBottom: "1px solid #e4e9ec" }}>{h}</th>)}</tr></thead>
+          <thead><tr style={{ background: T.c.bg }}>{["Ref", "Applicant", "Property", "Road", "Width", "Status"].map(h => <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: T.w.bold, color: T.c.grey800, fontSize: 10, textTransform: "uppercase", borderBottom: `1px solid ${T.c.border}` }}>{h}</th>)}</tr></thead>
           <tbody>{filtered.length === 0 ? (<tr><td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: "#9aabb5", fontSize: 13 }}>{search ? "No applications match your search." : "No applications found."}</td></tr>) : filtered.map(app => (
             <tr key={app.id} onClick={() => onSelectApp(app)} style={{ cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <td style={{ padding: "9px 12px", fontWeight: 700, color: "#2980b9", borderBottom: "1px solid #f0f3f5" }}>{app.id}</td>
-              <td style={{ padding: "9px 12px", borderBottom: "1px solid #f0f3f5" }}>{app.owner.name}</td>
-              <td style={{ padding: "9px 12px", color: "#5a6a74", borderBottom: "1px solid #f0f3f5", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{app.property.address}</td>
-              <td style={{ padding: "9px 12px", borderBottom: "1px solid #f0f3f5", fontSize: 11, fontWeight: 600, color: app.property.roadType === "red" ? "#c0392b" : app.property.roadType === "blue" ? "#2980b9" : "#5a6a74" }}>{app.property.roadType}</td>
-              <td style={{ padding: "9px 12px", fontWeight: 600, borderBottom: "1px solid #f0f3f5" }}>{app.crossover.width}m</td>
-              <td style={{ padding: "9px 12px", borderBottom: "1px solid #f0f3f5" }}><StatusBadge status={app.status} /></td>
+              <td style={{ padding: "9px 12px", fontWeight: T.w.bold, color: T.c.info, borderBottom: `1px solid ${T.c.borderLight}` }}>{app.id}</td>
+              <td style={{ padding: "9px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}>{app.owner.name}</td>
+              <td style={{ padding: "9px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{app.property.address}</td>
+              <td style={{ padding: "9px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11, fontWeight: T.w.semi, color: app.property.roadType === "red" ? "#c0392b" : app.property.roadType === "blue" ? "#2980b9" : "#5a6a74" }}>{app.property.roadType}</td>
+              <td style={{ padding: "9px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}` }}>{app.crossover.width}m</td>
+              <td style={{ padding: "9px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}><StatusBadge status={app.status} /></td>
             </tr>))}</tbody>
         </table>
       </div>

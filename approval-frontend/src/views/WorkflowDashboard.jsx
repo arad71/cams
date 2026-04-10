@@ -124,14 +124,14 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
       {/* SLA + Trends row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         {/* SLA compliance */}
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: 16 }}>
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: "0 0 10px" }}>SLA compliance (21-day target)</h4>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: 16 }}>
+          <h4 style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", margin: "0 0 10px" }}>SLA compliance (21-day target)</h4>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#1a3a4a" }}>Within target</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: slaPct >= 80 ? "#27ae60" : slaPct >= 60 ? "#e67e22" : "#c0392b" }}>{slaPct}%</span>
+            <span style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text }}>Within target</span>
+            <span style={{ fontSize: 18, fontWeight: T.w.black, color: slaPct >= 80 ? "#27ae60" : slaPct >= 60 ? "#e67e22" : "#c0392b" }}>{slaPct}%</span>
           </div>
-          <div style={{ height: 8, background: "#eef2f4", borderRadius: 4, overflow: "hidden", marginBottom: 12 }}>
-            <div style={{ height: 8, width: `${slaPct}%`, background: slaPct >= 80 ? "linear-gradient(90deg,#27ae60,#2ecc71)" : "linear-gradient(90deg,#e67e22,#f39c12)", borderRadius: 4 }} />
+          <div style={{ height: 8, background: T.c.borderLight, borderRadius: T.r.sm, overflow: "hidden", marginBottom: 12 }}>
+            <div style={{ height: 8, width: `${slaPct}%`, background: slaPct >= 80 ? "linear-gradient(90deg,#27ae60,#2ecc71)" : "linear-gradient(90deg,#e67e22,#f39c12)", borderRadius: T.r.sm }} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 6 }}>
             {[
@@ -140,17 +140,17 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
               { n: atRisk.length, l: "At risk", c: "#e67e22", b: "#fef5e7" },
               { n: overdue.length, l: "Overdue", c: "#c0392b", b: "#fdedec" },
             ].map(s => (
-              <div key={s.l} style={{ padding: "8px 6px", borderRadius: 6, background: s.b, textAlign: "center" }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: s.c }}>{s.n}</div>
-                <div style={{ fontSize: 9, color: s.c, fontWeight: 600 }}>{s.l}</div>
+              <div key={s.l} style={{ padding: "8px 6px", borderRadius: T.r.md, background: s.b, textAlign: "center" }}>
+                <div style={{ fontSize: 18, fontWeight: T.w.black, color: s.c }}>{s.n}</div>
+                <div style={{ fontSize: 9, color: s.c, fontWeight: T.w.semi }}>{s.l}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Monthly trends */}
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: 16 }}>
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: "0 0 10px" }}>Monthly trends</h4>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: 16 }}>
+          <h4 style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", margin: "0 0 10px" }}>Monthly trends</h4>
           <div style={{ display: "flex", gap: 6, alignItems: "flex-end", height: 90 }}>
             {monthlyData.map((m, i) => (
               <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
@@ -158,13 +158,13 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
                   <div style={{ width: "35%", background: "#27ae60", borderRadius: "2px 2px 0 0", height: `${Math.max(3, (m.approved / maxMonthly) * 100)}%` }} />
                   <div style={{ width: "35%", background: "#c0392b", borderRadius: "2px 2px 0 0", height: `${Math.max(2, (m.rejected / maxMonthly) * 100)}%` }} />
                 </div>
-                <div style={{ fontSize: 9, color: "#7a8a94", fontWeight: 500 }}>{m.label}</div>
+                <div style={{ fontSize: 9, color: T.c.textSecondary, fontWeight: 500 }}>{m.label}</div>
               </div>
             ))}
           </div>
           <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 10 }}>
-            <span style={{ color: "#27ae60", fontWeight: 600 }}>■ Approved</span>
-            <span style={{ color: "#c0392b", fontWeight: 600 }}>■ Rejected</span>
+            <span style={{ color: T.c.success, fontWeight: T.w.semi }}>■ Approved</span>
+            <span style={{ color: T.c.red500, fontWeight: T.w.semi }}>■ Rejected</span>
           </div>
         </div>
       </div>
@@ -172,20 +172,20 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
       {/* Officer workload + Processing times */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         {/* Officer workload */}
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: 16 }}>
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: "0 0 10px" }}>Officer workload</h4>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: 16 }}>
+          <h4 style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", margin: "0 0 10px" }}>Officer workload</h4>
           {Object.entries(engineerPerf).sort((a, b) => (b[1].active + b[1].completed) - (a[1].active + a[1].completed)).map(([name, ep]) => {
             const maxA = Math.max(...Object.values(engineerPerf).map(e => e.active), 1);
             const approvalPct = pct(ep.approved, ep.completed);
             return (
               <div key={name} style={{ marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
-                  <span style={{ fontWeight: 600 }}>{name}</span>
+                  <span style={{ fontWeight: T.w.semi }}>{name}</span>
                   <div style={{ display: "flex", gap: 8, fontSize: 10 }}>
-                    <span style={{ color: "#2980b9", fontWeight: 700 }}>{ep.active} active</span>
-                    <span style={{ color: "#27ae60" }}>{ep.completed} done</span>
-                    {ep.overdue > 0 && <span style={{ color: "#c0392b", fontWeight: 700 }}>⚠ {ep.overdue} late</span>}
-                    {ep.completed > 0 && <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, background: approvalPct >= 80 ? "#eafaf1" : "#fef5e7", color: approvalPct >= 80 ? "#27ae60" : "#e67e22" }}>{approvalPct}%</span>}
+                    <span style={{ color: T.c.info, fontWeight: T.w.bold }}>{ep.active} active</span>
+                    <span style={{ color: T.c.success }}>{ep.completed} done</span>
+                    {ep.overdue > 0 && <span style={{ color: T.c.red500, fontWeight: T.w.bold }}>⚠ {ep.overdue} late</span>}
+                    {ep.completed > 0 && <span style={{ padding: "1px 6px", borderRadius: 3, fontSize: 9, fontWeight: T.w.bold, background: approvalPct >= 80 ? "#eafaf1" : "#fef5e7", color: approvalPct >= 80 ? "#27ae60" : "#e67e22" }}>{approvalPct}%</span>}
                   </div>
                 </div>
                 <MiniBar value={ep.active} max={maxA} color={ep.active > 5 ? "#e74c3c" : "#2980b9"} height={6} />
@@ -193,15 +193,15 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
             );
           })}
           {unassigned.length > 0 && (
-            <div style={{ marginTop: 6, padding: "6px 10px", background: "#fef5e7", borderRadius: 6, fontSize: 11, color: "#e67e22", fontWeight: 600 }}>
+            <div style={{ marginTop: 6, padding: "6px 10px", background: "#fef5e7", borderRadius: T.r.md, fontSize: 11, color: T.c.amber400, fontWeight: T.w.semi }}>
               ⚠ {unassigned.length} application{unassigned.length > 1 ? "s" : ""} unassigned
             </div>
           )}
         </div>
 
         {/* Processing times */}
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: 16 }}>
-          <h4 style={{ fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", margin: "0 0 10px" }}>Processing times (avg days)</h4>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: 16 }}>
+          <h4 style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", margin: "0 0 10px" }}>Processing times (avg days)</h4>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[
               { l: "Intake → assessment", v: `${processingTimes.intake}d`, c: "#27ae60" },
@@ -209,9 +209,9 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
               { l: "Total end-to-end", v: `${processingTimes.avgTotal}d`, c: "#1a3a4a" },
               { l: "Referral wait", v: `${processingTimes.avgRef}d`, c: "#8e44ad" },
             ].map(t => (
-              <div key={t.l} style={{ padding: 10, background: "#f8fafb", borderRadius: 8, textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: t.c }}>{t.v}</div>
-                <div style={{ fontSize: 9, color: "#7a8a94", marginTop: 2 }}>{t.l}</div>
+              <div key={t.l} style={{ padding: 10, background: T.c.bgAlt, borderRadius: T.r.md, textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: T.w.black, color: t.c }}>{t.v}</div>
+                <div style={{ fontSize: 9, color: T.c.textSecondary, marginTop: 2 }}>{t.l}</div>
               </div>
             ))}
           </div>
@@ -220,10 +220,10 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
 
       {/* Unassigned alert */}
       {unassigned.length > 0 && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e74c3c30", overflow: "hidden", marginBottom: 12 }}>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: "1px solid #e74c3c30", overflow: "hidden", marginBottom: 12 }}>
           <div style={{ padding: "10px 16px", borderBottom: "1px solid #fde8e8", background: "#fef5f5", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 700, fontSize: 13, color: "#e74c3c" }}>⚠ Unassigned ({unassigned.length})</span>
-            <span style={{ fontSize: 10, color: "#c0392b" }}>Click to assign</span>
+            <span style={{ fontWeight: T.w.bold, fontSize: 13, color: T.c.danger }}>⚠ Unassigned ({unassigned.length})</span>
+            <span style={{ fontSize: 10, color: T.c.red500 }}>Click to assign</span>
           </div>
           {unassigned.slice(0, 5).map(app => {
             const sub = parseDate(app.submittedDate);
@@ -231,9 +231,9 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
             return (
               <div key={app.id} onClick={() => onSelectApp(app)} style={{ padding: "8px 16px", borderBottom: "1px solid #fef0f0", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#fef9f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <div><span style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a" }}>{app.id}</span> <span style={{ fontSize: 10, color: "#7a8a94" }}>{app.owner?.name} — {app.property?.address?.split(",")[0]}</span></div>
+                <div><span style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.text }}>{app.id}</span> <span style={{ fontSize: 10, color: T.c.textSecondary }}>{app.owner?.name} — {app.property?.address?.split(",")[0]}</span></div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: days > 14 ? "#c0392b" : "#e67e22" }}>{days}d</span>
+                  <span style={{ fontSize: 10, fontWeight: T.w.bold, color: days > 14 ? "#c0392b" : "#e67e22" }}>{days}d</span>
                   <StatusBadge status={app.status} />
                 </div>
               </div>
@@ -244,17 +244,17 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
 
       {/* Recent + AI Insights */}
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-          <div style={{ padding: "10px 16px", borderBottom: "1px solid #f0f3f5", fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase" }}>Recent applications</div>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase" }}>Recent applications</div>
           {all.slice(0, 5).map(app => {
             const sub = parseDate(app.submittedDate);
             const days = sub ? daysBetween(sub, NOW) : 0;
             return (
               <div key={app.id} onClick={() => onSelectApp(app)} style={{ padding: "8px 16px", borderBottom: "1px solid #f5f7f8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between" }}
                 onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <div><span style={{ fontSize: 12, fontWeight: 700, color: "#2980b9" }}>{app.id}</span> <span style={{ fontSize: 11, color: "#7a8a94" }}>{app.owner?.name} — {app.property?.address?.split(",")[0]}</span></div>
+                <div><span style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.info }}>{app.id}</span> <span style={{ fontSize: 11, color: T.c.textSecondary }}>{app.owner?.name} — {app.property?.address?.split(",")[0]}</span></div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {app.assessment?.officer && <span style={{ fontSize: 9, color: "#95a5a6" }}>{app.assessment.officer}</span>}
+                  {app.assessment?.officer && <span style={{ fontSize: 9, color: T.c.textMuted }}>{app.assessment.officer}</span>}
                   <span style={{ fontSize: 9, color: days > 21 ? "#c0392b" : "#95a5a6", fontWeight: days > 21 ? 700 : 400 }}>{days}d</span>
                   <StatusBadge status={app.status} />
                 </div>
@@ -263,23 +263,23 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
           })}
         </div>
 
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-          <div style={{ padding: "10px 16px", borderBottom: "1px solid #f0f3f5", fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase" }}>AI insights</div>
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase" }}>AI insights</div>
           <div style={{ padding: "10px 16px", fontSize: 11, lineHeight: 1.8 }}>
             <div style={{ borderBottom: "1px solid #f8f9fb", paddingBottom: 4, marginBottom: 4 }}>
-              <span style={{ fontWeight: 800, color: "#27ae60" }}>{aiInsights.approvalRate}%</span> <span style={{ color: "#7a8a94" }}>approval rate</span>
+              <span style={{ fontWeight: T.w.black, color: T.c.success }}>{aiInsights.approvalRate}%</span> <span style={{ color: T.c.textSecondary }}>approval rate</span>
             </div>
             <div style={{ borderBottom: "1px solid #f8f9fb", paddingBottom: 4, marginBottom: 4 }}>
-              <span style={{ fontWeight: 800, color: "#c0392b" }}>{aiInsights.rejectedCount}</span> <span style={{ color: "#7a8a94" }}>total rejections</span>
+              <span style={{ fontWeight: T.w.black, color: T.c.red500 }}>{aiInsights.rejectedCount}</span> <span style={{ color: T.c.textSecondary }}>total rejections</span>
             </div>
             <div style={{ borderBottom: "1px solid #f8f9fb", paddingBottom: 4, marginBottom: 4 }}>
-              <span style={{ fontWeight: 800, color: "#8e44ad" }}>{aiInsights.referralCount}</span> <span style={{ color: "#7a8a94" }}>pending referrals</span>
+              <span style={{ fontWeight: T.w.black, color: "#8e44ad" }}>{aiInsights.referralCount}</span> <span style={{ color: T.c.textSecondary }}>pending referrals</span>
             </div>
             <div style={{ borderBottom: "1px solid #f8f9fb", paddingBottom: 4, marginBottom: 4 }}>
-              <span style={{ fontWeight: 800, color: "#e67e22" }}>{unassigned.length}</span> <span style={{ color: "#7a8a94" }}>unassigned cases</span>
+              <span style={{ fontWeight: T.w.black, color: T.c.amber400 }}>{unassigned.length}</span> <span style={{ color: T.c.textSecondary }}>unassigned cases</span>
             </div>
             <div>
-              <span style={{ fontWeight: 800, color: "#2980b9" }}>{processingTimes.avgTotal}d</span> <span style={{ color: "#7a8a94" }}>avg processing time</span>
+              <span style={{ fontWeight: T.w.black, color: T.c.info }}>{processingTimes.avgTotal}d</span> <span style={{ color: T.c.textSecondary }}>avg processing time</span>
             </div>
           </div>
         </div>

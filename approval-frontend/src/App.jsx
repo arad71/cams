@@ -268,7 +268,7 @@ export default function CouncilApprovalPortal() {
           {currentUser.must_change_password ? "You must change your temporary password before continuing." : "Update your password"}
         </p>
         {changePwSuccess ? (
-          <div style={{ padding: "16px", background: "#eafaf1", borderRadius: 8, textAlign: "center" }}>
+          <div style={{ padding: "16px", background: T.c.successLight, borderRadius: 8, textAlign: "center" }}>
             <div style={{ fontSize: 24, marginBottom: 4 }}>✅</div>
             <div style={{ fontWeight: 700, color: "#27ae60" }}>Password changed successfully!</div>
           </div>
@@ -290,7 +290,7 @@ export default function CouncilApprovalPortal() {
                 onKeyDown={e => e.key === "Enter" && handleChangePassword()}
                 style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Repeat new password" />
             </div>
-            {changePwError && <div style={{ marginBottom: 10, padding: "8px 10px", background: "#fdedec", borderRadius: 6, fontSize: 11, color: "#c0392b" }}>⚠️ {changePwError}</div>}
+            {changePwError && <div style={{ marginBottom: 10, padding: "8px 10px", background: T.c.dangerLight, borderRadius: 6, fontSize: 11, color: "#c0392b" }}>⚠️ {changePwError}</div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               {!currentUser.must_change_password && <button onClick={() => setShowChangePassword(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>}
               <button onClick={handleChangePassword} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Change Password</button>
@@ -336,7 +336,7 @@ export default function CouncilApprovalPortal() {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#f0f3f5", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+    <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: T.c.borderLight, position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(26,188,156,0.1)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
       {ChangePasswordModal}
       <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} />

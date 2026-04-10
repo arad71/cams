@@ -3,6 +3,7 @@ import { SIGHT_DISTANCE_TABLE } from '../../data/constants';
 import { getAppCoords, getFirstRing, normalizeLotPolygon, findNearestRoadSpeed, getSightDistances } from '../../utils/geoHelpers';
 import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment } from '../../utils/geo';
 import LeafletMap from './LeafletMap';
+import { T, S, cx } from '../../styles/tokens';
 
 // ─── Satellite Mini-Map with triangle + measurements ─────
 function SatelliteMiniMap({ sightTriangle }) {
@@ -735,7 +736,7 @@ Respond with JSON only:
   };
 
   const ratingMap3D = { CLEAR: { color: '#27ae60', bg: '#eafaf1', label: '✓ CLEAR' }, PARTIALLY_OBSTRUCTED: { color: '#e67e22', bg: '#fef5e7', label: '◐ PARTIAL' }, SEVERELY_OBSTRUCTED: { color: '#c0392b', bg: '#fdedec', label: '◑ SEVERE' }, BLOCKED: { color: '#c0392b', bg: '#fdedec', label: '✗ BLOCKED' } };
-  const hInputStyle = { background: "#f8fafb", border: "1.5px solid #d5dde2", color: "#1a3a4a", borderRadius: 5, padding: "4px 6px", width: 52, fontSize: 11, fontWeight: 700, fontFamily: "inherit", textAlign: "center", outline: "none" };
+  const hInputStyle = { background: "#f8fafb", border: "1.5px solid #d5dde2", color: T.c.text, borderRadius: 5, padding: "4px 6px", width: 52, fontSize: 11, fontWeight: T.w.bold, fontFamily: "inherit", textAlign: "center", outline: "none" };
 
   // Try to derive lot polygon from the lots layer using the address
   const derivedLotFromAddress = useMemo(() => {
@@ -1259,13 +1260,13 @@ Respond with JSON only:
         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           <div style={{ position: "relative" }}>
             <button onClick={() => setShowLayerPanel(!showLayerPanel)}
-              style={{ padding: "3px 8px", borderRadius: 4, border: showLayerPanel ? "1.5px solid #1a3a4a" : "1px solid #dce1e6", background: showLayerPanel ? "#1a3a4a" : "#fff", color: showLayerPanel ? "#fff" : "#5a6a74", fontWeight: 700, fontSize: 9, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 3 }}>
+              style={{ padding: "3px 8px", borderRadius: 4, border: showLayerPanel ? "1.5px solid #1a3a4a" : "1px solid #dce1e6", background: showLayerPanel ? "#1a3a4a" : "#fff", color: showLayerPanel ? "#fff" : "#5a6a74", fontWeight: T.w.bold, fontSize: 9, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 3 }}>
               🗂️ Layers <span style={{ fontSize: 7, opacity: 0.7 }}>▼</span>
             </button>
             {showLayerPanel && (
               <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 2, zIndex: 1000, background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", minWidth: 220, padding: "6px 0" }}
                 onMouseLeave={() => setShowLayerPanel(false)}>
-                <div style={{ padding: "4px 12px 6px", fontSize: 9, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", borderBottom: "1px solid #f0f3f5" }}>Map Layers</div>
+                <div style={{ padding: "4px 12px 6px", fontSize: 9, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", borderBottom: "1px solid #f0f3f5" }}>Map Layers</div>
                 {[
                   { key: "lots", state: showLots, set: () => setShowLots(!showLots), label: "Lot Boundaries", icon: "🏠", color: "#2980b9", data: lotsData },
                   { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), label: "Speed Limits", icon: "⚡", color: "#e67e22", data: speedRoadsData },
@@ -1274,29 +1275,29 @@ Respond with JSON only:
                   { key: "urban", state: showUrbanForest, set: () => setShowUrbanForest(!showUrbanForest), label: "Urban Forest", icon: "🌳", color: "#27ae60", data: null },
                   { key: "dpipes", state: showDrainagePipes, set: () => setShowDrainagePipes(!showDrainagePipes), label: "Drainage Pipes", icon: "💧", color: "#2980b9", data: null },
                   { key: "dpits", state: showDrainagePits, set: () => setShowDrainagePits(!showDrainagePits), label: "Drainage Pits", icon: "🕳️", color: "#8e44ad", data: null },
-                  { key: "water", state: showWaterPipes, set: () => setShowWaterPipes(!showWaterPipes), label: "Water Pipes", icon: "🚰", color: "#3498db", data: null },
+                  { key: "water", state: showWaterPipes, set: () => setShowWaterPipes(!showWaterPipes), label: "Water Pipes", icon: "🚰", color: T.c.info, data: null },
                 ].map(l => (
                   <div key={l.key} onClick={l.set}
                     style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11, transition: "background 0.1s" }}
                     onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                     <div style={{ width: 16, height: 16, borderRadius: 3, border: l.state ? `2px solid ${l.color}` : "1.5px solid #d5dde2", background: l.state ? `${l.color}20` : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {l.state && <span style={{ fontSize: 10, color: l.color, fontWeight: 700 }}>✓</span>}
+                      {l.state && <span style={{ fontSize: 10, color: l.color, fontWeight: T.w.bold }}>✓</span>}
                     </div>
                     <span style={{ fontSize: 12 }}>{l.icon}</span>
                     <span style={{ flex: 1, fontWeight: l.state ? 600 : 400, color: l.state ? l.color : "#5a6a74" }}>{l.label}</span>
-                    {l.data === null && !["urban", "dpipes", "dpits", "water"].includes(l.key) && <span style={{ fontSize: 8, color: "#c0392b", fontWeight: 600 }}>no data</span>}
+                    {l.data === null && !["urban", "dpipes", "dpits", "water"].includes(l.key) && <span style={{ fontSize: 8, color: "#c0392b", fontWeight: T.w.semi }}>no data</span>}
                   </div>
                 ))}
                 {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary) && (
                   <>
-                    <div style={{ height: 1, background: "#f0f3f5", margin: "4px 0" }} />
+                    <div style={{ height: 1, background: T.c.borderLight, margin: "4px 0" }} />
                     <div onClick={() => setShowBoundaries(!showBoundaries)}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11 }}
                       onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                       <div style={{ width: 16, height: 16, borderRadius: 3, border: showBoundaries ? "2px solid #8e44ad" : "1.5px solid #d5dde2", background: showBoundaries ? "#8e44ad20" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        {showBoundaries && <span style={{ fontSize: 10, color: "#8e44ad", fontWeight: 700 }}>✓</span>}
+                        {showBoundaries && <span style={{ fontSize: 10, color: "#8e44ad", fontWeight: T.w.bold }}>✓</span>}
                       </div>
                       <span style={{ fontSize: 12 }}>📐</span>
                       <span style={{ flex: 1, fontWeight: showBoundaries ? 600 : 400, color: showBoundaries ? "#8e44ad" : "#5a6a74" }}>Site Boundaries</span>
@@ -1309,24 +1310,24 @@ Respond with JSON only:
           <div style={{ width: 1, height: 16, background: "#e4e9ec", margin: "0 2px" }} />
           {/* Map tools */}
           {[
-            { key: "measure", label: "Measure", color: "#3498db" },
+            { key: "measure", label: "Measure", color: T.c.info },
             { key: "draw", label: "Annotate", color: "#6c5ce7" },
           ].map(t => (
             <button key={t.key} onClick={() => setMapTool(mapTool === t.key ? null : t.key)}
-              style={{ padding: "3px 7px", borderRadius: 4, border: mapTool === t.key ? `1.5px solid ${t.color}` : "1px solid #dce1e6", background: mapTool === t.key ? `${t.color}10` : "#fff", color: mapTool === t.key ? t.color : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
+              style={{ padding: "3px 7px", borderRadius: 4, border: mapTool === t.key ? `1.5px solid ${t.color}` : "1px solid #dce1e6", background: mapTool === t.key ? `${t.color}10` : "#fff", color: mapTool === t.key ? t.color : T.c.grey600, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
               {t.label}
             </button>
           ))}
         </div>
         <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
           <button onClick={() => setMapTool("zoomProperty")} title="Zoom to property"
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🎯 Property</button>
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: T.c.textSecondary, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🎯 Property</button>
           <button onClick={() => setMapTool("zoomExtent")} title="Zoom to full extent"
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🗺️ Extent</button>
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: T.c.textSecondary, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🗺️ Extent</button>
           <button onClick={() => setMapTool("print")} title="Export as image"
-            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🖨️ Print</button>
+            style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: T.c.textSecondary, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>🖨️ Print</button>
           <button onClick={() => setIsFullscreen(!isFullscreen)}
-            style={{ padding: "3px 7px", borderRadius: 4, border: isFullscreen ? "1.5px solid #1a3a4a" : "1px solid #dce1e6", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "3px 7px", borderRadius: 4, border: isFullscreen ? "1.5px solid #1a3a4a" : "1px solid #dce1e6", background: isFullscreen ? "#1a3a4a" : "#fff", color: isFullscreen ? "#fff" : T.c.grey600, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
             {isFullscreen ? "✕" : "⛶"}
           </button>
         </div>
@@ -1337,32 +1338,32 @@ Respond with JSON only:
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
-            <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a", letterSpacing: -0.3 }}>Sight Analysis</span>
-            {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>🛣️ {sightConfig.crossoverRoad}</span>}
-            {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
-            {sightConfig.constrainedSide && <span style={{ fontSize: 8, background: "#FFF3E0", color: "#E65100", padding: "2px 6px", borderRadius: 3, fontWeight: 700 }}>⚠ {sightConfig.constrainedSide} side</span>}
-            {!sightConfig.crossoverRoad && !sightTriangle && !sightConfig.missingData && <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>⚠ No site plan data — set x, y manually</span>}
+            <span style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text, letterSpacing: -0.3 }}>Sight Analysis</span>
+            {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>🛣️ {sightConfig.crossoverRoad}</span>}
+            {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
+            {sightConfig.constrainedSide && <span style={{ fontSize: 8, background: "#FFF3E0", color: "#E65100", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>⚠ {sightConfig.constrainedSide} side</span>}
+            {!sightConfig.crossoverRoad && !sightTriangle && !sightConfig.missingData && <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.semi }}>⚠ No site plan data — set x, y manually</span>}
             {sightConfig.missingData && (
-              <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>⚠ Missing: {sightConfig.missingData.join(", ")}</span>
+              <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.semi }}>⚠ Missing: {sightConfig.missingData.join(", ")}</span>
             )}
-            {sightConfig.autoDrawn && <span style={{ fontSize: 8, background: "#E8F5E9", color: "#2E7D32", padding: "2px 6px", borderRadius: 3, fontWeight: 600 }}>Auto-drawn</span>}
-            {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: "#a0aab0", fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
+            {sightConfig.autoDrawn && <span style={{ fontSize: 8, background: "#E8F5E9", color: "#2E7D32", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.semi }}>Auto-drawn</span>}
+            {sightConfig.isCorner && sightConfig.cornerSource && <span style={{ fontSize: 7, color: T.c.grey600, fontStyle: "italic" }}>{sightConfig.cornerSource === "ai_corrected" ? "officer verified" : sightConfig.cornerSource === "ai_original" ? "AI detected" : "auto-detected"}</span>}
             <div style={{ flex: 1 }} />
             {sightTriangle && !drawMode && !analysisRunning && (
               <>
-                <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: 700, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
+                <button onClick={run3DSightAnalysis} style={{ padding: "4px 10px", borderRadius: 5, border: "none", background: "linear-gradient(135deg, #6c3483, #8e44ad)", color: "#fff", fontWeight: T.w.bold, fontSize: 9, cursor: "pointer", boxShadow: "0 1px 3px rgba(108,52,131,0.3)" }}>3D Analysis</button>
                 {sightConfig.isCorner && !sightConfig.cornerR && (
                   <button onClick={() => { setSightPhase("corner_draw"); setMapTool("radius"); }}
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1.5px solid #e65100", background: "#fff", color: "#e65100", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>🔄 Add Curve</button>
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1.5px solid #e65100", background: "#fff", color: "#e65100", fontWeight: T.w.bold, fontSize: 9, cursor: "pointer" }}>🔄 Add Curve</button>
                 )}
                 {sightConfig.autoDrawn && (
                   <button onClick={() => { resetTriangle(); setSightConfig(c => ({ ...c, autoDrawn: false, missingData: null })); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: sightConfig.y || 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); setSightPhase("offset_road"); }}
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #7a8a94", background: "#fff", color: "#7a8a94", fontWeight: 700, fontSize: 9, cursor: "pointer" }}>Manual</button>
+                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #7a8a94", background: "#fff", color: T.c.textSecondary, fontWeight: T.w.bold, fontSize: 9, cursor: "pointer" }}>Manual</button>
                 )}
               </>
             )}
-            {analysisRunning && <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
-            <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Reset</button>
+            {analysisRunning && <span style={{ fontSize: 9, fontWeight: T.w.bold, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
+            <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Reset</button>
           </div>
           {/* Step cards */}
           <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
@@ -1370,42 +1371,42 @@ Respond with JSON only:
               <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightConfig.cornerR ? "#fff" : sightPhase === "corner_draw" ? "#fff" : "#f5f5f5",
                 border: sightConfig.cornerR ? "1.5px solid #27ae60" : sightPhase === "corner_draw" ? "1.5px solid #e65100" : "1px solid #e4e9ec",
                 opacity: sightConfig.cornerR || sightPhase === "corner_draw" ? 1 : 0.5 }}>
-                <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Road Curve</div>
+                <div style={{ fontSize: 8, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Road Curve</div>
                 {sightConfig.cornerR ? (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#27ae60" }}>R = {sightConfig.cornerR.toFixed(1)}m</div>
-                    <div style={{ fontSize: 9, color: "#e65100", fontWeight: 600 }}>Sight dist = {sightConfig.cornerV.toFixed(1)}m</div>
+                    <div style={{ fontSize: 11, fontWeight: T.w.black, color: "#27ae60" }}>R = {sightConfig.cornerR.toFixed(1)}m</div>
+                    <div style={{ fontSize: 9, color: "#e65100", fontWeight: T.w.semi }}>Sight dist = {sightConfig.cornerV.toFixed(1)}m</div>
                   </div>
                 ) : (
-                  <div style={{ fontSize: 10, color: "#e65100", fontWeight: 600 }}>Draw curve</div>
+                  <div style={{ fontSize: 10, color: "#e65100", fontWeight: T.w.semi }}>Draw curve</div>
                 )}
               </div>
             )}
             <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightTriangle ? "#fff" : (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "#fff" : "#f5f5f5",
               border: sightTriangle ? "1.5px solid #27ae60" : (sightPhase === "offset_road" || sightPhase === "offset_boundary") ? "1.5px solid #2e7d32" : "1px solid #e4e9ec",
               opacity: sightTriangle || sightPhase === "offset_road" || sightPhase === "offset_boundary" ? 1 : 0.5 }}>
-              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Point A Location</div>
+              <div style={{ fontSize: 8, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Point A Location</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
-                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>x</span>
+                  <span style={{ color: "#5a6a74", fontWeight: T.w.semi }}>x</span>
                   <input type="number" value={sightConfig.x} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, x: v})); setOffsetState(s => ({...s, x: v})); }} step="0.5" min="0"
-                    style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
-                  <span style={{ color: "#a0aab0", fontSize: 8 }}>kerb</span>
+                    style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: T.w.black, textAlign: "center", color: T.c.text }} />
+                  <span style={{ color: T.c.grey600, fontSize: 8 }}>kerb</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
-                  <span style={{ color: "#5a6a74", fontWeight: 600 }}>y</span>
+                  <span style={{ color: "#5a6a74", fontWeight: T.w.semi }}>y</span>
                   <input type="number" value={sightConfig.y} onChange={e => { const v = parseFloat(e.target.value)||0; setSightConfig(c => ({...c, y: v})); setOffsetState(s => ({...s, y: v})); }} step="0.5" min="0"
-                    style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
-                  <span style={{ color: "#a0aab0", fontSize: 8 }}>side</span>
+                    style={{ width: 34, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: T.w.black, textAlign: "center", color: T.c.text }} />
+                  <span style={{ color: T.c.grey600, fontSize: 8 }}>side</span>
                 </div>
               </div>
               {(sightConfig.leftBoundaryDist != null || sightConfig.rightBoundaryDist != null) ? (
-                <div style={{ marginTop: 3, fontSize: 8, color: "#7a8a94", lineHeight: 1.4 }}>
+                <div style={{ marginTop: 3, fontSize: 8, color: T.c.textSecondary, lineHeight: 1.4 }}>
                   {sightConfig.leftBoundaryDist != null && <div>L: {sightConfig.leftBoundaryDist.toFixed(1)}m{sightConfig.leftBoundaryFeature ? ` — ${sightConfig.leftBoundaryFeature}` : ''}</div>}
                   {sightConfig.rightBoundaryDist != null && <div>R: {sightConfig.rightBoundaryDist.toFixed(1)}m{sightConfig.rightBoundaryFeature ? ` — ${sightConfig.rightBoundaryFeature}` : ''}</div>}
                   {sightConfig.crossoverWidth && <div>Width: {sightConfig.crossoverWidth.toFixed(1)}m</div>}
                   {sightConfig.constrainedSide && sightConfig.crossoverWidth && (
-                    <div style={{ color: "#E65100", fontWeight: 600, marginTop: 1 }}>y = {(sightConfig.constrainedSide === "left" ? sightConfig.leftBoundaryDist : sightConfig.rightBoundaryDist)?.toFixed(1)} + {(0.5 * sightConfig.crossoverWidth).toFixed(1)} = {sightConfig.y.toFixed(1)}m</div>
+                    <div style={{ color: "#E65100", fontWeight: T.w.semi, marginTop: 1 }}>y = {(sightConfig.constrainedSide === "left" ? sightConfig.leftBoundaryDist : sightConfig.rightBoundaryDist)?.toFixed(1)} + {(0.5 * sightConfig.crossoverWidth).toFixed(1)} = {sightConfig.y.toFixed(1)}m</div>
                   )}
                 </div>
               ) : (
@@ -1417,10 +1418,10 @@ Respond with JSON only:
             </div>
             <div style={{ flex: 1, padding: "6px 10px", borderRadius: 6, background: sightTriangle ? "#fff" : "#f5f5f5",
               border: sightTriangle ? "1.5px solid #283593" : "1px solid #e4e9ec", opacity: sightTriangle ? 1 : 0.5 }}>
-              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Sight Area</div>
+              <div style={{ fontSize: 8, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Sight Area</div>
               {sightTriangle ? (
-                <div style={{ fontSize: 9, fontWeight: 600, color: "#283593" }}>
-                  <div><span style={{ fontWeight: 800 }}>{Math.round(sightTriangle.speedInfo?.detected)}km/h</span> <span style={{ color: "#7a8a94" }}>speed</span></div>
+                <div style={{ fontSize: 9, fontWeight: T.w.semi, color: "#283593" }}>
+                  <div><span style={{ fontWeight: T.w.black }}>{Math.round(sightTriangle.speedInfo?.detected)}km/h</span> <span style={{ color: T.c.textSecondary }}>speed</span></div>
                   <div style={{ fontSize: 8, color: "#5a6a74" }}>{sightTriangle.analysis?.leftDist}m + {sightTriangle.analysis?.rightDist}m = {sightTriangle.analysis?.baseWidth}m base</div>
                   {sightConfig.cornerR && <div style={{ fontSize: 8, color: "#e65100" }}>Sight dist: {sightConfig.cornerV?.toFixed(1)}m</div>}
                 </div>
@@ -1431,19 +1432,19 @@ Respond with JSON only:
 
             {/* Observer/Object heights */}
             <div style={{ padding: "6px 10px", borderRadius: 6, background: "#fff", border: "1px solid #e4e9ec" }}>
-              <div style={{ fontSize: 8, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Heights</div>
+              <div style={{ fontSize: 8, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>Heights</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
-                  <span style={{ color: "#e74c3c", fontWeight: 700 }}>👁</span>
+                  <span style={{ color: "#e74c3c", fontWeight: T.w.bold }}>👁</span>
                   <input type="number" value={eyeHeight} onChange={e => setEyeHeight(parseFloat(e.target.value) || 0)} min="0" max="5" step="0.05"
-                    style={{ width: 38, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
-                  <span style={{ color: "#a0aab0", fontSize: 8 }}>m</span>
+                    style={{ width: 38, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: T.w.black, textAlign: "center", color: T.c.text }} />
+                  <span style={{ color: T.c.grey600, fontSize: 8 }}>m</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10 }}>
-                  <span style={{ color: "#2980b9", fontWeight: 700 }}>◎</span>
+                  <span style={{ color: "#2980b9", fontWeight: T.w.bold }}>◎</span>
                   <input type="number" value={objectHeight} onChange={e => setObjectHeight(parseFloat(e.target.value) || 0)} min="0" max="5" step="0.05"
-                    style={{ width: 38, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: 800, textAlign: "center", color: "#1a3a4a" }} />
-                  <span style={{ color: "#a0aab0", fontSize: 8 }}>m</span>
+                    style={{ width: 38, padding: "2px 3px", borderRadius: 4, border: "1px solid #dce1e6", fontSize: 10, fontWeight: T.w.black, textAlign: "center", color: T.c.text }} />
+                  <span style={{ color: T.c.grey600, fontSize: 8 }}>m</span>
                 </div>
               </div>
             </div>
@@ -1454,16 +1455,16 @@ Respond with JSON only:
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#e65100", animation: "pulse 1.5s infinite" }} />
                 <span>Click 3+ points along the <b>kerb return curve</b></span>
-                {radiusResult && <span style={{ fontSize: 9, background: "#ff9800", color: "#fff", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>{radiusResult.split('·')[0].trim()}</span>}
+                {radiusResult && <span style={{ fontSize: 9, background: "#ff9800", color: "#fff", padding: "1px 6px", borderRadius: 10, fontWeight: T.w.bold }}>{radiusResult.split('·')[0].trim()}</span>}
                 {radiusResult && (
                   <button onClick={() => { if (radiusDoneRef.current) radiusDoneRef.current(); }}
-                    style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Done ✓</button>
+                    style={{ padding: "3px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer" }}>Done ✓</button>
                 )}
                 {radiusResult && (
                   <button onClick={() => { if (radiusClearRef.current) radiusClearRef.current(); setRadiusResult(null); }}
-                    style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#e65100", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Clear</button>
+                    style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#e65100", fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Clear</button>
                 )}
-                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Skip</button>
+                <button onClick={() => { setSightPhase("offset_road"); setSightConfig(c => ({...c, isCorner: false})); setOffsetState({ step: 0, road: null, boundary: null, x: sightConfig.x, y: sightConfig.y, isCorner: false, cornerR: null, cornerV: null }); setMapTool("offset"); }} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Skip</button>
               </div>
             )}
             {sightPhase === "corner_draw" && sightConfig.cornerR && (
@@ -1496,23 +1497,23 @@ Respond with JSON only:
         </div>
       ) : (
         <div style={{ padding: "6px 14px", borderBottom: "1px solid #e4e9ec", display: "flex", gap: 4, alignItems: "center" }}>
-          <button onClick={startSightAnalysis} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(26,58,74,0.25)" }}>Sight Analysis</button>
-          <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #dce1e6", background: "#fff", color: "#a0aab0", fontWeight: 600, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
+          <button onClick={startSightAnalysis} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(26,58,74,0.25)" }}>Sight Analysis</button>
+          <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
         </div>
       )}
       {/* Tool context bar */}
       {mapTool === "measure" && (
-        <div style={{ padding: "4px 12px", background: "#f0f7ff", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: "#3498db", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "4px 12px", background: "#f0f7ff", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: T.c.info, fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8 }}>
           <span>Click to measure distance · Double-click to start new</span>
-          {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: 700, fontSize: 9 }}>{measureDist}</span>}
-          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: "#3498db", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Done</button>
+          {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 9 }}>{measureDist}</span>}
+          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Done</button>
         </div>
       )}
       {mapTool === "draw" && (
-        <div style={{ padding: "4px 12px", background: "#f5f0ff", borderBottom: "1px solid #e0d5f0", fontSize: 10, color: "#6c5ce7", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "4px 12px", background: "#f5f0ff", borderBottom: "1px solid #e0d5f0", fontSize: 10, color: "#6c5ce7", fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8 }}>
           <span>Click to annotate · Double-click to break line · Right-click for label</span>
-          <button onClick={() => setMapTool("clearDraw")} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Clear</button>
-          <button onClick={() => setMapTool(null)} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Done</button>
+          <button onClick={() => setMapTool("clearDraw")} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Clear</button>
+          <button onClick={() => setMapTool(null)} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #6c5ce730", background: "#fff", color: "#6c5ce7", fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Done</button>
         </div>
       )}
 
@@ -1558,7 +1559,7 @@ Respond with JSON only:
             borderBottom: `2px solid ${sightTriangle.analysis.compliant ? "#27ae60" : "#e74c3c"}` }}>
             <span style={{ fontSize: 24 }}>{sightTriangle.analysis.compliant ? "✅" : "⚠️"}</span>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: sightTriangle.analysis.compliant ? "#1e8449" : "#c0392b" }}>
+              <div style={{ fontWeight: T.w.black, fontSize: 14, color: sightTriangle.analysis.compliant ? "#1e8449" : "#c0392b" }}>
                 Sight Triangle — {sightTriangle.analysis.compliant ? "COMPLIANT" : "REVIEW REQUIRED"}
               </div>
               <div style={{ fontSize: 11, color: sightTriangle.analysis.compliant ? "#27ae60" : "#922b21" }}>
@@ -1575,12 +1576,12 @@ Respond with JSON only:
               { label: "RIGHT (ssd)", value: sightTriangle.analysis.rightDist + "m", sub: sightTriangle.speedInfo?.ssdMin , color: "#8e44ad" },
               { label: "BASE", value: sightTriangle.analysis.baseWidth + "m", sub: "Asymmetric", color: "#16a085" },
               { label: "DEPTH A→B", value: sightTriangle.analysis.depth + "m", sub: "Driveway → road", color: "#e74c3c" },
-              { label: "AREA", value: sightTriangle.analysis.area + "m²", sub: "½ × base × depth", color: "#1a3a4a" },
+              { label: "AREA", value: sightTriangle.analysis.area + "m²", sub: "½ × base × depth", color: T.c.text },
             ].map(m => (
               <div key={m.label} style={{ flex: "1 1 85px", background: "#f8fafb", borderRadius: 8, padding: "8px 10px", minWidth: 85 }}>
-                <div style={{ fontSize: 9, color: "#7a8a94", fontWeight: 700 }}>{m.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
-                <div style={{ fontSize: 9, color: "#95a5a6" }}>{m.sub}</div>
+                <div style={{ fontSize: 9, color: T.c.textSecondary, fontWeight: T.w.bold }}>{m.label}</div>
+                <div style={{ fontSize: 18, fontWeight: T.w.black, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
+                <div style={{ fontSize: 9, color: T.c.textMuted }}>{m.sub}</div>
               </div>
             ))}
           </div> */}
@@ -1589,12 +1590,12 @@ Respond with JSON only:
           {/* <div style={{ padding: "0 16px 12px" }}>
               <div style={{
                   width: "100%",
-                  background: "#fef9e7",
+                  background: T.c.warningLight,
                   borderRadius: 8,
                   padding: "10px 14px",
                   border: "1px solid #f9e79f"
               }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#b8860b", marginBottom: 3 }}>
+                  <div style={{ fontSize: 10, fontWeight: T.w.bold, color: "#b8860b", marginBottom: 3 }}>
                       ▲ OBSTRUCTION 0.65–1.5m
                   </div>
                   <div style={{ fontSize: 12, color: "#7d6608", lineHeight: 1.5 }}>
@@ -1609,12 +1610,12 @@ Respond with JSON only:
 
           {/* Reference table */}
           <div style={{ padding: "0 16px 10px" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase" }}>Sight Distance Reference (Austroads / AS 2890.1)</div>
+            <div style={{ fontSize: 9, fontWeight: T.w.bold, color: T.c.textSecondary, marginBottom: 4, textTransform: "uppercase" }}>Sight Distance Reference (Austroads / AS 2890.1)</div>
             <div style={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
               {SIGHT_DISTANCE_TABLE.map(e => {
                 const cur = e.speed === sightTriangle.speedInfo?.detected;
                 return (
-                  <div key={e.speed} style={{ padding: "3px 6px", borderRadius: 3, fontSize: 9, fontWeight: 700, textAlign: "center", minWidth: 55,
+                  <div key={e.speed} style={{ padding: "3px 6px", borderRadius: 3, fontSize: 9, fontWeight: T.w.bold, textAlign: "center", minWidth: 55,
                     background: cur ? "#e74c3c" : "#f5f8fa", color: cur ? "#fff" : "#5a6a74", border: cur ? "2px solid #c0392b" : "1px solid #eef2f4" }}>
                     <div>{e.speed}km/h</div>
                     <div style={{ fontWeight: 400, fontSize: 8 }}>{e.abs_min/10}m | {e.ssd_min/10}m</div>
@@ -1665,11 +1666,11 @@ Respond with JSON only:
 
         return (
           <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#1a3a4a", marginBottom: 6, paddingLeft: 2 }}>Street View Sightlines</div>
+            <div style={{ fontSize: 11, fontWeight: T.w.black, color: T.c.text, marginBottom: 6, paddingLeft: 2 }}>Street View Sightlines</div>
             <div style={{ display: "grid", gridTemplateColumns: views.length <= 3 ? "1fr 1fr 1fr" : "1fr 1fr 1fr", gap: 8 }}>
               {views.map((v, i) => (
                 <div key={i} style={{ background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", overflow: "hidden" }}>
-                  <div style={{ padding: "5px 10px", borderBottom: "1px solid #eef2f4", fontSize: 9, fontWeight: 700, color: "#1a3a4a" }}>
+                  <div style={{ padding: "5px 10px", borderBottom: "1px solid #eef2f4", fontSize: 9, fontWeight: T.w.bold, color: T.c.text }}>
                     {v.label}
                   </div>
                   <div style={{ height: 180 }}>
@@ -1680,7 +1681,7 @@ Respond with JSON only:
                       title={v.label}
                     />
                   </div>
-                  <div style={{ padding: "3px 10px", fontSize: 8, color: "#a0aab0", borderTop: "1px solid #eef2f4" }}>
+                  <div style={{ padding: "3px 10px", fontSize: 8, color: T.c.grey600, borderTop: "1px solid #eef2f4" }}>
                     {v.desc}
                   </div>
                 </div>
@@ -1693,7 +1694,7 @@ Respond with JSON only:
       {/* ═══ 3D Analysis Processing Steps ═══ */}
       {analysisRunning && analysisSteps.length > 0 && (
         <div style={{ marginTop: 10, background: "#fff", borderRadius: 12, border: "1px solid #e4e9ec", padding: "14px 16px" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#8e44ad", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>🔬 3D Sight Analysis Processing</div>
+          <div style={{ fontSize: 10, fontWeight: T.w.bold, color: "#8e44ad", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>🔬 3D Sight Analysis Processing</div>
           {analysisSteps.map((step, i) => (
             <div key={i} style={{ padding: "2px 0", fontSize: 11, color: step.status === 'done' ? '#27ae60' : step.status === 'active' ? '#1a3a4a' : '#c8d0d4', fontWeight: step.status === 'active' ? 700 : 400, display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontSize: 10 }}>{step.status === 'done' ? '✓' : step.status === 'active' ? '◆' : '○'}</span>{step.text}
@@ -1709,16 +1710,16 @@ Respond with JSON only:
             background: `linear-gradient(135deg, ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).bg}, #fff)`,
             borderBottom: `2px solid ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color}` }}>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: "#1a3a4a" }}>🔬 3D Sight-Line Analysis</div>
+              <div style={{ fontWeight: T.w.black, fontSize: 14, color: T.c.text }}>🔬 3D Sight-Line Analysis</div>
               <div style={{ fontSize: 10, color: "#5a6a74", marginTop: 2 }}>
                 {sightTriangle?.speedInfo?.detected}km/h · {sightTriangle?.speedInfo?.roadName || '—'} | 👁 {analysisResult.eyeH}m | ◎ {analysisResult.tgtH}m | {analysisResult.mode === 'live' ? '● LIVE' : '○ Fallback'}
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ padding: "5px 12px", borderRadius: 16, fontSize: 11, fontWeight: 800, background: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color, border: `1px solid ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color}40` }}>
+              <span style={{ padding: "5px 12px", borderRadius: 16, fontSize: 11, fontWeight: T.w.black, background: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color, border: `1px solid ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color}40` }}>
                 {(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).label}
               </span>
-              <button onClick={reset3DAnalysis} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", color: "#95a5a6" }}>✕</button>
+              <button onClick={reset3DAnalysis} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", color: T.c.textMuted }}>✕</button>
             </div>
           </div>
 
@@ -1735,15 +1736,15 @@ Respond with JSON only:
               { label: "Δ", value: ((analysisResult.elevA + analysisResult.eyeH - (analysisResult.elevCD || 0)) >= 0 ? '+' : '') + (analysisResult.elevA + analysisResult.eyeH - (analysisResult.elevCD || 0)).toFixed(1) + "m", color: "#8e44ad" },
             ].map(m => (
               <div key={m.label} style={{ flex: "1 1 70px", background: "#f8fafb", borderRadius: 6, padding: "6px 8px", minWidth: 68 }}>
-                <div style={{ fontSize: 8, color: "#7a8a94", fontWeight: 700 }}>{m.label}</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
+                <div style={{ fontSize: 8, color: T.c.textSecondary, fontWeight: T.w.bold }}>{m.label}</div>
+                <div style={{ fontSize: 14, fontWeight: T.w.black, color: m.color, lineHeight: 1.2 }}>{m.value}</div>
               </div>
             ))}
           </div>
 
           {/* Methodology note */}
           <div style={{ padding: "8px 16px", background: "#f8f9fb", borderBottom: "1px solid #eef2f4" }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#7a8a94", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Analysis Methodology</div>
+            <div style={{ fontSize: 9, fontWeight: T.w.bold, color: T.c.textSecondary, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>Analysis Methodology</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 9, color: "#5a6a74", lineHeight: 1.5 }}>
               {[
                 { icon: "📡", label: "40 sight rays", desc: `from A to ${sightTriangle?.analysis?.baseWidth || '—'}m base (C→D), 25 samples each` },
@@ -1757,8 +1758,8 @@ Respond with JSON only:
                 <div key={i} style={{ flex: "1 1 180px", display: "flex", gap: 4, alignItems: "flex-start", padding: "3px 6px", background: "#fff", borderRadius: 4, border: "1px solid #eef2f4" }}>
                   <span style={{ fontSize: 11 }}>{item.icon}</span>
                   <div>
-                    <span style={{ fontWeight: 700, color: "#1a3a4a" }}>{item.label}</span>
-                    <span style={{ color: "#95a5a6", marginLeft: 3 }}>{item.desc}</span>
+                    <span style={{ fontWeight: T.w.bold, color: T.c.text }}>{item.label}</span>
+                    <span style={{ color: T.c.textMuted, marginLeft: 3 }}>{item.desc}</span>
                   </div>
                 </div>
               ))}
@@ -1769,7 +1770,7 @@ Respond with JSON only:
           <div style={{ display: "flex", gap: 1, borderBottom: "1px solid #e4e9ec", padding: "0 16px" }}>
             {[{ id: 'obstructions', label: '⚠ Obstruct.' }, { id: 'features', label: '▤ Features' }, { id: 'ai', label: '◈ AI' }].map(tab => (
               <button key={tab.id} onClick={() => setActiveAnalysisTab(tab.id)}
-                style={{ padding: "6px 12px", background: "none", border: "none", borderBottom: activeAnalysisTab === tab.id ? "2px solid #8e44ad" : "2px solid transparent", color: activeAnalysisTab === tab.id ? "#8e44ad" : "#7a8a94", fontSize: 10, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ padding: "6px 12px", background: "none", border: "none", borderBottom: activeAnalysisTab === tab.id ? "2px solid #8e44ad" : "2px solid transparent", color: activeAnalysisTab === tab.id ? "#8e44ad" : "#7a8a94", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
                 {tab.label}
               </button>
             ))}
@@ -1778,18 +1779,18 @@ Respond with JSON only:
           <div style={{ padding: "10px 16px", maxHeight: 260, overflowY: "auto" }}>
             {activeAnalysisTab === 'obstructions' && (
               analysisResult.obstructions?.length === 0
-                ? <div style={{ textAlign: "center", color: "#27ae60", padding: 12, fontSize: 11, fontWeight: 700 }}>Clear 3D line of sight ✓</div>
+                ? <div style={{ textAlign: "center", color: "#27ae60", padding: 12, fontSize: 11, fontWeight: T.w.bold }}>Clear 3D line of sight ✓</div>
                 : analysisResult.obstructions?.map((o, i) => {
                     const tc = { building: '#e07050', fence: '#f0c850', tree: '#00c090', wall: '#a090ff', hedge: '#50f0c0', terrain_ridge: '#ff4757' };
                     return (
                       <div key={i} style={{ padding: "6px 0", borderBottom: "1px solid #f0f3f5", fontSize: 11 }}>
-                        <div style={{ fontWeight: 700, color: tc[o.feature.type] || '#5a6a74' }}>{o.blockType === 'terrain' ? '▲ TERRAIN' : o.feature.type.toUpperCase()}: {o.feature.name}</div>
+                        <div style={{ fontWeight: T.w.bold, color: tc[o.feature.type] || '#5a6a74' }}>{o.blockType === 'terrain' ? '▲ TERRAIN' : o.feature.type.toUpperCase()}: {o.feature.name}</div>
                         <div style={{ display: "flex", gap: 5, marginTop: 2, flexWrap: "wrap", fontSize: 10 }}>
-                          <span style={{ padding: "1px 5px", borderRadius: 3, background: o.isCritical ? "#fdf2f2" : "#f5f8fa", color: o.isCritical ? "#e74c3c" : "#5a6a74", fontWeight: 700 }}>{o.feature.estimatedHeight?.toFixed(1)}m</span>
-                          <span style={{ color: "#95a5a6" }}>gnd {o.fGroundElev?.toFixed(1)}m</span>
-                          <span style={{ color: "#95a5a6" }}>top {o.fTopAlt?.toFixed(1)}m</span>
-                          <span style={{ color: "#e74c3c", fontWeight: 700 }}>+{o.excessHeight?.toFixed(2)}m</span>
-                          {o.isCritical && <span style={{ color: "#e74c3c", fontWeight: 700 }}>⚠ 0.5-1.0m</span>}
+                          <span style={{ padding: "1px 5px", borderRadius: 3, background: o.isCritical ? "#fdf2f2" : "#f5f8fa", color: o.isCritical ? "#e74c3c" : "#5a6a74", fontWeight: T.w.bold }}>{o.feature.estimatedHeight?.toFixed(1)}m</span>
+                          <span style={{ color: T.c.textMuted }}>gnd {o.fGroundElev?.toFixed(1)}m</span>
+                          <span style={{ color: T.c.textMuted }}>top {o.fTopAlt?.toFixed(1)}m</span>
+                          <span style={{ color: "#e74c3c", fontWeight: T.w.bold }}>+{o.excessHeight?.toFixed(2)}m</span>
+                          {o.isCritical && <span style={{ color: "#e74c3c", fontWeight: T.w.bold }}>⚠ 0.5-1.0m</span>}
                         </div>
                       </div>
                     );
@@ -1797,15 +1798,15 @@ Respond with JSON only:
             )}
             {activeAnalysisTab === 'features' && (
               <div>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#7a8a94", marginBottom: 4 }}>{analysisResult.feats?.length || 0} Features</div>
+                <div style={{ fontSize: 10, fontWeight: T.w.bold, color: T.c.textSecondary, marginBottom: 4 }}>{analysisResult.feats?.length || 0} Features</div>
                 {(analysisResult.feats || []).slice(0, 25).map((f, i) => {
                   const tc = { building: '#e07050', fence: '#f0c850', tree: '#00c090', wall: '#a090ff', hedge: '#50f0c0', vegetation: '#00d0c8' };
                   return (
                     <div key={i} style={{ padding: "3px 0", borderBottom: "1px solid #f0f3f5", fontSize: 10 }}>
-                      <span style={{ fontWeight: 700, color: tc[f.type] || '#5a6a74' }}>{f.type}</span>
-                      <span style={{ color: "#7a8a94", marginLeft: 4 }}>{f.name}</span>
-                      <span style={{ marginLeft: 4, padding: "1px 4px", borderRadius: 3, background: "#f5f8fa", color: "#5a6a74", fontWeight: 700 }}>{f.estimatedHeight.toFixed(1)}m</span>
-                      <span style={{ color: "#95a5a6", marginLeft: 3 }}>gnd {f.groundElev?.toFixed(1)}m</span>
+                      <span style={{ fontWeight: T.w.bold, color: tc[f.type] || '#5a6a74' }}>{f.type}</span>
+                      <span style={{ color: T.c.textSecondary, marginLeft: 4 }}>{f.name}</span>
+                      <span style={{ marginLeft: 4, padding: "1px 4px", borderRadius: 3, background: "#f5f8fa", color: "#5a6a74", fontWeight: T.w.bold }}>{f.estimatedHeight.toFixed(1)}m</span>
+                      <span style={{ color: T.c.textMuted, marginLeft: 3 }}>gnd {f.groundElev?.toFixed(1)}m</span>
                     </div>
                   );
                 })}
@@ -1814,43 +1815,43 @@ Respond with JSON only:
             {activeAnalysisTab === 'ai' && analysisResult.ai && (
               <div>
                 <div style={{ marginBottom: 8 }}>
-                  <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: 700, background: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).color }}>
+                  <span style={{ padding: "3px 10px", borderRadius: 12, fontSize: 10, fontWeight: T.w.bold, background: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai.overall_rating] || ratingMap3D.BLOCKED).color }}>
                     {analysisResult.ai.overall_rating?.replace(/_/g, ' ')}
                   </span>
-                  <span style={{ marginLeft: 8, fontSize: 10, color: "#95a5a6" }}>Visibility: {analysisResult.ai.visibility_pct}%</span>
+                  <span style={{ marginLeft: 8, fontSize: 10, color: T.c.textMuted }}>Visibility: {analysisResult.ai.visibility_pct}%</span>
                 </div>
-                <div style={{ fontSize: 11, lineHeight: 1.6, color: "#1a3a4a", marginBottom: 10 }}>{analysisResult.ai.analysis_summary}</div>
+                <div style={{ fontSize: 11, lineHeight: 1.6, color: T.c.text, marginBottom: 10 }}>{analysisResult.ai.analysis_summary}</div>
 
                 {/* Imagery-based findings */}
                 {analysisResult.ai.satellite_findings && analysisResult.ai.satellite_findings !== "Imagery analysis unavailable — using geospatial data only." && (
-                  <div style={{ background: "#ebf5fb", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #2980b920" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: "#2980b9", marginBottom: 3, textTransform: "uppercase" }}>🛰️ Satellite Imagery Analysis</div>
-                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.satellite_findings}</div>
+                  <div style={{ background: T.c.infoLight, borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #2980b920" }}>
+                    <div style={{ fontSize: 9, fontWeight: T.w.black, color: "#2980b9", marginBottom: 3, textTransform: "uppercase" }}>🛰️ Satellite Imagery Analysis</div>
+                    <div style={{ fontSize: 10, color: T.c.text, lineHeight: 1.6 }}>{analysisResult.ai.satellite_findings}</div>
                   </div>
                 )}
                 {analysisResult.ai.streetview_findings && analysisResult.ai.streetview_findings !== "Street view analysis unavailable." && (
                   <div style={{ background: "#fef5e7", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #e67e2220" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: "#e67e22", marginBottom: 3, textTransform: "uppercase" }}>🚗 Street View Analysis</div>
-                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.streetview_findings}</div>
+                    <div style={{ fontSize: 9, fontWeight: T.w.black, color: "#e67e22", marginBottom: 3, textTransform: "uppercase" }}>🚗 Street View Analysis</div>
+                    <div style={{ fontSize: 10, color: T.c.text, lineHeight: 1.6 }}>{analysisResult.ai.streetview_findings}</div>
                   </div>
                 )}
                 {analysisResult.ai.vegetation_assessment && (
-                  <div style={{ background: "#eafaf1", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #27ae6020" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: "#27ae60", marginBottom: 3, textTransform: "uppercase" }}>🌳 Vegetation Assessment</div>
-                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.vegetation_assessment}</div>
+                  <div style={{ background: T.c.successLight, borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #27ae6020" }}>
+                    <div style={{ fontSize: 9, fontWeight: T.w.black, color: "#27ae60", marginBottom: 3, textTransform: "uppercase" }}>🌳 Vegetation Assessment</div>
+                    <div style={{ fontSize: 10, color: T.c.text, lineHeight: 1.6 }}>{analysisResult.ai.vegetation_assessment}</div>
                   </div>
                 )}
                 {analysisResult.ai.infrastructure_assessment && (
                   <div style={{ background: "#f4ecf7", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #8e44ad20" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: "#8e44ad", marginBottom: 3, textTransform: "uppercase" }}>🧱 Infrastructure Assessment</div>
-                    <div style={{ fontSize: 10, color: "#1a3a4a", lineHeight: 1.6 }}>{analysisResult.ai.infrastructure_assessment}</div>
+                    <div style={{ fontSize: 9, fontWeight: T.w.black, color: "#8e44ad", marginBottom: 3, textTransform: "uppercase" }}>🧱 Infrastructure Assessment</div>
+                    <div style={{ fontSize: 10, color: T.c.text, lineHeight: 1.6 }}>{analysisResult.ai.infrastructure_assessment}</div>
                   </div>
                 )}
 
                 {/* AI-detected road crossings */}
                 {analysisResult.ai.nearby_crossings?.length > 0 && (
-                  <div style={{ background: "#fdedec", borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #e74c3c20" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, color: "#e74c3c", marginBottom: 6, textTransform: "uppercase" }}>🚦 Road Crossings & Junctions within 30m</div>
+                  <div style={{ background: T.c.dangerLight, borderRadius: 8, padding: "8px 12px", marginBottom: 8, border: "1px solid #e74c3c20" }}>
+                    <div style={{ fontSize: 9, fontWeight: T.w.black, color: "#e74c3c", marginBottom: 6, textTransform: "uppercase" }}>🚦 Road Crossings & Junctions within 30m</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {analysisResult.ai.nearby_crossings.map((c, i) => {
                         const icons = { pedestrian_crossing: "🚶", intersection: "🔀", stop_sign: "🛑", give_way: "🔺", traffic_signals: "🚦", driveway: "🚗", roundabout: "🔄" };
@@ -1859,10 +1860,10 @@ Respond with JSON only:
                           <div key={i} style={{ flex: "1 1 140px", padding: "6px 10px", borderRadius: 6, background: d < 10 ? "#fce4e4" : d < 20 ? "#fef5e7" : "#fff", border: `1px solid ${d < 10 ? "#e74c3c40" : "#e4e9ec"}` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                               <span style={{ fontSize: 13 }}>{icons[c.type] || "📍"}</span>
-                              <span style={{ fontSize: 10, fontWeight: 700, color: "#1a3a4a" }}>{c.name}</span>
+                              <span style={{ fontSize: 10, fontWeight: T.w.bold, color: T.c.text }}>{c.name}</span>
                             </div>
-                            <div style={{ fontSize: 15, fontWeight: 800, color: d < 15 ? "#e74c3c" : "#e67e22", marginTop: 2 }}>~{d}m</div>
-                            {c.impact && <div style={{ fontSize: 9, color: "#7a8a94", marginTop: 1 }}>{c.impact}</div>}
+                            <div style={{ fontSize: 15, fontWeight: T.w.black, color: d < 15 ? "#e74c3c" : "#e67e22", marginTop: 2 }}>~{d}m</div>
+                            {c.impact && <div style={{ fontSize: 9, color: T.c.textSecondary, marginTop: 1 }}>{c.impact}</div>}
                           </div>
                         );
                       })}
@@ -1873,29 +1874,29 @@ Respond with JSON only:
                   </div>
                 )}
                 {analysisResult.ai.nearby_crossings && analysisResult.ai.nearby_crossings.length === 0 && (
-                  <div style={{ background: "#eafaf1", borderRadius: 8, padding: "6px 12px", marginBottom: 8, border: "1px solid #27ae6020", fontSize: 10, color: "#27ae60", fontWeight: 600 }}>
+                  <div style={{ background: T.c.successLight, borderRadius: 8, padding: "6px 12px", marginBottom: 8, border: "1px solid #27ae6020", fontSize: 10, color: "#27ae60", fontWeight: T.w.semi }}>
                     ✓ No road crossings or junctions detected within 30m of driveway
                   </div>
                 )}
 
                 {analysisResult.ai.critical_low_obstructions?.length > 0 && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#e67e22", marginBottom: 3 }}>⚠ CRITICAL LOW (0.5–1.0m)</div>
+                    <div style={{ fontSize: 9, fontWeight: T.w.bold, color: "#e67e22", marginBottom: 3 }}>⚠ CRITICAL LOW (0.5–1.0m)</div>
                     {analysisResult.ai.critical_low_obstructions.map((c, i) => (
                       <div key={i} style={{ fontSize: 10, padding: "3px 0", borderBottom: "1px solid #f0f3f5" }}>
-                        <strong style={{ color: "#e67e22" }}>{c.name}</strong> — <span style={{ color: "#7a8a94" }}>{c.height_range} · {c.impact}</span>
+                        <strong style={{ color: "#e67e22" }}>{c.name}</strong> — <span style={{ color: T.c.textSecondary }}>{c.height_range} · {c.impact}</span>
                       </div>
                     ))}
                   </div>
                 )}
                 {analysisResult.ai.elevation_insight && (
-                  <div style={{ background: "#f0f3f5", borderRadius: 6, padding: "8px 12px", marginBottom: 8, fontSize: 10, color: "#5a6a74", border: "1px solid #e4e9ec" }}>▲ {analysisResult.ai.elevation_insight}</div>
+                  <div style={{ background: T.c.borderLight, borderRadius: 6, padding: "8px 12px", marginBottom: 8, fontSize: 10, color: "#5a6a74", border: "1px solid #e4e9ec" }}>▲ {analysisResult.ai.elevation_insight}</div>
                 )}
                 {analysisResult.ai.recommendations?.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#1abc9c", marginBottom: 3 }}>Recommendations</div>
+                    <div style={{ fontSize: 9, fontWeight: T.w.bold, color: "#1abc9c", marginBottom: 3 }}>Recommendations</div>
                     {analysisResult.ai.recommendations.map((r, i) => (
-                      <div key={i} style={{ fontSize: 10, padding: "2px 0", lineHeight: 1.5, color: "#1a3a4a" }}><span style={{ color: "#1abc9c", fontWeight: 700, marginRight: 3 }}>{i + 1}.</span>{r}</div>
+                      <div key={i} style={{ fontSize: 10, padding: "2px 0", lineHeight: 1.5, color: T.c.text }}><span style={{ color: "#1abc9c", fontWeight: T.w.bold, marginRight: 3 }}>{i + 1}.</span>{r}</div>
                     ))}
                   </div>
                 )}

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { STATUS_CONFIG } from '../data/constants';
 import StatusBadge from '../components/ui/StatusBadge';
+import { T, S, cx } from '../styles/tokens';
 
 const daysBetween = (d1, d2) => Math.max(0, Math.round((d2 - d1) / 86400000));
 const parseDate = (s) => s ? new Date(s) : null;
@@ -12,7 +13,7 @@ const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov
 // ─── SVG Charts ──────────────────────────────────────────
 function Donut({ segments, size = 150, label }) {
   const total = segments.reduce((s, g) => s + g.value, 0);
-  if (!total) return <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", color: "#bdc3c7", fontSize: 11 }}>No data</div>;
+  if (!total) return <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", color: T.c.grey400, fontSize: 11 }}>No data</div>;
   let cum = 0;
   const r = size / 2 - 14;
   const circ = 2 * Math.PI * r;
@@ -25,8 +26,8 @@ function Donut({ segments, size = 150, label }) {
           return <circle key={i} cx={size/2} cy={size/2} r={r} fill="none" stroke={seg.color} strokeWidth={18} strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-offset} style={{ transition: "stroke-dasharray 0.5s ease" }} />;
         })}
       </g>
-      <text x={size/2} y={size/2 - 6} textAnchor="middle" style={{ fontSize: 28, fontWeight: 800, fill: "#1a3a4a" }}>{total}</text>
-      {label && <text x={size/2} y={size/2 + 14} textAnchor="middle" style={{ fontSize: 9, fill: "#95a5a6", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>{label}</text>}
+      <text x={size/2} y={size/2 - 6} textAnchor="middle" style={{ fontSize: 28, fontWeight: T.w.black, fill: "#1a3a4a" }}>{total}</text>
+      {label && <text x={size/2} y={size/2 + 14} textAnchor="middle" style={{ fontSize: 9, fill: "#95a5a6", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: T.w.semi }}>{label}</text>}
     </svg>
   );
 }
@@ -42,10 +43,10 @@ function GaugeArc({ value, max, target, size = 110, color, label }) {
   return (
     <div style={{ textAlign: "center" }}>
       <svg width={size} height={size / 2 + 20} viewBox={`0 0 ${size} ${size / 2 + 20}`}>
-        <path d={`M ${size/2 - r},${size/2} A ${r},${r} 0 0,1 ${size/2 + r},${size/2}`} fill="none" stroke="#eef2f4" strokeWidth={12} strokeLinecap="round" />
+        <path d={`M ${size/2 - r},${size/2} A ${r},${r} 0 0,1 ${size/2 + r},${size/2}`} fill="none" stroke={T.c.borderLight} strokeWidth={12} strokeLinecap="round" />
         {angle > 0 && <path d={`M ${size/2 - r},${size/2} A ${r},${r} 0 ${angle > 90 ? 1 : 0},1 ${arc(angle)}`} fill="none" stroke={color} strokeWidth={12} strokeLinecap="round" style={{ transition: "d 0.5s ease" }} />}
-        <text x={size/2} y={size/2 - 4} textAnchor="middle" style={{ fontSize: 20, fontWeight: 800, fill: "#1a3a4a" }}>{value}{typeof max === "number" && max <= 100 ? "%" : ""}</text>
-        <text x={size/2} y={size/2 + 12} textAnchor="middle" style={{ fontSize: 8, fill: "#95a5a6", fontWeight: 600, textTransform: "uppercase" }}>{label}</text>
+        <text x={size/2} y={size/2 - 4} textAnchor="middle" style={{ fontSize: 20, fontWeight: T.w.black, fill: "#1a3a4a" }}>{value}{typeof max === "number" && max <= 100 ? "%" : ""}</text>
+        <text x={size/2} y={size/2 + 12} textAnchor="middle" style={{ fontSize: 8, fill: "#95a5a6", fontWeight: T.w.semi, textTransform: "uppercase" }}>{label}</text>
       </svg>
     </div>
   );
@@ -66,10 +67,10 @@ function HBar({ label, value, max, color, sub }) {
   const p = max > 0 ? (value / max) * 100 : 0;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-      <span style={{ fontSize: 11, color: "#5a6a74", width: 90, textAlign: "right", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
-      <div style={{ flex: 1, height: 20, background: "#f0f3f5", borderRadius: 5, overflow: "hidden", position: "relative" }}>
+      <span style={{ fontSize: 11, color: T.c.grey800, width: 90, textAlign: "right", fontWeight: T.w.semi, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
+      <div style={{ flex: 1, height: 20, background: T.c.borderLight, borderRadius: 5, overflow: "hidden", position: "relative" }}>
         <div style={{ width: `${p}%`, height: "100%", background: `linear-gradient(90deg, ${color}, ${color}bb)`, borderRadius: 5, transition: "width 0.4s" }} />
-        <span style={{ position: "absolute", right: 8, top: 2, fontSize: 10, fontWeight: 700, color: p > 50 ? "#fff" : "#5a6a74" }}>{value}{sub ? ` ${sub}` : ""}</span>
+        <span style={{ position: "absolute", right: 8, top: 2, fontSize: 10, fontWeight: T.w.bold, color: p > 50 ? "#fff" : "#5a6a74" }}>{value}{sub ? ` ${sub}` : ""}</span>
       </div>
     </div>
   );
@@ -77,14 +78,14 @@ function HBar({ label, value, max, color, sub }) {
 
 // ─── Layout Primitives ───────────────────────────────────
 const Card = ({ children, title, icon, sub, span = 1, style = {}, headerRight }) => (
-  <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e4e9ec", overflow: "hidden", gridColumn: `span ${span}`, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", ...style }}>
+  <div style={{ background: T.c.card, borderRadius: 16, border: `1px solid ${T.c.border}`, overflow: "hidden", gridColumn: `span ${span}`, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", ...style }}>
     {title && (
-      <div style={{ padding: "14px 20px", borderBottom: "1px solid #eef2f4", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ padding: "14px 20px", borderBottom: `1px solid ${T.c.borderLight}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
           <div>
-            <span style={{ fontWeight: 800, fontSize: 13, color: "#1a3a4a", letterSpacing: "-0.01em" }}>{title}</span>
-            {sub && <div style={{ fontSize: 9, color: "#95a5a6", marginTop: 1 }}>{sub}</div>}
+            <span style={{ fontWeight: T.w.black, fontSize: 13, color: T.c.text, letterSpacing: "-0.01em" }}>{title}</span>
+            {sub && <div style={{ fontSize: 9, color: T.c.textMuted, marginTop: 1 }}>{sub}</div>}
           </div>
         </div>
         {headerRight}
@@ -95,14 +96,14 @@ const Card = ({ children, title, icon, sub, span = 1, style = {}, headerRight })
 );
 
 const BigKPI = ({ label, value, sub, color, icon, trend }) => (
-  <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e4e9ec", padding: "20px 22px", flex: 1, minWidth: 155, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", position: "relative", overflow: "hidden" }}>
+  <div style={{ background: T.c.card, borderRadius: 16, border: `1px solid ${T.c.border}`, padding: "20px 22px", flex: 1, minWidth: 155, boxShadow: "0 1px 3px rgba(0,0,0,0.04)", position: "relative", overflow: "hidden" }}>
     <div style={{ position: "absolute", top: -8, right: -8, width: 60, height: 60, borderRadius: "50%", background: `${color}08` }} />
-    <div style={{ fontSize: 10, color: "#7a8a94", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</div>
+    <div style={{ fontSize: 10, color: T.c.textSecondary, fontWeight: T.w.bold, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</div>
     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-      <span style={{ fontSize: 32, fontWeight: 800, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</span>
-      {trend && <span style={{ fontSize: 11, fontWeight: 700, color: trend.startsWith("+") || trend.startsWith("↑") ? "#27ae60" : trend.startsWith("-") || trend.startsWith("↓") ? "#e74c3c" : "#95a5a6" }}>{trend}</span>}
+      <span style={{ fontSize: 32, fontWeight: T.w.black, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</span>
+      {trend && <span style={{ fontSize: 11, fontWeight: T.w.bold, color: trend.startsWith("+") || trend.startsWith("↑") ? "#27ae60" : trend.startsWith("-") || trend.startsWith("↓") ? "#e74c3c" : "#95a5a6" }}>{trend}</span>}
     </div>
-    {sub && <div style={{ fontSize: 10, color: "#95a5a6", marginTop: 4 }}>{sub}</div>}
+    {sub && <div style={{ fontSize: 10, color: T.c.textMuted, marginTop: 4 }}>{sub}</div>}
   </div>
 );
 
@@ -181,7 +182,7 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
   const pageData = tableData.slice(page * PAGE_SIZE, (page+1) * PAGE_SIZE);
   const toggleSort = (c) => { if (sortCol===c) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(c); setSortDir("asc"); } };
   const sortArrow = (c) => sortCol===c ? (sortDir==="asc"?" ▲":" ▼") : "";
-  const SlaBadge = ({ sla }) => { const c = { on_track:{l:"On Track",c:"#27ae60",b:"#eafaf1"}, monitor:{l:"Monitor",c:"#3498db",b:"#ebf5fb"}, at_risk:{l:"At Risk",c:"#e67e22",b:"#fef5e7"}, overdue:{l:"Overdue",c:"#e74c3c",b:"#fdedec"} }[sla]||{l:sla,c:"#95a5a6",b:"#f0f3f5"}; return <span style={{padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,background:c.b,color:c.c}}>{c.l}</span>; };
+  const SlaBadge = ({ sla }) => { const c = { on_track:{l:"On Track",c:"#27ae60",b:"#eafaf1"}, monitor:{l:"Monitor",c:"#3498db",b:"#ebf5fb"}, at_risk:{l:"At Risk",c:"#e67e22",b:"#fef5e7"}, overdue:{l:"Overdue",c:"#e74c3c",b:"#fdedec"} }[sla]||{l:sla,c:"#95a5a6",b:T.c.borderLight}; return <span style={{padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,background:c.b,color:c.c}}>{c.l}</span>; };
 
   const exportCSV = () => {
     const h = ["ID","Applicant","Address","Status","Assigned To","Days Open","SLA","Submitted"];
@@ -198,13 +199,13 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
       <div style={{ marginBottom: 24, borderBottom: "2px solid #e4e9ec", paddingBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 800, color: "#1abc9c", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{orgName}</div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#1a3a4a", margin: 0, letterSpacing: "-0.02em" }}>Crossover Management</h1>
-            <h2 style={{ fontSize: 16, fontWeight: 400, color: "#7a8a94", margin: "2px 0 0" }}>Executive Performance Dashboard</h2>
+            <div style={{ fontSize: 10, fontWeight: T.w.black, color: "#1abc9c", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{orgName}</div>
+            <h1 style={{ fontSize: 26, fontWeight: T.w.black, color: T.c.text, margin: 0, letterSpacing: "-0.02em" }}>Crossover Management</h1>
+            <h2 style={{ fontSize: 16, fontWeight: 400, color: T.c.textSecondary, margin: "2px 0 0" }}>Executive Performance Dashboard</h2>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3a4a" }}>{new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}</div>
-            <div style={{ fontSize: 10, color: "#95a5a6" }}>Data as of today · Auto-refreshed</div>
+            <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.text }}>{new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}</div>
+            <div style={{ fontSize: 10, color: T.c.textMuted }}>Data as of today · Auto-refreshed</div>
           </div>
         </div>
       </div>
@@ -227,9 +228,9 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
               {donutSegs.map((s, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, color: "#5a6a74", flex: 1 }}>{s.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#1a3a4a" }}>{s.value}</span>
-                  <span style={{ fontSize: 9, color: "#95a5a6" }}>{pct(s.value, stats.total)}%</span>
+                  <span style={{ fontSize: 11, color: T.c.grey800, flex: 1 }}>{s.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text }}>{s.value}</span>
+                  <span style={{ fontSize: 9, color: T.c.textMuted }}>{pct(s.value, stats.total)}%</span>
                 </div>
               ))}
             </div>
@@ -241,26 +242,26 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
             <GaugeArc value={stats.slaRate} max={100} target={80} size={100} color={stats.slaRate >= 80 ? "#27ae60" : "#e67e22"} label="SLA %" />
             <GaugeArc value={stats.approvalRate} max={100} target={90} size={100} color="#2980b9" label="Approval %" />
           </div>
-          <div style={{ textAlign: "center", fontSize: 9, color: "#95a5a6", marginTop: 8 }}>SLA target: 80% within 21 days · Approval benchmark: 90%</div>
+          <div style={{ textAlign: "center", fontSize: 9, color: T.c.textMuted, marginTop: 8 }}>SLA target: 80% within 21 days · Approval benchmark: 90%</div>
         </Card>
 
         <Card title="Capacity & Backlog" icon="⚡" sub="Resource utilisation">
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: stats.unassigned > 3 ? "#fdedec" : "#f8fafb", borderRadius: 8, border: `1px solid ${stats.unassigned > 3 ? "#e74c3c20" : "#eef2f4"}` }}>
-              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Unassigned</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: stats.unassigned > 3 ? "#e74c3c" : "#1a3a4a" }}>{stats.unassigned}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: stats.unassigned > 3 ? "#fdedec" : "#f8fafb", borderRadius: T.r.md, border: `1px solid ${stats.unassigned > 3 ? "#e74c3c20" : T.c.borderLight}` }}>
+              <span style={{ fontSize: 11, color: T.c.grey800, fontWeight: T.w.semi }}>Unassigned</span>
+              <span style={{ fontSize: 14, fontWeight: T.w.black, color: stats.unassigned > 3 ? "#e74c3c" : "#1a3a4a" }}>{stats.unassigned}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafb", borderRadius: 8, border: "1px solid #eef2f4" }}>
-              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Pending Review</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: stats.pending > 5 ? "#e67e22" : "#1a3a4a" }}>{stats.pending}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: T.c.bgAlt, borderRadius: T.r.md, border: "1px solid #eef2f4" }}>
+              <span style={{ fontSize: 11, color: T.c.grey800, fontWeight: T.w.semi }}>Pending Review</span>
+              <span style={{ fontSize: 14, fontWeight: T.w.black, color: stats.pending > 5 ? "#e67e22" : "#1a3a4a" }}>{stats.pending}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafb", borderRadius: 8, border: "1px solid #eef2f4" }}>
-              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Active Officers</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: "#1a3a4a" }}>{Object.keys(stats.officers).filter(k => k !== "Unassigned").length}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: T.c.bgAlt, borderRadius: T.r.md, border: "1px solid #eef2f4" }}>
+              <span style={{ fontSize: 11, color: T.c.grey800, fontWeight: T.w.semi }}>Active Officers</span>
+              <span style={{ fontSize: 14, fontWeight: T.w.black, color: T.c.text }}>{Object.keys(stats.officers).filter(k => k !== "Unassigned").length}</span>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: "#f8fafb", borderRadius: 8, border: "1px solid #eef2f4" }}>
-              <span style={{ fontSize: 11, color: "#5a6a74", fontWeight: 600 }}>Avg per Officer</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: "#1a3a4a" }}>{(() => { const offs = Object.entries(stats.officers).filter(([k]) => k!=="Unassigned"); return offs.length ? Math.round(offs.reduce((s,[,v])=>s+v,0)/offs.length) : 0; })()}</span>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: T.c.bgAlt, borderRadius: T.r.md, border: "1px solid #eef2f4" }}>
+              <span style={{ fontSize: 11, color: T.c.grey800, fontWeight: T.w.semi }}>Avg per Officer</span>
+              <span style={{ fontSize: 14, fontWeight: T.w.black, color: T.c.text }}>{(() => { const offs = Object.entries(stats.officers).filter(([k]) => k!=="Unassigned"); return offs.length ? Math.round(offs.reduce((s,[,v])=>s+v,0)/offs.length) : 0; })()}</span>
             </div>
           </div>
         </Card>
@@ -280,14 +281,14 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
                     <div title={`Submitted: ${sub}`} style={{ width: 12, height: `${(sub/max)*120}px`, background: "linear-gradient(180deg,#2980b9,#3498db)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
                     <div title={`Completed: ${comp}`} style={{ width: 12, height: `${(comp/max)*120}px`, background: "linear-gradient(180deg,#27ae60,#2ecc71)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
                   </div>
-                  <span style={{ fontSize: 7, color: "#95a5a6", whiteSpace: "nowrap" }}>{monthLabels[i]}</span>
+                  <span style={{ fontSize: 7, color: T.c.textMuted, whiteSpace: "nowrap" }}>{monthLabels[i]}</span>
                 </div>
               );
             })}
           </div>
           <div style={{ display: "flex", gap: 20, justifyContent: "center", marginTop: 10, fontSize: 10 }}>
-            <span style={{ color: "#2980b9", fontWeight: 700 }}>■ Submitted</span>
-            <span style={{ color: "#27ae60", fontWeight: 700 }}>■ Completed</span>
+            <span style={{ color: T.c.info, fontWeight: T.w.bold }}>■ Submitted</span>
+            <span style={{ color: T.c.success, fontWeight: T.w.bold }}>■ Completed</span>
           </div>
         </Card>
 
@@ -301,7 +302,7 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
           ].map(({ l, v, c }) => (
             <HBar key={l} label={l} value={v} max={Math.max(...stats.aging, 1)} color={c} />
           ))}
-          <div style={{ marginTop: 8, padding: "6px 10px", background: "#f8fafb", borderRadius: 6, fontSize: 10, color: "#7a8a94", textAlign: "center" }}>
+          <div style={{ marginTop: 8, padding: "6px 10px", background: T.c.bgAlt, borderRadius: T.r.md, fontSize: 10, color: T.c.textSecondary, textAlign: "center" }}>
             {stats.aging[3] + stats.aging[4] > 0 ? `⚠ ${stats.aging[3] + stats.aging[4]} application${stats.aging[3]+stats.aging[4]>1?"s":""} beyond 21-day SLA target` : "✓ All within SLA target"}
           </div>
         </Card>

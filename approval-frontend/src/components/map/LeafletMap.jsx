@@ -524,7 +524,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       pts.push(latlng);
 
       // Dot at click point
-      const dot = L.circleMarker(latlng, { radius: 5, color: "#3498db", fillColor: "#fff", fillOpacity: 1, weight: 2.5, pane: "markerPane" }).addTo(map);
+      const dot = L.circleMarker(latlng, { radius: 5, color: T.c.info, fillColor: "#fff", fillOpacity: 1, weight: 2.5, pane: "markerPane" }).addTo(map);
       measureRef.current.layers.push(dot);
 
       if (pts.length > 1) {
@@ -533,7 +533,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         measureRef.current.total += segDist;
 
         // Line segment
-        const line = L.polyline([prev, latlng], { color: "#3498db", weight: 2.5, dashArray: "8,4" }).addTo(map);
+        const line = L.polyline([prev, latlng], { color: T.c.info, weight: 2.5, dashArray: "8,4" }).addTo(map);
         measureRef.current.layers.push(line);
 
         // Segment distance label
