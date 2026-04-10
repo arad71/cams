@@ -1,3 +1,5 @@
+import { T, S, cx } from '../styles/tokens';
+
 export default function InspectionsView({ apps }) {
   const all = apps.flatMap(a => a.assessment.inspections.map(i => ({ ...i, appId: a.id, owner: a.owner.name })));
   return <div>

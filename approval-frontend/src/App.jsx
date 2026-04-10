@@ -3,6 +3,7 @@ import api from './services/api';
 import { apiAppToFrontend, apiUserToFrontend, frontendAppToApiUpdate } from './utils/transforms';
 import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from './data/constants';
 import LoginScreen from './views/LoginScreen';
+import { T } from './styles/tokens';
 import ApplicationListView from './views/ApplicationListView';
 import ApplicationDetailView from './views/ApplicationDetailView';
 import InspectionsView from './views/InspectionsView';
