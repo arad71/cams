@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import api, { API_BASE } from '../services/api';
 import { apiUserToFrontend } from '../utils/transforms';
-import { T, S } from '../styles/tokens';
+import { T, S, cx } from '../styles/tokens';
 
 export default function LoginScreen({ onLogin, branding: B = {} }) {
   const orgName = B.orgName || "Council";
   const systemName = B.systemName || "Crossover Approval System";
   const version = B.version || "3.1";
-  const icon = B.icon || "🏛";
-  const primaryColor = B.primaryColor || "#1abc9c";
-  const darkColor = B.darkColor || "#1a3a4a";
+  const icon = B.icon || "\u{1f3db}";
+  const primaryColor = B.primaryColor || T.c.accent;
+  const darkColor = B.darkColor || T.c.primary;
   const copyright = B.copyright || "";
   const disclaimer = B.disclaimer || "";
   const emailDomain = B.emailDomain || "council.wa.gov.au";
@@ -18,38 +18,27 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [authConfig, setAuthConfig] = useState(null);
-  const iS = { width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
 
-  // Load auth config on mount
   useEffect(() => {
     api.getAuthConfig().then(setAuthConfig).catch(() => setAuthConfig({ local_enabled: true, entra_enabled: false }));
   }, []);
 
-  // Handle Microsoft redirect callback (code in URL hash/params)
   const handleEntraCallback = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     if (!code) return;
-
-    // Clean URL
     window.history.replaceState({}, "", window.location.pathname);
-
-    setLoading(true);
-    setError("");
+    setLoading(true); setError("");
     try {
       const redirectUri = `${window.location.origin}${window.location.pathname}`;
       const user = await api.entraTokenExchange(code, redirectUri);
       onLogin(apiUserToFrontend(user));
-    } catch (e) {
-      setError(e.message || "Microsoft login failed");
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setError(e.message || "Microsoft login failed"); }
+    finally { setLoading(false); }
   }, [onLogin]);
 
   useEffect(() => { handleEntraCallback(); }, [handleEntraCallback]);
 
-  // Local login
   const handleLogin = async () => {
     if (!email || !password) { setError("Enter email and password"); return; }
     setLoading(true); setError("");
@@ -60,84 +49,84 @@ export default function LoginScreen({ onLogin, branding: B = {} }) {
     finally { setLoading(false); }
   };
 
-  // Microsoft login — redirect to Entra authorization endpoint
   const handleMicrosoftLogin = () => {
     if (!authConfig?.entra_enabled) return;
     const redirectUri = `${window.location.origin}${window.location.pathname}`;
     const params = new URLSearchParams({
-      client_id: authConfig.entra_client_id,
-      response_type: "code",
-      redirect_uri: redirectUri,
-      response_mode: "query",
-      scope: "openid profile email",
-      prompt: "select_account",
+      client_id: authConfig.entra_client_id, response_type: "code",
+      redirect_uri: redirectUri, response_mode: "query",
+      scope: "openid profile email", prompt: "select_account",
     });
     window.location.href = `${authConfig.entra_authority}/oauth2/v2.0/authorize?${params}`;
   };
 
+  const inputStyle = cx(S.input, { marginBottom: T.s.md });
+
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg, #0c1f2e, #1a3a4a)", fontFamily: "'DM Sans','Segoe UI',sans-serif" }}>
-      <div style={{ background: "#fff", borderRadius: 16, padding: "40px 36px", width: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: `linear-gradient(135deg,${primaryColor},${primaryColor}dd)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 12 }}>{icon}</div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: darkColor, margin: "0 0 4px" }}>{orgName}</h1>
-          <p style={{ color: "#7a8a94", fontSize: 12, margin: 0 }}>{systemName} v{version}</p>
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: `linear-gradient(135deg, ${T.c.navy800}, ${T.c.primary})` }}>
+      <div style={{ background: T.c.card, borderRadius: T.r.xl, padding: `${T.s.xxxl + 8}px ${T.s.xxxl}px`, width: 388, boxShadow: T.sh.xl }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: T.s.xxl }}>
+          <div style={{ width: 56, height: 56, borderRadius: T.r.lg, background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: T.s.md, boxShadow: `0 4px 16px ${primaryColor}40` }}>{icon}</div>
+          <h1 style={{ fontSize: T.f.xl, fontWeight: T.w.black, color: darkColor, margin: `0 0 ${T.s.xs}px`, letterSpacing: -0.3 }}>{orgName}</h1>
+          <p style={{ color: T.c.textSecondary, fontSize: T.f.md, margin: 0 }}>{systemName} v{version}</p>
         </div>
 
-        {/* Microsoft SSO Button */}
+        {/* Microsoft SSO */}
         {authConfig?.entra_enabled && (
           <>
             <button onClick={handleMicrosoftLogin} disabled={loading}
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 8, border: "1.5px solid #d5dde2", background: "#fff",
-                cursor: loading ? "default" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16 }}>
+              style={cx(S.btnOutline, { width: "100%", padding: `${T.s.md}px ${T.s.lg}px`, marginBottom: T.s.lg, display: "flex", alignItems: "center", justifyContent: "center", gap: T.s.sm })}>
               <svg width="20" height="20" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#1a3a4a" }}>Sign in with Microsoft</span>
+              <span style={{ fontSize: T.f.base, fontWeight: T.w.bold, color: T.c.primary }}>Sign in with Microsoft</span>
             </button>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <div style={{ flex: 1, height: 1, background: "#e4e9ec" }} />
-              <span style={{ fontSize: 12, color: "#95a5a6", fontWeight: 600 }}>OR</span>
-              <div style={{ flex: 1, height: 1, background: "#e4e9ec" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: T.s.md, marginBottom: T.s.lg }}>
+              <div style={{ flex: 1, height: 1, background: T.c.border }} />
+              <span style={{ fontSize: T.f.md, color: T.c.textMuted, fontWeight: T.w.semi }}>OR</span>
+              <div style={{ flex: 1, height: 1, background: T.c.border }} />
             </div>
           </>
         )}
 
-        {/* Local Login Form */}
-        <label style={{ fontSize: 11, fontWeight: 700, color: "#5a6a74", display: "block", marginBottom: 4 }}>Email</label>
+        {/* Local Login */}
+        <label style={cx(S.label, { marginBottom: T.s.xs })}>Email</label>
         <input type="email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()}
-          placeholder={`user@${emailDomain}`} style={{ ...iS, marginBottom: 12 }} />
-        <label style={{ fontSize: 11, fontWeight: 700, color: "#5a6a74", display: "block", marginBottom: 4 }}>Password</label>
+          placeholder={`user@${emailDomain}`} style={inputStyle} />
+
+        <label style={cx(S.label, { marginBottom: T.s.xs })}>Password</label>
         <input type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && handleLogin()}
-          placeholder="Enter password" style={{ ...iS, marginBottom: 6 }} />
-        {error && <div style={{ color: "#e74c3c", fontSize: 11, marginBottom: 8, fontWeight: 600 }}>{error}</div>}
+          placeholder="Enter password" style={cx(S.input, { marginBottom: T.s.sm })} />
+
+        {error && <div style={{ color: T.c.danger, fontSize: T.f.md, marginBottom: T.s.sm, fontWeight: T.w.semi }}>{error}</div>}
+
         <button onClick={handleLogin} disabled={loading}
-          style={{ width: "100%", padding: "11px", borderRadius: 8, border: "none", marginTop: 10,
-            background: loading ? "#d5dde2" : `linear-gradient(135deg,${primaryColor},${primaryColor}dd)`, color: "#fff",
-            fontWeight: 800, fontSize: 13, cursor: loading ? "default" : "pointer", fontFamily: "inherit" }}>
+          style={cx(S.btnPrimary, { width: "100%", padding: `${T.s.md}px`, marginTop: T.s.sm, fontSize: T.f.base,
+            background: loading ? T.c.grey400 : `linear-gradient(135deg, ${primaryColor}, ${primaryColor}cc)`,
+            cursor: loading ? "default" : "pointer" })}>
           {loading ? "Signing in..." : "Sign In"}
         </button>
 
-        {/* WA Gov compliance note when Entra is enabled */}
+        {/* WA Gov MFA note */}
         {authConfig?.entra_enabled && (
-          <div style={{ marginTop: 14, padding: "8px 10px", background: "#ebf5fb", borderRadius: 6, fontSize: 9, color: "#2980b9", lineHeight: 1.5 }}>
-            🔐 <strong>WA Government MFA:</strong> Microsoft sign-in enforces multi-factor authentication per WA Digital Security Policy. Local accounts are available for external users.
+          <div style={{ marginTop: T.s.lg, padding: `${T.s.sm}px ${T.s.md}px`, background: T.c.infoLight, borderRadius: T.r.md, fontSize: T.f.xs, color: T.c.info, lineHeight: 1.5 }}>
+            {"\u{1f510}"} <strong>WA Government MFA:</strong> Microsoft sign-in enforces multi-factor authentication per WA Digital Security Policy. Local accounts are available for external users.
           </div>
         )}
 
-        {/* Demo accounts — only show when Entra is not configured */}
+        {/* Demo accounts */}
         {!authConfig?.entra_enabled && (
-          <div style={{ marginTop: 16, padding: "10px", background: "#f8fafb", borderRadius: 8, fontSize: 12, color: "#7a8a94", lineHeight: 1.6 }}>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Demo Accounts:</div>
-            <div>🛡️ Admin: admin@{emailDomain} / admin123</div>
-            <div>👔 Manager: manager@{emailDomain} / manager123</div>
-            <div>🔧 Engineer: engineer@{emailDomain} / engineer123</div>
-            <div>👁 Viewer: viewer@{emailDomain} / viewer123</div>
+          <div style={{ marginTop: T.s.xl, padding: T.s.md, background: T.c.bg, borderRadius: T.r.md, fontSize: T.f.md, color: T.c.textSecondary, lineHeight: 1.7 }}>
+            <div style={{ fontWeight: T.w.bold, marginBottom: T.s.xs }}>Demo Accounts:</div>
+            <div>{"\u{1f6e1}\ufe0f"} Admin: admin@{emailDomain} / admin123</div>
+            <div>{"\u{1f454}"} Manager: manager@{emailDomain} / manager123</div>
+            <div>{"\u{1f527}"} Engineer: engineer@{emailDomain} / engineer123</div>
+            <div>{"\u{1f441}"} Viewer: viewer@{emailDomain} / viewer123</div>
           </div>
         )}
 
-        {/* Disclaimer + Copyright */}
         {(disclaimer || copyright) && (
-          <div style={{ marginTop: 14, textAlign: "center", fontSize: 9, color: "#b0bdb2", lineHeight: 1.5 }}>
+          <div style={{ marginTop: T.s.lg, textAlign: "center", fontSize: T.f.xxs, color: T.c.textPlaceholder, lineHeight: 1.5 }}>
             {disclaimer && <div>{disclaimer}</div>}
             {copyright && <div style={{ marginTop: 2 }}>{copyright}</div>}
           </div>

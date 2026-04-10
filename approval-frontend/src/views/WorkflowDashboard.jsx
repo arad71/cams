@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { STATUS_CONFIG } from '../data/constants';
 import StatusBadge from '../components/ui/StatusBadge';
+import { T, S, cx } from '../styles/tokens';
 
 const daysBetween = (d1, d2) => Math.max(0, Math.round((d2 - d1) / 86400000));
 const parseDate = (s) => s ? new Date(s) : null;
@@ -9,14 +10,14 @@ const pct = (n, d) => d > 0 ? Math.round((n / d) * 100) : 0;
 
 function MiniBar({ value, max, color, height = 6 }) {
   const p = max > 0 ? Math.min(100, (value / max) * 100) : 0;
-  return <div style={{ width: "100%", height, background: "#eef2f4", borderRadius: 3, overflow: "hidden" }}><div style={{ width: `${p}%`, height: "100%", background: color, borderRadius: 3 }} /></div>;
+  return <div style={{ width: "100%", height, background: T.c.grey200, borderRadius: T.r.xs, overflow: "hidden" }}><div style={{ width: `${p}%`, height: "100%", background: color, borderRadius: T.r.xs, transition: T.tr.slow }} /></div>;
 }
 
 function MetricBox({ value, label, color }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", padding: "12px 10px", textAlign: "center", flex: "1 1 0" }}>
-      <div style={{ fontSize: 24, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 9, fontWeight: 600, textTransform: "uppercase", color, marginTop: 3 }}>{label}</div>
+    <div style={cx(S.card, { padding: `${T.s.md}px ${T.s.sm}px`, textAlign: "center", flex: "1 1 0" })}>
+      <div style={{ fontSize: T.f.xxl + 2, fontWeight: T.w.black, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: T.f.xxs, fontWeight: T.w.semi, textTransform: "uppercase", color, marginTop: T.s.xs, letterSpacing: 0.5 }}>{label}</div>
     </div>
   );
 }
@@ -107,17 +108,17 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
 
   return (
     <div>
-      <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a3a4a", margin: "0 0 4px" }}>Dashboard</h2>
-      <p style={{ color: "#7a8a94", fontSize: 13, margin: "0 0 16px" }}>{new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
+      <h2 style={{ fontSize: T.f.xxl, fontWeight: T.w.black, color: T.c.text, margin: `0 0 ${T.s.xs}px`, letterSpacing: -0.3 }}>Dashboard</h2>
+      <p style={{ color: T.c.textSecondary, fontSize: T.f.base, margin: `0 0 ${T.s.lg}px` }}>{new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
 
       {/* Top metrics */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <MetricBox value={total} label="Total" color="#1a3a4a" />
-        <MetricBox value={sc.pending_review || 0} label="Pending" color="#e67e22" />
-        <MetricBox value={sc.under_assessment || 0} label="Assessing" color="#2980b9" />
+      <div style={{ display: "flex", gap: T.s.sm, marginBottom: T.s.lg }}>
+        <MetricBox value={total} label="Total" color={T.c.primary} />
+        <MetricBox value={sc.pending_review || 0} label="Pending" color={T.c.amber400} />
+        <MetricBox value={sc.under_assessment || 0} label="Assessing" color={T.c.info} />
         <MetricBox value={sc.referral_pending || 0} label="Referrals" color="#8e44ad" />
-        <MetricBox value={sc.approved || 0} label="Approved" color="#27ae60" />
-        <MetricBox value={sc.rejected || 0} label="Rejected" color="#c0392b" />
+        <MetricBox value={sc.approved || 0} label="Approved" color={T.c.success} />
+        <MetricBox value={sc.rejected || 0} label="Rejected" color={T.c.red500} />
       </div>
 
       {/* SLA + Trends row */}

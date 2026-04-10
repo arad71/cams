@@ -32,10 +32,11 @@ function statusToStep(status) {
 }
 
 // ─── Compact card style helpers ─────────────────────────
-const card = { background: "#fff", borderRadius: 10, border: "1px solid #e4e9ec", overflow: "hidden" };
-const cardHdr = { padding: "8px 12px", borderBottom: "1px solid #f0f3f5", fontSize: 11, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "space-between" };
-const cardBody = { padding: "10px 12px" };
-const kvRow = { display: "flex", justifyContent: "space-between", padding: "3px 0", borderBottom: "1px solid #f8f9fb", fontSize: 11 };
+import { T, S, cx } from '../../styles/tokens';
+const card = S.cardFlat;
+const cardHdr = S.cardHeader;
+const cardBody = S.cardBody;
+const kvRow = { display: "flex", justifyContent: "space-between", padding: `${T.s.xs}px 0`, borderBottom: `1px solid ${T.c.grey50}`, fontSize: T.f.md };
 
 // ─── Workflow Stepper ───────────────────────────────────
 function Stepper({ currentStep, completedUpTo, onStepClick }) {
