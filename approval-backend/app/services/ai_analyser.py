@@ -657,20 +657,6 @@ def save_training_sample(
                 fence_left_type=dims.get("left_boundary_feature"),
                 fence_right_type=dims.get("right_boundary_feature"),
             )
-                page_number=page_num,
-                image_path=str(img_path),
-                ai_model=model_name,
-                ai_provider="anthropic",
-                extraction_json=extraction,
-                compliance_json=compliance,
-                raw_response=raw,
-                width_at_boundary=dims.get("width_at_boundary_m"),
-                total_width_at_road=dims.get("total_width_at_road_m"),
-                verge_depth=dims.get("verge_depth_m"),
-                material=cons.get("material"),
-                has_drainage=bool(drain.get("drainage_plan_included")),
-                has_vegetation=additional.get("vegetation_on_verge"),
-            )
             db.add(sample)
 
         db.commit()
