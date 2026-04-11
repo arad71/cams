@@ -83,7 +83,7 @@ function DocViewer({ doc, appDbId, onClose }) {
       {/* Content */}
       <div style={{ flex: 1, overflow: "hidden", background: "#e8ecef" }}>
         {isPdf ? (
-          <iframe src={fileUrl} style={{ width: "100%", height: "100%", border: "none" }} title={doc.name} />
+          <iframe src={`${fileUrl}#toolbar=1&navpanes=1`} style={{ width: "100%", height: "100%", border: "none" }} title={doc.name} />
         ) : isImage ? (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", padding: 12 }}>
             <img src={fileUrl} alt={doc.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: T.r.sm, boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }} />
@@ -92,8 +92,12 @@ function DocViewer({ doc, appDbId, onClose }) {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
             <span style={{ fontSize: 48 }}>{typeIcons[doc.type] || "📄"}</span>
             <div style={{ fontSize: 13, color: T.c.grey800, fontWeight: T.w.semi }}>Preview not available for {doc.type.toUpperCase()} files</div>
-            <a href={downloadUrl} download={doc.name}
-              style={{ padding: "8px 18px", borderRadius: T.r.md, background: "#2980b9", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, textDecoration: "none" }}>📥 Download File</a>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a href={downloadUrl} download={doc.name}
+                style={{ padding: "8px 18px", borderRadius: T.r.md, background: "#2980b9", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, textDecoration: "none" }}>📥 Download</a>
+              <button onClick={() => window.open(fileUrl, "_blank")}
+                style={{ padding: "8px 18px", borderRadius: T.r.md, background: T.c.primary, color: T.c.white, fontWeight: T.w.bold, fontSize: 12, border: "none", cursor: "pointer", fontFamily: "inherit" }}>↗ Open in Browser</button>
+            </div>
           </div>
         )}
       </div>

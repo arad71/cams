@@ -102,6 +102,7 @@ const api = {
     return `${API_BASE}/applications/${appId}/documents/${docId}/render?page=${page}&token=${encodeURIComponent(token || "")}`;
   },
   async deleteDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "DELETE" }); },
+  async ocrRegion(appId, docId, region) { return this._fetch(`/applications/${appId}/documents/${docId}/ocr-region`, { method: "POST", body: region }); },
   async extractSiteplan(appId, docId, pages) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-siteplan?pages=${encodeURIComponent(pages)}`, { method: "POST" }); },
   async saveBoundaries(appId, data) { return this._fetch(`/applications/${appId}/boundaries`, { method: "PUT", body: data }); },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },

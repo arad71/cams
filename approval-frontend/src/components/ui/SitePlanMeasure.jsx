@@ -180,6 +180,9 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   }, [imgLoaded, imgSize]);
 
   // Mouse handlers
+  const [ocrResult, setOcrResult] = useState(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
+
   const handleMouseDown = (e) => {
     if (e.button === 1 || (e.button === 0 && tool === 'pan')) {
       panState.current = { panning: true, ox: e.clientX - pan.x, oy: e.clientY - pan.y };
@@ -188,6 +191,33 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
     }
     if (e.button !== 0) return;
     const pt = s2i(e);
+
+    if (tool === 'grabtext') {
+      // OCR grab: send click coordinates to backend
+      setOcrLoading(true);
+      setOcrResult(null);
+      const imgEl = imgRef.current;
+      const imgW = imgEl ? imgEl.naturalWidth : 1;
+      const imgH = imgEl ? imgEl.naturalHeight : 1;
+      // Get doc ID from appData
+      const docId = appData?.documents?.find(d => (d.type || '').toLowerCase() === 'pdf' && (d.category || '').includes('Site'))?.id;
+      const appDbId = appData?._dbId;
+      if (docId && appDbId) {
+        import('../../services/api').then(mod => {
+          const api = mod.default;
+          api.ocrRegion(appDbId, docId, { page: 1, x: pt.x, y: pt.y, width: 200, height: 60, img_width: imgW, img_height: imgH })
+            .then(res => {
+              setOcrResult({ text: res.text || '', x: pt.x, y: pt.y });
+              setOcrLoading(false);
+            })
+            .catch(err => { console.error('OCR failed:', err); setOcrResult({ text: '(OCR failed)', x: pt.x, y: pt.y }); setOcrLoading(false); });
+        });
+      } else {
+        setOcrResult({ text: '(no site plan document found)', x: pt.x, y: pt.y });
+        setOcrLoading(false);
+      }
+      return;
+    }
 
     if (tool === 'marker') {
       const label = prompt('Marker label:', 'Point ' + (idSeq.current + 1));
@@ -251,6 +281,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       if (e.key === 'a') setTool('area');
       if (e.key === ' ') { setTool('pan'); e.preventDefault(); }
       if (e.key === 'c') setTool('calibrate');
+      if (e.key === 't') setTool('grabtext');
       if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); if (onClose) onClose(); }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) setItems(prev => prev.slice(0, -1));
     };
@@ -375,6 +406,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           <ToolBtn id="pan" icon="✋" label="Pan" active={tool === 'pan'} />
           <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
           <ToolBtn id="calibrate" icon="📐" label="Calibrate" active={tool === 'calibrate'} />
+          <ToolBtn id="grabtext" icon="📝" label="Grab Text" active={tool === 'grabtext'} />
           <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
           <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>↩ Undo</button>
           <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>🗑 Clear</button>
@@ -481,8 +513,34 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             title="Manually set an AI field value">✏️ Set Field</button>
         )}
         <span>{Math.round(zoom * 100)}%</span>
-        <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Calibrate</span>
+        {ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.bold }}>🔍 Reading text...</span>}
+        {tool === 'grabtext' && !ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click on text in the plan to grab it</span>}
+        <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Calibrate T=Text</span>
       </div>
+
+      {/* OCR Result — show detected text with save option */}
+      {ocrResult && ocrResult.text && (
+        <div style={{ position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 10003,
+          background: '#fff', border: '2px solid #8e44ad', borderRadius: 12, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', minWidth: 280, maxWidth: 420 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, fontWeight: T.w.bold, color: '#8e44ad' }}>📝 Detected Text</span>
+            <button onClick={() => setOcrResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#95a5a6', fontSize: 14 }}>✕</button>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: T.w.black, color: T.c.text, fontFamily: 'monospace', background: '#f5f0ff', padding: '8px 12px', borderRadius: T.r.md, marginBottom: 8, wordBreak: 'break-all' }}>
+            {ocrResult.text}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={() => { setSaveModal({ itemId: null, value: ocrResult.text, isManual: true }); setOcrResult(null); }}
+              style={{ flex: 1, padding: '7px 12px', borderRadius: T.r.md, border: 'none', background: 'linear-gradient(135deg, #8e44ad, #9b59b6)', color: '#fff', fontWeight: T.w.bold, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Save to Field
+            </button>
+            <button onClick={() => { navigator.clipboard?.writeText(ocrResult.text); }}
+              style={{ padding: '7px 12px', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: T.c.textSecondary, fontWeight: T.w.semi, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Copy
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Resize handle — bottom right corner */}
       {!maximized && (

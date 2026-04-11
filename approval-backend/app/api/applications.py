@@ -940,6 +940,83 @@ def render_document_as_image(
     raise HTTPException(400, f"Cannot render .{ext} files as images")
 
 
+@router.post("/{app_id}/documents/{doc_id}/ocr-region")
+def ocr_region(
+    app_id: int, doc_id: int,
+    body: dict,  # {page, x, y, width, height, img_width, img_height}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """OCR a region of a document page. Coordinates are relative to the rendered image."""
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(404, "Document not found")
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+
+    page = body.get("page", 1)
+    cx = body.get("x", 0)
+    cy = body.get("y", 0)
+    region_w = body.get("width", 200)
+    region_h = body.get("height", 80)
+    img_w = body.get("img_width", 1)
+    img_h = body.get("img_height", 1)
+
+    ext = (doc.file_type or "").lower()
+    try:
+        from PIL import Image
+        import io
+
+        if ext in ("jpg", "jpeg", "png", "gif", "webp"):
+            img = Image.open(file_path)
+        elif ext == "pdf":
+            from pdf2image import convert_from_bytes
+            images = convert_from_bytes(file_path.read_bytes(), dpi=200, first_page=page, last_page=page)
+            if not images:
+                raise HTTPException(404, f"Page {page} not found")
+            img = images[0]
+        else:
+            raise HTTPException(400, f"OCR not supported for .{ext}")
+
+        # Scale click coordinates from displayed size to actual image size
+        scale_x = img.width / max(img_w, 1)
+        scale_y = img.height / max(img_h, 1)
+        real_x = int(cx * scale_x)
+        real_y = int(cy * scale_y)
+        real_w = int(region_w * scale_x)
+        real_h = int(region_h * scale_y)
+
+        # Crop region with padding
+        pad = max(real_w, real_h) // 2
+        left = max(0, real_x - pad)
+        top = max(0, real_y - pad)
+        right = min(img.width, real_x + pad)
+        bottom = min(img.height, real_y + pad)
+        crop = img.crop((left, top, right, bottom))
+
+        # Upscale for better OCR
+        up_w = max(crop.width * 3, 300)
+        up_h = max(crop.height * 3, 100)
+        crop = crop.resize((up_w, up_h), Image.LANCZOS)
+
+        # Run OCR
+        import pytesseract
+        text = pytesseract.image_to_string(crop, config="--psm 7").strip()
+
+        # Clean: remove non-printable, collapse whitespace
+        import re
+        text = re.sub(r'[^\x20-\x7E]', '', text).strip()
+        text = re.sub(r'\s+', ' ', text)
+
+        return {"text": text, "region": {"left": left, "top": top, "right": right, "bottom": bottom}}
+
+    except ImportError as e:
+        raise HTTPException(500, f"OCR dependency missing: {e}")
+    except Exception as e:
+        raise HTTPException(500, f"OCR failed: {e}")
+
+
 @router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)
 def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     doc = db.query(Document).options(joinedload(Document.reviewed_by)).filter(Document.id == doc_id, Document.application_id == app_id).first()
