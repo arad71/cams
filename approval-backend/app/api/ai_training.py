@@ -33,6 +33,20 @@ def training_stats(db: Session = Depends(get_db), current_user: User = Depends(r
     used = db.query(AITrainingSample).filter(AITrainingSample.used_in_training == True).count()
     corrections = db.query(AITrainingCorrection).count()
 
+    # Field accuracy: which fields get corrected most
+    field_corrections = {}
+    all_corrections = db.query(AITrainingCorrection).all()
+    for c in all_corrections:
+        fp = c.field_path
+        if fp not in field_corrections:
+            field_corrections[fp] = 0
+        field_corrections[fp] += 1
+    # Top 10 most corrected fields
+    top_corrections = sorted(field_corrections.items(), key=lambda x: -x[1])[:10]
+
+    # Corner lot distribution
+    corner_count = db.query(AITrainingSample).filter(AITrainingSample.is_corner_lot == True).count()
+
     p2 = ai_cfg.phase2_threshold
     p3 = ai_cfg.phase3_threshold
 
@@ -195,22 +209,75 @@ def export_dataset(
     # JSON format (default)
     dataset = []
     for s in samples:
+        # Calculate quality score: % of fields that didn't need correction
+        total_fields = len([k for k in (s.extraction_json or {}).keys() if isinstance((s.extraction_json or {}).get(k), dict)])
+        corrected_fields = len(s.corrections)
+        quality = round(max(0, (1 - corrected_fields / max(total_fields, 1))) * 100, 1) if total_fields > 0 else None
+
         entry = {
             "id": s.id,
             "image_path": s.image_path,
+            "image_width": s.image_width,
+            "image_height": s.image_height,
             "source_filename": s.source_filename,
             "page_number": s.page_number,
+            "document_type": s.document_type,
+            "drawing_scale": s.drawing_scale,
             "extraction": s.extraction_json,
             "compliance": s.compliance_json,
             "verified": s.officer_verified,
             "corrected": s.officer_corrected,
+            "quality_score": quality,
+            # Key fields for filtering
+            "crossover_road": s.crossover_road,
+            "constrained_side": s.constrained_side,
+            "is_corner_lot": s.is_corner_lot,
+            "width_at_boundary": s.width_at_boundary,
+            "verge_depth": s.verge_depth,
+            "garage_to_kerb": s.garage_to_kerb,
+            "left_boundary_dist": s.left_boundary_dist,
+            "right_boundary_dist": s.right_boundary_dist,
+            "fence_left_type": s.fence_left_type,
+            "fence_right_type": s.fence_right_type,
+            # Ground truth corrections
             "corrections": [{
                 "field_path": c.field_path,
                 "ai_value": c.ai_value,
                 "correct_value": c.correct_value,
                 "type": c.correction_type,
             } for c in s.corrections],
+            # Derived ground truth: apply corrections to extraction
+            "ground_truth": _apply_corrections(s.extraction_json, s.corrections),
         }
         dataset.append(entry)
 
     return {"format": "json", "count": len(dataset), "dataset": dataset}
+
+
+def _apply_corrections(extraction_json, corrections):
+    """Apply officer corrections to AI extraction to produce ground truth."""
+    import copy
+    gt = copy.deepcopy(extraction_json or {})
+    for c in corrections:
+        parts = c.field_path.split(".")
+        obj = gt
+        for part in parts[:-1]:
+            if part not in obj or not isinstance(obj[part], dict):
+                obj[part] = {}
+            obj = obj[part]
+        try:
+            val = c.correct_value
+            # Try numeric conversion
+            try:
+                val = float(val)
+                if val == int(val):
+                    val = int(val)
+            except (ValueError, TypeError):
+                if val in ("true", "True"):
+                    val = True
+                elif val in ("false", "False"):
+                    val = False
+        except Exception:
+            pass
+        obj[parts[-1]] = val
+    return gt

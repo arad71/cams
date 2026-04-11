@@ -28,6 +28,21 @@ def run_seed():
             "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS gps_accuracy_m DOUBLE PRECISION DEFAULT NULL",
             "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS field_checklist JSONB DEFAULT NULL",
             "ALTER TABLE inspections ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS image_width INTEGER DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS image_height INTEGER DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS document_type VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS drawing_scale VARCHAR(20) DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS drawing_standard VARCHAR(50) DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS crossover_road VARCHAR(200) DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS constrained_side VARCHAR(20) DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS is_corner_lot BOOLEAN DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS garage_to_kerb DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS garage_nearest_boundary DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS left_boundary_dist DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS right_boundary_dist DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS fence_left_type VARCHAR(100) DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS fence_right_type VARCHAR(100) DEFAULT NULL",
+            "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS quality_score DOUBLE PRECISION DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(stmt))

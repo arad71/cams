@@ -598,6 +598,8 @@ def save_training_sample(
     cons = extraction.get("construction", {}) or {}
     drain = extraction.get("drainage", {}) or {}
     additional = extraction.get("additional_findings", {}) or {}
+    site = extraction.get("siteplan_measurements", {}) or {}
+    prop = extraction.get("property", {}) or {}
 
     db = SessionLocal()
     try:
@@ -614,10 +616,47 @@ def save_training_sample(
             with open(img_path, "wb") as f:
                 f.write(img_bytes)
 
+            # Get image dimensions
+            img_w, img_h = None, None
+            try:
+                from PIL import Image
+                import io
+                img = Image.open(io.BytesIO(img_bytes))
+                img_w, img_h = img.size
+            except Exception:
+                pass
+
             sample = AITrainingSample(
                 application_id=application_id,
                 document_id=document_id,
                 source_filename=filename,
+                page_number=page_num,
+                image_path=str(img_path),
+                image_width=img_w,
+                image_height=img_h,
+                ai_model=model_name,
+                ai_provider="ai",
+                extraction_json=extraction,
+                compliance_json=compliance,
+                raw_response=raw,
+                # Denormalised key fields
+                width_at_boundary=dims.get("width_at_boundary_m"),
+                total_width_at_road=dims.get("total_width_at_road_m"),
+                verge_depth=dims.get("verge_depth_m"),
+                material=cons.get("material"),
+                has_drainage=bool(drain.get("drainage_plan_included")),
+                has_vegetation=additional.get("vegetation_on_verge"),
+                # Additional training-relevant fields
+                crossover_road=site.get("crossover_on_road") or site.get("road_name"),
+                constrained_side=dims.get("constrained_side"),
+                is_corner_lot=prop.get("is_corner_lot"),
+                garage_to_kerb=site.get("garage_to_kerb_m"),
+                garage_nearest_boundary=site.get("garage_nearest_boundary_m"),
+                left_boundary_dist=dims.get("distance_to_left_boundary_m"),
+                right_boundary_dist=dims.get("distance_to_right_boundary_m"),
+                fence_left_type=dims.get("left_boundary_feature"),
+                fence_right_type=dims.get("right_boundary_feature"),
+            )
                 page_number=page_num,
                 image_path=str(img_path),
                 ai_model=model_name,

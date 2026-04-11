@@ -31,10 +31,17 @@ class AITrainingSample(Base):
     source_filename = Column(String(500))
     page_number = Column(Integer, default=1)
     image_path = Column(String(1000))  # Path to saved page image on disk
+    image_width = Column(Integer, nullable=True)   # Pixel dimensions for annotation scaling
+    image_height = Column(Integer, nullable=True)
+
+    # Document classification
+    document_type = Column(String(50), nullable=True)  # site_plan | survey | detail_map | engineering | locality
+    drawing_scale = Column(String(20), nullable=True)   # 1:200, 1:500, etc.
+    drawing_standard = Column(String(50), nullable=True) # council_kalamunda | surveyor_standard | etc.
 
     # AI extraction results (what AI returned)
     ai_model = Column(String(100))
-    ai_provider = Column(String(50), default="anthropic")
+    ai_provider = Column(String(50), default="ai")
     extraction_json = Column(JSON)  # Full extraction output
     compliance_json = Column(JSON)  # Compliance check results
     raw_response = Column(Text, nullable=True)  # Raw AI response for debugging
@@ -47,11 +54,23 @@ class AITrainingSample(Base):
     has_drainage = Column(Boolean, nullable=True)
     has_vegetation = Column(Boolean, nullable=True)
 
+    # Additional key fields for training
+    crossover_road = Column(String(200), nullable=True)
+    constrained_side = Column(String(20), nullable=True)   # left | right
+    is_corner_lot = Column(Boolean, nullable=True)
+    garage_to_kerb = Column(Float, nullable=True)
+    garage_nearest_boundary = Column(Float, nullable=True)
+    left_boundary_dist = Column(Float, nullable=True)
+    right_boundary_dist = Column(Float, nullable=True)
+    fence_left_type = Column(String(100), nullable=True)
+    fence_right_type = Column(String(100), nullable=True)
+
     # Officer review (ground truth)
     officer_verified = Column(Boolean, default=False)  # Officer confirmed AI was correct
     officer_corrected = Column(Boolean, default=False)  # Officer made corrections
     verified_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     verified_at = Column(DateTime(timezone=True), nullable=True)
+    quality_score = Column(Float, nullable=True)  # 0-100: how many fields needed correction
 
     # Training status
     used_in_training = Column(Boolean, default=False)  # Has been used to train a model

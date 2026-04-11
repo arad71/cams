@@ -664,6 +664,31 @@ def correct_site_plan(
     app.site_plan_data = base  # Assessment engine reads this
     db.commit()
 
+    # ── Auto-capture corrections for AI training ──
+    if changes:
+        try:
+            from app.models.ai_training import AITrainingSample, AITrainingCorrection
+            sample = db.query(AITrainingSample).filter(
+                AITrainingSample.application_id == app_id
+            ).order_by(AITrainingSample.id.desc()).first()
+            if sample:
+                for field_path, vals in changes.items():
+                    corr = AITrainingCorrection(
+                        sample_id=sample.id,
+                        corrected_by_id=current_user.id,
+                        field_path=field_path,
+                        ai_value=vals.get("old", ""),
+                        correct_value=vals.get("new", ""),
+                        correction_type="value_wrong" if vals.get("old") else "missing",
+                    )
+                    db.add(corr)
+                sample.officer_corrected = True
+                sample.verified_by_id = current_user.id
+                sample.verified_at = datetime.now(timezone.utc)
+                db.commit()
+        except Exception as e:
+            print(f"  Training capture failed: {e}")
+
     # Re-run auto-assess
     _ensure_case_rows(db, app_id)
     results = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
@@ -735,6 +760,31 @@ def apply_site_plan_corrections(
     app.cor_site_plan_data = corrected
     # site_plan_data keeps the original AI extraction — assessment reads cor first
     db.commit()
+
+    # ── Auto-capture corrections for AI training ──
+    if changes:
+        try:
+            from app.models.ai_training import AITrainingSample, AITrainingCorrection
+            sample = db.query(AITrainingSample).filter(
+                AITrainingSample.application_id == app_id
+            ).order_by(AITrainingSample.id.desc()).first()
+            if sample:
+                for field_path, vals in changes.items():
+                    corr = AITrainingCorrection(
+                        sample_id=sample.id,
+                        corrected_by_id=current_user.id,
+                        field_path=field_path,
+                        ai_value=vals.get("old", ""),
+                        correct_value=vals.get("new", ""),
+                        correction_type="value_wrong" if vals.get("old") else "missing",
+                    )
+                    db.add(corr)
+                sample.officer_corrected = True
+                sample.verified_by_id = current_user.id
+                sample.verified_at = datetime.now(timezone.utc)
+                db.commit()
+        except Exception as e:
+            print(f"  Training capture failed: {e}")
 
     # Re-run auto-assessment
     from app.api.assessments import _ensure_case_rows, _auto_assess_item
