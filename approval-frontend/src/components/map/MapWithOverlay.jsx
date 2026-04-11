@@ -923,8 +923,20 @@ Respond with JSON only:
     let autoY = 4.0; // default fence distance
 
     // Extract AI data (officer-corrected first, then original)
-    const ext = app?.cor_site_plan_data?.extraction
-      || (app?.site_plan_data || app?.org_site_plan_data)?.extraction;
+    // The data can be at .extraction or at the root level depending on how it was saved
+    const spd = app?.cor_site_plan_data || app?.site_plan_data || app?.org_site_plan_data;
+    const ext = spd?.extraction || spd;
+
+    console.log("Sight Analysis data sources:", {
+      has_cor: !!app?.cor_site_plan_data,
+      has_spd: !!app?.site_plan_data,
+      has_org: !!app?.org_site_plan_data,
+      cor_keys: app?.cor_site_plan_data ? Object.keys(app.cor_site_plan_data) : null,
+      spd_keys: spd ? Object.keys(spd).slice(0, 10) : null,
+      ext_keys: ext ? Object.keys(ext).slice(0, 10) : null,
+      has_crossover_dims: !!ext?.crossover_dimensions,
+      has_siteplan_meas: !!ext?.siteplan_measurements,
+    });
 
     if (ext) {
       console.log("Sight Analysis AI data:", JSON.stringify({
@@ -1120,13 +1132,30 @@ Respond with JSON only:
     // ── AUTO-DRAW: compute Point A and B from known data ──
     const missing = [];
     if (!crossoverRoad) missing.push("crossover road");
-    const constrainedDist = constrainedSide === "left" ? leftBoundaryDist : (constrainedSide === "right" ? rightBoundaryDist : null);
-    if (constrainedDist == null && leftBoundaryDist == null && rightBoundaryDist == null) missing.push("boundary distance");
+    // Use constrained side distance, or fall back to whichever boundary distance exists
+    let autoDrawBoundaryDist = null;
+    if (constrainedSide === "left" && leftBoundaryDist != null) {
+      autoDrawBoundaryDist = leftBoundaryDist;
+    } else if (constrainedSide === "right" && rightBoundaryDist != null) {
+      autoDrawBoundaryDist = rightBoundaryDist;
+    } else if (leftBoundaryDist != null && rightBoundaryDist != null) {
+      autoDrawBoundaryDist = Math.min(leftBoundaryDist, rightBoundaryDist);
+      if (!constrainedSide) constrainedSide = leftBoundaryDist <= rightBoundaryDist ? "left" : "right";
+    } else if (leftBoundaryDist != null) {
+      autoDrawBoundaryDist = leftBoundaryDist;
+      if (!constrainedSide) constrainedSide = "left";
+    } else if (rightBoundaryDist != null) {
+      autoDrawBoundaryDist = rightBoundaryDist;
+      if (!constrainedSide) constrainedSide = "right";
+    }
+    if (autoDrawBoundaryDist == null) missing.push("boundary distance");
     if (!crossoverWidth) missing.push("crossover width");
     if (!lotPoly || lotPoly.length < 4) missing.push("lot polygon");
 
     const hasRoadData = [speedRoadsData, roadNetworkData].some(s => s?.features?.length > 0);
     if (!hasRoadData) missing.push("road data");
+
+    console.log("Auto-draw check:", { crossoverRoad, constrainedSide, autoDrawBoundaryDist, crossoverWidth, lotPolyLen: lotPoly?.length, hasRoadData, missing, autoY });
 
     if (missing.length === 0) {
       const mPerLat = 111320, mPerLng = 111320 * Math.cos(lotPoly[0][0] * Math.PI / 180);
@@ -1141,7 +1170,7 @@ Respond with JSON only:
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
           for (const feat of src.features) {
             const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "").toUpperCase();
-            if (!rn || !crossoverRoad.toUpperCase().includes(rn.split(" ")[0])) continue;
+            const crUpper = crossoverRoad.toUpperCase(); const rnUpper = rn.toUpperCase(); if (!rnUpper || !(crUpper.includes(rnUpper.split(" ")[0]) || rnUpper.includes(crUpper.split(" ")[0]))) continue;
             const g = feat.geometry;
             if (!g || g.type !== "LineString") continue;
             for (const pt of g.coordinates) {
@@ -1187,7 +1216,7 @@ Respond with JSON only:
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
           for (const feat of src.features) {
             const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "").toUpperCase();
-            if (!rn || !crossoverRoad.toUpperCase().includes(rn.split(" ")[0])) continue;
+            const crUpper = crossoverRoad.toUpperCase(); const rnUpper = rn.toUpperCase(); if (!rnUpper || !(crUpper.includes(rnUpper.split(" ")[0]) || rnUpper.includes(crUpper.split(" ")[0]))) continue;
             const g = feat.geometry;
             if (!g || g.type !== "LineString") continue;
             for (let j = 0; j < g.coordinates.length - 1; j++) {
