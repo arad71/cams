@@ -95,7 +95,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null, georefData = null, onGeorefDone = null }) {
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(false);
   const [showStreetNames, setShowStreetNames] = useState(false);
@@ -125,6 +125,9 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [cornerSpeed, setCornerSpeed] = useState(null);
   const radiusDoneRef = useRef(null);
   const radiusClearRef = useRef(null);
+
+  // Georeferencing
+  const [georefState, setGeorefState] = useState(null); // {planPts, imgUrl, imgW, imgH, mapPts, overlay}
 
   // Handle radius completion (from LeafletMap callback)
   const handleRadiusComplete = useCallback((R, V, sightPt, turnStart, turnEnd) => {
@@ -1257,6 +1260,12 @@ Respond with JSON only:
   };
 
   // Clicked lot from map
+  // Georef: receive plan control points from SitePlanMeasure
+  const handleGeorefPlanPoints = useCallback((planPts, imgUrl, imgW, imgH) => {
+    setGeorefState({ planPts, imgUrl, imgW, imgH, mapPts: [], overlay: null });
+    setMapTool("georef");
+  }, []);
+
   const [clickedLot, setClickedLot] = useState(null);
   const handleLotClick = useCallback((lotInfo) => {
     if (drawMode) return;
@@ -1280,6 +1289,104 @@ Respond with JSON only:
   } : {};
 
   const mapHeight = isFullscreen ? "calc(100vh - 52px)" : 520;
+
+  // ── GEOREF: map-side point collection + overlay ──
+  const [georefMapPts, setGeorefMapPts] = useState([]);
+  const [georefOverlayUrl, setGeorefOverlayUrl] = useState(null);
+  const [georefBounds, setGeorefBounds] = useState(null);
+  const [georefOpacity, setGeorefOpacity] = useState(0.6);
+
+  // When georefData arrives (from plan side), enter georef map mode
+  useEffect(() => {
+    if (georefData && !georefOverlayUrl) {
+      setGeorefMapPts([]);
+      setMapTool("georef");
+    }
+  }, [georefData]);
+
+  // Compute warp when we have enough map points
+  const computeGeorefOverlay = useCallback(() => {
+    if (!georefData || georefMapPts.length < 3 || georefMapPts.length !== georefData.planPts.length) return;
+
+    const planPts = georefData.planPts;
+    const mapPts = georefMapPts;
+    const imgW = georefData.imgW;
+    const imgH = georefData.imgH;
+
+    // Compute bounds from map points
+    const lats = mapPts.map(p => p.lat);
+    const lngs = mapPts.map(p => p.lng);
+    const pad = 0.0001;
+    const bounds = [[Math.min(...lats) - pad, Math.min(...lngs) - pad], [Math.max(...lats) + pad, Math.max(...lngs) + pad]];
+
+    // Create a canvas to warp the image
+    const canvas = document.createElement("canvas");
+    const outW = 1024, outH = 1024;
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext("2d");
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      // Map each output pixel to input pixel using triangulated warp
+      // Delaunay triangulation of the control points
+      const tris = triangulate(planPts.length);
+
+      for (const tri of tris) {
+        const [i0, i1, i2] = tri;
+        // Source triangle (plan pixels)
+        const sx0 = planPts[i0].x, sy0 = planPts[i0].y;
+        const sx1 = planPts[i1].x, sy1 = planPts[i1].y;
+        const sx2 = planPts[i2].x, sy2 = planPts[i2].y;
+
+        // Dest triangle (normalised to canvas from lat/lng)
+        const dx0 = (mapPts[i0].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
+        const dy0 = (1 - (mapPts[i0].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
+        const dx1 = (mapPts[i1].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
+        const dy1 = (1 - (mapPts[i1].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
+        const dx2 = (mapPts[i2].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
+        const dy2 = (1 - (mapPts[i2].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
+
+        // Affine transform for this triangle
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(dx0, dy0);
+        ctx.lineTo(dx1, dy1);
+        ctx.lineTo(dx2, dy2);
+        ctx.closePath();
+        ctx.clip();
+
+        // Compute affine: dest = M * src
+        // [dx0] = [a b c] [sx0]    [dy0] = [d e f] [sy0]
+        const det = (sx0 - sx2) * (sy1 - sy2) - (sx1 - sx2) * (sy0 - sy2);
+        if (Math.abs(det) < 1e-10) { ctx.restore(); continue; }
+        const a = ((dx0 - dx2) * (sy1 - sy2) - (dx1 - dx2) * (sy0 - sy2)) / det;
+        const b = ((dx1 - dx2) * (sx0 - sx2) - (dx0 - dx2) * (sx1 - sx2)) / det;
+        const c = dx0 - a * sx0 - b * sy0;
+        const d = ((dy0 - dy2) * (sy1 - sy2) - (dy1 - dy2) * (sy0 - sy2)) / det;
+        const e = ((dy1 - dy2) * (sx0 - sx2) - (dy0 - dy2) * (sx1 - sx2)) / det;
+        const f = dy0 - d * sx0 - e * sy0;
+
+        ctx.setTransform(a, d, b, e, c, f);
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
+      }
+
+      setGeorefOverlayUrl(canvas.toDataURL("image/png"));
+      setGeorefBounds(bounds);
+    };
+    img.src = georefData.imgUrl;
+  }, [georefData, georefMapPts]);
+
+  // Simple fan triangulation (works for convex and most concave polygons)
+  function triangulate(n) {
+    const tris = [];
+    for (let i = 1; i < n - 1; i++) {
+      tris.push([0, i, i + 1]);
+    }
+    return tris;
+  }
 
   return (
     <div style={fullscreenContainerStyle}>
@@ -1546,6 +1653,41 @@ Respond with JSON only:
         </div>
       )}
 
+      {/* Georef banner */}
+      {georefData && !georefOverlayUrl && (
+        <div style={{ padding: "8px 14px", background: "linear-gradient(135deg, #f3e5f5, #fff)", borderBottom: "2px solid #8e44ad", display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
+          <span style={{ fontWeight: T.w.black, color: "#8e44ad" }}>🗺️ Georef:</span>
+          <span style={{ color: T.c.text }}>Click <strong>{georefData.planPts.length}</strong> matching corners on the map (same order as plan). </span>
+          <span style={{ fontWeight: T.w.bold, color: "#8e44ad" }}>{georefMapPts.length} / {georefData.planPts.length} placed</span>
+          {georefMapPts.length === georefData.planPts.length && (
+            <button onClick={computeGeorefOverlay}
+              style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#8e44ad", color: "#fff", fontWeight: T.w.bold, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+              Overlay Plan ✓
+            </button>
+          )}
+          {georefMapPts.length > 0 && georefMapPts.length < georefData.planPts.length && (
+            <button onClick={() => setGeorefMapPts(prev => prev.slice(0, -1))}
+              style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e4e9ec", background: "#fff", color: T.c.textSecondary, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Undo</button>
+          )}
+          <button onClick={() => { setGeorefMapPts([]); setGeorefOverlayUrl(null); setGeorefBounds(null); if (onGeorefDone) onGeorefDone(); setMapTool(null); }}
+            style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e4e9ec", background: "#fff", color: T.c.textMuted, fontSize: 10, cursor: "pointer", fontFamily: "inherit", marginLeft: "auto" }}>Cancel</button>
+        </div>
+      )}
+
+      {/* Georef overlay controls */}
+      {georefOverlayUrl && (
+        <div style={{ padding: "6px 14px", background: "#f3e5f5", borderBottom: "1px solid #ce93d8", display: "flex", alignItems: "center", gap: 10, fontSize: 11 }}>
+          <span style={{ fontWeight: T.w.bold, color: "#8e44ad" }}>🗺️ Plan Overlay</span>
+          <span style={{ color: T.c.textSecondary }}>Opacity:</span>
+          <input type="range" min="0" max="100" value={georefOpacity * 100}
+            onChange={e => setGeorefOpacity(e.target.value / 100)}
+            style={{ width: 100 }} />
+          <span style={{ fontSize: 10, color: T.c.textSecondary }}>{Math.round(georefOpacity * 100)}%</span>
+          <button onClick={() => { setGeorefOverlayUrl(null); setGeorefBounds(null); setGeorefMapPts([]); if (onGeorefDone) onGeorefDone(); setMapTool(null); }}
+            style={{ padding: "3px 8px", borderRadius: T.r.sm, border: "1px solid #ce93d8", background: "#fff", color: "#8e44ad", fontSize: 10, cursor: "pointer", fontFamily: "inherit", marginLeft: "auto" }}>Remove Overlay</button>
+        </div>
+      )}
+
       {/* Map */}
       <LeafletMap apps={apps} selectedApp={app} onSelectApp={onSelectApp} height={mapHeight}
         drawMode={drawMode} onMapClick={handleMapClick} sightTriangle={sightTriangle}
@@ -1577,7 +1719,13 @@ Respond with JSON only:
         onSightPointDrag={(point, latlng) => {
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);
-        }} />
+        }}
+        georefOverlay={georefOverlayUrl ? { url: georefOverlayUrl, bounds: georefBounds, opacity: georefOpacity } : null}
+        georefMapPts={georefMapPts}
+        onGeorefMapClick={georefData && !georefOverlayUrl && georefMapPts.length < georefData.planPts.length
+          ? (latlng) => setGeorefMapPts(prev => [...prev, latlng])
+          : null
+        } />
 
       {/* ═══ Sight Triangle Analysis Panel ═══ */}
       {sightTriangle && sightTriangle.analysis && (

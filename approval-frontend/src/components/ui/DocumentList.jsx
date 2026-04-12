@@ -204,7 +204,7 @@ const UPLOAD_CATEGORIES = [
 
 
 // ─── Document List with Review + Viewer + Upload ─────
-export default function DocumentList({ documents, appDbId, app, currentUser, onDocUpdated, onMeasureCorrection }) {
+export default function DocumentList({ documents, appDbId, app, currentUser, onDocUpdated, onMeasureCorrection, onGeorefPoints }) {
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [viewerDoc, setViewerDoc] = useState(null);
   const [filter, setFilter] = useState("All");
@@ -634,6 +634,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 alert(`📏 Measurement ${value} ${unit} added as pending correction for "${fieldKey}".\n\nGo to AI Site Plan Analysis section → Save Corrections → Verify.`);
               }
             }}
+            onGeorefPoints={onGeorefPoints}
           />
         );
       })()}

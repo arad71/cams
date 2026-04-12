@@ -7,7 +7,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -131,6 +131,16 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     }
     return () => { mapInstanceRef.current?.off('click', handler); if (mapInstanceRef.current) mapInstanceRef.current.getContainer().style.cursor = ''; };
   }, [drawMode, onMapClick, leafletLoaded, mapTool]);
+
+  // Georef map click — collect control points
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded || !onGeorefMapClick || mapTool !== "georef") return;
+    const map = mapInstanceRef.current;
+    map.getContainer().style.cursor = "crosshair";
+    const handler = (e) => { onGeorefMapClick(e.latlng); };
+    map.on("click", handler);
+    return () => { map.off("click", handler); if (map.getContainer()) map.getContainer().style.cursor = ""; };
+  }, [onGeorefMapClick, leafletLoaded, mapTool]);
 
   // Render GeoJSON lot boundaries layer
   useEffect(() => {
@@ -476,6 +486,45 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       boundaryLayerRef.current.push(poly);
     });
   }, [showBoundaries, boundaryData, leafletLoaded]);
+
+  // ── Georef image overlay ──
+  const georefOverlayRef = useRef(null);
+  const georefMarkersRef = useRef([]);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    const map = mapInstanceRef.current;
+
+    // Clean old overlay
+    if (georefOverlayRef.current) { map.removeLayer(georefOverlayRef.current); georefOverlayRef.current = null; }
+    georefMarkersRef.current.forEach(m => map.removeLayer(m));
+    georefMarkersRef.current = [];
+
+    // Render image overlay
+    if (georefOverlay && georefOverlay.url && georefOverlay.bounds) {
+      georefOverlayRef.current = L.imageOverlay(georefOverlay.url, georefOverlay.bounds, { opacity: georefOverlay.opacity || 0.6 }).addTo(map);
+    }
+
+    // Render numbered georef map points
+    if (georefMapPts && georefMapPts.length > 0) {
+      georefMapPts.forEach((pt, i) => {
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="width:22px;height:22px;border-radius:50%;background:#8e44ad;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${i + 1}</div>`,
+          iconSize: [22, 22], iconAnchor: [11, 11],
+        });
+        const marker = L.marker([pt.lat, pt.lng], { icon }).addTo(map);
+        georefMarkersRef.current.push(marker);
+      });
+    }
+  }, [georefOverlay, georefMapPts, leafletLoaded]);
+
+  // Update overlay opacity without re-adding
+  useEffect(() => {
+    if (georefOverlayRef.current && georefOverlay) {
+      georefOverlayRef.current.setOpacity(georefOverlay.opacity || 0.6);
+    }
+  }, [georefOverlay?.opacity]);
 
   // ── WA Government WMS overlay layers ──
   const waLayerRefs = useRef({});

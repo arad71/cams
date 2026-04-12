@@ -30,7 +30,7 @@ const AI_FIELDS = [
   { key: 'construction.kerb_type', label: 'Kerb Type', unit: '' },
 ];
 
-export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData }) {
+export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData, onGeorefPoints }) {
   const wrapRef = useRef(null);
   const innerRef = useRef(null);
   const svgRef = useRef(null);
@@ -110,6 +110,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [mouse, setMouse] = useState(null);
   const [saveModal, setSaveModal] = useState(null); // { itemId, value }
+  const [georefPts, setGeorefPts] = useState([]); // [{x, y}] — plan control points
   const idSeq = useRef(0);
   const panState = useRef({ panning: false, ox: 0, oy: 0 });
   const saveTimeout = useRef(null);
@@ -191,6 +192,11 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
     }
     if (e.button !== 0) return;
     const pt = s2i(e);
+
+    if (tool === 'georef') {
+      setGeorefPts(prev => [...prev, { x: pt.x, y: pt.y }]);
+      return;
+    }
 
     if (tool === 'grabtext') {
       // OCR grab: send click coordinates to backend
@@ -282,6 +288,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       if (e.key === ' ') { setTool('pan'); e.preventDefault(); }
       if (e.key === 'c') setTool('calibrate');
       if (e.key === 't') setTool('grabtext');
+      if (e.key === 'g') setTool('georef');
       if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); if (onClose) onClose(); }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) setItems(prev => prev.slice(0, -1));
     };
@@ -348,6 +355,19 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       }
     }
 
+    // Georef control points
+    if (georefPts.length > 0) {
+      // Draw polygon outline connecting points
+      if (georefPts.length >= 2) {
+        s += `<polyline points="${georefPts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="#8e44ad" stroke-width="2" stroke-dasharray="8,4" opacity="0.7"/>`;
+      }
+      // Draw numbered circles
+      georefPts.forEach((p, i) => {
+        s += `<circle cx="${p.x}" cy="${p.y}" r="8" fill="#8e44ad" stroke="#fff" stroke-width="2"/>`;
+        s += `<text x="${p.x}" y="${p.y + 4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">${i + 1}</text>`;
+      });
+    }
+
     // Saved items
     items.forEach(it => {
       if (it.type === 'measure' || it.type === 'cal') {
@@ -407,6 +427,30 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
           <ToolBtn id="calibrate" icon="📐" label="Calibrate" active={tool === 'calibrate'} />
           <ToolBtn id="grabtext" icon="📝" label="Grab Text" active={tool === 'grabtext'} />
+          <ToolBtn id="georef" icon="🗺️" label="Overlay" active={tool === 'georef'} />
+          {tool === 'georef' && (
+            <span style={{ fontSize: 10, color: '#8e44ad', fontWeight: T.w.bold, padding: '0 4px' }}>
+              {georefPts.length} pts
+              {georefPts.length >= 3 && (
+                <button onClick={() => {
+                  if (onGeorefPoints) {
+                    const imgEl = imgRef.current;
+                    onGeorefPoints(georefPts, imgUrl, imgEl?.naturalWidth || 1, imgEl?.naturalHeight || 1);
+                  }
+                  setTool('measure');
+                }}
+                  style={{ marginLeft: 6, padding: '2px 8px', borderRadius: T.r.sm, border: 'none', background: '#8e44ad', color: '#fff', fontWeight: T.w.bold, fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Next: Mark on Map →
+                </button>
+              )}
+              {georefPts.length > 0 && (
+                <button onClick={() => setGeorefPts([])}
+                  style={{ marginLeft: 4, padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #e4e9ec', background: '#fff', color: '#95a5a6', fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Clear
+                </button>
+              )}
+            </span>
+          )}
           <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
           <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>↩ Undo</button>
           <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>🗑 Clear</button>
@@ -515,7 +559,8 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         <span>{Math.round(zoom * 100)}%</span>
         {ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.bold }}>🔍 Reading text...</span>}
         {tool === 'grabtext' && !ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click on text in the plan to grab it</span>}
-        <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Calibrate T=Text</span>
+        {tool === 'georef' && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click lot corners in order (min 3). Then click "Next: Mark on Map"</span>}
+        <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Cal T=Text G=Overlay</span>
       </div>
 
       {/* OCR Result — show detected text with save option */}

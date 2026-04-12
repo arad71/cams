@@ -263,7 +263,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
 
 // ─── Step Content Renderers ─────────────────────────────
 
-function StepUpload({ app, currentUser, onDocUpdated, onMeasureCorrection }) {
+function StepUpload({ app, currentUser, onDocUpdated, onMeasureCorrection, onGeorefPoints }) {
   return (
     <div>
       {/* Info Cards */}
@@ -288,7 +288,7 @@ function StepUpload({ app, currentUser, onDocUpdated, onMeasureCorrection }) {
 
       {/* Documents */}
       <DocumentList documents={app.documents} appDbId={app._dbId} app={app} currentUser={currentUser}
-        onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection} />
+        onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection} onGeorefPoints={onGeorefPoints} />
     </div>
   );
 }
@@ -301,7 +301,7 @@ function StepExtract({ app, currentUser, onReload, measureCorrections, onMeasure
   );
 }
 
-function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, categories, currentUser }) {
+function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, categories, currentUser, georefData, onGeorefDone }) {
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
@@ -309,7 +309,8 @@ function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, 
           speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork}
           contoursData={globalContoursData} urbanForestData={globalUrbanForestData}
           drainagePipesData={globalDrainagePipesData} drainagePitsData={globalDrainagePitsData}
-          waterPipesData={globalWaterPipesData} />
+          waterPipesData={globalWaterPipesData}
+          georefData={georefData} onGeorefDone={onGeorefDone} />
       </div>
       <ApprovalChecklist app={app} categories={categories} currentUser={currentUser} />
     </div>
@@ -582,6 +583,12 @@ export default function WorkflowView({
   const [currentStep, setCurrentStep] = useState(autoStep);
   const [showInspection, setShowInspection] = useState(false);
   const [activeInspection, setActiveInspection] = useState(null);
+  const [georefData, setGeorefData] = useState(null); // {planPts, imgUrl, imgW, imgH}
+
+  const handleGeorefPlanPoints = (planPts, imgUrl, imgW, imgH) => {
+    setGeorefData({ planPts, imgUrl, imgW, imgH });
+    setCurrentStep(3); // Switch to Assess tab where the map is
+  };
 
   const startInspection = async (type) => {
     try {
@@ -644,7 +651,8 @@ export default function WorkflowView({
         <div>
           {currentStep === 1 && (
             <StepUpload app={localApp} currentUser={currentUser}
-              onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection} />
+              onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection}
+              onGeorefPoints={handleGeorefPlanPoints} />
           )}
           {currentStep === 2 && (
             <StepExtract app={localApp} currentUser={currentUser}
@@ -658,7 +666,8 @@ export default function WorkflowView({
               globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
               globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
               categories={categories}
-              currentUser={currentUser} />
+              currentUser={currentUser}
+              georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
           )}
           {currentStep === 4 && (
             <StepReview app={localApp} categories={categories} currentUser={currentUser} />
