@@ -1032,6 +1032,56 @@ def ocr_region(
         raise HTTPException(500, f"OCR failed: {e}")
 
 
+@router.post("/{app_id}/documents/{doc_id}/rotate")
+def rotate_pdf(
+    app_id: int, doc_id: int,
+    body: dict,  # {"degrees": 90}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager", "engineer")),
+):
+    """Rotate all pages of a PDF document by 90, 180, or 270 degrees."""
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(404, "Document not found")
+
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+
+    ext = (doc.file_type or "").lower()
+    if ext != "pdf":
+        raise HTTPException(400, "Only PDF files can be rotated")
+
+    degrees = body.get("degrees", 90)
+    if degrees not in (90, 180, 270):
+        raise HTTPException(400, "Degrees must be 90, 180, or 270")
+
+    try:
+        from pypdf import PdfReader, PdfWriter
+
+        reader = PdfReader(str(file_path))
+        writer = PdfWriter()
+
+        for page in reader.pages:
+            page.rotate(degrees)
+            writer.add_page(page)
+
+        # Write back to the same file
+        with open(file_path, "wb") as f:
+            writer.write(f)
+
+        from app.services.audit import log_audit
+        log_audit(db=db, action="rotate", entity_type="document", user=current_user,
+                  entity_id=str(doc.id), description=f"Rotated {doc.name} by {degrees}°")
+
+        return {"message": f"Rotated {len(reader.pages)} page(s) by {degrees}°", "pages": len(reader.pages)}
+
+    except ImportError:
+        raise HTTPException(500, "pypdf not installed")
+    except Exception as e:
+        raise HTTPException(500, f"Rotate failed: {e}")
+
+
 @router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)
 def update_document(app_id: int, doc_id: int, data: DocumentUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     doc = db.query(Document).options(joinedload(Document.reviewed_by)).filter(Document.id == doc_id, Document.application_id == app_id).first()
