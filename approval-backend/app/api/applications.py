@@ -962,6 +962,7 @@ def ocr_region(
     region_h = body.get("height", 80)
     img_w = body.get("img_width", 1)
     img_h = body.get("img_height", 1)
+    img_rotation = body.get("rotation", 0)  # 0, 90, 180, 270
 
     ext = (doc.file_type or "").lower()
     try:
@@ -978,6 +979,12 @@ def ocr_region(
             img = images[0]
         else:
             raise HTTPException(400, f"OCR not supported for .{ext}")
+
+        # Rotate image to match frontend display
+        if img_rotation:
+            rot_map = {90: Image.Transpose.ROTATE_270, 180: Image.Transpose.ROTATE_180, 270: Image.Transpose.ROTATE_90}
+            if img_rotation in rot_map:
+                img = img.transpose(rot_map[img_rotation])
 
         # Scale rectangle coordinates from displayed size to actual image size
         scale_x = img.width / max(img_w, 1)

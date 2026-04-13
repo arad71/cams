@@ -108,6 +108,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   const [calUnit, setCalUnit] = useState('m');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [rotation, setRotation] = useState(0); // degrees: 0, 90, 180, 270
   const [mouse, setMouse] = useState(null);
   const [saveModal, setSaveModal] = useState(null); // { itemId, value }
   const [georefPts, setGeorefPts] = useState([]); // [{x, y}] — plan control points
@@ -277,7 +278,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         if (docId && appDbId) {
           import('../../services/api').then(mod => {
             const api = mod.default;
-            api.ocrRegion(appDbId, docId, { page: 1, x: x1, y: y1, width: w, height: h, img_width: imgW, img_height: imgH })
+            api.ocrRegion(appDbId, docId, { page: 1, x: x1, y: y1, width: w, height: h, img_width: imgW, img_height: imgH, rotation: rotation })
               .then(res => {
                 setOcrResult({ text: res.text || '', x: (x1 + x2) / 2, y: (y1 + y2) / 2 });
                 setOcrLoading(false);
@@ -316,6 +317,8 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       if (e.key === 'c') switchTo('calibrate');
       if (e.key === 't') switchTo('grabtext');
       if (e.key === 'g') switchTo('georef');
+      if (e.key === 'r') setRotation(r => (r + 90) % 360);
+      if (e.key === 'R') setRotation(r => (r - 90 + 360) % 360);
       if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); setOcrResult(null); setGeorefPts([]); if (onClose) onClose(); }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) setItems(prev => prev.slice(0, -1));
     };
@@ -503,7 +506,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#e8ecef', cursor: tool === 'pan' ? 'grab' : tool === 'grabtext' ? 'text' : tool === 'georef' ? 'crosshair' : 'crosshair' }}
           onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp} onDoubleClick={handleDblClick} onWheel={handleWheel}>
-          <div ref={innerRef} style={{ position: 'absolute', transformOrigin: '0 0', transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})` }}>
+          <div ref={innerRef} style={{ position: 'absolute', transformOrigin: '0 0', transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom}) rotate(${rotation}deg)` }}>
             <img ref={imgRef} src={imgUrl} crossOrigin="anonymous" alt="Site Plan"
               onLoad={(e) => { setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight }); setImgLoaded(true); }}
               style={{ display: 'block', userSelect: 'none' }} draggable={false} />
@@ -593,6 +596,11 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             title="Manually set an AI field value">✏️ Set Field</button>
         )}
         <span>{Math.round(zoom * 100)}%</span>
+        <button onClick={() => setRotation(r => (r - 90 + 360) % 360)} title="Rotate left 90°"
+          style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>↺</button>
+        <button onClick={() => setRotation(r => (r + 90) % 360)} title="Rotate right 90°"
+          style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+        {rotation !== 0 && <span style={{ fontSize: 9, color: '#8e44ad', fontWeight: T.w.bold }}>{rotation}°</span>}
         {ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.bold }}>🔍 Reading text...</span>}
         {tool === 'grabtext' && !ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click on text in the plan to grab it</span>}
         {tool === 'georef' && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click lot corners in order (min 3). Then click "Next: Mark on Map"</span>}
