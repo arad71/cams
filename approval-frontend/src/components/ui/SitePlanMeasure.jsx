@@ -216,11 +216,12 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         const d = dist(tempPt, pt);
         idSeq.current++;
         if (tool === 'calibrate') {
-          const realDist = prompt('Enter the real-world distance for this line (e.g. 10.5):', '');
-          if (realDist === null || realDist === '') { setTempPt(null); return; }
-          const realVal = parseFloat(realDist);
-          if (!realVal || realVal <= 0) { setTempPt(null); return; }
-          setCalVal(realVal);
+          const realVal = calVal;
+          if (!realVal || realVal <= 0) {
+            alert('Enter the known distance in the Scale Calibration box first (bottom-left), then draw the line.');
+            setTempPt(null);
+            return;
+          }
           const newCalPx = d / realVal;
           setCalPx(newCalPx);
           setItems(prev => [...prev, { id: idSeq.current, type: 'cal', p1: { ...tempPt }, p2: { ...pt }, pxDist: d, color: '#ffcf40', calVal: realVal }]);
