@@ -284,24 +284,26 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   };
 
   // Keyboard
+  const prevToolRef = useRef('measure');
   useEffect(() => {
     const kd = (e) => {
-      if (e.target.tagName === 'INPUT') return;
-      if (e.key === 'm') setTool('measure');
-      if (e.key === 'p') setTool('marker');
-      if (e.key === 'a') setTool('area');
-      if (e.key === ' ') { setTool('pan'); e.preventDefault(); }
-      if (e.key === 'c') setTool('calibrate');
-      if (e.key === 't') setTool('grabtext');
-      if (e.key === 'g') setTool('georef');
-      if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); if (onClose) onClose(); }
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      const switchTo = (t) => { if (tool !== 'pan') prevToolRef.current = tool; setTool(t); setTempPt(null); setOcrResult(null); setOcrLoading(false); };
+      if (e.key === 'm') switchTo('measure');
+      if (e.key === 'p') switchTo('marker');
+      if (e.key === 'a') { setTool('area'); setTempPt(null); setOcrResult(null); }
+      if (e.key === ' ') { if (tool !== 'pan') prevToolRef.current = tool; setTool('pan'); e.preventDefault(); }
+      if (e.key === 'c') switchTo('calibrate');
+      if (e.key === 't') switchTo('grabtext');
+      if (e.key === 'g') switchTo('georef');
+      if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); setOcrResult(null); setGeorefPts([]); if (onClose) onClose(); }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) setItems(prev => prev.slice(0, -1));
     };
-    const ku = (e) => { if (e.key === ' ') setTool('measure'); };
+    const ku = (e) => { if (e.key === ' ') setTool(prevToolRef.current || 'measure'); };
     window.addEventListener('keydown', kd);
     window.addEventListener('keyup', ku);
     return () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); };
-  }, [onClose]);
+  }, [onClose, tool]);
 
   const deleteItem = (id) => setItems(prev => {
     const removed = prev.find(i => i.id === id);
@@ -404,7 +406,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   };
 
   const ToolBtn = ({ id, icon, label, active }) => (
-    <button onClick={() => { setTool(id); setTempPt(null); if (id !== 'area') setAreaPts([]); }}
+    <button onClick={() => { setTool(id); setTempPt(null); if (id !== 'area') setAreaPts([]); setOcrResult(null); setOcrLoading(false); }}
       style={{ height: 32, padding: '0 12px', border: active ? '1px solid rgba(26,188,156,0.4)' : '1px solid transparent', background: active ? 'rgba(26,188,156,0.1)' : 'transparent', color: active ? '#16a085' : '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: active ? 600 : 500, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
       {icon} {label}
     </button>
@@ -469,7 +471,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       {/* Workspace */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Canvas */}
-        <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#e8ecef', cursor: tool === 'pan' ? 'grab' : 'crosshair' }}
+        <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#e8ecef', cursor: tool === 'pan' ? 'grab' : tool === 'grabtext' ? 'text' : tool === 'georef' ? 'crosshair' : 'crosshair' }}
           onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp} onDoubleClick={handleDblClick} onWheel={handleWheel}>
           <div ref={innerRef} style={{ position: 'absolute', transformOrigin: '0 0', transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})` }}>
@@ -529,11 +531,11 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                     {it.type === 'cal' ? 'Calibration' : it.label || it.type}
                   </div>
                   <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: T.w.semi, color: it.type === 'cal' ? '#e67e22' : '#2980b9', whiteSpace: 'nowrap' }}>
-                    {it.type === 'measure' ? fmtDist(it.pxDist) : it.type === 'area' ? fmtArea(it.pxArea) : it.type === 'cal' ? Math.round(it.pxDist) + ' px' : 'Marker'}
+                    {it.type === 'measure' ? fmtDist(it.pxDist) : it.type === 'area' ? fmtArea(it.pxArea) : it.type === 'cal' ? `${it.calVal || calVal} ${calUnit} (cal)` : 'Marker'}
                   </div>
                   {/* Save to AI field button — always visible */}
-                  {it.type === 'measure' && onSaveField && (
-                    <button onClick={() => setSaveModal({ itemId: it.id, value: calPx ? getRealValue(it) : it.pxDist.toFixed(1) })}
+                  {(it.type === 'measure' || it.type === 'area') && onSaveField && (
+                    <button onClick={() => setSaveModal({ itemId: it.id, value: calPx ? getRealValue(it) : (it.type === 'measure' ? it.pxDist.toFixed(1) : it.pxArea.toFixed(1)) })}
                       style={{ background: '#e8f8f5', border: '1px solid #1abc9c', color: '#1abc9c', cursor: 'pointer', fontSize: 9, padding: '1px 5px', borderRadius: T.r.sm, fontWeight: T.w.bold, fontFamily: 'inherit' }}
                       title="Save to AI field">💾 Save</button>
                   )}
