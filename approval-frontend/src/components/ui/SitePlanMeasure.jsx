@@ -183,6 +183,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   // Mouse handlers
   const [ocrResult, setOcrResult] = useState(null);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrDrag, setOcrDrag] = useState(null); // {start: {x,y}, end: {x,y}}
 
   const handleMouseDown = (e) => {
     if (e.button === 1 || (e.button === 0 && tool === 'pan')) {
@@ -199,29 +200,8 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
     }
 
     if (tool === 'grabtext') {
-      // OCR grab: send click coordinates to backend
-      setOcrLoading(true);
-      setOcrResult(null);
-      const imgEl = imgRef.current;
-      const imgW = imgEl ? imgEl.naturalWidth : 1;
-      const imgH = imgEl ? imgEl.naturalHeight : 1;
-      // Get doc ID from appData
-      const docId = appData?.documents?.find(d => (d.type || '').toLowerCase() === 'pdf' && (d.category || '').includes('Site'))?.id;
-      const appDbId = appData?._dbId;
-      if (docId && appDbId) {
-        import('../../services/api').then(mod => {
-          const api = mod.default;
-          api.ocrRegion(appDbId, docId, { page: 1, x: pt.x, y: pt.y, width: 200, height: 60, img_width: imgW, img_height: imgH })
-            .then(res => {
-              setOcrResult({ text: res.text || '', x: pt.x, y: pt.y });
-              setOcrLoading(false);
-            })
-            .catch(err => { console.error('OCR failed:', err); setOcrResult({ text: '(OCR failed)', x: pt.x, y: pt.y }); setOcrLoading(false); });
-        });
-      } else {
-        setOcrResult({ text: '(no site plan document found)', x: pt.x, y: pt.y });
-        setOcrLoading(false);
-      }
+      // Start rectangle drag for OCR region
+      setOcrDrag({ start: pt, end: pt });
       return;
     }
 
@@ -268,10 +248,49 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       setPan({ x: e.clientX - panState.current.ox, y: e.clientY - panState.current.oy });
       return;
     }
-    setMouse(s2i(e));
+    const pt = s2i(e);
+    setMouse(pt);
+    // Update drag rectangle end point
+    if (ocrDrag) {
+      setOcrDrag(prev => prev ? { ...prev, end: pt } : null);
+    }
   };
 
-  const handleMouseUp = () => { panState.current.panning = false; };
+  const handleMouseUp = () => {
+    panState.current.panning = false;
+    // Complete OCR drag — send region to backend
+    if (ocrDrag && ocrDrag.start && ocrDrag.end) {
+      const x1 = Math.min(ocrDrag.start.x, ocrDrag.end.x);
+      const y1 = Math.min(ocrDrag.start.y, ocrDrag.end.y);
+      const x2 = Math.max(ocrDrag.start.x, ocrDrag.end.x);
+      const y2 = Math.max(ocrDrag.start.y, ocrDrag.end.y);
+      const w = x2 - x1, h = y2 - y1;
+      if (w > 10 && h > 5) {
+        setOcrLoading(true);
+        setOcrResult(null);
+        const imgEl = imgRef.current;
+        const imgW = imgEl ? imgEl.naturalWidth : 1;
+        const imgH = imgEl ? imgEl.naturalHeight : 1;
+        const docId = appData?.documents?.find(d => (d.type || '').toLowerCase() === 'pdf' && (d.category || '').includes('Site'))?.id;
+        const appDbId = appData?._dbId;
+        if (docId && appDbId) {
+          import('../../services/api').then(mod => {
+            const api = mod.default;
+            api.ocrRegion(appDbId, docId, { page: 1, x: x1, y: y1, width: w, height: h, img_width: imgW, img_height: imgH })
+              .then(res => {
+                setOcrResult({ text: res.text || '', x: (x1 + x2) / 2, y: (y1 + y2) / 2 });
+                setOcrLoading(false);
+              })
+              .catch(err => { console.error('OCR failed:', err); setOcrResult({ text: '(OCR failed)', x: x1, y: y1 }); setOcrLoading(false); });
+          });
+        } else {
+          setOcrResult({ text: '(no site plan document found)', x: x1, y: y1 });
+          setOcrLoading(false);
+        }
+      }
+      setOcrDrag(null);
+    }
+  };
 
   const handleWheel = (e) => {
     e.preventDefault();
@@ -360,6 +379,15 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         const cy = pts.reduce((a, p) => a + p.y, 0) / pts.length;
         s += labelBox(cx, cy, 0, color, fmtArea(polyArea(pts)));
       }
+    }
+
+    // OCR drag rectangle
+    if (ocrDrag && ocrDrag.start && ocrDrag.end) {
+      const x1 = Math.min(ocrDrag.start.x, ocrDrag.end.x);
+      const y1 = Math.min(ocrDrag.start.y, ocrDrag.end.y);
+      const w = Math.abs(ocrDrag.end.x - ocrDrag.start.x);
+      const h = Math.abs(ocrDrag.end.y - ocrDrag.start.y);
+      s += `<rect x="${x1}" y="${y1}" width="${w}" height="${h}" fill="rgba(142,68,173,0.15)" stroke="#8e44ad" stroke-width="2" stroke-dasharray="6,3" rx="3"/>`;
     }
 
     // Georef control points

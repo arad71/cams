@@ -979,30 +979,38 @@ def ocr_region(
         else:
             raise HTTPException(400, f"OCR not supported for .{ext}")
 
-        # Scale click coordinates from displayed size to actual image size
+        # Scale rectangle coordinates from displayed size to actual image size
         scale_x = img.width / max(img_w, 1)
         scale_y = img.height / max(img_h, 1)
-        real_x = int(cx * scale_x)
-        real_y = int(cy * scale_y)
-        real_w = int(region_w * scale_x)
-        real_h = int(region_h * scale_y)
+        left = max(0, int(cx * scale_x))
+        top = max(0, int(cy * scale_y))
+        right = min(img.width, int((cx + region_w) * scale_x))
+        bottom = min(img.height, int((cy + region_h) * scale_y))
 
-        # Crop region with padding
-        pad = max(real_w, real_h) // 2
-        left = max(0, real_x - pad)
-        top = max(0, real_y - pad)
-        right = min(img.width, real_x + pad)
-        bottom = min(img.height, real_y + pad)
+        # Ensure minimum size
+        if right - left < 10: right = min(img.width, left + 50)
+        if bottom - top < 10: bottom = min(img.height, top + 30)
+
         crop = img.crop((left, top, right, bottom))
 
-        # Upscale for better OCR
+        # Upscale for better OCR (3x minimum 300px wide)
         up_w = max(crop.width * 3, 300)
         up_h = max(crop.height * 3, 100)
         crop = crop.resize((up_w, up_h), Image.LANCZOS)
 
-        # Run OCR
+        # Convert to grayscale and increase contrast for better OCR
+        crop = crop.convert("L")
+
+        # Run OCR — try single line first, fall back to block
         import pytesseract
         text = pytesseract.image_to_string(crop, config="--psm 7").strip()
+
+        # Fallback: if single-line mode returned nothing, try block mode
+        if not text or len(text) < 2:
+            text = pytesseract.image_to_string(crop, config="--psm 6").strip()
+        # Fallback: try single word mode
+        if not text or len(text) < 2:
+            text = pytesseract.image_to_string(crop, config="--psm 8").strip()
 
         # Clean: remove non-printable, collapse whitespace
         import re
