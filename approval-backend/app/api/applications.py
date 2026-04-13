@@ -1035,11 +1035,11 @@ def ocr_region(
 @router.post("/{app_id}/documents/{doc_id}/rotate")
 def rotate_pdf(
     app_id: int, doc_id: int,
-    body: dict,  # {"degrees": 90}
+    body: dict,  # {"degrees": 32.5}
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("admin", "manager", "engineer")),
 ):
-    """Rotate all pages of a PDF document by 90, 180, or 270 degrees."""
+    """Rotate all pages of a PDF document by any angle."""
     doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
     if not doc or not doc.file_path:
         raise HTTPException(404, "Document not found")
@@ -1052,34 +1052,79 @@ def rotate_pdf(
     if ext != "pdf":
         raise HTTPException(400, "Only PDF files can be rotated")
 
-    degrees = body.get("degrees", 90)
-    if degrees not in (90, 180, 270):
-        raise HTTPException(400, "Degrees must be 90, 180, or 270")
+    degrees = body.get("degrees", 0)
+    if not degrees:
+        raise HTTPException(400, "Degrees required")
 
     try:
-        from pypdf import PdfReader, PdfWriter
+        # For exact 90° increments, use fast pypdf rotation (lossless)
+        rounded = round(degrees)
+        if rounded in (90, 180, 270, -90, -180, -270):
+            from pypdf import PdfReader, PdfWriter
+            reader = PdfReader(str(file_path))
+            writer = PdfWriter()
+            rot = rounded % 360
+            for page in reader.pages:
+                page.rotate(rot)
+                writer.add_page(page)
+            with open(file_path, "wb") as f:
+                writer.write(f)
+            page_count = len(reader.pages)
+        else:
+            # Arbitrary angle — render pages as images, rotate, save as new PDF
+            from PIL import Image
+            from pdf2image import convert_from_bytes
+            from reportlab.lib.pagesizes import A4
+            from reportlab.pdfgen import canvas as rl_canvas
+            import io
 
-        reader = PdfReader(str(file_path))
-        writer = PdfWriter()
+            pdf_bytes = file_path.read_bytes()
+            images = convert_from_bytes(pdf_bytes, dpi=200)
+            page_count = len(images)
 
-        for page in reader.pages:
-            page.rotate(degrees)
-            writer.add_page(page)
+            # Rotate each page image and build new PDF
+            buf = io.BytesIO()
+            c = rl_canvas.Canvas(buf)
+            for img in images:
+                # Rotate with expand=True to fit the full rotated image
+                rotated = img.rotate(-degrees, expand=True, fillcolor=(255, 255, 255))
+                # Save rotated image to temp buffer
+                img_buf = io.BytesIO()
+                rotated.save(img_buf, format="PNG")
+                img_buf.seek(0)
 
-        # Write back to the same file
-        with open(file_path, "wb") as f:
-            writer.write(f)
+                # Page size matches rotated image at 200 DPI
+                pw = rotated.width * 72 / 200
+                ph = rotated.height * 72 / 200
+                c.setPageSize((pw, ph))
+                c.drawImage(
+                    _pil_to_reportlab(img_buf, rotated.width, rotated.height),
+                    0, 0, pw, ph
+                )
+                c.showPage()
+            c.save()
+
+            # Write back
+            with open(file_path, "wb") as f:
+                f.write(buf.getvalue())
 
         from app.services.audit import log_audit
         log_audit(db=db, action="rotate", entity_type="document", user=current_user,
                   entity_id=str(doc.id), description=f"Rotated {doc.name} by {degrees}°")
 
-        return {"message": f"Rotated {len(reader.pages)} page(s) by {degrees}°", "pages": len(reader.pages)}
+        return {"message": f"Rotated {page_count} page(s) by {degrees}°", "pages": page_count}
 
-    except ImportError:
-        raise HTTPException(500, "pypdf not installed")
+    except ImportError as e:
+        raise HTTPException(500, f"Dependency missing: {e}")
     except Exception as e:
         raise HTTPException(500, f"Rotate failed: {e}")
+
+
+def _pil_to_reportlab(img_buf, width, height):
+    """Convert PIL image buffer to a ReportLab ImageReader."""
+    from reportlab.lib.utils import ImageReader
+    img_buf.seek(0)
+    return ImageReader(img_buf)
 
 
 @router.patch("/{app_id}/documents/{doc_id}", response_model=DocumentOut)

@@ -643,7 +643,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
         {rotation !== 0 && (
           <>
-            <span style={{ fontSize: 9, color: '#8e44ad', fontWeight: T.w.bold }}>{rotation}°</span>
+            <span style={{ fontSize: 9, color: '#8e44ad', fontWeight: T.w.bold }}>{Math.round(rotation * 10) / 10}°</span>
             <button onClick={async () => {
               const docId = appData?.documents?.find(d => (d.type || '').toLowerCase() === 'pdf' && (d.category || '').includes('Site'))?.id;
               const appDbId = appData?._dbId;
