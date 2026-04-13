@@ -120,7 +120,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   // Map click for sight triangle draw mode — disabled when measure/draw tool active
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
-    if (mapTool === "measure" || mapTool === "draw") return; // Tools take priority
+    if (mapTool === "measure" || mapTool === "draw" || mapTool === "georef") return; // Tools take priority
     const handler = (e) => { if (onMapClick && drawMode) onMapClick(e.latlng); };
     if (drawMode) {
       mapInstanceRef.current.getContainer().style.cursor = 'crosshair';
@@ -136,12 +136,23 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   const georefClickRef = useRef(null);
   georefClickRef.current = onGeorefMapClick;
   useEffect(() => {
-    if (!mapInstanceRef.current || !leafletLoaded || mapTool !== "georef") return;
+    if (!mapInstanceRef.current || !leafletLoaded) return;
     const map = mapInstanceRef.current;
+    if (mapTool !== "georef") {
+      return;
+    }
+    console.log("Georef click handler BOUND, mapTool:", mapTool, "callback:", !!georefClickRef.current);
     map.getContainer().style.cursor = "crosshair";
-    const handler = (e) => { if (georefClickRef.current) georefClickRef.current(e.latlng); };
-    map.on("preclick", handler);
-    return () => { map.off("preclick", handler); if (map.getContainer()) map.getContainer().style.cursor = ""; };
+    const handler = (e) => {
+      console.log("Georef click fired at:", e.latlng, "callback:", !!georefClickRef.current);
+      if (georefClickRef.current) georefClickRef.current(e.latlng);
+    };
+    // Use both click and preclick to ensure we catch it
+    map.on("click", handler);
+    return () => {
+      map.off("click", handler);
+      if (map.getContainer()) map.getContainer().style.cursor = "";
+    };
   }, [leafletLoaded, mapTool]);
 
   // Render GeoJSON lot boundaries layer
