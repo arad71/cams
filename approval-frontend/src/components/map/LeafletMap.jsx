@@ -1554,7 +1554,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     if (!mapInstanceRef.current || !mapTool) return;
     if (mapTool === "zoomProperty" && selectedApp) {
       const c = getAppCoords(allLotsData, selectedApp);
-      if (c) mapInstanceRef.current.panTo([c.lat, c.lng], { animate: true, duration: 0.8 });
+      if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 19, { duration: 0.8 });
       if (setMapTool) setMapTool(null);
     }
     if (mapTool === "zoomExtent") {
