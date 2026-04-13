@@ -596,11 +596,33 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             title="Manually set an AI field value">✏️ Set Field</button>
         )}
         <span>{Math.round(zoom * 100)}%</span>
-        <button onClick={() => setRotation(r => (r - 90 + 360) % 360)} title="Rotate left 90°"
+        <button onClick={() => setRotation(r => (r - 90 + 360) % 360)} title="Preview rotate left (visual only)"
           style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>↺</button>
-        <button onClick={() => setRotation(r => (r + 90) % 360)} title="Rotate right 90°"
+        <button onClick={() => setRotation(r => (r + 90) % 360)} title="Preview rotate right (visual only)"
           style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
-        {rotation !== 0 && <span style={{ fontSize: 9, color: '#8e44ad', fontWeight: T.w.bold }}>{rotation}°</span>}
+        {rotation !== 0 && (
+          <>
+            <span style={{ fontSize: 9, color: '#8e44ad', fontWeight: T.w.bold }}>{rotation}°</span>
+            <button onClick={async () => {
+              const docId = appData?.documents?.find(d => (d.type || '').toLowerCase() === 'pdf' && (d.category || '').includes('Site'))?.id;
+              const appDbId = appData?._dbId;
+              if (!docId || !appDbId) { alert('No PDF document found'); return; }
+              try {
+                const api = (await import('../../services/api')).default;
+                await api.rotatePdf(appDbId, docId, rotation);
+                setRotation(0);
+                // Reload the image by appending cache-bust
+                if (imgRef.current) {
+                  const src = imgRef.current.src.split('?')[0];
+                  imgRef.current.src = src + '?t=' + Date.now();
+                }
+              } catch (err) { alert('Rotate failed: ' + err.message); }
+            }} title="Save rotation permanently to the PDF file"
+              style={{ padding: '2px 8px', borderRadius: T.r.sm, border: 'none', background: '#e67e22', color: '#fff', fontSize: 9, fontWeight: T.w.bold, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Save Rotation
+            </button>
+          </>
+        )}
         {ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.bold }}>🔍 Reading text...</span>}
         {tool === 'grabtext' && !ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click on text in the plan to grab it</span>}
         {tool === 'georef' && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click lot corners in order (min 3). Then click "Next: Mark on Map"</span>}

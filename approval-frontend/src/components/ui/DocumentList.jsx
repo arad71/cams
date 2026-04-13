@@ -432,24 +432,6 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     ✂ Extract
                   </button>
                 )}
-                {/* Rotate PDF button */}
-                {canUpload && doc.type === "pdf" && (
-                  <button onClick={async (e) => {
-                    e.stopPropagation();
-                    const angle = prompt("Rotate PDF by degrees (90, 180, 270):", "90");
-                    if (!angle) return;
-                    const deg = parseInt(angle);
-                    if (![90, 180, 270].includes(deg)) { alert("Use 90, 180, or 270"); return; }
-                    try {
-                      await api.rotatePdf(appDbId, doc.id, deg);
-                      if (onDocUpdated) onDocUpdated();
-                    } catch (err) { alert("Rotate failed: " + err.message); }
-                  }}
-                    title="Rotate PDF pages"
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #e67e2240", background: "#fef9e7", color: "#e67e22", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                    🔄 Rotate
-                  </button>
-                )}
                 {/* Delete button */}
                 {canUpload && (
                   <button onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
