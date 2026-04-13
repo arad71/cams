@@ -108,7 +108,8 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   const [calUnit, setCalUnit] = useState('m');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [rotation, setRotation] = useState(0); // degrees: 0, 90, 180, 270
+  const [rotation, setRotation] = useState(0); // degrees — any angle for north alignment
+  const [northPt, setNorthPt] = useState(null); // first click of north arrow (base)
   const [mouse, setMouse] = useState(null);
   const [saveModal, setSaveModal] = useState(null); // { itemId, value }
   const [georefPts, setGeorefPts] = useState([]); // [{x, y}] — plan control points
@@ -194,6 +195,26 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
     }
     if (e.button !== 0) return;
     const pt = s2i(e);
+
+    if (tool === 'north') {
+      if (!northPt) {
+        // First click — base of north arrow
+        setNorthPt(pt);
+      } else {
+        // Second click — tip of north arrow. Calculate angle to rotate north up
+        const dx = pt.x - northPt.x;
+        const dy = pt.y - northPt.y;
+        // Angle from base to tip in screen coords (Y down)
+        // atan2 gives angle from positive X axis, we want angle from "up" (negative Y)
+        const angleDeg = Math.atan2(dx, -dy) * 180 / Math.PI;
+        // Rotate so this direction points up (subtract the angle)
+        const newRotation = -angleDeg;
+        setRotation(Math.round(newRotation * 10) / 10);
+        setNorthPt(null);
+        setTool('measure');
+      }
+      return;
+    }
 
     if (tool === 'georef') {
       setGeorefPts(prev => [...prev, { x: pt.x, y: pt.y }]);
@@ -317,6 +338,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       if (e.key === 'c') switchTo('calibrate');
       if (e.key === 't') switchTo('grabtext');
       if (e.key === 'g') switchTo('georef');
+      if (e.key === 'n') { switchTo('north'); setNorthPt(null); }
       if (e.key === 'r') setRotation(r => (r + 90) % 360);
       if (e.key === 'R') setRotation(r => (r - 90 + 360) % 360);
       if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); setOcrResult(null); setGeorefPts([]); if (onClose) onClose(); }
@@ -394,6 +416,24 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       s += `<rect x="${x1}" y="${y1}" width="${w}" height="${h}" fill="rgba(142,68,173,0.15)" stroke="#8e44ad" stroke-width="2" stroke-dasharray="6,3" rx="3"/>`;
     }
 
+    // North arrow guide
+    if (tool === 'north' && northPt) {
+      const endPt = mouse || northPt;
+      s += `<line x1="${northPt.x}" y1="${northPt.y}" x2="${endPt.x}" y2="${endPt.y}" stroke="#e67e22" stroke-width="3" stroke-dasharray="8,4" opacity="0.8"/>`;
+      s += `<circle cx="${northPt.x}" cy="${northPt.y}" r="6" fill="#e67e22" stroke="#fff" stroke-width="2"/>`;
+      s += `<circle cx="${endPt.x}" cy="${endPt.y}" r="5" fill="#e67e22" opacity="0.6"/>`;
+      // Arrow head at endPt
+      const dx = endPt.x - northPt.x, dy = endPt.y - northPt.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len > 10) {
+        const nx = dx / len, ny = dy / len;
+        const ax = endPt.x - nx * 12 - ny * 6, ay = endPt.y - ny * 12 + nx * 6;
+        const bx = endPt.x - nx * 12 + ny * 6, by = endPt.y - ny * 12 - nx * 6;
+        s += `<polygon points="${endPt.x},${endPt.y} ${ax},${ay} ${bx},${by}" fill="#e67e22" opacity="0.8"/>`;
+      }
+      s += `<text x="${northPt.x + 10}" y="${northPt.y - 8}" fill="#e67e22" font-size="11" font-weight="700">N ↑</text>`;
+    }
+
     // Georef control points
     if (georefPts.length > 0) {
       // Draw polygon outline connecting points
@@ -438,7 +478,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   };
 
   const ToolBtn = ({ id, icon, label, active }) => (
-    <button onClick={() => { setTool(id); setTempPt(null); if (id !== 'area') setAreaPts([]); setOcrResult(null); setOcrLoading(false); }}
+    <button onClick={() => { setTool(id); setTempPt(null); if (id !== 'area') setAreaPts([]); setOcrResult(null); setOcrLoading(false); if (id !== 'north') setNorthPt(null); }}
       style={{ height: 32, padding: '0 12px', border: active ? '1px solid rgba(26,188,156,0.4)' : '1px solid transparent', background: active ? 'rgba(26,188,156,0.1)' : 'transparent', color: active ? '#16a085' : '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: active ? 600 : 500, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
       {icon} {label}
     </button>
@@ -466,6 +506,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
           <ToolBtn id="calibrate" icon="📐" label="Calibrate" active={tool === 'calibrate'} />
           <ToolBtn id="grabtext" icon="📝" label="Grab Text" active={tool === 'grabtext'} />
+          <ToolBtn id="north" icon="🧭" label="North" active={tool === 'north'} />
           <ToolBtn id="georef" icon="🗺️" label="Overlay" active={tool === 'georef'} />
           {tool === 'georef' && (
             <span style={{ fontSize: 10, color: '#8e44ad', fontWeight: T.w.bold, padding: '0 4px' }}>
@@ -625,8 +666,9 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         )}
         {ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.bold }}>🔍 Reading text...</span>}
         {tool === 'grabtext' && !ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click on text in the plan to grab it</span>}
+        {tool === 'north' && <span style={{ color: '#e67e22', fontWeight: T.w.semi }}>{northPt ? 'Click the TIP of the north arrow' : 'Click the BASE of the north arrow'}</span>}
         {tool === 'georef' && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click lot corners in order (min 3). Then click "Next: Mark on Map"</span>}
-        <span style={{ marginLeft: 'auto' }}>M=Measure P=Marker A=Area Space=Pan C=Cal T=Text G=Overlay</span>
+        <span style={{ marginLeft: 'auto' }}>M P A Space C T N G r R</span>
       </div>
 
       {/* OCR Result — show detected text with save option */}
