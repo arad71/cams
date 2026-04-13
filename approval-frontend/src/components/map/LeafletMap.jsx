@@ -133,14 +133,16 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
   }, [drawMode, onMapClick, leafletLoaded, mapTool]);
 
   // Georef map click — collect control points
+  const georefClickRef = useRef(null);
+  georefClickRef.current = onGeorefMapClick;
   useEffect(() => {
-    if (!mapInstanceRef.current || !leafletLoaded || !onGeorefMapClick || mapTool !== "georef") return;
+    if (!mapInstanceRef.current || !leafletLoaded || mapTool !== "georef") return;
     const map = mapInstanceRef.current;
     map.getContainer().style.cursor = "crosshair";
-    const handler = (e) => { onGeorefMapClick(e.latlng); };
-    map.on("click", handler);
-    return () => { map.off("click", handler); if (map.getContainer()) map.getContainer().style.cursor = ""; };
-  }, [onGeorefMapClick, leafletLoaded, mapTool]);
+    const handler = (e) => { if (georefClickRef.current) georefClickRef.current(e.latlng); };
+    map.on("preclick", handler);
+    return () => { map.off("preclick", handler); if (map.getContainer()) map.getContainer().style.cursor = ""; };
+  }, [leafletLoaded, mapTool]);
 
   // Render GeoJSON lot boundaries layer
   useEffect(() => {

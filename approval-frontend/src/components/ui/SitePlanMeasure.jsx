@@ -236,9 +236,14 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         const d = dist(tempPt, pt);
         idSeq.current++;
         if (tool === 'calibrate') {
-          const newCalPx = d / (calVal || 1);
+          const realDist = prompt('Enter the real-world distance for this line (e.g. 10.5):', '');
+          if (realDist === null || realDist === '') { setTempPt(null); return; }
+          const realVal = parseFloat(realDist);
+          if (!realVal || realVal <= 0) { setTempPt(null); return; }
+          setCalVal(realVal);
+          const newCalPx = d / realVal;
           setCalPx(newCalPx);
-          setItems(prev => [...prev, { id: idSeq.current, type: 'cal', p1: { ...tempPt }, p2: { ...pt }, pxDist: d, color: '#ffcf40' }]);
+          setItems(prev => [...prev, { id: idSeq.current, type: 'cal', p1: { ...tempPt }, p2: { ...pt }, pxDist: d, color: '#ffcf40', calVal: realVal }]);
           setTool('measure');
         } else {
           setItems(prev => [...prev, { id: idSeq.current, type: 'measure', p1: { ...tempPt }, p2: { ...pt }, pxDist: d, color, label: 'M' + idSeq.current }]);
