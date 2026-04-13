@@ -110,15 +110,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     });
   }, [apps, selectedApp, leafletLoaded, onSelectApp, allLotsData]);
 
-  // Pan to selected property — don't force zoom, let officer control
+  // Pan to selected property — never change zoom level
   useEffect(() => {
     if (!mapInstanceRef.current || !selectedApp) return;
     const c = getAppCoords(allLotsData, selectedApp, speedRoadsData);
-    if (c) {
-      const currentZoom = mapInstanceRef.current.getZoom();
-      const targetZoom = Math.max(currentZoom, 16); // at least street level, but don't zoom past current
-      mapInstanceRef.current.flyTo([c.lat, c.lng], targetZoom, { duration: 0.8 });
-    }
+    if (c) mapInstanceRef.current.panTo([c.lat, c.lng], { animate: true, duration: 0.8 });
   }, [selectedApp, allLotsData]);
 
   // Map click for sight triangle draw mode — disabled when measure/draw tool active
