@@ -1299,21 +1299,55 @@ Respond with JSON only:
 
   // Restore saved georef overlay from application data
   useEffect(() => {
-    if (georefOverlayUrl) return; // already have one
+    if (georefOverlayUrl) return; // already have an active overlay
+    if (georefData) return; // creating a new one — don't restore old
     const saved = app?.georef_overlay;
-    if (saved && saved.overlayDataUrl && saved.bounds) {
-      setGeorefOverlayUrl(saved.overlayDataUrl);
-      setGeorefBounds(saved.bounds);
-      setGeorefMapPts((saved.mapPts || []).map(p => ({ lat: p.lat, lng: p.lng })));
+    if (saved && saved.bounds && saved.planPts && saved.mapPts && saved.imgUrl) {
+      // Recompute the overlay from saved control points + image
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const outW = 1024, outH = 1024;
+        canvas.width = outW; canvas.height = outH;
+        const ctx = canvas.getContext("2d");
+        const bounds = saved.bounds;
+        const tris = [];
+        for (let i = 1; i < saved.planPts.length - 1; i++) tris.push([0, i, i + 1]);
+        for (const [i0, i1, i2] of tris) {
+          const sx0 = saved.planPts[i0].x, sy0 = saved.planPts[i0].y;
+          const sx1 = saved.planPts[i1].x, sy1 = saved.planPts[i1].y;
+          const sx2 = saved.planPts[i2].x, sy2 = saved.planPts[i2].y;
+          const dx0 = (saved.mapPts[i0].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
+          const dy0 = (1 - (saved.mapPts[i0].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
+          const dx1 = (saved.mapPts[i1].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
+          const dy1 = (1 - (saved.mapPts[i1].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
+          const dx2 = (saved.mapPts[i2].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
+          const dy2 = (1 - (saved.mapPts[i2].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
+          const det = (sx0 - sx2) * (sy1 - sy2) - (sx1 - sx2) * (sy0 - sy2);
+          if (Math.abs(det) < 1e-10) continue;
+          ctx.save(); ctx.beginPath(); ctx.moveTo(dx0, dy0); ctx.lineTo(dx1, dy1); ctx.lineTo(dx2, dy2); ctx.closePath(); ctx.clip();
+          const a = ((dx0-dx2)*(sy1-sy2)-(dx1-dx2)*(sy0-sy2))/det, b = ((dx1-dx2)*(sx0-sx2)-(dx0-dx2)*(sx1-sx2))/det, c = dx0-a*sx0-b*sy0;
+          const d = ((dy0-dy2)*(sy1-sy2)-(dy1-dy2)*(sy0-sy2))/det, e = ((dy1-dy2)*(sx0-sx2)-(dy0-dy2)*(sx1-sx2))/det, f = dy0-d*sx0-e*sy0;
+          ctx.setTransform(a, d, b, e, c, f); ctx.drawImage(img, 0, 0); ctx.restore();
+        }
+        setGeorefOverlayUrl(canvas.toDataURL("image/png"));
+        setGeorefBounds(bounds);
+        setGeorefMapPts(saved.mapPts.map(p => ({ lat: p.lat, lng: p.lng })));
+      };
+      img.onerror = () => console.warn("Failed to load saved georef image");
+      img.src = saved.imgUrl;
     }
-  }, [app?.georef_overlay]);
+  }, [app?.georef_overlay, georefData]);
 
-  // When georefData arrives (from plan side), enter georef map mode + zoom to lot
+  // When georefData arrives (from plan side), clear old overlay and enter georef map mode
   useEffect(() => {
-    if (georefData && !georefOverlayUrl) {
+    if (georefData) {
+      // Clear any existing overlay to make way for the new one
+      setGeorefOverlayUrl(null);
+      setGeorefBounds(null);
       setGeorefMapPts([]);
       setMapTool("georef");
-      // Zoom to property so officer can see the lot for clicking corners
       setTimeout(() => setMapTool("zoomPropertyGeoref"), 100);
     }
   }, [georefData]);
@@ -1391,7 +1425,7 @@ Respond with JSON only:
       setGeorefOverlayUrl(overlayDataUrl);
       setGeorefBounds(bounds);
 
-      // Save georef data to application so it persists
+      // Save georef data to application so it persists (control points only — overlay recomputed on load)
       if (app?._dbId) {
         import('../../services/api').then(mod => {
           mod.default.updateApp(app._dbId, {
@@ -1402,7 +1436,6 @@ Respond with JSON only:
               imgUrl: georefData.imgUrl,
               imgW: georefData.imgW,
               imgH: georefData.imgH,
-              overlayDataUrl: overlayDataUrl,
             }
           }).catch(err => console.warn("Georef save failed:", err));
         });
