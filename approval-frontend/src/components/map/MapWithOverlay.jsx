@@ -1362,8 +1362,8 @@ Respond with JSON only:
       setGeorefOverlayUrl(null);
       setGeorefBounds(null);
       setGeorefMapPts([]);
-      setMapTool("georef");
-      setTimeout(() => setMapTool("zoomPropertyGeoref"), 100);
+      // Zoom to property first, then enable georef click mode after zoom animation
+      setMapTool("zoomPropertyGeoref");
     }
   }, [georefData]);
 

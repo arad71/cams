@@ -508,13 +508,6 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
     return s;
   };
 
-  const ToolBtn = ({ id, icon, label, active }) => (
-    <button onClick={() => switchTool(id)}
-      style={{ height: 32, padding: '0 12px', border: active ? '1px solid rgba(26,188,156,0.4)' : '1px solid transparent', background: active ? 'rgba(26,188,156,0.1)' : 'transparent', color: active ? '#16a085' : '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: active ? 600 : 500, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
-      {icon} {label}
-    </button>
-  );
-
   const winStyle = maximized
     ? { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 10001 }
     : { position: 'fixed', top: winPos.y, left: winPos.x, width: winSize.w, height: winSize.h, zIndex: 10001 };
@@ -762,10 +755,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           </>
         )}
         {ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.bold }}>🔍 Reading text...</span>}
-        {tool === 'grabtext' && !ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click on text in the plan to grab it</span>}
-        {tool === 'north' && <span style={{ color: '#e67e22', fontWeight: T.w.semi }}>{northPt ? 'Click the TIP of the north arrow' : 'Click the BASE of the north arrow'}</span>}
-        {tool === 'georef' && <span style={{ color: '#8e44ad', fontWeight: T.w.semi }}>Click lot corners in order (min 3). Then click "Next: Mark on Map"</span>}
-        <span style={{ marginLeft: 'auto' }}>M P A Space C T N G r R</span>
+        <span style={{ marginLeft: 'auto', fontSize: 9, color: '#b0bec5' }}>{tool}</span>
       </div>
 
       {/* OCR Result — show detected text with save option */}
