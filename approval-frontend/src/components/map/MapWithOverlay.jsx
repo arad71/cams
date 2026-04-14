@@ -128,6 +128,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
 
   // Georeferencing
   const [georefState, setGeorefState] = useState(null); // {planPts, imgUrl, imgW, imgH, mapPts, overlay}
+  const [showGeorefLayer, setShowGeorefLayer] = useState(true); // toggle saved overlay visibility
 
   // Handle radius completion (from LeafletMap callback)
   const handleRadiusComplete = useCallback((R, V, sightPt, turnStart, turnEnd) => {
@@ -1296,6 +1297,17 @@ Respond with JSON only:
   const [georefBounds, setGeorefBounds] = useState(null);
   const [georefOpacity, setGeorefOpacity] = useState(0.6);
 
+  // Restore saved georef overlay from application data
+  useEffect(() => {
+    if (georefOverlayUrl) return; // already have one
+    const saved = app?.georef_overlay;
+    if (saved && saved.overlayDataUrl && saved.bounds) {
+      setGeorefOverlayUrl(saved.overlayDataUrl);
+      setGeorefBounds(saved.bounds);
+      setGeorefMapPts((saved.mapPts || []).map(p => ({ lat: p.lat, lng: p.lng })));
+    }
+  }, [app?.georef_overlay]);
+
   // When georefData arrives (from plan side), enter georef map mode
   useEffect(() => {
     if (georefData && !georefOverlayUrl) {
@@ -1373,11 +1385,29 @@ Respond with JSON only:
         ctx.restore();
       }
 
-      setGeorefOverlayUrl(canvas.toDataURL("image/png"));
+      const overlayDataUrl = canvas.toDataURL("image/png");
+      setGeorefOverlayUrl(overlayDataUrl);
       setGeorefBounds(bounds);
+
+      // Save georef data to application so it persists
+      if (app?._dbId) {
+        import('../../services/api').then(mod => {
+          mod.default.updateApp(app._dbId, {
+            georef_overlay: {
+              planPts: georefData.planPts,
+              mapPts: georefMapPts.map(p => ({ lat: p.lat, lng: p.lng })),
+              bounds: bounds,
+              imgUrl: georefData.imgUrl,
+              imgW: georefData.imgW,
+              imgH: georefData.imgH,
+              overlayDataUrl: overlayDataUrl,
+            }
+          }).catch(err => console.warn("Georef save failed:", err));
+        });
+      }
     };
     img.src = georefData.imgUrl;
-  }, [georefData, georefMapPts]);
+  }, [georefData, georefMapPts, app?._dbId]);
 
   // Simple fan triangulation (works for convex and most concave polygons)
   function triangulate(n) {
@@ -1438,6 +1468,19 @@ Respond with JSON only:
                       <span style={{ fontSize: 12 }}>📐</span>
                       <span style={{ flex: 1, fontWeight: showBoundaries ? 600 : 400, color: showBoundaries ? "#8e44ad" : "#5a6a74" }}>Site Boundaries</span>
                     </div>
+                    {/* Georef overlay layer toggle */}
+                    {(georefOverlayUrl || app?.georef_overlay) && (
+                      <div onClick={() => setShowGeorefLayer(!showGeorefLayer)}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11 }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <div style={{ width: 16, height: 16, borderRadius: 3, border: showGeorefLayer ? "2px solid #e67e22" : "1.5px solid #d5dde2", background: showGeorefLayer ? "#e67e2220" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {showGeorefLayer && <span style={{ fontSize: 10, color: "#e67e22", fontWeight: T.w.bold }}>✓</span>}
+                        </div>
+                        <span style={{ fontSize: 12 }}>🗺️</span>
+                        <span style={{ flex: 1, fontWeight: showGeorefLayer ? 600 : 400, color: showGeorefLayer ? "#e67e22" : "#5a6a74" }}>Site Plan Overlay</span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1683,7 +1726,10 @@ Respond with JSON only:
             onChange={e => setGeorefOpacity(e.target.value / 100)}
             style={{ width: 100 }} />
           <span style={{ fontSize: 10, color: T.c.textSecondary }}>{Math.round(georefOpacity * 100)}%</span>
-          <button onClick={() => { setGeorefOverlayUrl(null); setGeorefBounds(null); setGeorefMapPts([]); if (onGeorefDone) onGeorefDone(); setMapTool(null); }}
+          <button onClick={() => {
+            setGeorefOverlayUrl(null); setGeorefBounds(null); setGeorefMapPts([]); if (onGeorefDone) onGeorefDone(); setMapTool(null);
+            if (app?._dbId) { import('../../services/api').then(mod => { mod.default.updateApp(app._dbId, { georef_overlay: null }).catch(() => {}); }); }
+          }}
             style={{ padding: "3px 8px", borderRadius: T.r.sm, border: "1px solid #ce93d8", background: "#fff", color: "#8e44ad", fontSize: 10, cursor: "pointer", fontFamily: "inherit", marginLeft: "auto" }}>Remove Overlay</button>
         </div>
       )}
@@ -1720,7 +1766,7 @@ Respond with JSON only:
           if (point === 'A') setPtA(latlng);
           else if (point === 'B') setPtB(latlng);
         }}
-        georefOverlay={georefOverlayUrl ? { url: georefOverlayUrl, bounds: georefBounds, opacity: georefOpacity } : null}
+        georefOverlay={georefOverlayUrl && showGeorefLayer ? { url: georefOverlayUrl, bounds: georefBounds, opacity: georefOpacity } : null}
         georefMapPts={georefMapPts}
         onGeorefMapClick={georefData && !georefOverlayUrl && georefMapPts.length < georefData.planPts.length
           ? (latlng) => setGeorefMapPts(prev => [...prev, latlng])

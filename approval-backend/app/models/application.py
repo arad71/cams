@@ -74,6 +74,9 @@ class Application(Base):
     conditions = Column(JSON, nullable=True)              # Array of condition strings applied to approval
     decision_note = Column(Text, nullable=True)           # Free-text decision/recommendation note
 
+    # Georef overlay — saved site plan overlay on map
+    georef_overlay = Column(JSON, nullable=True)          # {planPts, mapPts, imgUrl, bounds, docId, page}
+
     # Officer-drawn boundaries from site plan image
     site_lot_boundary = Column(JSON, nullable=True)         # [[x,y], ...] polygon points on site plan image
     site_building_boundary = Column(JSON, nullable=True)    # [[x,y], ...] building footprint on site plan

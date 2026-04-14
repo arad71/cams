@@ -27,6 +27,7 @@ export function apiAppToFrontend(a) {
     extraction_locked: a.extraction_locked || false,
     conditions: a.conditions || [],
     decision_note: a.decision_note || "",
+    georef_overlay: a.georef_overlay || null,
     site_lot_boundary: a.site_lot_boundary || null,
     site_building_boundary: a.site_building_boundary || null,
     site_crossover: a.site_crossover || null,

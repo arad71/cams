@@ -152,6 +152,7 @@ class ApplicationUpdate(BaseModel):
     conditions: Optional[list] = None
     decision_note: Optional[str] = None
 
+    georef_overlay: Optional[dict] = None
 class NoteOut(BaseModel):
     id: int
     text: str
@@ -239,6 +240,7 @@ class ApplicationOut(BaseModel):
     conditions: Optional[list] = None
     decision_note: Optional[str] = None
     site_building_boundary: Optional[list] = None
+    georef_overlay: Optional[dict] = None
     site_crossover: Optional[list] = None
     site_lot_boundary_latlon: Optional[list] = None
     site_building_boundary_latlon: Optional[list] = None
