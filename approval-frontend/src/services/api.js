@@ -148,6 +148,7 @@ const api = {
   
   // Assessments (per-application)
   async listAssessments(appId) { return this._fetch(`/applications/${appId}/assessments`); },
+  async getAuditLog(entityId) { return this._fetch(`/audit?entity_id=${entityId}&entity_type=application&limit=20`); },
   async updateAssessment(appId, itemId, data) { return this._fetch(`/applications/${appId}/assessments/${itemId}`, { method: "PATCH", body: data }); },
   async runAIAssess(appId) { return this._fetch(`/applications/${appId}/assessments/ai-assess`, { method: "POST" }); },
   async bulkOfficerDecision(appId, aiFilter, decision) { return this._fetch(`/applications/${appId}/assessments/bulk-officer`, { method: "POST", body: { ai_result_filter: aiFilter, officer_decision: decision } }); },

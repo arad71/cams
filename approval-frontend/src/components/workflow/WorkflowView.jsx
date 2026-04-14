@@ -38,33 +38,63 @@ const cardHdr = S.cardHeader;
 const cardBody = S.cardBody;
 const kvRow = { display: "flex", justifyContent: "space-between", padding: `${T.s.xs}px 0`, borderBottom: `1px solid ${T.c.grey50}`, fontSize: T.f.md };
 
+// ─── Step Completion Stats ──────────────────────────────
+function getStepStats(app, assessments = []) {
+  const docs = app.documents || [];
+  const spd = app?.cor_site_plan_data || app?.site_plan_data;
+  const hasSitePlan = docs.some(d => (d.category || "").includes("Site"));
+  const hasAppForm = docs.some(d => (d.category || "").includes("Application"));
+  const aiExtracted = !!spd?.extraction || !!spd?.crossover_dimensions;
+  let aPass = 0, aFail = 0, aReview = 0, aTotal = 0, oDone = 0;
+  assessments.forEach(a => { aTotal++; if (a.ai_result === "pass") aPass++; else if (a.ai_result === "fail") aFail++; else aReview++; if (a.officer_result && a.officer_result !== "pending") oDone++; });
+  const status = app.status || "pending_review";
+  const isDecided = ["approved", "rejected", "conditionally_approved"].includes(status);
+  return {
+    upload: { badge: `${docs.length} doc${docs.length !== 1 ? "s" : ""}`, alert: !hasSitePlan ? "No site plan" : null, done: docs.length >= 2 && hasSitePlan },
+    extract: { badge: aiExtracted ? "Extracted" : "Not run", alert: !aiExtracted && hasSitePlan ? "Ready" : null, done: aiExtracted },
+    assess: { badge: aTotal > 0 ? `${aPass}/${aTotal}` : "—", alert: aFail > 0 ? `${aFail} failed` : null, done: aTotal > 0 && aFail === 0 && aReview === 0 },
+    review: { badge: oDone > 0 ? `${oDone} done` : "Pending", alert: aFail > 0 ? `${aFail} issues` : null, done: aTotal > 0 && oDone === aTotal },
+    decision: { badge: isDecided ? status.replace(/_/g, " ") : "Pending", alert: null, done: isDecided },
+  };
+}
+
 // ─── Workflow Stepper ───────────────────────────────────
-function Stepper({ currentStep, completedUpTo, onStepClick }) {
+function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "10px 14px", background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, marginBottom: 12 }}>
       {STEPS.map((step, i) => {
         const done = step.id < completedUpTo;
         const active = step.id === currentStep;
         const future = step.id > completedUpTo && !active;
+        const stats = stepStats?.[step.key];
+        const hasAlert = stats?.alert;
         return (
           <div key={step.id} style={{ display: "contents" }}>
             <div style={{ flex: 1, textAlign: "center", cursor: "pointer", opacity: future ? 0.4 : 1 }} onClick={() => onStepClick(step.id)}>
-              <div style={{
-                width: 28, height: 28, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
-                fontSize: 12, fontWeight: T.w.bold, transition: "all 0.2s",
-                background: active ? step.color : done ? "#085041" : "#f0f2f5",
-                color: active ? step.bg : done ? "#E1F5EE" : "#b0bec5",
-                border: active ? `2px solid ${step.color}` : done ? "2px solid #085041" : "1.5px solid #d5dde2",
-                boxShadow: active ? `0 0 0 3px ${step.bg}` : "none",
-              }}>
-                {done ? "✓" : step.id}
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, fontWeight: T.w.bold, transition: "all 0.2s",
+                  background: active ? step.color : done ? "#085041" : "#f0f2f5",
+                  color: active ? step.bg : done ? "#E1F5EE" : "#b0bec5",
+                  border: active ? `2px solid ${step.color}` : done ? "2px solid #085041" : "1.5px solid #d5dde2",
+                  boxShadow: active ? `0 0 0 3px ${step.bg}` : "none",
+                }}>
+                  {stats?.done ? "✓" : step.id}
+                </div>
+                {hasAlert && <div style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: "#e74c3c", border: "1.5px solid #fff" }} />}
               </div>
-              <div style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: active ? step.color : done ? "#085041" : "#b0bec5", marginTop: 3 }}>
+              <div style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: active ? step.color : done ? "#085041" : "#b0bec5", marginTop: 2 }}>
                 {step.label}
               </div>
+              {stats && (
+                <div style={{ fontSize: 7, color: hasAlert ? "#e74c3c" : stats.done ? "#27ae60" : "#95a5a6", fontWeight: 600, marginTop: 1, letterSpacing: 0.2 }}>
+                  {hasAlert || stats.badge}
+                </div>
+              )}
             </div>
             {i < STEPS.length - 1 && (
-              <div style={{ flex: "0 0 28px", height: 2, background: done || active ? "#085041" : "#e4e9ec", marginTop: -12 }} />
+              <div style={{ flex: "0 0 28px", height: 2, background: done || active ? "#085041" : "#e4e9ec", marginTop: -16 }} />
             )}
           </div>
         );
@@ -75,13 +105,32 @@ function Stepper({ currentStep, completedUpTo, onStepClick }) {
 
 
 // ─── Sidebar ────────────────────────────────────────────
-function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNote, setNewNote, addNote, assignee, setAssignee, newStatus, setNewStatus, saveChanges, canAssign, canDecide, onInspect }) {
+function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNote, setNewNote, addNote, assignee, setAssignee, newStatus, setNewStatus, saveChanges, canAssign, canDecide, onInspect, auditLog = [], stepStats = {} }) {
   const docs = app.documents || [];
   const spd = app?.cor_site_plan_data || app?.site_plan_data;
   const ext = spd?.extraction || spd || {};
+  const dims = ext?.crossover_dimensions || {};
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Key Metrics */}
+      <div style={card}>
+        <div style={cardHdr}><span>📊 Key Metrics</span></div>
+        <div style={{ padding: "8px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+          {[
+            { l: "Width", v: dims.width_at_boundary_m ? `${dims.width_at_boundary_m}m` : "—", ok: dims.width_at_boundary_m >= 3.0 },
+            { l: "Road Width", v: dims.total_width_at_road_m ? `${dims.total_width_at_road_m}m` : "—", ok: dims.total_width_at_road_m <= 6.0 },
+            { l: "L Boundary", v: dims.distance_to_left_boundary_m != null ? `${dims.distance_to_left_boundary_m}m` : "—", ok: dims.distance_to_left_boundary_m >= 0.5 },
+            { l: "R Boundary", v: dims.distance_to_right_boundary_m != null ? `${dims.distance_to_right_boundary_m}m` : "—", ok: dims.distance_to_right_boundary_m >= 0.5 },
+          ].map(m => (
+            <div key={m.l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
+              <span style={{ color: T.c.textSecondary }}>{m.l}</span>
+              <span style={{ fontWeight: T.w.bold, color: m.v === "—" ? T.c.grey400 : m.ok ? "#27ae60" : "#e74c3c" }}>{m.v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Field Inspection button */}
       <div style={card}>
         <div style={{ padding: "10px 12px", display: "flex", gap: 8 }}>
@@ -256,12 +305,32 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
           </div>
         </div>
       )}
+
+      {/* Activity Timeline */}
+      {auditLog.length > 0 && (
+        <div style={card}>
+          <div style={cardHdr}><span>🕐 Activity</span></div>
+          <div style={{ maxHeight: 200, overflowY: "auto", padding: "4px 0" }}>
+            {auditLog.slice(0, 15).map((log, i) => {
+              const icons = { create: "🆕", update: "✏️", upload: "📤", extract: "🤖", view: "👁", download: "📥", rotate: "🔄", delete: "🗑" };
+              const time = log.created_at ? new Date(log.created_at) : null;
+              const timeStr = time ? `${time.toLocaleDateString("en-AU", { day: "numeric", month: "short" })} ${time.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}` : "";
+              return (
+                <div key={i} style={{ display: "flex", gap: 8, padding: "4px 12px", fontSize: 10, alignItems: "flex-start" }}>
+                  <div style={{ width: 14, textAlign: "center", flexShrink: 0, fontSize: 11, marginTop: 1 }}>{icons[log.action] || "●"}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: T.c.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.description || log.action}</div>
+                    <div style={{ color: T.c.textMuted, fontSize: 9 }}>{log.user_email?.split("@")[0] || "system"} · {timeStr}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
-// ─── Step Content Renderers ─────────────────────────────
 
 function StepUpload({ app, currentUser, onDocUpdated, onMeasureCorrection, onGeorefPoints }) {
   return (
@@ -584,6 +653,23 @@ export default function WorkflowView({
   const [showInspection, setShowInspection] = useState(false);
   const [activeInspection, setActiveInspection] = useState(null);
   const [georefData, setGeorefData] = useState(null); // {planPts, imgUrl, imgW, imgH}
+  const [assessments, setAssessments] = useState([]);
+  const [auditLog, setAuditLog] = useState([]);
+  const [showMap, setShowMap] = useState(currentStep === 3);
+
+  // Load assessments for step stats
+  useEffect(() => {
+    if (!localApp?._dbId) return;
+    api.listAssessments(localApp._dbId).then(d => setAssessments(d || [])).catch(() => {});
+  }, [localApp?._dbId, currentStep]);
+
+  // Load audit log for activity timeline
+  useEffect(() => {
+    if (!localApp?._dbId) return;
+    api.getAuditLog(String(localApp._dbId)).then(d => setAuditLog(d?.logs || d || [])).catch(() => {});
+  }, [localApp?._dbId]);
+
+  const stepStats = getStepStats(localApp, assessments);
 
   const handleGeorefPlanPoints = (planPts, imgUrl, imgW, imgH) => {
     setGeorefData({ planPts, imgUrl, imgW, imgH });
@@ -634,15 +720,43 @@ export default function WorkflowView({
   return (
     <div>
       {/* Stepper */}
-      <Stepper currentStep={currentStep} completedUpTo={completedUpTo} onStepClick={setCurrentStep} />
+      <Stepper currentStep={currentStep} completedUpTo={completedUpTo} onStepClick={setCurrentStep} stepStats={stepStats} />
 
-      {/* Step header */}
+      {/* Step header with next-step suggestion */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "6px 12px", background: stepDef.bg, borderRadius: T.r.md, border: `1px solid ${stepDef.color}20` }}>
         <div style={{ width: 24, height: 24, borderRadius: "50%", background: stepDef.color, color: stepDef.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: T.w.bold }}>{stepDef.id}</div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: T.w.bold, color: stepDef.color }}>{stepDef.label}</div>
           <div style={{ fontSize: 10, color: stepDef.color, opacity: 0.7 }}>{stepDef.desc}</div>
         </div>
+        {/* Next step suggestion */}
+        {currentStep === 1 && stepStats.upload.done && !stepStats.extract.done && (
+          <button onClick={() => setCurrentStep(2)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#534AB7", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+            Next: Run AI Extraction →
+          </button>
+        )}
+        {currentStep === 2 && stepStats.extract.done && (
+          <button onClick={() => setCurrentStep(3)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#185FA5", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+            Next: Assessment →
+          </button>
+        )}
+        {currentStep === 3 && stepStats.assess.done && (
+          <button onClick={() => setCurrentStep(4)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#854F0B", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+            Next: Review →
+          </button>
+        )}
+        {currentStep === 4 && stepStats.review.done && (
+          <button onClick={() => setCurrentStep(5)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#993C1D", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+            Next: Decision →
+          </button>
+        )}
+        {/* Map toggle for non-Assess steps */}
+        {currentStep !== 3 && (
+          <button onClick={() => setShowMap(m => !m)}
+            style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#7a8a94", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+            🗺️ {showMap ? "Hide Map" : "Show Map"}
+          </button>
+        )}
       </div>
 
       {/* Main grid: step content + sidebar */}
@@ -684,9 +798,21 @@ export default function WorkflowView({
           onReload={onDocUpdated} newNote={newNote} setNewNote={setNewNote} addNote={addNote}
           assignee={assignee} setAssignee={setAssignee} newStatus={newStatus} setNewStatus={setNewStatus}
           saveChanges={saveChanges} canAssign={canAssign} canDecide={canDecide}
-          onInspect={startInspection}
+          onInspect={startInspection} auditLog={auditLog} stepStats={stepStats}
+        />
         />
       </div>
+
+      {/* Collapsible map for non-Assess steps */}
+      {currentStep !== 3 && showMap && (
+        <div style={{ marginTop: 12 }}>
+          <MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp}
+            speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork}
+            contoursData={globalContoursData} urbanForestData={globalUrbanForestData}
+            drainagePipesData={globalDrainagePipesData} drainagePitsData={globalDrainagePitsData}
+            waterPipesData={globalWaterPipesData} />
+        </div>
+      )}
 
       {/* Mobile Inspection Overlay */}
       {showInspection && activeInspection && (
