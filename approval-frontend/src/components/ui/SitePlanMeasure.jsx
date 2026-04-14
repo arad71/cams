@@ -99,6 +99,37 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
   const [tool, setTool] = useState('measure');
+  const [leftPanel, setLeftPanel] = useState(true);
+  const [pendingToolSwitch, setPendingToolSwitch] = useState(null); // for unsaved warning
+
+  // Check if current tool has unsaved work
+  const hasUnsavedWork = () => {
+    if (tool === 'north' && northPt) return 'Document alignment in progress. Click tip to complete, or discard?';
+    if (tool === 'georef' && georefPts.length > 0) return `Overlay has ${georefPts.length} points placed. Discard?`;
+    if (tool === 'calibrate' && tempPt) return 'Calibration in progress. Discard?';
+    return null;
+  };
+
+  // Safe tool switch — warns if unsaved work
+  const switchTool = (newTool) => {
+    if (newTool === tool) return;
+    const warning = hasUnsavedWork();
+    if (warning) {
+      setPendingToolSwitch({ tool: newTool, warning });
+    } else {
+      doSwitchTool(newTool);
+    }
+  };
+
+  const doSwitchTool = (newTool) => {
+    setTool(newTool);
+    setTempPt(null);
+    setOcrResult(null);
+    setOcrLoading(false);
+    if (newTool !== 'area') setAreaPts([]);
+    if (newTool !== 'north') setNorthPt(null);
+    setPendingToolSwitch(null);
+  };
   const [color, setColor] = useState(COLORS[0]);
   const [items, setItems] = useState(initialItems || []);
   const [tempPt, setTempPt] = useState(null);
@@ -330,21 +361,21 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   useEffect(() => {
     const kd = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      const switchTo = (t) => { if (tool !== 'pan') prevToolRef.current = tool; setTool(t); setTempPt(null); setOcrResult(null); setOcrLoading(false); };
-      if (e.key === 'm') switchTo('measure');
-      if (e.key === 'p') switchTo('marker');
-      if (e.key === 'a') { setTool('area'); setTempPt(null); setOcrResult(null); }
-      if (e.key === ' ') { if (tool !== 'pan') prevToolRef.current = tool; setTool('pan'); e.preventDefault(); }
-      if (e.key === 'c') switchTo('calibrate');
-      if (e.key === 't') switchTo('grabtext');
-      if (e.key === 'g') switchTo('georef');
-      if (e.key === 'n') { switchTo('north'); setNorthPt(null); }
+      const sw = (t) => { if (tool !== 'pan') prevToolRef.current = tool; switchTool(t); };
+      if (e.key === 'm') sw('measure');
+      if (e.key === 'p') sw('marker');
+      if (e.key === 'a') sw('area');
+      if (e.key === ' ') { if (tool !== 'pan') prevToolRef.current = tool; doSwitchTool('pan'); e.preventDefault(); }
+      if (e.key === 'c') sw('calibrate');
+      if (e.key === 't') sw('grabtext');
+      if (e.key === 'g') sw('georef');
+      if (e.key === 'n') sw('north');
       if (e.key === 'r') setRotation(r => (r + 90) % 360);
       if (e.key === 'R') setRotation(r => (r - 90 + 360) % 360);
-      if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); setOcrResult(null); setGeorefPts([]); if (onClose) onClose(); }
+      if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); setOcrResult(null); setGeorefPts([]); setNorthPt(null); if (onClose) onClose(); }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) setItems(prev => prev.slice(0, -1));
     };
-    const ku = (e) => { if (e.key === ' ') setTool(prevToolRef.current || 'measure'); };
+    const ku = (e) => { if (e.key === ' ') doSwitchTool(prevToolRef.current || 'measure'); };
     window.addEventListener('keydown', kd);
     window.addEventListener('keyup', ku);
     return () => { window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku); };
@@ -478,7 +509,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   };
 
   const ToolBtn = ({ id, icon, label, active }) => (
-    <button onClick={() => { setTool(id); setTempPt(null); if (id !== 'area') setAreaPts([]); setOcrResult(null); setOcrLoading(false); if (id !== 'north') setNorthPt(null); }}
+    <button onClick={() => switchTool(id)}
       style={{ height: 32, padding: '0 12px', border: active ? '1px solid rgba(26,188,156,0.4)' : '1px solid transparent', background: active ? 'rgba(26,188,156,0.1)' : 'transparent', color: active ? '#16a085' : '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: active ? 600 : 500, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
       {icon} {label}
     </button>
@@ -490,59 +521,121 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
 
   return (
     <div style={{ ...winStyle, background: '#f5f7fa', display: 'flex', flexDirection: 'column', fontFamily: "'Outfit',sans-serif", color: '#1a3a4a', borderRadius: maximized ? 0 : 10, boxShadow: maximized ? 'none' : '0 12px 48px rgba(0,0,0,0.25)', border: maximized ? 'none' : '1px solid #d5dde2', overflow: 'hidden' }}>
-      {/* Header — drag to move, double-click to maximize */}
+      {/* Header — minimal: title + window controls */}
       <div onMouseDown={onHeaderMouseDown} onDoubleClick={toggleMaximize}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 48, background: '#fff', borderBottom: '1px solid #e4e9ec', flexShrink: 0, cursor: maximized ? 'default' : 'move', userSelect: 'none' }}>
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 40, background: '#fff', borderBottom: '1px solid #e4e9ec', flexShrink: 0, cursor: maximized ? 'default' : 'move', userSelect: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 30, height: 30, background: 'linear-gradient(135deg, #1abc9c, #16a085)', borderRadius: 7, display: 'grid', placeItems: 'center', fontWeight: T.w.bold, fontSize: 11, color: '#fff' }}>SP</div>
-          <span style={{ fontSize: 14, fontWeight: T.w.semi, color: '#1a3a4a' }}>Site Plan Measure</span>
-          {appRef && <span style={{ fontSize: 11, color: '#95a5a6', marginLeft: 8 }}>{appRef}</span>}
+          <div style={{ width: 26, height: 26, background: 'linear-gradient(135deg, #1abc9c, #16a085)', borderRadius: 6, display: 'grid', placeItems: 'center', fontWeight: T.w.bold, fontSize: 10, color: '#fff' }}>SP</div>
+          <span style={{ fontSize: 13, fontWeight: T.w.semi, color: '#1a3a4a' }}>Site Plan Tools</span>
+          {appRef && <span style={{ fontSize: 10, color: '#95a5a6' }}>{appRef}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <ToolBtn id="measure" icon="📏" label="Measure" active={tool === 'measure'} />
-          <ToolBtn id="marker" icon="📍" label="Marker" active={tool === 'marker'} />
-          <ToolBtn id="area" icon="⬜" label="Area" active={tool === 'area'} />
-          <ToolBtn id="pan" icon="✋" label="Pan" active={tool === 'pan'} />
-          <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
-          <ToolBtn id="calibrate" icon="📐" label="Calibrate" active={tool === 'calibrate'} />
-          <ToolBtn id="grabtext" icon="📝" label="Grab Text" active={tool === 'grabtext'} />
-          <ToolBtn id="north" icon="🧭" label="North" active={tool === 'north'} />
-          <ToolBtn id="georef" icon="🗺️" label="Overlay" active={tool === 'georef'} />
-          {tool === 'georef' && (
-            <span style={{ fontSize: 10, color: '#8e44ad', fontWeight: T.w.bold, padding: '0 4px' }}>
-              {georefPts.length} pts
-              {georefPts.length >= 3 && (
-                <button onClick={() => {
-                  if (onGeorefPoints) {
-                    const imgEl = imgRef.current;
-                    onGeorefPoints(georefPts, imgUrl, imgEl?.naturalWidth || 1, imgEl?.naturalHeight || 1);
-                  }
-                  setTool('measure');
-                }}
-                  style={{ marginLeft: 6, padding: '2px 8px', borderRadius: T.r.sm, border: 'none', background: '#8e44ad', color: '#fff', fontWeight: T.w.bold, fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Next: Mark on Map →
-                </button>
-              )}
-              {georefPts.length > 0 && (
-                <button onClick={() => setGeorefPts([])}
-                  style={{ marginLeft: 4, padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #e4e9ec', background: '#fff', color: '#95a5a6', fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Clear
-                </button>
-              )}
-            </span>
-          )}
-          <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
-          <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>↩ Undo</button>
-          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 32, padding: '0 12px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>🗑 Clear</button>
-          <div style={{ width: 1, height: 20, background: '#e4e9ec', margin: '0 4px' }} />
-          <button onClick={toggleMaximize} title={maximized ? "Restore" : "Maximize"}
-            style={{ height: 32, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14 }}>{maximized ? '❐' : '□'}</button>
-          <button onClick={onClose} style={{ height: 32, padding: '0 14px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: T.w.semi }}>✕ Close</button>
+          <button onClick={() => setLeftPanel(p => !p)} title={leftPanel ? "Hide panel" : "Show panel"}
+            style={{ height: 28, padding: '0 8px', border: '1px solid #e4e9ec', background: leftPanel ? '#f0f8ff' : '#fff', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: 500 }}>
+            {leftPanel ? '◀ Panel' : '▶ Panel'}
+          </button>
+          <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }}>↩</button>
+          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }}>🗑</button>
+          <button onClick={toggleMaximize} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>{maximized ? '❐' : '□'}</button>
+          <button onClick={onClose} style={{ height: 28, padding: '0 12px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: T.w.semi }}>✕</button>
         </div>
       </div>
 
-      {/* Workspace */}
+      {/* Workspace: Left Panel + Canvas + Right Sidebar */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+        {/* ═══ LEFT PANEL — Tools & Activities ═══ */}
+        {leftPanel && (
+          <div style={{ width: 200, background: '#fafbfc', borderRight: '1px solid #e4e9ec', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+
+              {/* ── Drawing Tools ── */}
+              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Drawing</div>
+              {[
+                { id: 'measure', icon: '📏', label: 'Measure', desc: 'Click 2 points to measure distance' },
+                { id: 'area', icon: '⬜', label: 'Area', desc: 'Click points, double-click to close' },
+                { id: 'marker', icon: '📍', label: 'Marker', desc: 'Drop a labelled pin' },
+                { id: 'pan', icon: '✋', label: 'Pan', desc: 'Drag to move around (hold Space)' },
+              ].map(t => (
+                <div key={t.id} onClick={() => switchTool(t.id)}
+                  style={{ padding: '6px 12px', cursor: 'pointer', background: tool === t.id ? 'rgba(26,188,156,0.08)' : 'transparent', borderLeft: tool === t.id ? '3px solid #1abc9c' : '3px solid transparent' }}
+                  onMouseEnter={e => { if (tool !== t.id) e.currentTarget.style.background = '#f0f2f5'; }}
+                  onMouseLeave={e => { if (tool !== t.id) e.currentTarget.style.background = 'transparent'; }}>
+                  <div style={{ fontSize: 12, fontWeight: tool === t.id ? 600 : 500, color: tool === t.id ? '#16a085' : '#1a3a4a' }}>{t.icon} {t.label}</div>
+                  {tool === t.id && <div style={{ fontSize: 9, color: '#7a8a94', marginTop: 2 }}>{t.desc}</div>}
+                </div>
+              ))}
+
+              <div style={{ height: 1, background: '#e4e9ec', margin: '6px 12px' }} />
+
+              {/* ── Setup Tools ── */}
+              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Setup</div>
+              {[
+                { id: 'calibrate', icon: '📐', label: 'Scale Calibration', desc: '① Set distance in sidebar ② Click 2 endpoints of that known dimension' },
+                { id: 'north', icon: '🧭', label: 'Document Alignment', desc: northPt ? '② Now click the TIP of the north arrow' : '① Click the BASE of the north arrow on the plan' },
+                { id: 'grabtext', icon: '📝', label: 'Read Text (OCR)', desc: 'Drag a rectangle around text on the plan' },
+              ].map(t => (
+                <div key={t.id} onClick={() => switchTool(t.id)}
+                  style={{ padding: '6px 12px', cursor: 'pointer', background: tool === t.id ? 'rgba(26,188,156,0.08)' : 'transparent', borderLeft: tool === t.id ? '3px solid #1abc9c' : '3px solid transparent' }}
+                  onMouseEnter={e => { if (tool !== t.id) e.currentTarget.style.background = '#f0f2f5'; }}
+                  onMouseLeave={e => { if (tool !== t.id) e.currentTarget.style.background = 'transparent'; }}>
+                  <div style={{ fontSize: 12, fontWeight: tool === t.id ? 600 : 500, color: tool === t.id ? '#16a085' : '#1a3a4a' }}>{t.icon} {t.label}</div>
+                  {tool === t.id && <div style={{ fontSize: 9, color: '#7a8a94', marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>}
+                </div>
+              ))}
+
+              <div style={{ height: 1, background: '#e4e9ec', margin: '6px 12px' }} />
+
+              {/* ── Advanced ── */}
+              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Advanced</div>
+              <div onClick={() => switchTool('georef')}
+                style={{ padding: '6px 12px', cursor: 'pointer', background: tool === 'georef' ? 'rgba(142,68,173,0.08)' : 'transparent', borderLeft: tool === 'georef' ? '3px solid #8e44ad' : '3px solid transparent' }}
+                onMouseEnter={e => { if (tool !== 'georef') e.currentTarget.style.background = '#f0f2f5'; }}
+                onMouseLeave={e => { if (tool !== 'georef') e.currentTarget.style.background = 'transparent'; }}>
+                <div style={{ fontSize: 12, fontWeight: tool === 'georef' ? 600 : 500, color: tool === 'georef' ? '#8e44ad' : '#1a3a4a' }}>🗺️ Map Overlay</div>
+                {tool === 'georef' && (
+                  <div style={{ fontSize: 9, color: '#7a8a94', marginTop: 2, lineHeight: 1.4 }}>
+                    ① Click lot corners on the plan ({georefPts.length} placed)
+                    {georefPts.length >= 3 && <><br/>② Click "Apply to Map" below</>}
+                  </div>
+                )}
+              </div>
+              {tool === 'georef' && georefPts.length >= 3 && (
+                <div style={{ padding: '4px 12px' }}>
+                  <button onClick={() => {
+                    if (onGeorefPoints) {
+                      const imgEl = imgRef.current;
+                      onGeorefPoints(georefPts, imgUrl, imgEl?.naturalWidth || 1, imgEl?.naturalHeight || 1);
+                    }
+                    doSwitchTool('measure');
+                  }}
+                    style={{ width: '100%', padding: '6px 0', borderRadius: T.r.sm, border: 'none', background: '#8e44ad', color: '#fff', fontWeight: T.w.bold, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Apply to Map →
+                  </button>
+                </div>
+              )}
+              {tool === 'georef' && georefPts.length > 0 && (
+                <div style={{ padding: '2px 12px' }}>
+                  <button onClick={() => setGeorefPts([])}
+                    style={{ width: '100%', padding: '4px 0', borderRadius: T.r.sm, border: '1px solid #e4e9ec', background: '#fff', color: '#95a5a6', fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Clear Points
+                  </button>
+                </div>
+              )}
+
+              <div style={{ height: 1, background: '#e4e9ec', margin: '6px 12px' }} />
+
+              {/* ── Keyboard shortcuts ── */}
+              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Shortcuts</div>
+              <div style={{ padding: '4px 12px', fontSize: 9, color: '#95a5a6', lineHeight: 1.8 }}>
+                M=Measure A=Area P=Marker<br/>
+                C=Calibrate T=Text N=Align<br/>
+                G=Overlay Space=Pan<br/>
+                r/R=Rotate Esc=Close
+              </div>
+            </div>
+          </div>
+        )}
         {/* Canvas */}
         <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#e8ecef', cursor: tool === 'pan' ? 'grab' : tool === 'grabtext' ? 'text' : tool === 'georef' ? 'crosshair' : 'crosshair' }}
           onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
@@ -708,6 +801,26 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             <line x1="14" y1="8" x2="8" y2="14" stroke="#7a8a94" strokeWidth="1.5"/>
             <line x1="14" y1="12" x2="12" y2="14" stroke="#7a8a94" strokeWidth="1.5"/>
           </svg>
+        </div>
+      )}
+
+      {/* Unsaved work confirmation */}
+      {pendingToolSwitch && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 10003, display: 'grid', placeItems: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 340, boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: 14, fontWeight: T.w.bold, color: '#1a3a4a', marginBottom: 8 }}>⚠️ Unsaved Work</div>
+            <div style={{ fontSize: 12, color: '#5a6a74', marginBottom: 16, lineHeight: 1.5 }}>{pendingToolSwitch.warning}</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => doSwitchTool(pendingToolSwitch.tool)}
+                style={{ flex: 1, padding: '8px 0', borderRadius: T.r.md, border: 'none', background: '#e74c3c', color: '#fff', fontWeight: T.w.bold, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Discard & Switch
+              </button>
+              <button onClick={() => setPendingToolSwitch(null)}
+                style={{ flex: 1, padding: '8px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: '#5a6a74', fontWeight: T.w.semi, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Continue Working
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
