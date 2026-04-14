@@ -1308,11 +1308,13 @@ Respond with JSON only:
     }
   }, [app?.georef_overlay]);
 
-  // When georefData arrives (from plan side), enter georef map mode
+  // When georefData arrives (from plan side), enter georef map mode + zoom to lot
   useEffect(() => {
     if (georefData && !georefOverlayUrl) {
       setGeorefMapPts([]);
       setMapTool("georef");
+      // Zoom to property so officer can see the lot for clicking corners
+      setTimeout(() => setMapTool("zoomPropertyGeoref"), 100);
     }
   }, [georefData]);
 

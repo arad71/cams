@@ -1557,6 +1557,11 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 19, { duration: 0.8 });
       if (setMapTool) setMapTool(null);
     }
+    if (mapTool === "zoomPropertyGeoref" && selectedApp) {
+      const c = getAppCoords(allLotsData, selectedApp);
+      if (c) mapInstanceRef.current.flyTo([c.lat, c.lng], 19, { duration: 0.8 });
+      if (setMapTool) setMapTool("georef"); // switch back to georef click mode
+    }
     if (mapTool === "zoomExtent") {
       mapInstanceRef.current.flyTo([-31.97, 116.06], 13, { duration: 1 });
       if (setMapTool) setMapTool(null);
