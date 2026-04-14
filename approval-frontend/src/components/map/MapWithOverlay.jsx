@@ -1302,8 +1302,23 @@ Respond with JSON only:
     if (georefOverlayUrl) return; // already have an active overlay
     if (georefData) return; // creating a new one — don't restore old
     const saved = app?.georef_overlay;
-    if (saved && saved.bounds && saved.planPts && saved.mapPts && saved.imgUrl) {
-      // Recompute the overlay from saved control points + image
+    if (!saved || !saved.bounds || !saved.planPts || !saved.mapPts) return;
+    if (!saved.docId && !saved.imgUrl) return;
+
+    // Build fresh image URL with current token (saved token may be expired)
+    let imgSrc;
+    if (saved.docId && app?._dbId) {
+      // Reconstruct with fresh token
+      import('../../services/api').then(mod => {
+        imgSrc = mod.default.getDocumentRenderUrl(app._dbId, saved.docId, saved.page || 1);
+        loadAndWarp(imgSrc);
+      });
+    } else if (saved.imgUrl) {
+      // Legacy — try saved URL directly
+      loadAndWarp(saved.imgUrl);
+    }
+
+    function loadAndWarp(src) {
       const img = new window.Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
@@ -1335,8 +1350,8 @@ Respond with JSON only:
         setGeorefBounds(bounds);
         setGeorefMapPts(saved.mapPts.map(p => ({ lat: p.lat, lng: p.lng })));
       };
-      img.onerror = () => console.warn("Failed to load saved georef image");
-      img.src = saved.imgUrl;
+      img.onerror = () => console.warn("Failed to load saved georef image from:", src);
+      img.src = src;
     }
   }, [app?.georef_overlay, georefData]);
 
@@ -1428,12 +1443,16 @@ Respond with JSON only:
       // Save georef data to application so it persists (control points only — overlay recomputed on load)
       if (app?._dbId) {
         import('../../services/api').then(mod => {
+          // Extract docId from imgUrl: .../documents/{docId}/render?...
+          const urlMatch = georefData.imgUrl.match(/documents\/(\d+)\/render/);
+          const docId = urlMatch ? parseInt(urlMatch[1]) : null;
           mod.default.updateApp(app._dbId, {
             georef_overlay: {
               planPts: georefData.planPts,
               mapPts: georefMapPts.map(p => ({ lat: p.lat, lng: p.lng })),
               bounds: bounds,
-              imgUrl: georefData.imgUrl,
+              docId: docId,
+              page: 1,
               imgW: georefData.imgW,
               imgH: georefData.imgH,
             }
