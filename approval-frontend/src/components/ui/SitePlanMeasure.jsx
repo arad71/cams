@@ -652,10 +652,14 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                 const api = (await import('../../services/api')).default;
                 await api.rotatePdf(appDbId, docId, rotation);
                 setRotation(0);
-                // Reload the image by appending cache-bust
+                // Rebuild the URL with fresh token + cache bust
                 if (imgRef.current) {
-                  const src = imgRef.current.src.split('?')[0];
-                  imgRef.current.src = src + '?t=' + Date.now();
+                  const freshUrl = api.getDocumentRenderUrl(appDbId, docId, 1) + '&_t=' + Date.now();
+                  imgRef.current.src = freshUrl;
+                  // Reset image size after load
+                  imgRef.current.onload = (e) => {
+                    setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight });
+                  };
                 }
               } catch (err) { alert('Rotate failed: ' + err.message); }
             }} title="Save rotation permanently to the PDF file"
