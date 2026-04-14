@@ -489,6 +489,56 @@ def run_seed():
             R("dual_crossover",      2, "sp",  "crossover_dimensions.distance_to_intersection_tangent_m", "lt", "6.0", "fail", 0.95, "Second crossover: < 6.0m from intersection tangent — REFUSED (R-100)")
             R("dual_crossover",      3, "sp",  "additional_findings.vegetation_on_verge", "true", None, "review", 0.8, "Second crossover: tree/vegetation impact must be assessed (R-100 condition 4)")
 
+            # ── Construction specification checks (from unused extraction fields) ──
+            R("base_course",         1, "sp",  "construction.base_course_depth_mm", "gte", "150", "pass", 0.95, "Base course depth {field_value}mm ≥ 150mm (R-122)")
+            R("base_course",         2, "sp",  "construction.base_course_depth_mm", "lt",  "150", "fail", 0.95, "Base course depth {field_value}mm < 150mm minimum (R-122)")
+            R("base_course",         3, "sp",  "construction.compaction_mdd_pct", "gte", "95", "pass", 0.9, "Compaction {field_value}% ≥ 95% MDD (R-121)")
+            R("base_course",         4, "sp",  "construction.compaction_mdd_pct", "lt", "95", "fail", 0.9, "Compaction {field_value}% < 95% MDD (R-121)")
+
+            # ── Concrete thickness ──
+            R("surface_material",    2, "sp",  "construction.thickness_mm", "gte", "100", "pass", 0.9, "Surface thickness {field_value}mm ≥ 100mm (R-120)")
+            R("surface_material",    3, "sp",  "construction.thickness_mm", "lt", "100", "fail", 0.9, "Surface thickness {field_value}mm < 100mm minimum (R-120)")
+
+            # ── Garage backing distance (garage to kerb ≥ 6m for safe reversing) ──
+            R("driveway_grade",      0, "sp",  "siteplan_measurements.garage_to_kerb_m", "gte", "6.0", "pass", 0.9, "Garage to kerb {field_value}m ≥ 6.0m — adequate reversing distance")
+            R("driveway_grade",      1, "sp",  "siteplan_measurements.garage_to_kerb_m", "lt", "6.0", "review", 0.85, "Garage to kerb {field_value}m < 6.0m — tight reversing distance, check turning path")
+            R("driveway_grade",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Driveway gradient and garage backing distance to be confirmed on-site")
+
+            # ── Underground services — utility conflict checks ──
+            R("power_clear",         0, "sp",  "utilities.power_conflict", "false", None, "pass", 0.9, "No power/electrical conflict per site plan")
+            R("power_clear",         1, "sp",  "utilities.power_conflict", "true",  None, "fail", 0.95, "Power/electrical conflict identified on site plan — relocation may be required")
+            R("power_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Power/electrical service clearance to be verified via DBYD")
+            R("water_clear",         0, "sp",  "utilities.water_conflict", "false", None, "pass", 0.9, "No water main conflict per site plan")
+            R("water_clear",         1, "sp",  "utilities.water_conflict", "true",  None, "fail", 0.95, "Water main conflict — meter/main may need relocation")
+            R("water_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Water service clearance to be verified via DBYD")
+            R("gas_clear",           0, "sp",  "utilities.gas_conflict", "false", None, "pass", 0.9, "No gas pipeline conflict per site plan")
+            R("gas_clear",           1, "sp",  "utilities.gas_conflict", "true",  None, "fail", 0.95, "Gas pipeline conflict — ATCO clearance required")
+            R("gas_clear",           9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Gas clearance to be verified via DBYD")
+            R("telco_clear",         0, "sp",  "utilities.telco_conflict", "false", None, "pass", 0.9, "No telco/NBN conflict per site plan")
+            R("telco_clear",         1, "sp",  "utilities.telco_conflict", "true",  None, "fail", 0.9, "Telco/NBN conduit conflict — NBN Co clearance required")
+            R("telco_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Telco clearance to be verified via DBYD")
+
+            # ── DBYD check ──
+            R("dbyd_completed",      0, "sp",  "utilities.utility_summary", "exists", None, "review", 0.7, "Utilities shown on plan — DBYD search recommended: {field_value}")
+            R("dbyd_completed",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Dial Before You Dig search to be completed before excavation")
+
+            # ── Sight triangle — fence obstruction checks ──
+            R("sight_triangle",      0, "sp",  "additional_findings.sight_obstruction_notes", "exists", None, "review", 0.9, "Sight obstruction noted: {field_value}")
+            R("sight_triangle",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Sight triangle clearance to be verified — no objects 0.65m–1.5m height within triangle (AS 2890.1)")
+
+            # ── Drainage plan ──
+            R("drainage_type",       1, "sp",  "drainage.soakwells_proposed", "true", None, "pass", 0.8, "Soakwells proposed on site plan — drainage addressed")
+            R("drainage_type",       2, "sp",  "drainage.connection_to_council_drain", "true", None, "review", 0.8, "Connection to council drain proposed — council approval needed")
+            R("drainage_type",       9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Drainage plan and stormwater management to be confirmed")
+
+            # ── Verge depth / crossover length ──
+            R("pedestrian_safety",   0, "sp",  "crossover_dimensions.verge_depth_m", "exists", None, "pass", 0.7, "Verge depth {field_value}m — footpath/pedestrian path can be maintained")
+            R("pedestrian_safety",   9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Pedestrian path continuity to be maintained across crossover (R-110)")
+
+            # ── Number of crossovers ──
+            R("separation_dist",     1, "sp",  "siteplan_measurements.number_of_crossovers", "lte", "1", "pass", 0.9, "Single crossover — separation N/A")
+            R("separation_dist",     2, "sp",  "siteplan_measurements.number_of_crossovers", "gt", "1", "review", 0.8, "Multiple crossovers ({field_value}) — separation distance to be checked")
+
             db.commit()
             rule_count = db.query(AssessmentRule).count()
             print(f"✅ Created {rule_count} assessment rules")

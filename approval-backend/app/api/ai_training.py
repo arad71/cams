@@ -281,3 +281,63 @@ def _apply_corrections(extraction_json, corrections):
             pass
         obj[parts[-1]] = val
     return gt
+
+
+@router.get("/quality")
+def training_quality_report(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager")),
+):
+    """
+    AI quality report — per-field accuracy based on officer corrections.
+    Shows which fields the AI gets right vs wrong, and improvement over time.
+    """
+    corrections = db.query(AITrainingCorrection).order_by(AITrainingCorrection.created_at).all()
+    samples = db.query(AITrainingSample).count()
+
+    if not corrections:
+        return {"message": "No corrections yet — AI quality unknown", "total_samples": samples}
+
+    # Per-field stats
+    field_stats = {}
+    for c in corrections:
+        fp = c.field_path
+        if fp not in field_stats:
+            field_stats[fp] = {"total": 0, "ai_correct": 0, "ai_wrong": 0, "ai_null": 0}
+        field_stats[fp]["total"] += 1
+        if c.ai_value == c.correct_value:
+            field_stats[fp]["ai_correct"] += 1
+        elif not c.ai_value or c.ai_value in ("None", "null", "—"):
+            field_stats[fp]["ai_null"] += 1
+        else:
+            field_stats[fp]["ai_wrong"] += 1
+
+    # Accuracy per field
+    results = []
+    for fp, s in sorted(field_stats.items(), key=lambda x: -x[1]["total"]):
+        accuracy = s["ai_correct"] / s["total"] * 100 if s["total"] > 0 else 0
+        results.append({
+            "field": fp,
+            "corrections": s["total"],
+            "ai_correct": s["ai_correct"],
+            "ai_wrong": s["ai_wrong"],
+            "ai_missed": s["ai_null"],
+            "accuracy_pct": round(accuracy, 1),
+        })
+
+    overall = sum(s["ai_correct"] for s in field_stats.values())
+    total_corrections = sum(s["total"] for s in field_stats.values())
+    overall_accuracy = overall / total_corrections * 100 if total_corrections > 0 else 0
+
+    return {
+        "total_samples": samples,
+        "total_corrections": total_corrections,
+        "overall_accuracy_pct": round(overall_accuracy, 1),
+        "fields": results,
+        "most_corrected": results[:5] if results else [],
+        "recommendation": (
+            "AI performing well — maintain current model" if overall_accuracy > 80
+            else "AI needs improvement — consider fine-tuning with corrected data" if overall_accuracy > 50
+            else "AI accuracy low — more training data needed before deployment"
+        ),
+    }
