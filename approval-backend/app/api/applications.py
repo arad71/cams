@@ -431,6 +431,248 @@ async def extract_siteplan_pages(
     }
 
 
+@router.post("/{app_id}/documents/{doc_id}/extract-pages")
+async def extract_pages_generic(
+    app_id: int, doc_id: int,
+    body: dict,  # {"pages": "1,2", "category": "Application Form", "method": "ai_live"|"ai_local"|"none"}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Extract pages from a PDF as a new document of specified category, optionally run AI extraction."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(404, "Document not found")
+
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+
+    pages_str = body.get("pages", "")
+    category = body.get("category", "Other Documents")
+    method = body.get("method", "none")  # ai_live | ai_local | none
+
+    # Parse page numbers
+    try:
+        page_nums = [int(p.strip()) for p in pages_str.split(",") if p.strip()]
+    except ValueError:
+        raise HTTPException(400, "Invalid page numbers")
+    if not page_nums:
+        raise HTTPException(400, "No page numbers provided")
+
+    file_bytes = file_path.read_bytes()
+    from app.services.building_app_processor import extract_pdf_pages, _count_pdf_pages
+    total_pages = _count_pdf_pages(file_bytes)
+    invalid = [p for p in page_nums if p < 1 or p > total_pages]
+    if invalid:
+        raise HTTPException(400, f"Invalid pages {invalid} — document has {total_pages} pages")
+
+    # Extract pages as new PDF
+    new_bytes = extract_pdf_pages(file_bytes, page_nums)
+    cat_prefix = category.replace(" ", "")
+    new_filename = f"{cat_prefix}_p{'_'.join(str(p) for p in page_nums)}_{doc.name}"
+
+    settings = get_settings()
+    app_dir = Path(settings.DOCUMENT_DIR) / app.ref_number
+    app_dir.mkdir(parents=True, exist_ok=True)
+    new_path = app_dir / new_filename
+    counter = 1
+    while new_path.exists():
+        new_path = app_dir / f"{cat_prefix}_{counter}_p{'_'.join(str(p) for p in page_nums)}_{doc.name}"
+        counter += 1
+
+    with open(new_path, "wb") as f:
+        f.write(new_bytes)
+
+    size_str = f"{len(new_bytes) / 1024:.1f} KB" if len(new_bytes) < 1048576 else f"{len(new_bytes) / 1048576:.1f} MB"
+    new_doc = Document(
+        application_id=app_id, uploaded_by_id=current_user.id,
+        name=new_filename, file_type="pdf", file_size=size_str,
+        category=category, file_path=str(new_path),
+    )
+    db.add(new_doc)
+    db.commit()
+    db.refresh(new_doc)
+
+    from app.services.audit import log_audit
+    log_audit(db=db, action="extract_pages", entity_type="document", user=current_user,
+              entity_id=str(new_doc.id), entity_ref=app.ref_number,
+              description=f"Extracted pages {page_nums} from {doc.name} as {category}")
+
+    result = {
+        "success": True, "doc_id": new_doc.id, "filename": new_filename,
+        "pages_extracted": page_nums, "total_pages": total_pages, "category": category,
+        "message": f"Extracted page(s) {', '.join(str(p) for p in page_nums)} as {category}.",
+        "extraction": None,
+    }
+
+    # If Site Plan, run site plan AI analysis
+    if category == "Site Plan" and method != "none":
+        try:
+            _run_site_plan_ai(app, new_doc, new_bytes, db)
+            result["message"] += " AI analysis complete."
+            result["analysed"] = True
+        except Exception as e:
+            result["analyseError"] = str(e)
+
+    # If Application Form or Certificate of Title, run field extraction
+    if category in ("Application Form", "Certificate of Title") and method != "none":
+        try:
+            extract_type = "certificate_of_title" if "Title" in category else "application_form"
+            if method == "ai_live":
+                # Call Claude API
+                extracted = _extract_fields_ai_live(new_path, extract_type)
+            else:
+                # Local OCR extraction
+                extracted = _extract_fields_local(new_path, extract_type)
+
+            # Save to application
+            updates = _map_extraction_to_app(extracted, extract_type)
+            for key, val in updates.items():
+                if hasattr(app, key):
+                    setattr(app, key, val)
+            db.commit()
+
+            result["extraction"] = extracted
+            result["fields_saved"] = list(updates.keys())
+            result["message"] += f" Extracted {len(updates)} fields via {method}."
+        except Exception as e:
+            result["extractionError"] = str(e)
+
+    return result
+
+
+def _extract_fields_ai_live(file_path, extract_type):
+    """Extract fields using Claude AI."""
+    from PIL import Image
+    from pdf2image import convert_from_bytes
+    import base64, io, json, re, anthropic
+
+    images = convert_from_bytes(Path(file_path).read_bytes(), dpi=150, last_page=3)
+    image_contents = []
+    for img in images:
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        image_contents.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}})
+
+    if extract_type == "certificate_of_title":
+        prompt = 'Extract from Certificate of Title. Return ONLY JSON: {"lot_number":"","plan_number":"","volume_folio":"","property_address":"","lot_area_sqm":null,"owner_names":[],"encumbrances":[],"survey_date":""}'
+    else:
+        prompt = 'Extract from application form. Return ONLY JSON: {"owner_name":"","owner_phone":"","owner_email":"","owner_postal_address":"","property_address":"","lot_number":"","plan_number":"","crossover_width":null,"crossover_surface":"","crossover_count":null,"da_number":"","date_signed":"","declaration_signed":false,"trees_nearby":false,"clearing":false,"drainage_type":"","estimated_construction_date":""}'
+
+    client = anthropic.Anthropic()
+    resp = client.messages.create(
+        model="claude-sonnet-4-20250514", max_tokens=2000,
+        messages=[{"role": "user", "content": image_contents + [{"type": "text", "text": prompt}]}],
+    )
+    raw = resp.content[0].text.strip()
+    raw = re.sub(r'^```json\s*', '', raw)
+    raw = re.sub(r'\s*```$', '', raw)
+    return json.loads(raw)
+
+
+def _extract_fields_local(file_path, extract_type):
+    """Extract fields using local OCR (pytesseract) — no AI API calls."""
+    from PIL import Image
+    from pdf2image import convert_from_bytes
+    import pytesseract, re
+
+    images = convert_from_bytes(Path(file_path).read_bytes(), dpi=200, last_page=3)
+
+    # OCR all pages
+    full_text = ""
+    for img in images:
+        text = pytesseract.image_to_string(img.convert("L"), config="--psm 6")
+        full_text += text + "\n"
+
+    full_text = re.sub(r'\s+', ' ', full_text)  # collapse whitespace
+
+    result = {}
+
+    if extract_type == "certificate_of_title":
+        # Parse Certificate of Title fields from OCR text
+        lot_m = re.search(r'(?:Lot|LOT)\s*(\d+)', full_text, re.IGNORECASE)
+        plan_m = re.search(r'(?:Plan|Diagram|PLAN|DIAGRAM)\s*(\d+)', full_text, re.IGNORECASE)
+        vol_m = re.search(r'(?:Volume|VOL)\s*(\d+)\s*(?:Folio|FOL)\s*(\d+)', full_text, re.IGNORECASE)
+        area_m = re.search(r'(\d+(?:\.\d+)?)\s*(?:sq\.?\s*m|sqm|m2|m²)', full_text, re.IGNORECASE)
+        addr_m = re.search(r'(\d+\s+[A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard))', full_text)
+        owner_m = re.search(r'(?:Registered\s+)?(?:Proprietor|PROPRIETOR)[:\s]+([A-Z][A-Za-z\s,]+?)(?:\n|$|;)', full_text)
+
+        if lot_m: result["lot_number"] = lot_m.group(1)
+        if plan_m: result["plan_number"] = plan_m.group(1)
+        if vol_m: result["volume_folio"] = f"Vol {vol_m.group(1)} Fol {vol_m.group(2)}"
+        if area_m: result["lot_area_sqm"] = float(area_m.group(1))
+        if addr_m: result["property_address"] = addr_m.group(1).strip()
+        if owner_m: result["owner_names"] = [n.strip() for n in owner_m.group(1).split(",") if n.strip()]
+
+    else:  # application_form
+        # Parse common crossover application form fields
+        phone_m = re.search(r'(?:Phone|Tel|Mobile|Contact)[:\s]*(\d[\d\s]{7,12})', full_text, re.IGNORECASE)
+        email_m = re.search(r'[\w.+-]+@[\w-]+\.[\w.]+', full_text)
+        addr_m = re.search(r'(\d+\s+[A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard)[^,\n]*)', full_text)
+        lot_m = re.search(r'(?:Lot|LOT)\s*(\d+)', full_text, re.IGNORECASE)
+        plan_m = re.search(r'(?:Plan|PLAN|Diagram)\s*(\d+)', full_text, re.IGNORECASE)
+        width_m = re.search(r'(?:Width|width|WIDTH)[:\s]*(\d+(?:\.\d+)?)\s*(?:m|M|metres?)?', full_text, re.IGNORECASE)
+        da_m = re.search(r'(?:DA|Development\s+Application)[:\s#]*(\d+[/-]?\d*)', full_text, re.IGNORECASE)
+        name_m = re.search(r'(?:Name|Owner|Applicant)[:\s]+([A-Z][A-Za-z\s]+?)(?:\n|$|Phone|Tel|Email)', full_text, re.IGNORECASE)
+        surface_m = re.search(r'(?:concrete|asphalt|paving|brick\s*pav)', full_text, re.IGNORECASE)
+
+        if name_m: result["owner_name"] = name_m.group(1).strip()
+        if phone_m: result["owner_phone"] = phone_m.group(1).strip()
+        if email_m: result["owner_email"] = email_m.group(0)
+        if addr_m: result["property_address"] = addr_m.group(1).strip()
+        if lot_m: result["lot_number"] = lot_m.group(1)
+        if plan_m: result["plan_number"] = plan_m.group(1)
+        if width_m: result["crossover_width"] = float(width_m.group(1))
+        if da_m: result["da_number"] = da_m.group(1)
+        if surface_m: result["crossover_surface"] = surface_m.group(0).title()
+
+        # Check for signature
+        if re.search(r'(?:signed|signature)', full_text, re.IGNORECASE):
+            result["declaration_signed"] = True
+        if re.search(r'(?:tree|trees|vegetation)', full_text, re.IGNORECASE):
+            result["trees_nearby"] = True
+
+    return result
+
+
+def _map_extraction_to_app(extracted, extract_type):
+    """Map extracted fields to application model column names."""
+    updates = {}
+    if extract_type == "certificate_of_title":
+        mapping = {"lot_number": "lot_number", "plan_number": "plan_number", "property_address": "property_address", "lot_area_sqm": "lot_area_sqm"}
+        for src, dst in mapping.items():
+            val = extracted.get(src)
+            if val is not None and str(val).strip() and str(val).strip().lower() not in ("null", "none"):
+                updates[dst] = val
+        if extracted.get("owner_names"):
+            updates["owner_name"] = ", ".join(extracted["owner_names"])
+    else:  # application_form
+        mapping = {
+            "owner_name": "owner_name", "owner_phone": "owner_phone", "owner_email": "owner_email",
+            "owner_postal_address": "owner_postal_address", "property_address": "property_address",
+            "lot_number": "lot_number", "plan_number": "plan_number",
+            "crossover_width": "crossover_width", "crossover_surface": "crossover_surface",
+            "crossover_count": "crossover_count", "da_number": "da_number",
+            "date_signed": "date_signed", "drainage_type": "drainage_type",
+            "estimated_construction_date": "crossover_est_date",
+        }
+        for src, dst in mapping.items():
+            val = extracted.get(src)
+            if val is not None and str(val).strip() and str(val).strip().lower() not in ("null", "none", "n/a"):
+                updates[dst] = val
+        if extracted.get("declaration_signed"):
+            updates["declaration_signed"] = True
+        if extracted.get("trees_nearby"):
+            updates["trees_nearby"] = True
+        if extracted.get("clearing"):
+            updates["clearing"] = True
+    return updates
+
+
 def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
     """Run AI analysis."""
     from app.services.ai_analyser import analyse_document, save_training_sample

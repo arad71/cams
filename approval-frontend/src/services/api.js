@@ -105,6 +105,7 @@ const api = {
   async ocrRegion(appId, docId, region) { return this._fetch(`/applications/${appId}/documents/${docId}/ocr-region`, { method: "POST", body: region }); },
   async rotatePdf(appId, docId, degrees) { return this._fetch(`/applications/${appId}/documents/${docId}/rotate`, { method: "POST", body: { degrees } }); },
   async extractDocFields(appId, docId, type) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-fields`, { method: "POST", body: { type } }); },
+  async extractPages(appId, docId, pages, category, method) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-pages`, { method: "POST", body: { pages, category, method } }); },
   async extractSiteplan(appId, docId, pages) { return this._fetch(`/applications/${appId}/documents/${docId}/extract-siteplan?pages=${encodeURIComponent(pages)}`, { method: "POST" }); },
   async saveBoundaries(appId, data) { return this._fetch(`/applications/${appId}/boundaries`, { method: "PUT", body: data }); },
   async scheduleInspection(appId, data) { return this._fetch(`/applications/${appId}/inspections`, { method: "POST", body: data }); },
