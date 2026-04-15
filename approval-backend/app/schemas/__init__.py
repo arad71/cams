@@ -230,6 +230,7 @@ class ApplicationOut(BaseModel):
     owner_name: str
     owner_phone: Optional[str] = None
     owner_email: Optional[str] = None
+    owner_postal_address: Optional[str] = None
     property_address: str
     lot_number: Optional[str] = None
     plan_number: Optional[str] = None
@@ -243,20 +244,28 @@ class ApplicationOut(BaseModel):
     crossover_width: Optional[float] = None
     crossover_count: int = 1
     crossover_surface: Optional[str] = None
+    crossover_est_date: Optional[str] = None
     da_number: Optional[str] = None
     offset_from_left: Optional[float] = None
+    offset2_from_left: Optional[float] = None
     declaration_signed: Optional[bool] = None
     date_signed: Optional[str] = None
     attachment_count: Optional[int] = None
     trees_nearby: bool = False
+    tree_protection: Optional[str] = None
     clearing: bool = False
     drainage_type: Optional[str] = None
+    culvert: bool = False
+    trees_data: list = []
     officer_id: Optional[int] = None
     officer_name: Optional[str] = None
     risk_flags: list = []
     checklist_data: dict = {}
     contribution_eligible: bool = False
     contribution_amount: float = 0
+    referral_authority: Optional[str] = None
+    referral_status: Optional[str] = None
+    referral_date_sent: Optional[datetime] = None
     lot_polygon: Optional[list] = None
     site_plan_data: Optional[dict] = None
     org_site_plan_data: Optional[dict] = None
