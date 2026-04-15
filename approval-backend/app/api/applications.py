@@ -1323,6 +1323,45 @@ async def extract_document_fields(
         except Exception as e:
             raise HTTPException(500, f"AI site plan analysis failed: {e}")
 
+    # For application_form / certificate_of_title with ai_local, use local OCR
+    if extract_type in ("application_form", "certificate_of_title") and extraction_method == "ai_local":
+        try:
+            from app.services.local_extractor import extract_local
+            local_result = extract_local(str(file_path), extract_type)
+            extracted = local_result.get("fields", {})
+            confidence = local_result.get("confidence", {})
+
+            updates = _map_extraction_to_app(extracted, extract_type)
+            for key, val in updates.items():
+                if hasattr(app, key):
+                    setattr(app, key, val)
+
+            from datetime import datetime, timezone
+            extraction_record = {
+                "fields": extracted, "confidence": confidence, "method": "ai_local",
+                "doc_id": doc.id, "doc_name": doc.name,
+                "extracted_at": datetime.now(timezone.utc).isoformat(),
+                "fields_saved": list(updates.keys()),
+            }
+            if extract_type == "certificate_of_title":
+                app.title_extraction_data = extraction_record
+            else:
+                app.form_extraction_data = extraction_record
+            db.commit()
+
+            from app.services.audit import log_audit
+            log_audit(db=db, action="extract", entity_type="document", user=current_user,
+                      entity_id=str(doc.id), description=f"Local OCR extracted {len(updates)} fields from {doc.name}")
+
+            return {
+                "type": extract_type, "extracted": extracted, "confidence": confidence,
+                "fields_saved": list(updates.keys()), "count": len(updates),
+                "message": f"Extracted {len(updates)} fields from {extract_type.replace('_', ' ')} via local OCR",
+            }
+        except Exception as e:
+            raise HTTPException(500, f"Local extraction failed: {e}")
+
+    # ── AI Live extraction (Claude) — for application_form and certificate_of_title ──
     ext = (doc.file_type or "").lower()
     try:
         # Render document pages as images

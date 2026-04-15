@@ -292,46 +292,21 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       if (uploadCat === "Application Form" && file.name.toLowerCase().endsWith(".pdf")) {
         setFormExtracting(true);
         try {
-          const result = await api.extractAppForm(file);
-          const values = result.values || {};
-          const mapping = {
-            lot_owner_name: "owner_name", phone: "owner_phone", email: "owner_email",
-            postal_address: "owner_postal_address", property_address: "property_address",
-            estimated_construction_date: "crossover_est_date",
-            dev_application_number: "da_number", date_signed: "date_signed",
-          };
-          const updates = {};
-          const filled = [];
-          const names = {
-            lot_owner_name: "Owner", phone: "Phone", email: "Email",
-            postal_address: "Postal Address", property_address: "Property Address",
-            estimated_construction_date: "Est. Date", dev_application_number: "DA Number",
-            lot_owner_signature: "Signature",
-          };
-          for (const [extractKey, appKey] of Object.entries(mapping)) {
-            const val = values[extractKey];
-            if (val && typeof val === "string" && val.trim()) {
-              updates[appKey] = val.trim();
-              filled.push(extractKey);
-            }
+          // Find the just-uploaded doc
+          const freshApp = await api.getApp(appDbId);
+          const freshDocs = freshApp?.documents || [];
+          const uploadedDoc = freshDocs.find(d => d.name === file.name && d.category === "Application Form");
+          if (uploadedDoc) {
+            const result = await api.extractDocFields(appDbId, uploadedDoc.id || uploadedDoc._id, "application_form", "ai_local");
+            const count = result.count || result.fields_saved?.length || 0;
+            setFormExtractResult({
+              success: count > 0,
+              message: count > 0 ? `Extracted ${count} fields: ${(result.fields_saved || []).join(", ")}` : "No fields extracted — try AI Read for better results",
+            });
           }
-          // Handle signature
-          const sig = values.lot_owner_signature;
-          if (sig && sig.trim() && sig.trim().toLowerCase() !== "not signed" && sig.trim() !== "-") {
-            updates.declaration_signed = true;
-            filled.push("lot_owner_signature");
-          }
-          // Save extracted fields to the application
-          if (Object.keys(updates).length > 0) {
-            await api.updateApp(appDbId, updates);
-            if (onDocUpdated) onDocUpdated();
-          }
-          setFormExtractResult({
-            success: true,
-            message: `Extracted ${filled.length} fields: ${filled.map(f => names[f] || f).join(", ")}`,
-          });
+          if (onDocUpdated) onDocUpdated();
         } catch (err) {
-          setFormExtractResult({ success: false, message: `Extraction failed: ${err.message}` });
+          setFormExtractResult({ success: false, message: `Auto-extract failed: ${err.message}. Use 🤖 AI Read button for manual extraction.` });
         }
         setFormExtracting(false);
       }
