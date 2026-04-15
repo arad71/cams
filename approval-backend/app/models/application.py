@@ -77,6 +77,10 @@ class Application(Base):
     # Georef overlay — saved site plan overlay on map
     georef_overlay = Column(JSON, nullable=True)          # {planPts, mapPts, imgUrl, bounds, docId, page}
 
+    # Extraction data from Application Form and Certificate of Title
+    form_extraction_data = Column(JSON, nullable=True)    # {fields, confidence, method, doc_id, extracted_at}
+    title_extraction_data = Column(JSON, nullable=True)   # {fields, confidence, method, doc_id, extracted_at}
+
     # Officer-drawn boundaries from site plan image
     site_lot_boundary = Column(JSON, nullable=True)         # [[x,y], ...] polygon points on site plan image
     site_building_boundary = Column(JSON, nullable=True)    # [[x,y], ...] building footprint on site plan

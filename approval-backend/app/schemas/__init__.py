@@ -154,6 +154,8 @@ class ApplicationUpdate(BaseModel):
 
     georef_overlay: Optional[dict] = None
 class NoteOut(BaseModel):
+    form_extraction_data: Optional[dict] = None
+    title_extraction_data: Optional[dict] = None
     id: int
     text: str
     author_name: Optional[str] = None
@@ -242,6 +244,8 @@ class ApplicationOut(BaseModel):
     site_building_boundary: Optional[list] = None
     georef_overlay: Optional[dict] = None
     site_crossover: Optional[list] = None
+    form_extraction_data: Optional[dict] = None
+    title_extraction_data: Optional[dict] = None
     site_lot_boundary_latlon: Optional[list] = None
     site_building_boundary_latlon: Optional[list] = None
     site_crossover_latlon: Optional[list] = None

@@ -28,6 +28,8 @@ export function apiAppToFrontend(a) {
     conditions: a.conditions || [],
     decision_note: a.decision_note || "",
     georef_overlay: a.georef_overlay || null,
+    form_extraction_data: a.form_extraction_data || null,
+    title_extraction_data: a.title_extraction_data || null,
     site_lot_boundary: a.site_lot_boundary || null,
     site_building_boundary: a.site_building_boundary || null,
     site_crossover: a.site_crossover || null,

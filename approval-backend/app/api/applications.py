@@ -537,6 +537,24 @@ async def extract_pages_generic(
             for key, val in updates.items():
                 if hasattr(app, key):
                     setattr(app, key, val)
+
+            # Save full extraction data with confidence to the application
+            from datetime import datetime, timezone
+            extraction_record = {
+                "fields": extracted,
+                "confidence": confidence,
+                "method": method,
+                "doc_id": new_doc.id,
+                "doc_name": new_filename,
+                "pages": page_nums,
+                "extracted_at": datetime.now(timezone.utc).isoformat(),
+                "fields_saved": list(updates.keys()),
+            }
+            if extract_type == "certificate_of_title":
+                app.title_extraction_data = extraction_record
+            else:
+                app.form_extraction_data = extraction_record
+
             db.commit()
 
             result["extraction"] = extracted
@@ -1411,7 +1429,24 @@ async def extract_document_fields(
             for key, val in updates.items():
                 if hasattr(app, key):
                     setattr(app, key, val)
-            db.commit()
+
+        # Save full extraction data to application
+        from datetime import datetime, timezone
+        extraction_record = {
+            "fields": extracted,
+            "confidence": {k: 0.9 for k in filled},
+            "method": "ai_live",
+            "doc_id": doc.id,
+            "doc_name": doc.name,
+            "extracted_at": datetime.now(timezone.utc).isoformat(),
+            "fields_saved": filled,
+        }
+        if extract_type == "certificate_of_title":
+            app.title_extraction_data = extraction_record
+        else:
+            app.form_extraction_data = extraction_record
+
+        db.commit()
 
         from app.services.audit import log_audit
         log_audit(db=db, action="extract", entity_type="document", user=current_user,
