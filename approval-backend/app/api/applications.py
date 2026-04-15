@@ -524,9 +524,13 @@ async def extract_pages_generic(
             if method == "ai_live":
                 # Call Claude API
                 extracted = _extract_fields_ai_live(new_path, extract_type)
+                confidence = {k: 0.9 for k in extracted.keys()}  # AI Live assumed high confidence
             else:
-                # Local OCR extraction
-                extracted = _extract_fields_local(new_path, extract_type)
+                # Local OCR extraction with confidence scoring
+                from app.services.local_extractor import extract_local
+                local_result = extract_local(str(new_path), extract_type)
+                extracted = local_result.get("fields", {})
+                confidence = local_result.get("confidence", {})
 
             # Save to application
             updates = _map_extraction_to_app(extracted, extract_type)
@@ -536,6 +540,7 @@ async def extract_pages_generic(
             db.commit()
 
             result["extraction"] = extracted
+            result["confidence"] = confidence
             result["fields_saved"] = list(updates.keys())
             result["message"] += f" Extracted {len(updates)} fields via {method}."
         except Exception as e:
@@ -575,68 +580,15 @@ def _extract_fields_ai_live(file_path, extract_type):
 
 
 def _extract_fields_local(file_path, extract_type):
-    """Extract fields using local OCR (pytesseract) — no AI API calls."""
-    from PIL import Image
-    from pdf2image import convert_from_bytes
-    import pytesseract, re
+    """Extract fields using local OCR pipeline — no AI API calls.
+    Three-stage: text+layout extraction → field extraction → confidence scoring.
+    """
+    from app.services.local_extractor import extract_local
 
-    images = convert_from_bytes(Path(file_path).read_bytes(), dpi=200, last_page=3)
-
-    # OCR all pages
-    full_text = ""
-    for img in images:
-        text = pytesseract.image_to_string(img.convert("L"), config="--psm 6")
-        full_text += text + "\n"
-
-    full_text = re.sub(r'\s+', ' ', full_text)  # collapse whitespace
-
-    result = {}
-
-    if extract_type == "certificate_of_title":
-        # Parse Certificate of Title fields from OCR text
-        lot_m = re.search(r'(?:Lot|LOT)\s*(\d+)', full_text, re.IGNORECASE)
-        plan_m = re.search(r'(?:Plan|Diagram|PLAN|DIAGRAM)\s*(\d+)', full_text, re.IGNORECASE)
-        vol_m = re.search(r'(?:Volume|VOL)\s*(\d+)\s*(?:Folio|FOL)\s*(\d+)', full_text, re.IGNORECASE)
-        area_m = re.search(r'(\d+(?:\.\d+)?)\s*(?:sq\.?\s*m|sqm|m2|m²)', full_text, re.IGNORECASE)
-        addr_m = re.search(r'(\d+\s+[A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard))', full_text)
-        owner_m = re.search(r'(?:Registered\s+)?(?:Proprietor|PROPRIETOR)[:\s]+([A-Z][A-Za-z\s,]+?)(?:\n|$|;)', full_text)
-
-        if lot_m: result["lot_number"] = lot_m.group(1)
-        if plan_m: result["plan_number"] = plan_m.group(1)
-        if vol_m: result["volume_folio"] = f"Vol {vol_m.group(1)} Fol {vol_m.group(2)}"
-        if area_m: result["lot_area_sqm"] = float(area_m.group(1))
-        if addr_m: result["property_address"] = addr_m.group(1).strip()
-        if owner_m: result["owner_names"] = [n.strip() for n in owner_m.group(1).split(",") if n.strip()]
-
-    else:  # application_form
-        # Parse common crossover application form fields
-        phone_m = re.search(r'(?:Phone|Tel|Mobile|Contact)[:\s]*(\d[\d\s]{7,12})', full_text, re.IGNORECASE)
-        email_m = re.search(r'[\w.+-]+@[\w-]+\.[\w.]+', full_text)
-        addr_m = re.search(r'(\d+\s+[A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard)[^,\n]*)', full_text)
-        lot_m = re.search(r'(?:Lot|LOT)\s*(\d+)', full_text, re.IGNORECASE)
-        plan_m = re.search(r'(?:Plan|PLAN|Diagram)\s*(\d+)', full_text, re.IGNORECASE)
-        width_m = re.search(r'(?:Width|width|WIDTH)[:\s]*(\d+(?:\.\d+)?)\s*(?:m|M|metres?)?', full_text, re.IGNORECASE)
-        da_m = re.search(r'(?:DA|Development\s+Application)[:\s#]*(\d+[/-]?\d*)', full_text, re.IGNORECASE)
-        name_m = re.search(r'(?:Name|Owner|Applicant)[:\s]+([A-Z][A-Za-z\s]+?)(?:\n|$|Phone|Tel|Email)', full_text, re.IGNORECASE)
-        surface_m = re.search(r'(?:concrete|asphalt|paving|brick\s*pav)', full_text, re.IGNORECASE)
-
-        if name_m: result["owner_name"] = name_m.group(1).strip()
-        if phone_m: result["owner_phone"] = phone_m.group(1).strip()
-        if email_m: result["owner_email"] = email_m.group(0)
-        if addr_m: result["property_address"] = addr_m.group(1).strip()
-        if lot_m: result["lot_number"] = lot_m.group(1)
-        if plan_m: result["plan_number"] = plan_m.group(1)
-        if width_m: result["crossover_width"] = float(width_m.group(1))
-        if da_m: result["da_number"] = da_m.group(1)
-        if surface_m: result["crossover_surface"] = surface_m.group(0).title()
-
-        # Check for signature
-        if re.search(r'(?:signed|signature)', full_text, re.IGNORECASE):
-            result["declaration_signed"] = True
-        if re.search(r'(?:tree|trees|vegetation)', full_text, re.IGNORECASE):
-            result["trees_nearby"] = True
-
-    return result
+    result = extract_local(str(file_path), extract_type)
+    # Return the fields dict (values only) for compatibility with _map_extraction_to_app
+    # The full result with confidence is stored in the extraction detail
+    return result.get("fields", {})
 
 
 def _map_extraction_to_app(extracted, extract_type):

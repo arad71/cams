@@ -646,8 +646,25 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   {extractResult.analyseError && <div style={{ color: T.c.danger, marginTop: 4 }}>⚠ AI: {extractResult.analyseError}</div>}
                   {extractResult.extractionError && <div style={{ color: T.c.danger, marginTop: 4 }}>⚠ Extract: {extractResult.extractionError}</div>}
                   {extractResult.fields_saved && extractResult.fields_saved.length > 0 && (
-                    <div style={{ marginTop: 4, color: "#27ae60", fontSize: 10 }}>
-                      Fields saved: {extractResult.fields_saved.join(", ")}
+                    <div style={{ marginTop: 6 }}>
+                      <div style={{ fontSize: 9, textTransform: "uppercase", color: "#27ae60", marginBottom: 3 }}>Fields Saved</div>
+                      {extractResult.fields_saved.map(f => {
+                        const conf = extractResult.confidence?.[f];
+                        const pct = conf ? Math.round(conf * 100) : null;
+                        return (
+                          <div key={f} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 10, color: T.c.text }}>
+                            <span style={{ flex: 1 }}>{f.replace(/_/g, " ")}</span>
+                            <span style={{ fontFamily: "monospace", color: T.c.textSecondary, fontSize: 9 }}>{String(extractResult.extraction?.[f] || "").substring(0, 30)}</span>
+                            {pct !== null && (
+                              <span style={{ fontSize: 8, fontWeight: T.w.bold, padding: "1px 4px", borderRadius: 3,
+                                background: pct >= 80 ? "#e8f8f5" : pct >= 50 ? "#fef9e7" : "#fdedec",
+                                color: pct >= 80 ? "#27ae60" : pct >= 50 ? "#e67e22" : "#e74c3c" }}>
+                                {pct}%
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
