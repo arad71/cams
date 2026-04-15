@@ -14,6 +14,7 @@ from app.schemas import (
     InspectionCreate, InspectionUpdate, InspectionOut,
     ReportOut, ReportListOut,
 )
+from app.api.documents import _build_doc_out
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
