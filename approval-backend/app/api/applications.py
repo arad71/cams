@@ -1296,8 +1296,11 @@ async def extract_document_fields(
             extracted = local_result.get("fields", {})
             confidence = local_result.get("confidence", {})
 
-            # Save extraction as site_plan_data on the application
-            app.site_plan_data = {"extraction": extracted, "method": "local_ocr"}
+            # Save extraction as site_plan_data on the application (same structure as AI)
+            save_data = {"extraction": extracted, "method": "local_ocr", "confidence": confidence}
+            app.org_site_plan_data = save_data  # Original — never modified
+            app.site_plan_data = save_data      # Active copy — assessment reads this
+            # cor_site_plan_data stays null until officer corrects
             db.commit()
 
             from app.services.audit import log_audit

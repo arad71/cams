@@ -239,12 +239,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       if (isDirectRead && !extractPages.trim()) {
         // Direct AI read — no page extraction, read the existing document
         const type = extractCategory === "Certificate of Title" ? "certificate_of_title" : extractCategory === "Site Plan" ? "site_plan" : "application_form";
-        if (extractCategory === "Site Plan") {
-          // For site plan, use the existing analyse endpoint
+        if (extractCategory === "Site Plan" && extractMethod === "ai_live") {
+          // AI Live — use the full Claude analysis pipeline
           await api.analyseDocument(appDbId, extractDoc.id);
-          result = { success: true, message: `AI analysis complete on ${extractDoc.name}.`, analysed: true };
+          result = { success: true, message: `AI Live analysis complete on ${extractDoc.name}.`, analysed: true };
         } else {
-          // For form/title, use extract-fields with method
+          // AI Local or other doc types — use extract-fields with method
           result = await api.extractDocFields(appDbId, extractDoc.id, type, extractMethod);
           result = { success: true, ...result };
         }
