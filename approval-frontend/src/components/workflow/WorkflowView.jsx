@@ -800,7 +800,6 @@ export default function WorkflowView({
           saveChanges={saveChanges} canAssign={canAssign} canDecide={canDecide}
           onInspect={startInspection} auditLog={auditLog} stepStats={stepStats}
         />
-        />
       </div>
 
       {/* Collapsible map for non-Assess steps */}
