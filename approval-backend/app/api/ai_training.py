@@ -341,3 +341,182 @@ def training_quality_report(
             else "AI accuracy low — more training data needed before deployment"
         ),
     }
+
+
+# ═══════════════════════════════════════════════════════════
+#  YOLO TRAINING PIPELINE
+# ═══════════════════════════════════════════════════════════
+
+@router.post("/prepare-dataset")
+def prepare_yolo_dataset(
+    verified_only: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    Prepare YOLO training dataset from collected training samples.
+    Generates annotation files from AI extraction data and exports
+    images + labels in YOLO format.
+    """
+    from app.services.training.yolo_annotator import export_yolo_dataset
+    from app.core.config import get_settings
+    from pathlib import Path
+
+    settings = get_settings()
+    output_dir = str(Path(settings.DOCUMENT_DIR).parent / "yolo_dataset")
+
+    # Get training samples
+    q = db.query(AITrainingSample)
+    if verified_only:
+        q = q.filter(
+            (AITrainingSample.officer_verified == True) | (AITrainingSample.officer_corrected == True)
+        )
+    samples = q.all()
+
+    if not samples:
+        return {"error": "No training samples found. Run AI extraction on some site plans first."}
+
+    sample_dicts = []
+    for s in samples:
+        sample_dicts.append({
+            "image_path": s.image_path,
+            "extraction_json": s.extraction_json,
+            "image_width": s.image_width or 1,
+            "image_height": s.image_height or 1,
+        })
+
+    result = export_yolo_dataset(sample_dicts, output_dir)
+    return {
+        "message": f"Dataset prepared: {result['total']} images ({result['train']} train, {result['val']} val)",
+        **result,
+    }
+
+
+@router.post("/train-yolo")
+def start_yolo_training(
+    body: dict = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    Start YOLO model training. This runs in a background thread.
+    Check /training/stats for progress.
+    """
+    from app.services.training.yolo_trainer import train_model
+    from app.core.config import get_settings
+    from pathlib import Path
+    import threading
+
+    settings = get_settings()
+    dataset_yaml = str(Path(settings.DOCUMENT_DIR).parent / "yolo_dataset" / "dataset.yaml")
+
+    if not Path(dataset_yaml).exists():
+        return {"error": "Dataset not prepared. Run POST /training/prepare-dataset first."}
+
+    body = body or {}
+    epochs = body.get("epochs", 100)
+    model_base = body.get("model", "yolov8n.pt")
+    batch_size = body.get("batch_size", 8)
+    device = body.get("device", "cpu")
+
+    # Run training in background thread
+    def _train():
+        try:
+            result = train_model(
+                dataset_yaml=dataset_yaml,
+                model_base=model_base,
+                epochs=epochs,
+                batch_size=batch_size,
+                device=device,
+            )
+            # Save model path to settings
+            from app.core.database import SessionLocal
+            from app.models.settings import SiteSetting
+            db_sess = SessionLocal()
+            try:
+                setting = db_sess.query(SiteSetting).filter(
+                    SiteSetting.category == "ai", SiteSetting.key == "ai_yolo_model_path"
+                ).first()
+                if setting:
+                    setting.value = result["model_path"]
+                else:
+                    db_sess.add(SiteSetting(category="ai", key="ai_yolo_model_path", value=result["model_path"]))
+                db_sess.commit()
+            finally:
+                db_sess.close()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"YOLO training failed: {e}")
+
+    thread = threading.Thread(target=_train, daemon=True)
+    thread.start()
+
+    return {
+        "message": f"Training started in background: {model_base}, {epochs} epochs, batch={batch_size}, device={device}",
+        "status": "running",
+        "dataset": dataset_yaml,
+    }
+
+
+@router.post("/detect")
+def run_yolo_detection(
+    body: dict,  # {"image_path": "/path/to/image.png"} or {"app_id": 1, "doc_id": 2}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager", "engineer")),
+):
+    """
+    Run YOLO object detection on a site plan image.
+    Returns detected objects with bounding boxes and confidence scores.
+    """
+    from app.services.ai_config import get_ai_config
+    from app.services.training.yolo_trainer import run_inference, detections_to_extraction_hints
+    from pathlib import Path
+
+    ai_cfg = get_ai_config(db)
+    model_path = ai_cfg.yolo_model_path
+    if not model_path or not Path(model_path).exists():
+        return {"error": "No trained YOLO model found. Train one first via POST /training/train-yolo"}
+
+    image_path = body.get("image_path")
+
+    # If app_id + doc_id provided, render the document
+    if not image_path and body.get("app_id") and body.get("doc_id"):
+        from app.models.application import Application, Document
+        doc = db.query(Document).filter(
+            Document.id == body["doc_id"],
+            Document.application_id == body["app_id"]
+        ).first()
+        if not doc or not doc.file_path:
+            return {"error": "Document not found"}
+
+        file_path = Path(doc.file_path)
+        ext = (doc.file_type or "").lower()
+        if ext == "pdf":
+            from pdf2image import convert_from_bytes
+            images = convert_from_bytes(file_path.read_bytes(), dpi=200, first_page=1, last_page=1)
+            if images:
+                import tempfile
+                tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
+                images[0].save(tmp.name)
+                image_path = tmp.name
+        elif ext in ("jpg", "jpeg", "png"):
+            image_path = str(file_path)
+
+    if not image_path or not Path(image_path).exists():
+        return {"error": "Image not found"}
+
+    # Run detection
+    detections = run_inference(model_path, image_path, confidence=ai_cfg.yolo_confidence)
+
+    # Get image dimensions for hints
+    from PIL import Image
+    img = Image.open(image_path)
+    hints = detections_to_extraction_hints(detections, img.width, img.height)
+
+    return {
+        "detections": detections,
+        "hints": hints,
+        "model": model_path,
+        "confidence_threshold": ai_cfg.yolo_confidence,
+        "image_size": {"width": img.width, "height": img.height},
+    }
