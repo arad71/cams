@@ -432,6 +432,27 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     ✂ Extract
                   </button>
                 )}
+                {/* AI field extraction for forms and titles */}
+                {canUpload && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && ["Application Form", "Certificate of Title"].includes(doc.category) && (
+                  <button onClick={async (e) => {
+                    e.stopPropagation();
+                    const type = doc.category === "Certificate of Title" ? "certificate_of_title" : "application_form";
+                    try {
+                      setFormExtracting(true);
+                      setFormExtractResult(null);
+                      const result = await api.extractDocFields(appDbId, doc.id, type);
+                      setFormExtractResult({ success: true, message: result.message || `Extracted ${result.count} fields` });
+                      if (onDocUpdated) onDocUpdated();
+                    } catch (err) {
+                      setFormExtractResult({ success: false, message: `Extraction failed: ${err.message}` });
+                    } finally { setFormExtracting(false); }
+                  }}
+                    disabled={formExtracting}
+                    title={`Extract data from ${doc.category} using AI`}
+                    style={{ padding: "6px 14px", borderRadius: T.r.md, border: "1px solid #16a08540", background: "#e8f8f5", color: "#16a085", fontSize: 12, fontWeight: T.w.semi, cursor: formExtracting ? "wait" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap", opacity: formExtracting ? 0.6 : 1 }}>
+                    {formExtracting ? "⏳ Extracting..." : "🤖 AI Read"}
+                  </button>
+                )}
                 {/* Delete button */}
                 {canUpload && (
                   <button onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
@@ -526,6 +547,18 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       )}
 
       {/* Extract Site Plan popup */}
+      {/* AI extraction result toast */}
+      {formExtractResult && !showUpload && (
+        <div style={{ position: "fixed", top: 20, right: 20, zIndex: 10001, padding: "12px 20px", borderRadius: T.r.md,
+          background: formExtractResult.success ? "#eafaf1" : "#fdedec", border: `1px solid ${formExtractResult.success ? "#27ae60" : "#e74c3c"}`,
+          color: formExtractResult.success ? "#27ae60" : "#e74c3c", fontSize: 12, fontWeight: T.w.semi, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+          display: "flex", alignItems: "center", gap: 8, maxWidth: 400 }}
+          onClick={() => setFormExtractResult(null)}>
+          {formExtractResult.success ? "✅" : "⚠"} {formExtractResult.message}
+          <button onClick={() => setFormExtractResult(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 14, marginLeft: 8 }}>✕</button>
+        </div>
+      )}
+
       {extractDoc && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={() => setExtractDoc(null)}>

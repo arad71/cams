@@ -1032,6 +1032,211 @@ def ocr_region(
         raise HTTPException(500, f"OCR failed: {e}")
 
 
+@router.post("/{app_id}/documents/{doc_id}/extract-fields")
+async def extract_document_fields(
+    app_id: int, doc_id: int,
+    body: dict = None,  # {"type": "application_form" | "certificate_of_title"}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin", "manager", "engineer")),
+):
+    """
+    Extract structured data from a document using AI.
+    Supports: application_form, certificate_of_title
+    Extracted fields are saved to the application record.
+    """
+    doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
+    if not doc or not doc.file_path:
+        raise HTTPException(404, "Document not found")
+
+    file_path = Path(doc.file_path)
+    if not file_path.exists():
+        raise HTTPException(404, "File not found on disk")
+
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+
+    extract_type = (body or {}).get("type", "auto")
+    category = (doc.category or "").lower()
+
+    # Auto-detect type from category
+    if extract_type == "auto":
+        if "application" in category or "form" in category:
+            extract_type = "application_form"
+        elif "title" in category or "certificate" in category:
+            extract_type = "certificate_of_title"
+        else:
+            extract_type = "general"
+
+    ext = (doc.file_type or "").lower()
+    try:
+        # Render document pages as images
+        from PIL import Image
+        import io
+
+        images = []
+        if ext == "pdf":
+            from pdf2image import convert_from_bytes
+            pdf_bytes = file_path.read_bytes()
+            images = convert_from_bytes(pdf_bytes, dpi=150, last_page=3)  # max 3 pages
+        elif ext in ("jpg", "jpeg", "png"):
+            images = [Image.open(file_path)]
+
+        if not images:
+            raise HTTPException(400, f"Cannot extract from .{ext} files")
+
+        # Convert images to base64 for AI
+        import base64
+        image_contents = []
+        for img in images:
+            buf = io.BytesIO()
+            img.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            image_contents.append({
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/png", "data": b64}
+            })
+
+        # Build extraction prompt based on type
+        if extract_type == "application_form":
+            prompt = """Extract ALL fields from this crossover application form. Return ONLY valid JSON:
+{
+  "owner_name": "string or null",
+  "owner_phone": "string or null",
+  "owner_email": "string or null",
+  "owner_postal_address": "string or null",
+  "property_address": "string or null",
+  "lot_number": "string or null",
+  "plan_number": "string or null",
+  "crossover_width": "number or null (metres)",
+  "crossover_surface": "string or null (concrete/asphalt/paving)",
+  "crossover_count": "number or null",
+  "crossover_offset_from_left": "number or null (metres)",
+  "da_number": "string or null (development application number)",
+  "date_signed": "string or null",
+  "declaration_signed": "boolean",
+  "trees_nearby": "boolean",
+  "clearing": "boolean",
+  "drainage_type": "string or null",
+  "estimated_construction_date": "string or null",
+  "notes": "string or null — any additional info"
+}"""
+        elif extract_type == "certificate_of_title":
+            prompt = """Extract property details from this Certificate of Title. Return ONLY valid JSON:
+{
+  "lot_number": "string or null — the lot number (e.g. '123', 'Lot 1')",
+  "plan_number": "string or null — the plan/diagram number (e.g. 'P12345', 'D67890')",
+  "volume_folio": "string or null — volume/folio reference",
+  "property_address": "string or null — registered address if shown",
+  "lot_area_sqm": "number or null — lot area in square metres",
+  "owner_names": "array of strings — registered proprietor name(s)",
+  "encumbrances": "array of strings — easements, caveats, restrictions",
+  "survey_date": "string or null",
+  "notes": "string or null"
+}"""
+        else:
+            prompt = """Extract all text and structured information from this document. Return ONLY valid JSON:
+{
+  "document_type": "string — what type of document this is",
+  "key_fields": {},
+  "notes": "string"
+}"""
+
+        # Call AI
+        import anthropic
+        client = anthropic.Anthropic()
+        message_content = image_contents + [{"type": "text", "text": prompt}]
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=2000,
+            messages=[{"role": "user", "content": message_content}],
+        )
+
+        # Parse response
+        import json, re
+        raw = response.content[0].text.strip()
+        # Clean markdown fences
+        raw = re.sub(r'^```json\s*', '', raw)
+        raw = re.sub(r'\s*```$', '', raw)
+        extracted = json.loads(raw)
+
+        # Map extracted fields to application
+        updates = {}
+        filled = []
+
+        if extract_type == "application_form":
+            mapping = {
+                "owner_name": "owner_name", "owner_phone": "owner_phone",
+                "owner_email": "owner_email", "owner_postal_address": "owner_postal_address",
+                "property_address": "property_address", "lot_number": "lot_number",
+                "plan_number": "plan_number", "crossover_width": "crossover_width",
+                "crossover_surface": "crossover_surface", "crossover_count": "crossover_count",
+                "crossover_offset_from_left": "crossover_offset_from_left",
+                "da_number": "da_number", "date_signed": "date_signed",
+                "drainage_type": "drainage_type",
+                "estimated_construction_date": "crossover_est_date",
+            }
+            for src, dst in mapping.items():
+                val = extracted.get(src)
+                if val is not None and str(val).strip() and str(val).strip().lower() not in ("null", "none", "n/a"):
+                    updates[dst] = val
+                    filled.append(src)
+            if extracted.get("declaration_signed"):
+                updates["declaration_signed"] = True
+                filled.append("declaration_signed")
+            if extracted.get("trees_nearby"):
+                updates["trees_nearby"] = True
+                filled.append("trees_nearby")
+            if extracted.get("clearing"):
+                updates["clearing"] = True
+                filled.append("clearing")
+
+        elif extract_type == "certificate_of_title":
+            if extracted.get("lot_number"):
+                updates["lot_number"] = str(extracted["lot_number"])
+                filled.append("lot_number")
+            if extracted.get("plan_number"):
+                updates["plan_number"] = str(extracted["plan_number"])
+                filled.append("plan_number")
+            if extracted.get("property_address"):
+                updates["property_address"] = extracted["property_address"]
+                filled.append("property_address")
+            if extracted.get("lot_area_sqm"):
+                updates["lot_area_sqm"] = extracted["lot_area_sqm"]
+                filled.append("lot_area_sqm")
+            if extracted.get("owner_names") and len(extracted["owner_names"]) > 0:
+                updates["owner_name"] = ", ".join(extracted["owner_names"])
+                filled.append("owner_names")
+            if extracted.get("depth"):
+                updates["depth"] = extracted["depth"]
+                filled.append("depth")
+
+        # Apply updates
+        if updates:
+            for key, val in updates.items():
+                if hasattr(app, key):
+                    setattr(app, key, val)
+            db.commit()
+
+        from app.services.audit import log_audit
+        log_audit(db=db, action="extract", entity_type="document", user=current_user,
+                  entity_id=str(doc.id), description=f"Extracted {len(filled)} fields from {doc.name} ({extract_type})")
+
+        return {
+            "type": extract_type,
+            "extracted": extracted,
+            "fields_saved": filled,
+            "count": len(filled),
+            "message": f"Extracted {len(filled)} fields from {extract_type.replace('_', ' ')}: {', '.join(filled)}" if filled else "No fields could be extracted",
+        }
+
+    except json.JSONDecodeError as e:
+        raise HTTPException(500, f"AI response was not valid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(500, f"Extraction failed: {e}")
+
+
 @router.post("/{app_id}/documents/{doc_id}/rotate")
 def rotate_pdf(
     app_id: int, doc_id: int,
