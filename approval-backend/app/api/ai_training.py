@@ -9,7 +9,6 @@ Endpoints for managing the training dataset:
 - GET /training/export — export dataset for model training
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timezone
 
@@ -481,7 +480,7 @@ def run_yolo_detection(
 
     # If app_id + doc_id provided, render the document
     if not image_path and body.get("app_id") and body.get("doc_id"):
-        from app.models.application import Application, Document
+        from app.models.application import Document
         doc = db.query(Document).filter(
             Document.id == body["doc_id"],
             Document.application_id == body["app_id"]

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
-from app.api import auth, users, applications, assessments, sight_distance, lookups, ai_training, audit, site_settings, geodata, extract_local
+from app.api import auth, users, applications, documents, assessments, sight_distance, lookups, ai_training, audit, site_settings, geodata, extract_local
 
 from app.schemas.ai import FindingsResponse, ErrorResponse
 from app.services.ai_analyser import analyse_document, GUIDELINE
@@ -42,6 +42,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(applications.router, prefix="/api")
+app.include_router(documents.router, prefix="/api")
 app.include_router(assessments.router, prefix="/api")
 app.include_router(sight_distance.router, prefix="/api")
 
