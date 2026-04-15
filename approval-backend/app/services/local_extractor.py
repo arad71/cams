@@ -74,9 +74,24 @@ def extract_local(file_path: str, extract_type: str) -> dict:
     # ── Stage 3: Build result ──
     result = {}
     confidence_scores = {}
-    for field_name, field_data in fields.items():
-        result[field_name] = field_data["value"]
-        confidence_scores[field_name] = field_data["confidence"]
+
+    if extract_type == "site_plan":
+        # Site plan returns nested structure — pass through directly
+        result = fields  # already nested: {property: {...}, crossover_dimensions: {...}, ...}
+        # Build flat confidence from nested
+        for group_name, group_data in fields.items():
+            if isinstance(group_data, dict):
+                for k, v in group_data.items():
+                    if v is not None:
+                        confidence_scores[f"{group_name}.{k}"] = 0.65  # default local OCR confidence
+    else:
+        # Form/title returns flat dict with {value, confidence} per field
+        for field_name, field_data in fields.items():
+            if isinstance(field_data, dict) and "value" in field_data:
+                result[field_name] = field_data["value"]
+                confidence_scores[field_name] = field_data.get("confidence", 0.5)
+            else:
+                result[field_name] = field_data
 
     return {
         "fields": result,
@@ -84,7 +99,6 @@ def extract_local(file_path: str, extract_type: str) -> dict:
         "raw_blocks": len(all_blocks),
         "raw_lines": len(full_text_lines),
         "extraction_method": "local_ocr",
-        "detail": fields,  # includes bbox and source for each field
     }
 
 
@@ -390,121 +404,159 @@ def _extract_title_fields(full_text, lines, blocks):
 
 
 def _extract_siteplan_fields(full_text, lines, blocks):
-    """Extract site plan fields using local OCR — same schema as AI analyser."""
+    """Extract site plan fields using local OCR — same nested structure as AI analyser (74 fields)."""
     fields = {}
 
-    # ── Property ──
-    r = _find_pattern_in_text(full_text, r'(?:Lot|LOT)\s*(\d+)', group=1)
-    if r: fields["property.lot_number"] = r
-    r = _find_pattern_in_text(full_text, r'(\d+\s+[A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard|Parade|Circuit|Loop|Rise|Grove)[^,\n]{0,30})')
-    if r: fields["property.street_address"] = r
-    # Corner lot detection
-    road_names = set()
-    for pattern in [r'([A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard|Parade|Circuit|Loop|Rise|Grove))', r'([A-Z][A-Z]+\s+(?:ST|RD|AVE|DR|CRES|WAY|CT|PL|LN|CL|TCE|BLVD))']:
-        for m in re.finditer(pattern, full_text):
-            road_names.add(m.group(1).strip())
-    if len(road_names) >= 2:
-        fields["property.is_corner_lot"] = {"value": True, "confidence": 0.7, "source": "multi_road_names", "bbox": {}}
-        fields["property.corner_roads"] = {"value": list(road_names)[:3], "confidence": 0.65, "source": "road_name_scan", "bbox": {}}
-
-    # ── Crossover Dimensions ──
-    # Width
-    r = _find_value_after_label(lines, [r"(?:Crossover|Cross-?over|Driveway)\s*(?:Width|width)"])
-    if not r:
-        # Look for width near "crossover" keyword
-        for line in lines:
-            if re.search(r'crossover|driveway|cross-?over', line["text"], re.IGNORECASE):
-                width_m = re.search(r'(\d+(?:\.\d+)?)\s*(?:m\b|M\b|wide)', line["text"])
-                if width_m:
-                    r = {"value": float(width_m.group(1)), "confidence": 0.7, "source": "context_width", "bbox": {}}
-                    break
-    if r:
-        if isinstance(r["value"], str):
-            wm = re.search(r'(\d+(?:\.\d+)?)', r["value"])
-            if wm: r["value"] = float(wm.group(1))
-        fields["crossover_dimensions.width_at_boundary_m"] = r
-
-    # All measurements — scan for dimension patterns (e.g. "3.450", "1.510")
+    # Helper: scan all numeric dimensions from the plan
     all_dims = []
     for m in re.finditer(r'(\d+(?:\.\d{1,3}))\s*(?:m\b|M\b)?', full_text):
         val = float(m.group(1))
-        if 0.1 < val < 50:  # reasonable dimension range
+        if 0.1 < val < 100:
             all_dims.append(val)
-    if all_dims:
-        fields["siteplan_measurements.all_dimensions_found"] = {"value": [str(d) for d in all_dims[:30]], "confidence": 0.6, "source": "dimension_scan", "bbox": {}}
 
-    # Boundary distances
-    r = _find_value_after_label(lines, [r"(?:Left|LHS)\s*(?:boundary|side)\s*(?:dist|offset|setback)?"])
-    if r:
-        dm = re.search(r'(\d+(?:\.\d+)?)', str(r["value"]))
-        if dm: fields["crossover_dimensions.distance_to_left_boundary_m"] = {"value": float(dm.group(1)), "confidence": 0.7, "source": "label_match", "bbox": {}}
-    r = _find_value_after_label(lines, [r"(?:Right|RHS)\s*(?:boundary|side)\s*(?:dist|offset|setback)?"])
-    if r:
-        dm = re.search(r'(\d+(?:\.\d+)?)', str(r["value"]))
-        if dm: fields["crossover_dimensions.distance_to_right_boundary_m"] = {"value": float(dm.group(1)), "confidence": 0.7, "source": "label_match", "bbox": {}}
+    # Scan all road names
+    road_names = []
+    for pattern in [r'([A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard|Parade|Circuit|Loop|Rise|Grove|Walk|View|Mews))', r'([A-Z]{2,}\s+(?:ST|RD|AVE|DR|CRES|WAY|CT|PL|LN|CL|TCE|BLVD))']:
+        for m in re.finditer(pattern, full_text):
+            rn = m.group(1).strip()
+            if rn not in road_names:
+                road_names.append(rn)
 
-    # ── Construction ──
-    for mat, pat in [("Concrete", r'concrete'), ("Asphalt", r'asphalt'), ("Brick Paving", r'brick\s*pav'), ("Exposed Aggregate", r'exposed\s*agg')]:
-        if re.search(pat, full_text, re.IGNORECASE):
-            fields["construction.material"] = {"value": mat, "confidence": 0.75, "source": "keyword", "bbox": {}}
-            break
-    # Kerb type
+    def _lv(label_pats):
+        return _find_value_after_label(lines, label_pats)
+    def _pt(pat, grp=0, ft="string"):
+        return _find_pattern_in_text(full_text, pat, grp, ft)
+    def _kw(pat):
+        return bool(re.search(pat, full_text, re.IGNORECASE))
+    def _fv(r):
+        """Extract float from a result"""
+        if not r: return None
+        v = r.get("value") if isinstance(r, dict) else r
+        if isinstance(v, (int, float)): return v
+        m = re.search(r'(\d+(?:\.\d+)?)', str(v))
+        return float(m.group(1)) if m else None
+
+    # ═══ property ═══
+    prop = {}
+    r = _pt(r'(?:Lot|LOT)\s*(\d+)', 1); prop["lot_number"] = r["value"] if r else None
+    r = _pt(r'(\d+\s+[A-Z][a-zA-Z]+\s+(?:Street|Road|Avenue|Drive|Crescent|Way|Court|Place|Lane|Close|Terrace|Boulevard|Parade|Circuit)[^,\n]{0,30})'); prop["street_address"] = r["value"] if r else None
+    r = _lv([r"Suburb", r"Locality"]); prop["suburb"] = r["value"] if r else None
+    r = _lv([r"Date", r"Drawn"]); prop["date"] = r["value"] if r else None
+    prop["is_corner_lot"] = len(road_names) >= 2
+    prop["corner_roads"] = road_names[:3] if len(road_names) >= 2 else None
+    prop["is_battleaxe"] = _kw(r'battle.?axe|rear\s*lot|driveway\s*leg')
+    prop["da_linked"] = _kw(r'DA\s*\d|development\s*approv')
+    fields["property"] = prop
+
+    # ═══ crossover_dimensions ═══
+    cd = {}
+    r = _lv([r"(?:Crossover|Cross.?over|Driveway)\s*(?:Width|width)", r"Width\s*(?:at\s*)?(?:boundary|property)"]) or _pt(r'(?:width|WIDTH)[:\s]*(\d+(?:\.\d+)?)\s*(?:m|M)?', 1, "float")
+    cd["width_at_boundary_m"] = _fv(r)
+    r = _lv([r"(?:Left|LHS)\s*(?:splay|wing|flare)"]); cd["splay_left_m"] = _fv(r)
+    r = _lv([r"(?:Right|RHS)\s*(?:splay|wing|flare)"]); cd["splay_right_m"] = _fv(r)
+    r = _lv([r"(?:Total|Road)\s*(?:Width|width)"]); cd["total_width_at_road_m"] = _fv(r)
+    r = _lv([r"Verge\s*(?:Depth|Width|depth)"]); cd["verge_depth_m"] = _fv(r)
+    r = _lv([r"(?:Crossover|Driveway)\s*(?:Length|length)"]); cd["crossover_length_m"] = _fv(r)
+    cd["alignment_degrees"] = 90 if _kw(r'90\s*°|perpendicular|right\s*angle') else None
+    cd["driveway_centreline_point_2_5m"] = None
+    r = _lv([r"(?:Left|LHS)\s*(?:boundary|side)\s*(?:dist|offset|setback)?"]); cd["distance_to_left_boundary_m"] = _fv(r)
+    r = _lv([r"(?:Left|LHS)\s*(?:boundary|side)\s*(?:feature|fence|wall)"]); cd["left_boundary_feature"] = r["value"] if r else (_pt(r'(?:left|LHS).{0,20}(fence|wall|hedge|open|vacant)', 1)["value"] if _pt(r'(?:left|LHS).{0,20}(fence|wall|hedge|open|vacant)', 1) else None)
+    r = _lv([r"(?:Right|RHS)\s*(?:boundary|side)\s*(?:dist|offset|setback)?"]); cd["distance_to_right_boundary_m"] = _fv(r)
+    r = _lv([r"(?:Right|RHS)\s*(?:boundary|side)\s*(?:feature|fence|wall)"]); cd["right_boundary_feature"] = r["value"] if r else None
+    # Constrained side
+    ld = cd.get("distance_to_left_boundary_m"); rd = cd.get("distance_to_right_boundary_m")
+    if ld is not None and rd is not None: cd["constrained_side"] = "left" if ld <= rd else "right"
+    elif ld is not None: cd["constrained_side"] = "left"
+    elif rd is not None: cd["constrained_side"] = "right"
+    else: cd["constrained_side"] = None
+    r = _lv([r"(?:Dist|Distance)\s*(?:to\s*)?(?:nearest\s*)?(?:lot\s*)?corner"]); cd["distance_to_nearest_lot_corner_m"] = _fv(r)
+    cd["nearest_lot_corner"] = None
+    r = _lv([r"(?:Dist|Distance)\s*(?:to\s*)?intersection"]); cd["distance_to_intersection_tangent_m"] = _fv(r)
+    r = _lv([r"(?:Dist|Distance)\s*(?:to\s*)?(?:building|house)\s*corner"]); cd["distance_to_building_corner_m"] = _fv(r)
+    fields["crossover_dimensions"] = cd
+
+    # ═══ construction ═══
+    con = {}
+    for mat, pat in [("Concrete", r'concrete'), ("Asphalt", r'asphalt'), ("Brick paving", r'brick\s*pav'), ("Exposed Aggregate", r'exposed\s*agg'), ("Paving", r'paving|pavers')]:
+        if _kw(pat): con["material"] = mat; break
+    else: con["material"] = None
+    r = _lv([r"Thickness", r"Surface\s*Thickness"]); con["thickness_mm"] = _fv(r)
+    con["base_course_specified"] = _kw(r'base\s*course|sub.?base')
+    r = _lv([r"Base\s*(?:Course|course)\s*(?:Depth|depth|Thickness)"]); con["base_course_depth_mm"] = _fv(r)
+    r = _pt(r'(\d+)\s*%\s*(?:MDD|mdd|compaction)', 1, "float"); con["compaction_mdd_pct"] = _fv(r)
+    con["expansion_joints"] = _kw(r'expansion\s*joint')
     for kt, pat in [("Mountable", r'mountable'), ("Semi-mountable", r'semi.?mountable'), ("Barrier", r'barrier\s*kerb'), ("Edge of seal", r'edge\s*of\s*seal')]:
-        if re.search(pat, full_text, re.IGNORECASE):
-            fields["construction.kerb_type"] = {"value": kt, "confidence": 0.7, "source": "keyword", "bbox": {}}
-            break
-    # Expansion joints
-    if re.search(r'expansion\s*joint', full_text, re.IGNORECASE):
-        fields["construction.expansion_joints"] = {"value": True, "confidence": 0.7, "source": "keyword", "bbox": {}}
-    # Footpath
-    if re.search(r'footpath|foot\s*path', full_text, re.IGNORECASE):
-        fields["construction.footpath_exists"] = {"value": True, "confidence": 0.65, "source": "keyword", "bbox": {}}
+        if _kw(pat): con["kerb_type"] = kt; break
+    else: con["kerb_type"] = None
+    con["footpath_exists"] = _kw(r'footpath|foot\s*path')
+    con["footpath_flush_join"] = _kw(r'flush\s*(?:join|with\s*footpath)')
+    con["construction_standard"] = "Type 1" if _kw(r'type\s*1|urban|sealed') else ("Type 2" if _kw(r'type\s*2|rural') else None)
+    fields["construction"] = con
 
-    # ── Siteplan Measurements ──
-    # Road names
-    if road_names:
-        rlist = list(road_names)
-        fields["siteplan_measurements.road_name"] = {"value": rlist[0], "confidence": 0.7, "source": "road_scan", "bbox": {}}
-        fields["siteplan_measurements.crossover_on_road"] = {"value": rlist[0], "confidence": 0.6, "source": "road_scan", "bbox": {}}
-        if len(rlist) >= 2:
-            fields["siteplan_measurements.secondary_road_name"] = {"value": rlist[1], "confidence": 0.65, "source": "road_scan", "bbox": {}}
+    # ═══ siteplan_measurements ═══
+    sm = {}
+    sm["road_name"] = road_names[0] if road_names else None
+    sm["secondary_road_name"] = road_names[1] if len(road_names) >= 2 else None
+    sm["crossover_on_road"] = road_names[0] if road_names else None
+    r = _pt(r'(\d+)\s*(?:km/?h|kmh|km/h)', 1, "float"); sm["road_speed_zone_kmh"] = _fv(r)
+    sm["road_classification"] = "local" if _kw(r'local\s*road') else ("distributor" if _kw(r'distributor') else None)
+    r = _lv([r"Frontage", r"Front\s*Boundary", r"Lot\s*Width"]); sm["lot_frontage_m"] = _fv(r)
+    r = _lv([r"(?:Lot\s*)?Depth", r"Side\s*Boundary\s*(?:Length|length)"]); sm["lot_depth_m"] = _fv(r)
+    r = _lv([r"Front\s*(?:Setback|S/?B)"]); sm["building_setback_front_m"] = _fv(r)
+    r = _lv([r"Left\s*(?:Setback|S/?B)"]); sm["building_setback_left_m"] = _fv(r)
+    r = _lv([r"Right\s*(?:Setback|S/?B)"]); sm["building_setback_right_m"] = _fv(r)
+    r = _lv([r"Rear\s*(?:Setback|S/?B)"]); sm["building_setback_rear_m"] = _fv(r)
+    r = _lv([r"Garage.{0,15}(?:setback|boundary|road)"]); sm["garage_setback_to_crossover_road_m"] = _fv(r)
+    r = _lv([r"Garage.{0,15}(?:kerb|road|edge)"]); sm["garage_to_kerb_m"] = _fv(r)
+    r = _lv([r"Garage.{0,15}(?:nearest|side)\s*boundary"]); sm["garage_nearest_boundary_m"] = _fv(r)
+    sm["garage_nearest_boundary_side"] = None
+    r = _lv([r"(?:Number|No)\s*(?:of\s*)?(?:Crossover|Driveway)"]); sm["number_of_crossovers"] = int(_fv(r)) if _fv(r) else None
+    sm["all_dimensions_found"] = [str(d) for d in all_dims[:30]]
+    fields["siteplan_measurements"] = sm
 
-    # Frontage
-    r = _find_value_after_label(lines, [r"Frontage", r"Front\s*Boundary", r"Lot\s*Width"])
-    if r:
-        fm = re.search(r'(\d+(?:\.\d+)?)', str(r["value"]))
-        if fm: fields["siteplan_measurements.lot_frontage_m"] = {"value": float(fm.group(1)), "confidence": 0.7, "source": "label_match", "bbox": {}}
+    # ═══ utilities ═══
+    ut = {}
+    ut["power_line_shown"] = _kw(r'(?:power|electric|overhead|underground)\s*(?:line|cable|pole)')
+    ut["power_conflict"] = _kw(r'(?:power|electric).{0,20}(?:conflict|relocat|move)')
+    ut["water_main_shown"] = _kw(r'water\s*(?:main|meter|pipe)')
+    ut["water_conflict"] = _kw(r'water.{0,20}(?:conflict|relocat|move)')
+    ut["gas_main_shown"] = _kw(r'gas\s*(?:main|pipe|meter)')
+    ut["gas_conflict"] = _kw(r'gas.{0,20}(?:conflict|relocat|move)')
+    ut["telco_shown"] = _kw(r'(?:telco|nbn|fibre|telephone)')
+    ut["telco_conflict"] = _kw(r'(?:telco|nbn|fibre).{0,20}(?:conflict|relocat|move)')
+    ut["sewer_conflict"] = _kw(r'sewer.{0,20}(?:conflict|manhole|relocat)')
+    ut["stormwater_conflict"] = _kw(r'stormwater.{0,20}(?:conflict|pit|relocat)')
+    ut["utility_summary"] = None
+    fields["utilities"] = ut
 
-    # Setbacks
-    for label, key in [("Front\s*(?:Setback|S/B)", "building_setback_front_m"), ("Rear\s*(?:Setback|S/B)", "building_setback_rear_m"), ("Garage.*(?:kerb|road|boundary)", "garage_to_kerb_m")]:
-        r = _find_value_after_label(lines, [label])
-        if r:
-            sm = re.search(r'(\d+(?:\.\d+)?)', str(r["value"]))
-            if sm: fields[f"siteplan_measurements.{key}"] = {"value": float(sm.group(1)), "confidence": 0.65, "source": "label_match", "bbox": {}}
+    # ═══ drainage ═══
+    dr = {}
+    dr["drainage_plan_included"] = _kw(r'drainage\s*plan|stormwater\s*(?:plan|detail)')
+    dr["soakwells_proposed"] = _kw(r'soakwell|soak\s*well')
+    dr["storage_tanks_proposed"] = _kw(r'storage\s*tank|detention\s*tank|rain\s*tank')
+    dr["connection_to_council_drain"] = _kw(r'council\s*drain|connection\s*to\s*(?:council|main)\s*drain')
+    r = _pt(r'(\d+)\s*(?:mm|MM)\s*(?:pipe|diameter|dia)', 1, "float"); dr["pipe_diameter_mm"] = _fv(r)
+    fields["drainage"] = dr
 
-    # ── Utilities ──
-    if re.search(r'(?:power|electric|overhead|underground)\s*(?:line|cable|pole)', full_text, re.IGNORECASE):
-        fields["utilities.power_line_shown"] = {"value": True, "confidence": 0.6, "source": "keyword", "bbox": {}}
-    if re.search(r'water\s*(?:main|meter|pipe)', full_text, re.IGNORECASE):
-        fields["utilities.water_main_shown"] = {"value": True, "confidence": 0.6, "source": "keyword", "bbox": {}}
-    if re.search(r'gas\s*(?:main|pipe|meter)', full_text, re.IGNORECASE):
-        fields["utilities.gas_main_shown"] = {"value": True, "confidence": 0.6, "source": "keyword", "bbox": {}}
-    if re.search(r'(?:telco|nbn|fibre|telephone)', full_text, re.IGNORECASE):
-        fields["utilities.telco_shown"] = {"value": True, "confidence": 0.6, "source": "keyword", "bbox": {}}
-
-    # ── Drainage ──
-    if re.search(r'soakwell|soak\s*well', full_text, re.IGNORECASE):
-        fields["drainage.soakwells_proposed"] = {"value": True, "confidence": 0.7, "source": "keyword", "bbox": {}}
-        fields["drainage.drainage_plan_included"] = {"value": True, "confidence": 0.65, "source": "keyword", "bbox": {}}
-
-    # ── Additional Findings ──
-    if re.search(r'(?:tree|trees|vegetation)\s*(?:on\s*)?verge', full_text, re.IGNORECASE):
-        fields["additional_findings.vegetation_on_verge"] = {"value": True, "confidence": 0.65, "source": "keyword", "bbox": {}}
-    if re.search(r'fence|fenc', full_text, re.IGNORECASE):
-        fence_m = re.search(r'(\w+\s+fence\s*(?:\d+(?:\.\d+)?\s*m)?)', full_text, re.IGNORECASE)
+    # ═══ additional_findings ═══
+    af = {}
+    af["is_subdivision"] = _kw(r'subdivision|sub.?division')
+    af["vegetation_on_verge"] = _kw(r'(?:tree|vegetation|plant).{0,15}(?:verge|footpath|road\s*reserve)')
+    af["trees_on_verge"] = _kw(r'tree.{0,10}verge')
+    af["street_light_near_crossover"] = _kw(r'street\s*light|light\s*pole|lamp\s*post')
+    af["fire_hydrant_near_crossover"] = _kw(r'fire\s*hydrant|hydrant')
+    # Fences
+    for side, key in [("left", "fence_left_of_crossover"), ("right", "fence_right_of_crossover")]:
+        fence_m = re.search(rf'(?:{side}).{{0,30}}((?:colorbond|timber|brick|retaining|hedge|picket)\s*(?:fence|wall)?)', full_text, re.IGNORECASE)
         if fence_m:
-            fields["additional_findings.fence_left_of_crossover"] = {"value": {"exists": True, "type": fence_m.group(1)}, "confidence": 0.5, "source": "keyword", "bbox": {}}
-    if re.search(r'retaining\s*wall', full_text, re.IGNORECASE):
-        fields["additional_findings.retaining_wall_near_crossover"] = {"value": {"exists": True}, "confidence": 0.5, "source": "keyword", "bbox": {}}
+            ht_m = re.search(rf'{fence_m.group(1)}.{{0,15}}(\d+(?:\.\d+)?)\s*m', full_text, re.IGNORECASE)
+            af[key] = {"exists": True, "type": fence_m.group(1).strip(), "height_m": float(ht_m.group(1)) if ht_m else None, "distance_from_crossover_m": None, "truncated": None}
+        else:
+            af[key] = None
+    rw_m = re.search(r'retaining\s*wall', full_text, re.IGNORECASE)
+    af["retaining_wall_near_crossover"] = {"exists": True, "side": None, "height_m": None, "distance_from_crossover_m": None} if rw_m else None
+    af["sight_obstruction_notes"] = None
+    af["notes"] = None
+    fields["additional_findings"] = af
 
     return fields
