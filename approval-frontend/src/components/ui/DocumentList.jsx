@@ -262,20 +262,6 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
     setExtracting(false);
   };
 
-  const handleAnalyseExtracted = async () => {
-    if (!extractResult?.site_plan_doc_id || !appDbId) return;
-    setExtracting(true);
-    try {
-      await api.analyseDocument(appDbId, extractResult.site_plan_doc_id);
-      setExtractResult(prev => ({ ...prev, analysed: true, message: prev.message + " AI analysis complete." }));
-      if (onDocUpdated) onDocUpdated();
-      setTimeout(() => { setExtractDoc(null); setExtractPages(""); setExtractResult(null); }, 2500);
-    } catch (err) {
-      setExtractResult(prev => ({ ...prev, analyseError: err.message || "Analysis failed" }));
-    }
-    setExtracting(false);
-  };
-
   const [formExtracting, setFormExtracting] = useState(false);
   const [formExtractResult, setFormExtractResult] = useState(null);
 

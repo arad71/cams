@@ -523,7 +523,7 @@ def run_yolo_detection(
 
 
 # ═══════════════════════════════════════════════════════════
-#  YOLO OBJECT DETECTION — Annotation, Training, Inference
+#  YOLO Annotation (per-sample)
 # ═══════════════════════════════════════════════════════════
 
 @router.post("/samples/{sample_id}/annotate")
@@ -538,17 +538,17 @@ def annotate_sample(
     if not sample:
         raise HTTPException(404, "Sample not found")
 
-    from app.services.yolo_training import CLASS_TO_ID
+    from app.services.training.yolo_annotator import YOLO_CLASSES
+    class_to_id = {name: cid for cid, name in YOLO_CLASSES.items()}
 
-    # Validate and normalise annotations
     valid = []
     for ann in annotations:
         cls_name = ann.get("class_name", "")
-        if cls_name not in CLASS_TO_ID:
+        if cls_name not in class_to_id:
             continue
         valid.append({
             "class_name": cls_name,
-            "class_id": CLASS_TO_ID[cls_name],
+            "class_id": class_to_id[cls_name],
             "x_center": float(ann.get("x_center", 0)),
             "y_center": float(ann.get("y_center", 0)),
             "width": float(ann.get("width", 0)),
@@ -557,7 +557,6 @@ def annotate_sample(
             "source": ann.get("source", "manual"),
         })
 
-    # Store in extraction_json under _annotations key
     ext = dict(sample.extraction_json or {})
     ext["_annotations"] = valid
     sample.extraction_json = ext
@@ -577,15 +576,31 @@ def auto_annotate_sample(
     if not sample:
         raise HTTPException(404, "Sample not found")
 
-    from app.services.yolo_training import auto_annotate_from_extraction
+    from app.services.training.yolo_annotator import generate_annotations_from_extraction
 
     extraction = (sample.extraction_json or {}).get("extraction") or sample.extraction_json or {}
     img_w = sample.image_width or 1000
     img_h = sample.image_height or 1000
 
-    annotations = auto_annotate_from_extraction(extraction, img_w, img_h)
+    annotation_lines = generate_annotations_from_extraction(extraction, img_w, img_h)
 
-    # Store
+    # Parse YOLO lines back to dicts for storage
+    from app.services.training.yolo_annotator import YOLO_CLASSES
+    annotations = []
+    for line in annotation_lines:
+        parts = line.split()
+        if len(parts) == 5:
+            cid = int(parts[0])
+            annotations.append({
+                "class_id": cid,
+                "class_name": YOLO_CLASSES.get(cid, f"class_{cid}"),
+                "x_center": float(parts[1]),
+                "y_center": float(parts[2]),
+                "width": float(parts[3]),
+                "height": float(parts[4]),
+                "source": "auto",
+            })
+
     ext = dict(sample.extraction_json or {})
     ext["_annotations"] = annotations
     sample.extraction_json = ext
@@ -600,159 +615,35 @@ def auto_annotate_all(
     current_user: User = Depends(require_role("admin")),
 ):
     """Auto-annotate ALL training samples that don't have annotations yet."""
-    from app.services.yolo_training import auto_annotate_from_extraction
+    from app.services.training.yolo_annotator import generate_annotations_from_extraction, YOLO_CLASSES
 
     samples = db.query(AITrainingSample).all()
     annotated = 0
     for sample in samples:
         ext = dict(sample.extraction_json or {})
         if ext.get("_annotations"):
-            continue  # Already has annotations
+            continue
 
         extraction = ext.get("extraction") or ext
         img_w = sample.image_width or 1000
         img_h = sample.image_height or 1000
 
-        annotations = auto_annotate_from_extraction(extraction, img_w, img_h)
-        if annotations:
+        annotation_lines = generate_annotations_from_extraction(extraction, img_w, img_h)
+        if annotation_lines:
+            annotations = []
+            for line in annotation_lines:
+                parts = line.split()
+                if len(parts) == 5:
+                    cid = int(parts[0])
+                    annotations.append({
+                        "class_id": cid, "class_name": YOLO_CLASSES.get(cid, ""),
+                        "x_center": float(parts[1]), "y_center": float(parts[2]),
+                        "width": float(parts[3]), "height": float(parts[4]),
+                        "source": "auto",
+                    })
             ext["_annotations"] = annotations
             sample.extraction_json = ext
             annotated += 1
 
     db.commit()
     return {"total_samples": len(samples), "newly_annotated": annotated}
-
-
-@router.post("/export-yolo")
-def export_yolo_dataset_endpoint(
-    train_split: float = 0.8,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
-):
-    """Export annotated samples as YOLO dataset for training."""
-    from app.services.yolo_training import export_yolo_dataset
-    from app.core.config import get_settings
-    settings = get_settings()
-
-    samples = db.query(AITrainingSample).filter(
-        AITrainingSample.image_path.isnot(None)
-    ).all()
-
-    # Build sample dicts with annotations
-    sample_dicts = []
-    for s in samples:
-        ext = s.extraction_json or {}
-        annotations = ext.get("_annotations", [])
-        if not annotations:
-            continue  # Skip unannotated
-        sample_dicts.append({
-            "id": s.id,
-            "image_path": s.image_path,
-            "annotations": annotations,
-        })
-
-    if not sample_dicts:
-        return {"error": "No annotated samples found. Run auto-annotate-all first."}
-
-    output_dir = str(Path(settings.DOCUMENT_DIR).parent / "yolo_dataset")
-    result = export_yolo_dataset(sample_dicts, output_dir, train_split)
-    return result
-
-
-@router.post("/train-yolo")
-def train_yolo_endpoint(
-    model_size: str = "n",
-    epochs: int = 50,
-    imgsz: int = 640,
-    batch: int = 4,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
-):
-    """
-    Train YOLOv8 model on annotated site plan dataset.
-    This is a long-running operation — may take minutes to hours.
-    model_size: n=nano(fastest), s=small, m=medium, l=large, x=xlarge(most accurate)
-    """
-    from app.services.yolo_training import train_yolo_model
-    from app.core.config import get_settings
-    settings = get_settings()
-
-    data_yaml = str(Path(settings.DOCUMENT_DIR).parent / "yolo_dataset" / "data.yaml")
-    if not Path(data_yaml).exists():
-        return {"error": "Dataset not exported yet. Run export-yolo first."}
-
-    output_dir = str(Path(settings.DOCUMENT_DIR).parent / "yolo_models")
-
-    result = train_yolo_model(
-        data_yaml=data_yaml,
-        model_size=model_size,
-        epochs=epochs,
-        imgsz=imgsz,
-        batch=batch,
-        output_dir=output_dir,
-    )
-
-    # Update AI config with new model path if training succeeded
-    if result.get("model_path") and not result.get("error"):
-        from app.models.user import SiteSetting
-        setting = db.query(SiteSetting).filter(
-            SiteSetting.category == "ai", SiteSetting.key == "ai_yolo_model_path"
-        ).first()
-        if setting:
-            setting.value = result["model_path"]
-        else:
-            db.add(SiteSetting(category="ai", key="ai_yolo_model_path", value=result["model_path"]))
-        db.commit()
-
-    return result
-
-
-@router.post("/detect/{app_id}/documents/{doc_id}")
-def run_detection(
-    app_id: int, doc_id: int,
-    page: int = 1,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin", "manager", "engineer")),
-):
-    """Run trained YOLO model on a document page to detect drawing elements."""
-    from app.services.yolo_training import run_inference
-    from app.services.ai_config import get_ai_config
-    from app.models.application import Document, Application
-    from pathlib import Path
-
-    ai_cfg = get_ai_config(db)
-    model_path = ai_cfg.yolo_model_path
-    if not model_path or not Path(model_path).exists():
-        raise HTTPException(400, "No trained YOLO model available. Train a model first.")
-
-    doc = db.query(Document).filter(Document.id == doc_id).first()
-    if not doc or not doc.file_path:
-        raise HTTPException(404, "Document not found")
-
-    file_path = Path(doc.file_path)
-    ext = (doc.file_type or "").lower()
-
-    # Get image for the page
-    if ext in ("jpg", "jpeg", "png"):
-        img_path = str(file_path)
-    elif ext == "pdf":
-        from pdf2image import convert_from_bytes
-        images = convert_from_bytes(file_path.read_bytes(), dpi=200, first_page=page, last_page=page)
-        if not images:
-            raise HTTPException(404, f"Page {page} not found")
-        import tempfile
-        tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-        images[0].save(tmp.name)
-        img_path = tmp.name
-    else:
-        raise HTTPException(400, f"Cannot detect on .{ext} files")
-
-    detections = run_inference(model_path, img_path, confidence=ai_cfg.yolo_confidence)
-
-    return {
-        "detections": detections,
-        "count": len(detections),
-        "model": model_path,
-        "confidence_threshold": ai_cfg.yolo_confidence,
-        "page": page,
-    }

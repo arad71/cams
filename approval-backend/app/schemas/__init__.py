@@ -153,9 +153,33 @@ class ApplicationUpdate(BaseModel):
     decision_note: Optional[str] = None
 
     georef_overlay: Optional[dict] = None
-class NoteOut(BaseModel):
     form_extraction_data: Optional[dict] = None
     title_extraction_data: Optional[dict] = None
+
+    # Fields settable by extraction or manual edit
+    owner_name: Optional[str] = None
+    owner_phone: Optional[str] = None
+    owner_email: Optional[str] = None
+    owner_postal_address: Optional[str] = None
+    property_address: Optional[str] = None
+    lot_number: Optional[str] = None
+    plan_number: Optional[str] = None
+    frontage: Optional[float] = None
+    depth: Optional[float] = None
+    road_name: Optional[str] = None
+    road_type: Optional[str] = None
+    road_width: Optional[float] = None
+    verge_width: Optional[float] = None
+    crossover_est_date: Optional[str] = None
+    da_number: Optional[str] = None
+    offset_from_left: Optional[float] = None
+    declaration_signed: Optional[bool] = None
+    date_signed: Optional[str] = None
+    trees_nearby: Optional[bool] = None
+    clearing: Optional[bool] = None
+    drainage_type: Optional[str] = None
+
+class NoteOut(BaseModel):
     id: int
     text: str
     author_name: Optional[str] = None
