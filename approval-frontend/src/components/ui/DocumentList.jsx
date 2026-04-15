@@ -236,21 +236,23 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
     setExtractResult(null);
     try {
       let result;
+      // App Form and Title always use local OCR
+      const method = extractCategory === "Site Plan" ? extractMethod : "ai_local";
       if (isDirectRead && !extractPages.trim()) {
         // Direct AI read — no page extraction, read the existing document
         const type = extractCategory === "Certificate of Title" ? "certificate_of_title" : extractCategory === "Site Plan" ? "site_plan" : "application_form";
-        if (extractCategory === "Site Plan" && extractMethod === "ai_live") {
+        if (extractCategory === "Site Plan" && method === "ai_live") {
           // AI Live — use the full Claude analysis pipeline
           await api.analyseDocument(appDbId, extractDoc.id);
           result = { success: true, message: `AI Live analysis complete on ${extractDoc.name}.`, analysed: true };
         } else {
-          // AI Local or other doc types — use extract-fields with method
-          result = await api.extractDocFields(appDbId, extractDoc.id, type, extractMethod);
+          // Local OCR extraction
+          result = await api.extractDocFields(appDbId, extractDoc.id, type, method);
           result = { success: true, ...result };
         }
       } else {
         // Extract pages first, then analyse
-        result = await api.extractPages(appDbId, extractDoc.id, extractPages.trim(), extractCategory, extractMethod);
+        result = await api.extractPages(appDbId, extractDoc.id, extractPages.trim(), extractCategory, method);
       }
       setExtractResult(result);
       if (onDocUpdated) onDocUpdated();
@@ -437,6 +439,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     setExtractPages("");
                     setExtractResult(null);
                     setExtractCategory(doc.category);
+                    // App Form and Title always use local OCR; Site Plan defaults to ai_live
                     setExtractMethod(doc.category === "Site Plan" ? "ai_live" : "ai_local");
                   }}
                     title={`Extract data from ${doc.category}`}
@@ -595,27 +598,37 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 </div>
               )}
 
-              {/* Extraction Method — show for all types */}
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Extraction Method</label>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {[
-                    { id: "ai_live", icon: "🤖", label: "AI Live (Claude)", desc: "Most accurate — sends to AI API" },
-                    { id: "ai_local", icon: "💻", label: "AI Local (OCR)", desc: "Offline — local text recognition" },
-                    ...(isDirectRead ? [] : [{ id: "none", icon: "📋", label: "Extract Only", desc: "Just extract pages, no reading" }]),
-                  ].map(m => (
-                    <button key={m.id} onClick={() => setExtractMethod(m.id)}
-                      style={{ flex: 1, padding: "8px 6px", borderRadius: T.r.md, fontSize: 9, cursor: "pointer", fontFamily: "inherit", textAlign: "center",
-                        border: extractMethod === m.id ? "2px solid #16a085" : "1px solid #d5dde2",
-                        background: extractMethod === m.id ? "#e8f8f5" : "#fff",
-                        color: extractMethod === m.id ? "#16a085" : T.c.grey800 }}>
-                      <div style={{ fontSize: 14, marginBottom: 2 }}>{m.icon}</div>
-                      <div style={{ fontWeight: extractMethod === m.id ? T.w.bold : 500 }}>{m.label}</div>
-                      <div style={{ fontSize: 8, color: T.c.textMuted, marginTop: 2 }}>{m.desc}</div>
-                    </button>
-                  ))}
+              {/* Extraction Method — only for Site Plan (App Form and Title always use local OCR) */}
+              {extractCategory === "Site Plan" ? (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Extraction Method</label>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {[
+                      { id: "ai_live", icon: "🤖", label: "AI Live (Claude)", desc: "Most accurate — sends to AI API" },
+                      { id: "ai_local", icon: "💻", label: "AI Local (OCR)", desc: "Offline — local text recognition" },
+                      ...(isDirectRead ? [] : [{ id: "none", icon: "📋", label: "Extract Only", desc: "Just extract pages, no reading" }]),
+                    ].map(m => (
+                      <button key={m.id} onClick={() => setExtractMethod(m.id)}
+                        style={{ flex: 1, padding: "8px 6px", borderRadius: T.r.md, fontSize: 9, cursor: "pointer", fontFamily: "inherit", textAlign: "center",
+                          border: extractMethod === m.id ? "2px solid #16a085" : "1px solid #d5dde2",
+                          background: extractMethod === m.id ? "#e8f8f5" : "#fff",
+                          color: extractMethod === m.id ? "#16a085" : T.c.grey800 }}>
+                        <div style={{ fontSize: 14, marginBottom: 2 }}>{m.icon}</div>
+                        <div style={{ fontWeight: extractMethod === m.id ? T.w.bold : 500 }}>{m.label}</div>
+                        <div style={{ fontSize: 8, color: T.c.textMuted, marginTop: 2 }}>{m.desc}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div style={{ marginBottom: 12, padding: "8px 10px", background: "#e8f8f5", borderRadius: T.r.sm, border: "1px solid #16a08530", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>💻</span>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: T.w.bold, color: "#16a085" }}>Local OCR Extraction</div>
+                    <div style={{ fontSize: 9, color: T.c.textMuted }}>Standard form — processed locally, no AI API cost</div>
+                  </div>
+                </div>
+              )}
 
               {/* What will be extracted */}
               <div style={{ fontSize: 10, color: T.c.textMuted, marginBottom: 10, lineHeight: 1.5, background: "#f8fafb", padding: "8px 10px", borderRadius: T.r.sm }}>
