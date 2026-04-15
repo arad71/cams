@@ -428,7 +428,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     }, 250);
   }, [form.property_address, lookupLotBoundary, showSuggestions]);
 
-  // ── Application Form PDF extraction ──────────────────
+  // ── Application Form PDF extraction (local OCR) ──────
   const handleAppFormUpload = useCallback(async (file) => {
     setDocuments(prev => ({ ...prev, application_form: file }));
     if (!file) { setProcessResults(prev => ({ ...prev, application_form: null })); return; }
@@ -439,27 +439,32 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     setProcessing(prev => ({ ...prev, application_form: true }));
     setProcessResults(prev => ({ ...prev, application_form: null }));
     try {
-      const result = await api.extractAppForm(file);
-      const values = result.values || {};
-      const mapping = { lot_owner_name: "owner_name", phone: "owner_phone", email: "owner_email", postal_address: "owner_postal_address", property_address: "property_address", estimated_construction_date: "crossover_est_date", dev_application_number: "da_number", date_signed: "date_signed", num_attachments: "attachment_count" };
-      const filled = [];
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "application_form");
+      const result = await api._fetch("/extract-local-ocr", { method: "POST", body: formData });
+      const fields = result.fields || {};
       const updates = {};
-      for (const [ek, fk] of Object.entries(mapping)) {
-        let val = values[ek];
-        if (val && typeof val === "string" && val.trim()) {
-          updates[fk] = val.trim(); filled.push(ek);
+      const filled = [];
+      const mapping = {
+        owner_name: "owner_name", owner_phone: "owner_phone", owner_email: "owner_email",
+        owner_postal_address: "owner_postal_address", property_address: "property_address",
+        lot_number: "lot_number", plan_number: "plan_number",
+        crossover_width: "crossover_width", crossover_surface: "crossover_surface",
+        da_number: "da_number", date_signed: "date_signed", drainage_type: "drainage_type",
+      };
+      for (const [src, dst] of Object.entries(mapping)) {
+        const val = fields[src];
+        if (val !== null && val !== undefined && String(val).trim()) {
+          updates[dst] = val; filled.push(src);
         }
       }
-      // Handle signature as boolean
-      const sig = values.lot_owner_signature;
-      if (sig && typeof sig === "string" && sig.trim() && sig.trim().toLowerCase() !== "not signed" && sig.trim() !== "-") {
-        updates.declaration_signed = true; filled.push("lot_owner_signature");
-      }
+      if (fields.declaration_signed) { updates.declaration_signed = true; filled.push("declaration_signed"); }
+      if (fields.trees_nearby) { updates.trees_nearby = true; filled.push("trees_nearby"); }
       if (Object.keys(updates).length > 0) {
         setForm(prev => {
           const m = { ...prev };
           for (const [k, v] of Object.entries(updates)) {
-            // Only overwrite empty fields; handle booleans/numbers properly
             if (typeof v === "boolean") { m[k] = v; }
             else if (typeof m[k] === "string" && !m[k].trim()) { m[k] = v; }
             else if (!m[k]) { m[k] = v; }
@@ -468,8 +473,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         });
         if (updates.property_address) setTimeout(() => lookupLotBoundary(updates.property_address), 100);
       }
-      const names = { lot_owner_name: "Owner Name", phone: "Phone", email: "Email", postal_address: "Postal Address", property_address: "Property Address", estimated_construction_date: "Est. Date", dev_application_number: "DA Number" };
-      setProcessResults(prev => ({ ...prev, application_form: { success: true, title: "Form data extracted", message: `${filled.length} of ${result.summary?.total_fields || 10} fields auto-filled`, details: filled.length > 0 ? "Filled: " + filled.map(f => names[f] || f).join(", ") : null } }));
+      setProcessResults(prev => ({ ...prev, application_form: { success: true, title: "Form data extracted", message: `${filled.length} fields auto-filled via local OCR`, details: filled.length > 0 ? "Filled: " + filled.map(f => f.replace(/_/g, " ")).join(", ") : null } }));
     } catch (e) {
       setProcessResults(prev => ({ ...prev, application_form: { success: false, title: "Extraction failed", message: e.message || "Fill in fields manually." } }));
     } finally {

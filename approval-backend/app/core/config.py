@@ -92,30 +92,4 @@ def _int_env(name: str, default: int) -> int:
 DEFAULT_DPI = _int_env("OCR_RENDER_DPI", 200)
 DEFAULT_OCR_MIN_CONFIDENCE = _int_env("OCR_MIN_CONFIDENCE", 60)
 
-# Constants ported from your script
-ENTRY_X_MIN = 170
-SIG_INK_THRESHOLD = 0.005
-SIG_DARK_PIXEL_MAX = 150
-SIG_BORDER_MARGIN = 4
-OCR_UPSCALE = 3
-
-TEMPLATE_WORDS = {
-    "by","signing","this","the","declares","that","they","will","construct","crossover",
-    "in","accordance","with","specification","for","construction","and","ensure","protection",
-    "of","trees","vegetation","verge","please","attach","a","site","plan","clearly",
-    "dimensioned","showing","all","details","required","specifications","office","use","only",
-    "assessment","notes","sign","date","authorisation","enquiries","may","be","directed","to",
-    "asset","services","team","calling","city","on","or","emailing","allow","three","weeks",
-    "processing","application","form","is","require","d","crossovers","must","completed","lot",
-    "owner","owner's","number","attachments","estimated","construction","development","building",
-    "if","applicable","applicable)","postal","address","property","requiring","phone","email",
-    "signature","name:","phone:","email:",
-}
-
-STATIC_PHRASES = [
-    "OFFICE USE ONLY","Assessment Notes","Sign and Date for","Authorisation of Crossover",
-    "Construction","Please attach a site plan","clearly dimensioned",
-    "showing all details required in the Specifications",
-]
-
 settings = get_settings()

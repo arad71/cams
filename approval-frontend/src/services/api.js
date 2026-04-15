@@ -189,11 +189,6 @@ const api = {
   },
 
   // Extract application form data from uploaded PDF
-  async extractAppForm(file) {
-    const formData = new FormData();
-    formData.append("file", file);
-    return this._fetch("/extract_app_form", { method: "POST", body: formData });
-  },
 
   // Analyse site plan via AI vision
   async analyseSitePlan(file) {
