@@ -226,12 +226,32 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
 
   const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
 
+  // Determine if we're in "direct read" mode (AI Read button) vs "extract pages" mode
+  const isDirectRead = extractDoc && ["Application Form", "Certificate of Title", "Site Plan"].includes(extractDoc.category) && extractDoc.category === extractCategory;
+
   const handleExtractSiteplan = async () => {
-    if (!extractDoc || !extractPages.trim() || !appDbId) return;
+    if (!extractDoc || !appDbId) return;
+    if (!isDirectRead && !extractPages.trim()) return;
     setExtracting(true);
     setExtractResult(null);
     try {
-      const result = await api.extractPages(appDbId, extractDoc.id, extractPages.trim(), extractCategory, extractMethod);
+      let result;
+      if (isDirectRead && !extractPages.trim()) {
+        // Direct AI read — no page extraction, read the existing document
+        const type = extractCategory === "Certificate of Title" ? "certificate_of_title" : extractCategory === "Site Plan" ? "site_plan" : "application_form";
+        if (extractCategory === "Site Plan") {
+          // For site plan, use the existing analyse endpoint
+          await api.analyseDocument(appDbId, extractDoc.id);
+          result = { success: true, message: `AI analysis complete on ${extractDoc.name}.`, analysed: true };
+        } else {
+          // For form/title, use extract-fields with method
+          result = await api.extractDocFields(appDbId, extractDoc.id, type, extractMethod);
+          result = { success: true, ...result };
+        }
+      } else {
+        // Extract pages first, then analyse
+        result = await api.extractPages(appDbId, extractDoc.id, extractPages.trim(), extractCategory, extractMethod);
+      }
       setExtractResult(result);
       if (onDocUpdated) onDocUpdated();
     } catch (err) {
@@ -426,33 +446,27 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     📏 Measure
                   </button>
                 )}
-                {/* Extract pages button — for multi-page PDFs (building apps, site plans, titles, other docs) */}
-                {canUpload && doc.type === "pdf" && ["Building Application", "Other Documents", "Site Plan", "Certificate of Title"].includes(doc.category) && (
-                  <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); }}
-                    title="Extract pages from this document"
+                {/* Extract & Analyse button — for multi-page PDFs */}
+                {canUpload && doc.type === "pdf" && ["Building Application", "Other Documents"].includes(doc.category) && (
+                  <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); setExtractCategory("Site Plan"); }}
+                    title="Extract pages and analyse"
                     style={{ padding: "6px 14px", borderRadius: T.r.md, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
                     ✂ Extract
                   </button>
                 )}
-                {/* AI field extraction for forms and titles */}
-                {canUpload && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && ["Application Form", "Certificate of Title"].includes(doc.category) && (
-                  <button onClick={async (e) => {
+                {/* AI Read button — for Application Form and Certificate of Title */}
+                {canUpload && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && ["Application Form", "Certificate of Title", "Site Plan"].includes(doc.category) && (
+                  <button onClick={(e) => {
                     e.stopPropagation();
-                    const type = doc.category === "Certificate of Title" ? "certificate_of_title" : "application_form";
-                    try {
-                      setFormExtracting(true);
-                      setFormExtractResult(null);
-                      const result = await api.extractDocFields(appDbId, doc.id, type);
-                      setFormExtractResult({ success: true, message: result.message || `Extracted ${result.count} fields` });
-                      if (onDocUpdated) onDocUpdated();
-                    } catch (err) {
-                      setFormExtractResult({ success: false, message: `Extraction failed: ${err.message}` });
-                    } finally { setFormExtracting(false); }
+                    setExtractDoc(doc);
+                    setExtractPages("");
+                    setExtractResult(null);
+                    setExtractCategory(doc.category);
+                    setExtractMethod(doc.category === "Site Plan" ? "ai_live" : "ai_local");
                   }}
-                    disabled={formExtracting}
-                    title={`Extract data from ${doc.category} using AI`}
-                    style={{ padding: "6px 14px", borderRadius: T.r.md, border: "1px solid #16a08540", background: "#e8f8f5", color: "#16a085", fontSize: 12, fontWeight: T.w.semi, cursor: formExtracting ? "wait" : "pointer", fontFamily: "inherit", whiteSpace: "nowrap", opacity: formExtracting ? 0.6 : 1 }}>
-                    {formExtracting ? "⏳ Extracting..." : "🤖 AI Read"}
+                    title={`Extract data from ${doc.category}`}
+                    style={{ padding: "6px 14px", borderRadius: T.r.md, border: "1px solid #16a08540", background: "#e8f8f5", color: "#16a085", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    🤖 AI Read
                   </button>
                 )}
                 {/* Delete button */}
@@ -563,77 +577,76 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
 
       {extractDoc && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={() => setExtractDoc(null)}>
-          <div onClick={e => e.stopPropagation()} style={{ background: T.c.card, borderRadius: 16, width: 460, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
+          onClick={() => { setExtractDoc(null); setExtractResult(null); }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: T.c.card, borderRadius: 16, width: 480, maxWidth: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.c.borderLight}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: T.w.black, color: T.c.text }}>📐 Extract & Analyse Pages</div>
-                <div style={{ fontSize: 11, color: T.c.textSecondary, marginTop: 2 }}>From: {extractDoc.name}</div>
+                <div style={{ fontSize: 15, fontWeight: T.w.black, color: T.c.text }}>
+                  {isDirectRead ? "🤖 AI Read Document" : "✂ Extract & Analyse Pages"}
+                </div>
+                <div style={{ fontSize: 11, color: T.c.textSecondary, marginTop: 2 }}>{extractDoc.name} · {extractDoc.category}</div>
               </div>
-              <button onClick={() => setExtractDoc(null)} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.c.textMuted }}>✕</button>
+              <button onClick={() => { setExtractDoc(null); setExtractResult(null); }} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.c.textMuted }}>✕</button>
             </div>
             <div style={{ padding: "16px 20px" }}>
-              {/* Document Type */}
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Document Type</label>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {["Site Plan", "Application Form", "Certificate of Title"].map(cat => (
-                    <button key={cat} onClick={() => setExtractCategory(cat)}
-                      style={{ flex: 1, padding: "8px 4px", borderRadius: T.r.md, fontSize: 10, fontWeight: extractCategory === cat ? T.w.bold : 500, cursor: "pointer", fontFamily: "inherit",
-                        border: extractCategory === cat ? "2px solid #8e44ad" : "1px solid #d5dde2",
-                        background: extractCategory === cat ? "#f4ecf7" : "#fff",
-                        color: extractCategory === cat ? "#8e44ad" : T.c.grey800 }}>
-                      {cat === "Site Plan" ? "📐" : cat === "Application Form" ? "📄" : "📜"} {cat}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* Page Numbers */}
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Page Number(s)</label>
-                <input
-                  value={extractPages}
-                  onChange={e => setExtractPages(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleExtractSiteplan()}
-                  placeholder="e.g. 1 or 2,3"
-                  style={{ width: "100%", padding: "10px 14px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", color: T.c.text, fontWeight: T.w.bold }}
-                  autoFocus
-                />
-                <div style={{ fontSize: 10, color: T.c.textMuted, marginTop: 3 }}>
-                  Separate multiple pages with commas. Open the document viewer to identify pages.
-                </div>
-              </div>
-
-              {/* Extraction Method */}
-              {extractCategory !== "Site Plan" && (
+              {/* Document Type — only show for extract-pages mode */}
+              {!isDirectRead && (
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Extraction Method</label>
+                  <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Extract As</label>
                   <div style={{ display: "flex", gap: 6 }}>
-                    {[
-                      { id: "ai_live", icon: "🤖", label: "AI Live (Claude)", desc: "Most accurate — sends to AI API" },
-                      { id: "ai_local", icon: "💻", label: "AI Local (OCR)", desc: "Offline — uses local text recognition" },
-                      { id: "none", icon: "📋", label: "Extract Only", desc: "Just extract pages, no data reading" },
-                    ].map(m => (
-                      <button key={m.id} onClick={() => setExtractMethod(m.id)}
-                        style={{ flex: 1, padding: "8px 6px", borderRadius: T.r.md, fontSize: 9, cursor: "pointer", fontFamily: "inherit", textAlign: "center",
-                          border: extractMethod === m.id ? "2px solid #16a085" : "1px solid #d5dde2",
-                          background: extractMethod === m.id ? "#e8f8f5" : "#fff",
-                          color: extractMethod === m.id ? "#16a085" : T.c.grey800 }}>
-                        <div style={{ fontSize: 14, marginBottom: 2 }}>{m.icon}</div>
-                        <div style={{ fontWeight: extractMethod === m.id ? T.w.bold : 500 }}>{m.label}</div>
-                        <div style={{ fontSize: 8, color: T.c.textMuted, marginTop: 2 }}>{m.desc}</div>
+                    {["Site Plan", "Application Form", "Certificate of Title"].map(cat => (
+                      <button key={cat} onClick={() => setExtractCategory(cat)}
+                        style={{ flex: 1, padding: "8px 4px", borderRadius: T.r.md, fontSize: 10, fontWeight: extractCategory === cat ? T.w.bold : 500, cursor: "pointer", fontFamily: "inherit",
+                          border: extractCategory === cat ? "2px solid #8e44ad" : "1px solid #d5dde2",
+                          background: extractCategory === cat ? "#f4ecf7" : "#fff",
+                          color: extractCategory === cat ? "#8e44ad" : T.c.grey800 }}>
+                        {cat === "Site Plan" ? "📐" : cat === "Application Form" ? "📄" : "📜"} {cat}
                       </button>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Description */}
+              {/* Page Numbers — only for extract-pages mode */}
+              {!isDirectRead && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Page Number(s)</label>
+                  <input value={extractPages} onChange={e => setExtractPages(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleExtractSiteplan()}
+                    placeholder="e.g. 1 or 2,3" autoFocus
+                    style={{ width: "100%", padding: "10px 14px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", color: T.c.text, fontWeight: T.w.bold }} />
+                  <div style={{ fontSize: 10, color: T.c.textMuted, marginTop: 3 }}>Separate multiple pages with commas.</div>
+                </div>
+              )}
+
+              {/* Extraction Method — show for all types */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Extraction Method</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[
+                    { id: "ai_live", icon: "🤖", label: "AI Live (Claude)", desc: "Most accurate — sends to AI API" },
+                    { id: "ai_local", icon: "💻", label: "AI Local (OCR)", desc: "Offline — local text recognition" },
+                    ...(isDirectRead ? [] : [{ id: "none", icon: "📋", label: "Extract Only", desc: "Just extract pages, no reading" }]),
+                  ].map(m => (
+                    <button key={m.id} onClick={() => setExtractMethod(m.id)}
+                      style={{ flex: 1, padding: "8px 6px", borderRadius: T.r.md, fontSize: 9, cursor: "pointer", fontFamily: "inherit", textAlign: "center",
+                        border: extractMethod === m.id ? "2px solid #16a085" : "1px solid #d5dde2",
+                        background: extractMethod === m.id ? "#e8f8f5" : "#fff",
+                        color: extractMethod === m.id ? "#16a085" : T.c.grey800 }}>
+                      <div style={{ fontSize: 14, marginBottom: 2 }}>{m.icon}</div>
+                      <div style={{ fontWeight: extractMethod === m.id ? T.w.bold : 500 }}>{m.label}</div>
+                      <div style={{ fontSize: 8, color: T.c.textMuted, marginTop: 2 }}>{m.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* What will be extracted */}
               <div style={{ fontSize: 10, color: T.c.textMuted, marginBottom: 10, lineHeight: 1.5, background: "#f8fafb", padding: "8px 10px", borderRadius: T.r.sm }}>
-                {extractCategory === "Site Plan" && "Selected pages will be extracted as a new Site Plan document and automatically analysed by AI to extract crossover dimensions, construction details, and measurements."}
-                {extractCategory === "Application Form" && (extractMethod === "ai_live" ? "Pages will be extracted and sent to Claude AI to read owner details, property info, crossover specifications, and save them to the application." : extractMethod === "ai_local" ? "Pages will be extracted and processed locally using OCR to read text fields. Less accurate but works offline." : "Pages will be extracted as a new Application Form document without data reading.")}
-                {extractCategory === "Certificate of Title" && (extractMethod === "ai_live" ? "Pages will be extracted and sent to Claude AI to read lot number, plan number, registered proprietor, and lot area." : extractMethod === "ai_local" ? "Pages will be extracted and processed locally using OCR to find lot/plan numbers and owner details." : "Pages will be extracted as a new Certificate of Title document without data reading.")}
+                {extractCategory === "Site Plan" && "Crossover dimensions, construction details, measurements, boundaries, utilities, drainage, and sight obstructions."}
+                {extractCategory === "Application Form" && "Owner name, phone, email, address, lot/plan number, crossover width, surface, DA number, signature, trees, drainage."}
+                {extractCategory === "Certificate of Title" && "Register number, date issued, volume, folio, land description, property address, registered owners, mortgage details."}
               </div>
 
               {/* Result */}
@@ -677,12 +690,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   {extractResult?.success ? "Close" : "Cancel"}
                 </button>
                 {!extractResult?.success && (
-                  <button onClick={handleExtractSiteplan} disabled={extracting || !extractPages.trim()}
+                  <button onClick={handleExtractSiteplan} disabled={extracting || (!isDirectRead && !extractPages.trim())}
                     style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none",
-                      background: extractPages.trim() && !extracting ? "linear-gradient(135deg, #8e44ad, #6c3483)" : T.c.grey400,
-                      color: extractPages.trim() && !extracting ? "#fff" : "#95a5a6",
-                      fontWeight: T.w.bold, fontSize: 12, cursor: extractPages.trim() && !extracting ? "pointer" : "default", fontFamily: "inherit" }}>
-                    {extracting ? "⟳ Processing..." : `✂ Extract as ${extractCategory}`}
+                      background: (!isDirectRead && !extractPages.trim()) || extracting ? T.c.grey400 : "linear-gradient(135deg, #8e44ad, #6c3483)",
+                      color: (!isDirectRead && !extractPages.trim()) || extracting ? "#95a5a6" : "#fff",
+                      fontWeight: T.w.bold, fontSize: 12, cursor: (!isDirectRead && !extractPages.trim()) || extracting ? "default" : "pointer", fontFamily: "inherit" }}>
+                    {extracting ? "⟳ Processing..." : isDirectRead ? `🤖 Read ${extractCategory}` : `✂ Extract as ${extractCategory}`}
                   </button>
                 )}
               </div>

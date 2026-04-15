@@ -582,7 +582,7 @@ def _extract_fields_ai_live(file_path, extract_type):
         image_contents.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}})
 
     if extract_type == "certificate_of_title":
-        prompt = 'Extract from Certificate of Title. Return ONLY JSON: {"lot_number":"","plan_number":"","volume_folio":"","property_address":"","lot_area_sqm":null,"owner_names":[],"encumbrances":[],"survey_date":""}'
+        prompt = 'Extract from this Certificate of Title / land title document. Return ONLY valid JSON: {"register_number":"string or null — the title register number","date_issued":"string or null — date the title was issued","volume":"string or null — volume number","folio":"string or null — folio number","land_description":"string or null — full legal land description (e.g. Lot 123 on Plan/Diagram 45678)","lot_number":"string or null","plan_number":"string or null — plan or diagram number","property_address":"string or null — registered street address","lot_area_sqm":"number or null — lot area in square metres","registered_owners":["array of owner name strings"],"mortgage":"string or null — mortgage holder/bank if shown","encumbrances":["array of easement/caveat/restriction strings"],"notes":"string or null"}'
     else:
         prompt = 'Extract from application form. Return ONLY JSON: {"owner_name":"","owner_phone":"","owner_email":"","owner_postal_address":"","property_address":"","lot_number":"","plan_number":"","crossover_width":null,"crossover_surface":"","crossover_count":null,"da_number":"","date_signed":"","declaration_signed":false,"trees_nearby":false,"clearing":false,"drainage_type":"","estimated_construction_date":""}'
 
@@ -618,8 +618,13 @@ def _map_extraction_to_app(extracted, extract_type):
             val = extracted.get(src)
             if val is not None and str(val).strip() and str(val).strip().lower() not in ("null", "none"):
                 updates[dst] = val
-        if extracted.get("owner_names"):
-            updates["owner_name"] = ", ".join(extracted["owner_names"])
+        # Handle owner names (array or string)
+        owners = extracted.get("registered_owners") or extracted.get("owner_names")
+        if owners:
+            if isinstance(owners, list):
+                updates["owner_name"] = ", ".join(str(o) for o in owners if o)
+            else:
+                updates["owner_name"] = str(owners)
     else:  # application_form
         mapping = {
             "owner_name": "owner_name", "owner_phone": "owner_phone", "owner_email": "owner_email",
@@ -1269,6 +1274,7 @@ async def extract_document_fields(
         raise HTTPException(404, "Application not found")
 
     extract_type = (body or {}).get("type", "auto")
+    extraction_method = (body or {}).get("extraction_method", "ai_live")
     category = (doc.category or "").lower()
 
     # Auto-detect type from category
@@ -1277,8 +1283,45 @@ async def extract_document_fields(
             extract_type = "application_form"
         elif "title" in category or "certificate" in category:
             extract_type = "certificate_of_title"
+        elif "site" in category or "plan" in category:
+            extract_type = "site_plan"
         else:
             extract_type = "general"
+
+    # For site plan with ai_local, use local extraction pipeline
+    if extract_type == "site_plan" and extraction_method == "ai_local":
+        try:
+            from app.services.local_extractor import extract_local
+            local_result = extract_local(str(file_path), "site_plan")
+            extracted = local_result.get("fields", {})
+            confidence = local_result.get("confidence", {})
+
+            # Save extraction as site_plan_data on the application
+            app.site_plan_data = {"extraction": extracted, "method": "local_ocr"}
+            db.commit()
+
+            from app.services.audit import log_audit
+            log_audit(db=db, action="extract", entity_type="document", user=current_user,
+                      entity_id=str(doc.id), description=f"Local OCR extracted {len(extracted)} fields from {doc.name}")
+
+            return {
+                "type": extract_type, "extracted": extracted, "confidence": confidence,
+                "fields_saved": list(extracted.keys()), "count": len(extracted),
+                "message": f"Extracted {len(extracted)} fields from site plan via local OCR",
+            }
+        except Exception as e:
+            raise HTTPException(500, f"Local site plan extraction failed: {e}")
+
+    # For site plan with ai_live, use the existing AI analyser
+    if extract_type == "site_plan" and extraction_method == "ai_live":
+        try:
+            _run_site_plan_ai(app, doc, file_path.read_bytes(), db)
+            return {
+                "type": extract_type, "extracted": {}, "fields_saved": [],
+                "count": 0, "message": "AI site plan analysis complete",
+            }
+        except Exception as e:
+            raise HTTPException(500, f"AI site plan analysis failed: {e}")
 
     ext = (doc.file_type or "").lower()
     try:
@@ -1336,14 +1379,18 @@ async def extract_document_fields(
         elif extract_type == "certificate_of_title":
             prompt = """Extract property details from this Certificate of Title. Return ONLY valid JSON:
 {
-  "lot_number": "string or null — the lot number (e.g. '123', 'Lot 1')",
-  "plan_number": "string or null — the plan/diagram number (e.g. 'P12345', 'D67890')",
-  "volume_folio": "string or null — volume/folio reference",
-  "property_address": "string or null — registered address if shown",
+  "register_number": "string or null — the title register number",
+  "date_issued": "string or null — date the title was issued",
+  "volume": "string or null — volume number",
+  "folio": "string or null — folio number",
+  "land_description": "string or null — full legal land description",
+  "lot_number": "string or null",
+  "plan_number": "string or null — plan or diagram number",
+  "property_address": "string or null — registered street address",
   "lot_area_sqm": "number or null — lot area in square metres",
-  "owner_names": "array of strings — registered proprietor name(s)",
+  "registered_owners": "array of strings — registered proprietor name(s)",
+  "mortgage": "string or null — mortgage holder if shown",
   "encumbrances": "array of strings — easements, caveats, restrictions",
-  "survey_date": "string or null",
   "notes": "string or null"
 }"""
         else:
