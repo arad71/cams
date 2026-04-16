@@ -23,6 +23,23 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
   const [assignee, setAssignee] = useState(app.assessment.officer);
   const [categories, setCategories] = useState([]);
 
+  // Sync localApp when parent app prop changes (e.g. after reloadApp elsewhere in App.jsx)
+  useEffect(() => {
+    if (!app || !app._dbId) return;
+    if (app._dbId !== localApp?._dbId) {
+      // Different app selected — full replace
+      setLocalApp(JSON.parse(JSON.stringify(app)));
+      return;
+    }
+    // Same app — check if parent has newer data (e.g. georef_overlay saved elsewhere)
+    // Use a cheap timestamp-based check if available, otherwise shallow compare a key fresh field
+    const parentGeoref = JSON.stringify(app.georef_overlay || null);
+    const localGeoref = JSON.stringify(localApp?.georef_overlay || null);
+    if (parentGeoref !== localGeoref) {
+      setLocalApp(JSON.parse(JSON.stringify(app)));
+    }
+  }, [app, localApp?._dbId, localApp?.georef_overlay]);
+
   const role = currentUser?.role || "engineer";
   const canAssign = role === "admin" || role === "manager";
   const canDecide = role === "admin" || role === "manager";
