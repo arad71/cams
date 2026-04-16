@@ -119,8 +119,9 @@ def get_application(app_id: int, db: Session = Depends(get_db), current_user: Us
     if current_user.role == "engineer" and app.officer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not assigned to this case")
 
+    _out_fields = set(ApplicationOut.model_fields.keys())
     return ApplicationOut(
-        **{c.name: getattr(app, c.name) for c in app.__table__.columns},
+        **{c.name: getattr(app, c.name) for c in app.__table__.columns if c.name in _out_fields},
         officer_name=app.assigned_officer.name if app.assigned_officer else None,
         notes=[NoteOut(id=n.id, text=n.text, author_name=n.author.name if n.author else None, created_at=n.created_at) for n in app.notes],
         documents=[_build_doc_out(d) for d in app.documents],
