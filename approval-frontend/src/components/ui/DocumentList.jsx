@@ -775,6 +775,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
             appDbId={appDbId}
             docId={spDoc.id}
             existingOverlay={app?.georef_overlay}
+            lotPolygon={app?.lot_polygon}
             onClose={() => { setShowGeoref(false); setGeorefDocId(null); }}
             onGeorefPoints={onGeorefPoints}
             onSaved={() => { if (onDocUpdated) onDocUpdated(); }}

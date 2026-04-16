@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { T } from '../../styles/tokens';
 import api from '../../services/api';
+import { extractCorners, procrustesAlign } from '../../utils/geo';
 
 /**
  * Focused georeferencing tool.
- * Shows site plan image, lets user click lot corner points, then applies them to the map.
- * 3 or more points required. Plan points are saved to app.georef_overlay immediately
- * so the overlay persists even if user closes before pairing with map points.
+ * Shows site plan image, lets user click lot corner points, then auto-matches
+ * them to the cadastre lot polygon and computes alignment via Procrustes.
+ * 3 or more points required. Plan points + matched map points are saved to
+ * app.georef_overlay immediately.
  */
-export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existingOverlay, onClose, onGeorefPoints, onSaved }) {
+export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existingOverlay, lotPolygon, onClose, onGeorefPoints, onSaved }) {
   const imgRef = useRef(null);
   const wrapRef = useRef(null);
 
@@ -138,24 +140,67 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
   const removeLastPoint = () => setPoints(prev => prev.slice(0, -1));
   const clearPoints = () => setPoints([]);
 
+  // Normalize lot polygon to [{lat,lng},...] format
+  const lotCorners = (() => {
+    if (!lotPolygon || !Array.isArray(lotPolygon) || lotPolygon.length < 3) return null;
+    // lot_polygon is [[lat,lng],...] after normalizeLotPolygon
+    return lotPolygon.map(p => Array.isArray(p) ? { lat: p[0], lng: p[1] } : p);
+  })();
+
+  const hasLot = lotCorners && lotCorners.length >= 3;
+
   const apply = async () => {
     if (points.length < 3) return;
     const img = imgRef.current;
     const imgW = img?.naturalWidth || imgSize.w;
     const imgH = img?.naturalHeight || imgSize.h;
 
-    // Persist plan points to backend so they survive refresh (and gate the auto-popup)
+    let matchedMapPts = existingOverlay?.mapPts || [];
+    let bounds = existingOverlay?.bounds || null;
+    let autoMatched = false;
+
+    // Auto-match plan corners to cadastre lot corners
+    if (hasLot) {
+      // Extract K sharpest corners from cadastre (K = user's click count)
+      const cadastreCorners = extractCorners(lotCorners, points.length);
+
+      if (cadastreCorners.length === points.length) {
+        // Map corners are in polygon order; plan points are in click order.
+        // Assume user clicked in the same winding order as the polygon.
+        matchedMapPts = cadastreCorners.map(c => ({ lat: c.lat, lng: c.lng }));
+
+        // Compute Procrustes alignment to get image bounds on the map
+        const alignment = procrustesAlign(points, matchedMapPts);
+        if (alignment) {
+          // Compute map bounds: transform image corners to lat/lng
+          const tl = alignment.transform(0, 0);
+          const tr = alignment.transform(imgW, 0);
+          const bl = alignment.transform(0, imgH);
+          const br = alignment.transform(imgW, imgH);
+          const lats = [tl.lat, tr.lat, bl.lat, br.lat];
+          const lngs = [tl.lng, tr.lng, bl.lng, br.lng];
+          bounds = [
+            [Math.min(...lats), Math.min(...lngs)],
+            [Math.max(...lats), Math.max(...lngs)],
+          ];
+          autoMatched = true;
+        }
+      }
+    }
+
+    // Persist to backend
     if (appDbId) {
       setSaving(true);
       setSaveError(null);
       try {
         const overlay = {
           planPts: points.map(p => ({ x: p.x, y: p.y })),
-          mapPts: existingOverlay?.mapPts || [],
-          bounds: existingOverlay?.bounds || null,
+          mapPts: matchedMapPts,
+          bounds,
           docId: docId || existingOverlay?.docId || null,
           page: existingOverlay?.page || 1,
           imgW, imgH,
+          autoMatched,
         };
         await api.updateApp(appDbId, { georef_overlay: overlay });
         if (onSaved) onSaved(overlay);
@@ -167,7 +212,7 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
       setSaving(false);
     }
 
-    // Continue with in-session pairing flow (so map-side alignment also works)
+    // Continue with in-session pairing flow
     if (onGeorefPoints) {
       onGeorefPoints(points, imgUrl, imgW, imgH);
     }
@@ -193,9 +238,12 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
 
       {/* Instructions bar */}
       <div style={{ padding: '10px 16px', background: '#f7f0fa', borderBottom: '1px solid #e4d3ee', fontSize: 12, color: '#5e3075', lineHeight: 1.5 }}>
-        <strong>How to use:</strong> Click <strong>at least 3 lot corners</strong> on the plan below (typically the 4 corners of the property).
-        Then click <strong>"Apply to Map"</strong> — the plan will be overlaid on the map so measurements align with real coordinates.
-        <div style={{ fontSize: 10, color: '#7f5090', marginTop: 3 }}>Shift+drag to pan · scroll to zoom</div>
+        <strong>How to use:</strong> Click <strong>at least 3 lot corners</strong> on the plan below (typically the 4 corners of the property boundary).
+        {hasLot
+          ? <> The system will <strong>auto-match</strong> your clicks to the cadastre lot boundary and compute the map alignment.</>
+          : <> No lot boundary found — map alignment will use your clicked points only (manual pairing needed on the map).</>
+        }
+        <div style={{ fontSize: 10, color: '#7f5090', marginTop: 3 }}>Shift+drag or right-drag to pan · scroll to zoom · click corners in order (clockwise or anticlockwise)</div>
       </div>
 
       {/* Body */}
@@ -203,6 +251,14 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
         {/* Left sidebar */}
         <div style={{ width: 210, borderRight: '1px solid #e4e9ec', background: '#fafbfc', display: 'flex', flexDirection: 'column', padding: 12, gap: 10 }}>
           <div style={{ fontSize: 11, color: '#7a8a94', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Control Points</div>
+
+          {/* Lot boundary status */}
+          <div style={{ background: hasLot ? '#eafaf1' : '#fef9e7', borderRadius: T.r.sm, padding: '6px 8px', fontSize: 10, lineHeight: 1.4, border: `1px solid ${hasLot ? '#d4efdf' : '#fce8b2'}` }}>
+            {hasLot
+              ? <><span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Lot boundary available</span><br/><span style={{ color: '#7a8a94' }}>{lotCorners.length} cadastre vertices · will auto-match {points.length >= 3 ? points.length : '3+'} corners</span></>
+              : <><span style={{ color: '#b7950b', fontWeight: 700 }}>⚠ No lot boundary</span><br/><span style={{ color: '#7a8a94' }}>Manual map pairing needed after save</span></>
+            }
+          </div>
 
           <div style={{ background: '#fff', borderRadius: T.r.md, border: '1px solid #e4e9ec', padding: 10, textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: points.length >= 3 ? '#27ae60' : '#8e44ad' }}>{points.length}</div>
