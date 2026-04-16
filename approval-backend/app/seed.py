@@ -20,6 +20,10 @@ def run_seed():
     with engine.connect() as conn:
         for stmt in [
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT",
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT NULL",
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS decision_note TEXT DEFAULT NULL",
             "ALTER TABLE applications ADD COLUMN IF NOT EXISTS georef_overlay JSONB DEFAULT NULL",
