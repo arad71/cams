@@ -1,34 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { T, S, cx } from '../../styles/tokens';
+import { AI_OVERRIDE_FIELDS as AI_FIELDS } from '../../data/constants';
 
 const COLORS = ['#00e4c8','#ff5c72','#ffcf40','#5cacff','#4dff91','#a77dff','#ff8f4d','#ff6eb4'];
-
-// AI extraction fields that can be overridden via correctSitePlan
-const AI_FIELDS = [
-  // ── Crossover ──
-  { key: 'crossover_dimensions.width_at_boundary_m', label: 'Crossover Width', unit: 'm' },
-  { key: 'crossover_dimensions.verge_depth_m', label: 'Verge Depth', unit: 'm' },
-  { key: 'crossover_dimensions.distance_to_left_boundary_m', label: 'Left Boundary Dist', unit: 'm' },
-  { key: 'crossover_dimensions.left_boundary_feature', label: 'Left Boundary Feature', unit: '' },
-  { key: 'crossover_dimensions.distance_to_right_boundary_m', label: 'Right Boundary Dist', unit: 'm' },
-  { key: 'crossover_dimensions.right_boundary_feature', label: 'Right Boundary Feature', unit: '' },
-  { key: 'crossover_dimensions.constrained_side', label: 'Constrained Side', unit: '' },
-  { key: 'crossover_dimensions.distance_to_nearest_lot_corner_m', label: 'Dist to Lot Corner', unit: 'm' },
-  { key: 'crossover_dimensions.distance_to_intersection_tangent_m', label: 'Dist to Intersection', unit: 'm' },
-  // ── Road ──
-  { key: 'siteplan_measurements.crossover_on_road', label: 'Crossover Road', unit: '' },
-  { key: 'siteplan_measurements.road_name', label: 'Primary Road', unit: '' },
-  { key: 'siteplan_measurements.secondary_road_name', label: 'Secondary Road', unit: '' },
-  { key: 'siteplan_measurements.road_speed_zone_kmh', label: 'Speed Zone', unit: 'km/h' },
-  // ── Lot ──
-  { key: 'siteplan_measurements.lot_frontage_m', label: 'Lot Frontage', unit: 'm' },
-  { key: 'siteplan_measurements.lot_depth_m', label: 'Lot Depth', unit: 'm' },
-  { key: 'siteplan_measurements.building_setback_front_m', label: 'Front Setback', unit: 'm' },
-  { key: 'siteplan_measurements.garage_to_kerb_m', label: 'Garage to Kerb', unit: 'm' },
-  // ── Construction ──
-  { key: 'construction.material', label: 'Surface Material', unit: '' },
-  { key: 'construction.kerb_type', label: 'Kerb Type', unit: '' },
-];
 
 export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData }) {
   const wrapRef = useRef(null);

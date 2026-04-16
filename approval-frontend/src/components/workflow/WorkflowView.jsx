@@ -370,7 +370,7 @@ function StepExtract({ app, currentUser, onReload, measureCorrections, onMeasure
   );
 }
 
-function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, categories, currentUser, georefData, onGeorefDone }) {
+function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, categories, currentUser, onMeasureCorrection, georefData, onGeorefDone }) {
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
@@ -379,6 +379,7 @@ function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, 
           contoursData={globalContoursData} urbanForestData={globalUrbanForestData}
           drainagePipesData={globalDrainagePipesData} drainagePitsData={globalDrainagePitsData}
           waterPipesData={globalWaterPipesData}
+          onMeasureCorrection={onMeasureCorrection}
           georefData={georefData} onGeorefDone={onGeorefDone} />
       </div>
       <ApprovalChecklist app={app} categories={categories} currentUser={currentUser} />
@@ -839,6 +840,7 @@ export default function WorkflowView({
               globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
               categories={categories}
               currentUser={currentUser}
+              onMeasureCorrection={onMeasureCorrection}
               georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
           )}
           {currentStep === 4 && (

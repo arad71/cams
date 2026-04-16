@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { SIGHT_DISTANCE_TABLE } from '../../data/constants';
+import { SIGHT_DISTANCE_TABLE, AI_OVERRIDE_FIELDS } from '../../data/constants';
 import { getAppCoords, getFirstRing, normalizeLotPolygon, findNearestRoadSpeed, getSightDistances } from '../../utils/geoHelpers';
 import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment } from '../../utils/geo';
 import LeafletMap from './LeafletMap';
@@ -95,7 +95,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null, georefData = null, onGeorefDone = null }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null, onMeasureCorrection = null, georefData = null, onGeorefDone = null }) {
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(false);
   const [showStreetNames, setShowStreetNames] = useState(false);
@@ -110,6 +110,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
   const [mapTool, setMapTool] = useState(null); // "measure" | "draw" | null
   const [measureDist, setMeasureDist] = useState(null);
+  const [measureOverrideField, setMeasureOverrideField] = useState(""); // selected AI field key
   const [radiusResult, setRadiusResult] = useState(null);
   const [centrelineDist, setCentrelineDist] = useState(null);
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
@@ -1736,10 +1737,38 @@ Respond with JSON only:
       )}
       {/* Tool context bar */}
       {mapTool === "measure" && (
-        <div style={{ padding: "4px 12px", background: "#f0f7ff", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: T.c.info, fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "4px 12px", background: "#f0f7ff", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: T.c.info, fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span>Click to measure distance · Double-click to start new</span>
           {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 9 }}>{measureDist}</span>}
-          <button onClick={() => { setMapTool(null); setMeasureDist(null); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Done</button>
+          {/* AI field override — only show when there's a measurement and onMeasureCorrection is available */}
+          {measureDist && onMeasureCorrection && (
+            <>
+              <span style={{ color: "#7a8a94", fontSize: 9 }}>→</span>
+              <select value={measureOverrideField} onChange={e => setMeasureOverrideField(e.target.value)}
+                style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #d5dde2", fontSize: 9, fontFamily: "inherit", color: "#1a3a4a", maxWidth: 160 }}>
+                <option value="">Override AI field…</option>
+                {AI_OVERRIDE_FIELDS.filter(f => f.unit === 'm' || f.unit === 'km/h').map(f => (
+                  <option key={f.key} value={f.key}>{f.label} ({f.unit})</option>
+                ))}
+              </select>
+              {measureOverrideField && (
+                <button onClick={() => {
+                  // Extract numeric value from measureDist string like "12.3m (2 segments)"
+                  const numMatch = measureDist.match(/([\d.]+)/);
+                  if (numMatch) {
+                    const field = AI_OVERRIDE_FIELDS.find(f => f.key === measureOverrideField);
+                    onMeasureCorrection(measureOverrideField, numMatch[1], field?.unit || 'm');
+                    alert(`📏 Map measurement ${numMatch[1]} ${field?.unit || 'm'} saved as correction for "${field?.label || measureOverrideField}".`);
+                    setMeasureOverrideField("");
+                  }
+                }}
+                  style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                  Save as Correction
+                </button>
+              )}
+            </>
+          )}
+          <button onClick={() => { setMapTool(null); setMeasureDist(null); setMeasureOverrideField(""); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Done</button>
         </div>
       )}
       {mapTool === "draw" && (
