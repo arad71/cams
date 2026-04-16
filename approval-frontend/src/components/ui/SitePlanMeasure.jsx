@@ -30,7 +30,7 @@ const AI_FIELDS = [
   { key: 'construction.kerb_type', label: 'Kerb Type', unit: '' },
 ];
 
-export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData, onGeorefPoints }) {
+export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData }) {
   const wrapRef = useRef(null);
   const innerRef = useRef(null);
   const svgRef = useRef(null);
@@ -105,7 +105,6 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   // Check if current tool has unsaved work
   const hasUnsavedWork = () => {
     if (tool === 'north' && northPt) return 'Document alignment in progress. Click tip to complete, or discard?';
-    if (tool === 'georef' && georefPts.length > 0) return `Overlay has ${georefPts.length} points placed. Discard?`;
     if (tool === 'calibrate' && tempPt) return 'Calibration in progress. Discard?';
     return null;
   };
@@ -143,7 +142,6 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
   const [northPt, setNorthPt] = useState(null); // first click of north arrow (base)
   const [mouse, setMouse] = useState(null);
   const [saveModal, setSaveModal] = useState(null); // { itemId, value }
-  const [georefPts, setGeorefPts] = useState([]); // [{x, y}] — plan control points
   const idSeq = useRef(0);
   const panState = useRef({ panning: false, ox: 0, oy: 0 });
   const saveTimeout = useRef(null);
@@ -244,11 +242,6 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         setNorthPt(null);
         setTool('measure');
       }
-      return;
-    }
-
-    if (tool === 'georef') {
-      setGeorefPts(prev => [...prev, { x: pt.x, y: pt.y }]);
       return;
     }
 
@@ -368,11 +361,10 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       if (e.key === ' ') { if (tool !== 'pan') prevToolRef.current = tool; doSwitchTool('pan'); e.preventDefault(); }
       if (e.key === 'c') sw('calibrate');
       if (e.key === 't') sw('grabtext');
-      if (e.key === 'g') sw('georef');
       if (e.key === 'n') sw('north');
       if (e.key === 'r') setRotation(r => (r + 90) % 360);
       if (e.key === 'R') setRotation(r => (r - 90 + 360) % 360);
-      if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); setOcrResult(null); setGeorefPts([]); setNorthPt(null); if (onClose) onClose(); }
+      if (e.key === 'Escape') { setTempPt(null); setAreaPts([]); setOcrResult(null); setNorthPt(null); if (onClose) onClose(); }
       if (e.key === 'z' && (e.ctrlKey || e.metaKey)) setItems(prev => prev.slice(0, -1));
     };
     const ku = (e) => { if (e.key === ' ') doSwitchTool(prevToolRef.current || 'measure'); };
@@ -463,19 +455,6 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         s += `<polygon points="${endPt.x},${endPt.y} ${ax},${ay} ${bx},${by}" fill="#e67e22" opacity="0.8"/>`;
       }
       s += `<text x="${northPt.x + 10}" y="${northPt.y - 8}" fill="#e67e22" font-size="11" font-weight="700">N ↑</text>`;
-    }
-
-    // Georef control points
-    if (georefPts.length > 0) {
-      // Draw polygon outline connecting points
-      if (georefPts.length >= 2) {
-        s += `<polyline points="${georefPts.map(p => p.x + ',' + p.y).join(' ')}" fill="none" stroke="#8e44ad" stroke-width="2" stroke-dasharray="8,4" opacity="0.7"/>`;
-      }
-      // Draw numbered circles
-      georefPts.forEach((p, i) => {
-        s += `<circle cx="${p.x}" cy="${p.y}" r="8" fill="#8e44ad" stroke="#fff" stroke-width="2"/>`;
-        s += `<text x="${p.x}" y="${p.y + 4}" text-anchor="middle" fill="#fff" font-size="10" font-weight="bold">${i + 1}</text>`;
-      });
     }
 
     // Saved items
@@ -579,58 +558,19 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
 
               <div style={{ height: 1, background: '#e4e9ec', margin: '6px 12px' }} />
 
-              {/* ── Advanced ── */}
-              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Advanced</div>
-              <div onClick={() => switchTool('georef')}
-                style={{ padding: '6px 12px', cursor: 'pointer', background: tool === 'georef' ? 'rgba(142,68,173,0.08)' : 'transparent', borderLeft: tool === 'georef' ? '3px solid #8e44ad' : '3px solid transparent' }}
-                onMouseEnter={e => { if (tool !== 'georef') e.currentTarget.style.background = '#f0f2f5'; }}
-                onMouseLeave={e => { if (tool !== 'georef') e.currentTarget.style.background = 'transparent'; }}>
-                <div style={{ fontSize: 12, fontWeight: tool === 'georef' ? 600 : 500, color: tool === 'georef' ? '#8e44ad' : '#1a3a4a' }}>🗺️ Map Overlay</div>
-                {tool === 'georef' && (
-                  <div style={{ fontSize: 9, color: '#7a8a94', marginTop: 2, lineHeight: 1.4 }}>
-                    ① Click lot corners on the plan ({georefPts.length} placed)
-                    {georefPts.length >= 3 && <><br/>② Click "Apply to Map" below</>}
-                  </div>
-                )}
-              </div>
-              {tool === 'georef' && georefPts.length >= 3 && (
-                <div style={{ padding: '4px 12px' }}>
-                  <button onClick={() => {
-                    if (onGeorefPoints) {
-                      const imgEl = imgRef.current;
-                      onGeorefPoints(georefPts, imgUrl, imgEl?.naturalWidth || 1, imgEl?.naturalHeight || 1);
-                    }
-                    doSwitchTool('measure');
-                  }}
-                    style={{ width: '100%', padding: '6px 0', borderRadius: T.r.sm, border: 'none', background: '#8e44ad', color: '#fff', fontWeight: T.w.bold, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Apply to Map →
-                  </button>
-                </div>
-              )}
-              {tool === 'georef' && georefPts.length > 0 && (
-                <div style={{ padding: '2px 12px' }}>
-                  <button onClick={() => setGeorefPts([])}
-                    style={{ width: '100%', padding: '4px 0', borderRadius: T.r.sm, border: '1px solid #e4e9ec', background: '#fff', color: '#95a5a6', fontSize: 9, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Clear Points
-                  </button>
-                </div>
-              )}
-
-              <div style={{ height: 1, background: '#e4e9ec', margin: '6px 12px' }} />
-
               {/* ── Keyboard shortcuts ── */}
               <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Shortcuts</div>
               <div style={{ padding: '4px 12px', fontSize: 9, color: '#95a5a6', lineHeight: 1.8 }}>
                 M=Measure A=Area P=Marker<br/>
                 C=Calibrate T=Text N=Align<br/>
-                G=Overlay Space=Pan<br/>
+                Space=Pan<br/>
                 r/R=Rotate Esc=Close
               </div>
             </div>
           </div>
         )}
         {/* Canvas */}
-        <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#e8ecef', cursor: tool === 'pan' ? 'grab' : tool === 'grabtext' ? 'text' : tool === 'georef' ? 'crosshair' : 'crosshair' }}
+        <div ref={wrapRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', background: '#e8ecef', cursor: tool === 'pan' ? 'grab' : tool === 'grabtext' ? 'text' : 'crosshair' }}
           onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp} onDoubleClick={handleDblClick} onWheel={handleWheel}>
           <div ref={innerRef} style={{ position: 'absolute', transformOrigin: '0 0', transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom}) rotate(${rotation}deg)` }}>

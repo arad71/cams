@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import api from '../../services/api';
 import SitePlanMeasure from './SitePlanMeasure';
+import SitePlanGeoref from './SitePlanGeoref';
 import { T, S, cx } from '../../styles/tokens';
 
 const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
@@ -222,9 +223,30 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
   const [deleting, setDeleting] = useState(false);
   const [showMeasure, setShowMeasure] = useState(false);
   const [measureDocId, setMeasureDocId] = useState(null);
+  const [showGeoref, setShowGeoref] = useState(false);
+  const [georefDocId, setGeorefDocId] = useState(null);
+  const autoGeorefTriggered = useRef(false);
   const fileInputRef = useRef(null);
 
   const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
+
+  // Auto-trigger georeferencing after site plan upload (once per session, per app)
+  useEffect(() => {
+    if (!app || !appDbId) return;
+    if (autoGeorefTriggered.current) return;
+    if (showGeoref || showMeasure) return;
+    const siteplans = (documents || []).filter(d => d.category === "Site Plan");
+    if (siteplans.length === 0) return;
+    // Only auto-trigger if no georef overlay is set yet
+    const hasGeoref = app.georef_overlay && app.georef_overlay.planPts && app.georef_overlay.planPts.length >= 3;
+    if (!hasGeoref && canUpload) {
+      // Use the most recently uploaded site plan
+      const latest = siteplans[siteplans.length - 1];
+      autoGeorefTriggered.current = true;
+      setGeorefDocId(latest.id);
+      setShowGeoref(true);
+    }
+  }, [app, appDbId, documents, canUpload, showGeoref, showMeasure]);
 
   // Determine if we're in "direct read" mode (AI Read button) vs "extract pages" mode
   const isDirectRead = extractDoc && ["Application Form", "Certificate of Title", "Site Plan"].includes(extractDoc.category) && extractDoc.category === extractCategory;
@@ -403,11 +425,18 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 </a>
                 {/* Measure button — for site plan docs */}
                 {(doc.category || "").toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && (
-                  <button onClick={(e) => { e.stopPropagation(); setMeasureDocId(doc.id); setShowMeasure(true); }}
-                    title="Open measurement tool on this document"
-                    style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                    📏 Measure
-                  </button>
+                  <>
+                    <button onClick={(e) => { e.stopPropagation(); setGeorefDocId(doc.id); setShowGeoref(true); }}
+                      title="Align plan to map (georeference)"
+                      style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #8e44ad40", background: "#f7f0fa", color: "#8e44ad", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                      🗺️ Align to Map
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setMeasureDocId(doc.id); setShowMeasure(true); }}
+                      title="Open measurement tool on this document"
+                      style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                      📏 Measure
+                    </button>
+                  </>
                 )}
                 {/* Extract & Analyse button — for multi-page PDFs */}
                 {canUpload && doc.type === "pdf" && ["Building Application", "Other Documents"].includes(doc.category) && (
@@ -717,6 +746,24 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 alert(`📏 Measurement ${value} ${unit} added as pending correction for "${fieldKey}".\n\nGo to AI Site Plan Analysis section → Save Corrections → Verify.`);
               }
             }}
+          />
+        );
+      })()}
+
+      {/* Site Plan Georeferencing Window (focused, split from measure) */}
+      {showGeoref && (() => {
+        const spDoc = georefDocId
+          ? docs.find(d => String(d.id) === String(georefDocId))
+          : docs.find(d => d.category === "Site Plan");
+        if (!spDoc) { setShowGeoref(false); return null; }
+        const imgUrl = spDoc.type === "pdf"
+          ? api.getDocumentRenderUrl(appDbId, spDoc.id, 1)
+          : api.getDocumentFileUrl(appDbId, spDoc.id);
+        return (
+          <SitePlanGeoref
+            imgUrl={imgUrl}
+            appRef={`${app?.ref_number || app?.id} — ${spDoc.name}`}
+            onClose={() => { setShowGeoref(false); setGeorefDocId(null); }}
             onGeorefPoints={onGeorefPoints}
           />
         );
