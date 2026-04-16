@@ -91,7 +91,7 @@ class Application(Base):
     site_plan_measures = Column(JSON, nullable=True)              # [{id,type,p1,p2,pxDist,color,label,...}] from measure tool
 
     # Soft delete
-    is_deleted = Column(Boolean, default=False, nullable=False)
+    is_deleted = Column(Boolean, default=False, server_default="false")
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     delete_reason = Column(Text, nullable=True)

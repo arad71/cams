@@ -109,9 +109,59 @@ def on_startup():
     """Create tables if they don't exist and seed lookup data."""
     # Import all models so SQLAlchemy knows about every table
     import app.models  # noqa — ensures all models are registered with Base
+
+    # Run column migrations FIRST — for existing tables that need new columns
+    _migrate_columns()
+
+    # Now create any tables that don't exist yet (new deployments)
     Base.metadata.create_all(bind=engine)
     _seed_lookups()
     _backfill_columns()
+
+
+def _migrate_columns():
+    """Add columns to existing tables that were added after initial deployment.
+    Must run BEFORE create_all so queries on new columns don't fail."""
+    from sqlalchemy import text
+
+    migration_stmts = [
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER",
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT",
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS form_extraction_data JSONB",
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS title_extraction_data JSONB",
+    ]
+
+    # Use engine directly (not ORM session) for DDL
+    try:
+        with engine.connect() as conn:
+            # Check if applications table exists first
+            result = conn.execute(text(
+                "SELECT 1 FROM information_schema.tables WHERE table_name='applications'"
+            ))
+            if not result.fetchone():
+                print("  ℹ applications table doesn't exist yet — skipping migrations")
+                return
+
+            for stmt in migration_stmts:
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception as e:
+                    print(f"  ⚠ Migration: {e}")
+                    conn.rollback()
+
+            # Backfill NULLs
+            try:
+                conn.execute(text("UPDATE applications SET is_deleted = FALSE WHERE is_deleted IS NULL"))
+                conn.commit()
+                print("  ✓ Column migrations complete")
+            except Exception:
+                conn.rollback()
+    except Exception as e:
+        print(f"  ⚠ Migration error (non-fatal): {e}")
 
 
 def _backfill_columns():
@@ -128,28 +178,6 @@ def _backfill_columns():
             db.commit()
             if n1: print(f"  ✓ Backfilled auth_provider='local' on {n1} users")
             if n2: print(f"  ✓ Backfilled must_change_password=False on {n2} users")
-
-        # Add columns for features added after initial deployment
-        for stmt in [
-            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
-            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER",
-            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT",
-            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS form_extraction_data JSONB",
-            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS title_extraction_data JSONB",
-        ]:
-            try:
-                db.execute(text(stmt))
-                db.commit()
-            except Exception:
-                db.rollback()
-        # Backfill any NULLs in is_deleted
-        try:
-            db.execute(text("UPDATE applications SET is_deleted = FALSE WHERE is_deleted IS NULL"))
-            db.commit()
-        except Exception:
-            db.rollback()
     except Exception as e:
         print(f"  ⚠ Backfill error: {e}")
         db.rollback()

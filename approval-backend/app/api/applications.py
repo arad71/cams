@@ -44,7 +44,7 @@ def list_applications(
 ):
     q = db.query(Application).options(joinedload(Application.assigned_officer))
 
-    # Exclude soft-deleted applications (also handle NULL for pre-migration rows)
+    # Exclude soft-deleted applications
     q = q.filter((Application.is_deleted == False) | (Application.is_deleted == None))
 
     # Engineers only see their assigned cases
@@ -54,7 +54,17 @@ def list_applications(
     if status_filter:
         q = q.filter(Application.status == status_filter)
 
-    apps = q.order_by(Application.submitted_date.desc()).all()
+    try:
+        apps = q.order_by(Application.submitted_date.desc()).all()
+    except Exception:
+        # Fallback if is_deleted column doesn't exist yet
+        db.rollback()
+        q2 = db.query(Application).options(joinedload(Application.assigned_officer))
+        if current_user.role == "engineer":
+            q2 = q2.filter(Application.officer_id == current_user.id)
+        if status_filter:
+            q2 = q2.filter(Application.status == status_filter)
+        apps = q2.order_by(Application.submitted_date.desc()).all()
 
     return [
         ApplicationListOut(
