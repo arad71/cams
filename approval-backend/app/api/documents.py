@@ -311,11 +311,9 @@ async def extract_pages_generic(
                 extracted = local_result.get("fields", {})
                 confidence = local_result.get("confidence", {})
 
-            # Save to application
+            # Save to application — only fill empty fields (preserves user data)
             updates = _map_extraction_to_app(extracted, extract_type)
-            for key, val in updates.items():
-                if hasattr(app, key):
-                    setattr(app, key, val)
+            filled_fields = _apply_extraction_to_app(app, updates)
 
             # Save full extraction data with confidence to the application
             from datetime import datetime, timezone
@@ -327,7 +325,7 @@ async def extract_pages_generic(
                 "doc_name": new_filename,
                 "pages": page_nums,
                 "extracted_at": datetime.now(timezone.utc).isoformat(),
-                "fields_saved": list(updates.keys()),
+                "fields_saved": filled_fields,
             }
             if extract_type == "certificate_of_title":
                 app.title_extraction_data = extraction_record
@@ -338,8 +336,8 @@ async def extract_pages_generic(
 
             result["extraction"] = extracted
             result["confidence"] = confidence
-            result["fields_saved"] = list(updates.keys())
-            result["message"] += f" Extracted {len(updates)} fields via {method}."
+            result["fields_saved"] = filled_fields
+            result["message"] += f" Extracted {len(updates)} fields via {method} ({len(filled_fields)} auto-filled into empty app fields)."
         except Exception as e:
             result["extractionError"] = str(e)
 
@@ -386,6 +384,28 @@ def _extract_fields_local(file_path, extract_type):
     # Return the fields dict (values only) for compatibility with _map_extraction_to_app
     # The full result with confidence is stored in the extraction detail
     return result.get("fields", {})
+
+
+def _apply_extraction_to_app(app, updates):
+    """Apply extracted fields to app model — only sets if current value is empty.
+    This preserves user-entered data and only fills blanks from extraction.
+    Returns list of fields actually filled."""
+    filled = []
+    for key, val in updates.items():
+        if not hasattr(app, key):
+            continue
+        current = getattr(app, key, None)
+        # Consider field "empty" if: None, empty string, False (for bools), 0/0.0 (for numerics)
+        is_empty = (
+            current is None
+            or (isinstance(current, str) and not current.strip())
+            or (isinstance(current, bool) and current is False)
+            or (isinstance(current, (int, float)) and current == 0)
+        )
+        if is_empty:
+            setattr(app, key, val)
+            filled.append(key)
+    return filled
 
 
 def _map_extraction_to_app(extracted, extract_type):
@@ -1020,16 +1040,14 @@ async def extract_document_fields(
             confidence = local_result.get("confidence", {})
 
             updates = _map_extraction_to_app(extracted, extract_type)
-            for key, val in updates.items():
-                if hasattr(app, key):
-                    setattr(app, key, val)
+            filled_fields = _apply_extraction_to_app(app, updates)
 
             from datetime import datetime, timezone
             extraction_record = {
                 "fields": extracted, "confidence": confidence, "method": "ai_local",
                 "doc_id": doc.id, "doc_name": doc.name,
                 "extracted_at": datetime.now(timezone.utc).isoformat(),
-                "fields_saved": list(updates.keys()),
+                "fields_saved": filled_fields,
             }
             if extract_type == "certificate_of_title":
                 app.title_extraction_data = extraction_record
@@ -1039,12 +1057,12 @@ async def extract_document_fields(
 
             from app.services.audit import log_audit
             log_audit(db=db, action="extract", entity_type="document", user=current_user,
-                      entity_id=str(doc.id), description=f"Local OCR extracted {len(updates)} fields from {doc.name}")
+                      entity_id=str(doc.id), description=f"Local OCR extracted {len(updates)} fields from {doc.name} ({len(filled_fields)} auto-filled)")
 
             return {
                 "type": extract_type, "extracted": extracted, "confidence": confidence,
-                "fields_saved": list(updates.keys()), "count": len(updates),
-                "message": f"Extracted {len(updates)} fields from {extract_type.replace('_', ' ')} via local OCR",
+                "fields_saved": filled_fields, "count": len(filled_fields), "extracted_count": len(updates),
+                "message": f"Extracted {len(updates)} fields via local OCR; {len(filled_fields)} auto-filled into empty application fields",
             }
         except Exception as e:
             raise HTTPException(500, f"Local extraction failed: {e}")
@@ -1198,11 +1216,10 @@ async def extract_document_fields(
                 updates["depth"] = extracted["depth"]
                 filled.append("depth")
 
-        # Apply updates
+        # Apply updates — only fill empty fields (preserves user data)
+        actually_filled = []
         if updates:
-            for key, val in updates.items():
-                if hasattr(app, key):
-                    setattr(app, key, val)
+            actually_filled = _apply_extraction_to_app(app, updates)
 
         # Save full extraction data to application
         from datetime import datetime, timezone
@@ -1213,7 +1230,7 @@ async def extract_document_fields(
             "doc_id": doc.id,
             "doc_name": doc.name,
             "extracted_at": datetime.now(timezone.utc).isoformat(),
-            "fields_saved": filled,
+            "fields_saved": actually_filled,
         }
         if extract_type == "certificate_of_title":
             app.title_extraction_data = extraction_record
