@@ -178,7 +178,7 @@ function removeCollinearPoints(points) {
 
 // ─── Document categories ───────────────────────────────
 const DOC_CATEGORIES = [
-  { id: "application_form", label: "Application Form", icon: "📄", accept: ".pdf", hint: "Upload the crossover application form PDF — fields will be auto-extracted", extract: "form" },
+  { id: "application_form", label: "Application Form", icon: "📄", accept: ".pdf", hint: "Upload document (for application form, the fields will be auto-extracted)", extract: "form" },
   { id: "site_plan", label: "Site Plan", icon: "📐", accept: ".pdf,.jpg,.jpeg,.png", hint: "Site plan — AI will extract dimensions, materials, and compliance data", extract: "siteplan" },
   { id: "building_application", label: "Building Application", icon: "🏗️", accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx", hint: "Building application / development approval documents" },
   { id: "certificate_of_title", label: "Certificate of Title", icon: "📜", accept: ".pdf,.jpg,.jpeg,.png", hint: "Current Certificate of Title" },
@@ -273,6 +273,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const [processing, setProcessing] = useState({});  // { catId: true/false }
   const [processResults, setProcessResults] = useState({});  // { catId: result }
   const [sitePlanData, setSitePlanData] = useState(null);  // full AI extraction JSON
+  const [formExtractionData, setFormExtractionData] = useState(null);  // form OCR extraction result
 
   const set = (key) => (e) => {
     const val = e.target.type === "checkbox" ? e.target.checked : e.target.value;
@@ -444,6 +445,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       formData.append("type", "application_form");
       const result = await api._fetch("/extract-local-ocr", { method: "POST", body: formData });
       const fields = result.fields || {};
+      const confidence = result.confidence || null;
+      // Save full extraction for form_extraction_data
+      setFormExtractionData({ fields, confidence, method: "local_ocr", extracted_at: new Date().toISOString() });
       const updates = {};
       const filled = [];
       const mapping = {
@@ -668,6 +672,14 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       };
       const result = await api.createApp(payload);
       const appId = result.id;
+
+      // Save form extraction data if available
+      if (formExtractionData) {
+        try {
+          await api.updateApp(appId, { form_extraction_data: formExtractionData });
+        } catch (e) { console.warn("Failed to save form extraction data:", e); }
+      }
+
       const catLabels = {}; DOC_CATEGORIES.forEach(c => { catLabels[c.id] = c.label; });
       for (const [catId, file] of Object.entries(documents)) {
         if (file) {
