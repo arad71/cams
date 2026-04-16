@@ -230,19 +230,28 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
 
   const canUpload = currentUser && ["admin", "manager", "engineer"].includes(currentUser.role);
 
-  // Auto-trigger georeferencing after site plan upload (once per session, per app)
+  // Auto-trigger georeferencing after site plan upload (once per app per session)
+  // Uses sessionStorage so step navigation (which remounts this component) doesn't re-trigger
   useEffect(() => {
     if (!app || !appDbId) return;
-    if (autoGeorefTriggered.current) return;
     if (showGeoref || showMeasure) return;
+    const promptKey = `georef_prompted_${appDbId}`;
+    if (sessionStorage.getItem(promptKey)) return;
+    if (autoGeorefTriggered.current) return;
     const siteplans = (documents || []).filter(d => d.category === "Site Plan");
     if (siteplans.length === 0) return;
     // Only auto-trigger if no georef overlay is set yet
     const hasGeoref = app.georef_overlay && app.georef_overlay.planPts && app.georef_overlay.planPts.length >= 3;
-    if (!hasGeoref && canUpload) {
+    if (hasGeoref) {
+      // Already saved — mark as prompted so we don't ask again
+      sessionStorage.setItem(promptKey, "saved");
+      return;
+    }
+    if (canUpload) {
       // Use the most recently uploaded site plan
       const latest = siteplans[siteplans.length - 1];
       autoGeorefTriggered.current = true;
+      sessionStorage.setItem(promptKey, "shown");
       setGeorefDocId(latest.id);
       setShowGeoref(true);
     }
