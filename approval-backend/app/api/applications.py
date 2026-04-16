@@ -44,8 +44,8 @@ def list_applications(
 ):
     q = db.query(Application).options(joinedload(Application.assigned_officer))
 
-    # Exclude soft-deleted applications
-    q = q.filter(Application.is_deleted == False)
+    # Exclude soft-deleted applications (also handle NULL for pre-migration rows)
+    q = q.filter((Application.is_deleted == False) | (Application.is_deleted == None))
 
     # Engineers only see their assigned cases
     if current_user.role == "engineer":

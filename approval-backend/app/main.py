@@ -129,13 +129,24 @@ def _backfill_columns():
             if n1: print(f"  ✓ Backfilled auth_provider='local' on {n1} users")
             if n2: print(f"  ✓ Backfilled must_change_password=False on {n2} users")
 
-        # Add extraction_locked column if it doesn't exist
+        # Add columns for features added after initial deployment
+        for stmt in [
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS form_extraction_data JSONB",
+            "ALTER TABLE applications ADD COLUMN IF NOT EXISTS title_extraction_data JSONB",
+        ]:
+            try:
+                db.execute(text(stmt))
+                db.commit()
+            except Exception:
+                db.rollback()
+        # Backfill any NULLs in is_deleted
         try:
-            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE"))
-            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE NOT NULL"))
-            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ"))
-            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER REFERENCES users(id)"))
-            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT"))
+            db.execute(text("UPDATE applications SET is_deleted = FALSE WHERE is_deleted IS NULL"))
             db.commit()
         except Exception:
             db.rollback()
