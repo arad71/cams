@@ -763,8 +763,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
           <SitePlanGeoref
             imgUrl={imgUrl}
             appRef={`${app?.ref_number || app?.id} — ${spDoc.name}`}
+            appDbId={appDbId}
+            docId={spDoc.id}
+            existingOverlay={app?.georef_overlay}
             onClose={() => { setShowGeoref(false); setGeorefDocId(null); }}
             onGeorefPoints={onGeorefPoints}
+            onSaved={() => { if (onDocUpdated) onDocUpdated(); }}
           />
         );
       })()}

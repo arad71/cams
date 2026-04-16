@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { T } from '../../styles/tokens';
+import api from '../../services/api';
 
 /**
  * Focused georeferencing tool.
  * Shows site plan image, lets user click lot corner points, then applies them to the map.
- * 3 or more points required.
+ * 3 or more points required. Plan points are saved to app.georef_overlay immediately
+ * so the overlay persists even if user closes before pairing with map points.
  */
-export default function SitePlanGeoref({ imgUrl, appRef, onClose, onGeorefPoints }) {
+export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existingOverlay, onClose, onGeorefPoints, onSaved }) {
   const imgRef = useRef(null);
   const wrapRef = useRef(null);
 
@@ -31,7 +33,14 @@ export default function SitePlanGeoref({ imgUrl, appRef, onClose, onGeorefPoints
   const panStart = useRef({ x: 0, y: 0 });
 
   // Georef points (plan image pixel coords)
-  const [points, setPoints] = useState([]);
+  const [points, setPoints] = useState(() => {
+    // Restore previously saved plan points so user can see what they had
+    const saved = existingOverlay?.planPts;
+    if (Array.isArray(saved) && saved.length > 0) return saved.map(p => ({ x: p.x, y: p.y }));
+    return [];
+  });
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
 
   // Window drag
   const onHeaderMouseDown = (e) => {
@@ -110,11 +119,38 @@ export default function SitePlanGeoref({ imgUrl, appRef, onClose, onGeorefPoints
   const removeLastPoint = () => setPoints(prev => prev.slice(0, -1));
   const clearPoints = () => setPoints([]);
 
-  const apply = () => {
+  const apply = async () => {
     if (points.length < 3) return;
     const img = imgRef.current;
+    const imgW = img?.naturalWidth || imgSize.w;
+    const imgH = img?.naturalHeight || imgSize.h;
+
+    // Persist plan points to backend so they survive refresh (and gate the auto-popup)
+    if (appDbId) {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const overlay = {
+          planPts: points.map(p => ({ x: p.x, y: p.y })),
+          mapPts: existingOverlay?.mapPts || [],
+          bounds: existingOverlay?.bounds || null,
+          docId: docId || existingOverlay?.docId || null,
+          page: existingOverlay?.page || 1,
+          imgW, imgH,
+        };
+        await api.updateApp(appDbId, { georef_overlay: overlay });
+        if (onSaved) onSaved(overlay);
+      } catch (e) {
+        setSaveError(e?.message || 'Save failed');
+        setSaving(false);
+        return;
+      }
+      setSaving(false);
+    }
+
+    // Continue with in-session pairing flow (so map-side alignment also works)
     if (onGeorefPoints) {
-      onGeorefPoints(points, imgUrl, img?.naturalWidth || imgSize.w, img?.naturalHeight || imgSize.h);
+      onGeorefPoints(points, imgUrl, imgW, imgH);
     }
     if (onClose) onClose();
   };
@@ -156,10 +192,18 @@ export default function SitePlanGeoref({ imgUrl, appRef, onClose, onGeorefPoints
             {points.length >= 3 && <div style={{ fontSize: 10, color: '#27ae60', marginTop: 4 }}>✓ Ready to apply</div>}
           </div>
 
-          <button onClick={apply} disabled={points.length < 3}
-            style={{ padding: '10px 0', borderRadius: T.r.md, border: 'none', background: points.length >= 3 ? '#8e44ad' : '#cbd4d8', color: '#fff', fontWeight: 700, fontSize: 12, cursor: points.length >= 3 ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
-            Apply to Map →
+          <button onClick={apply} disabled={points.length < 3 || saving}
+            style={{ padding: '10px 0', borderRadius: T.r.md, border: 'none', background: saving ? '#aaa' : points.length >= 3 ? '#8e44ad' : '#cbd4d8', color: '#fff', fontWeight: 700, fontSize: 12, cursor: (points.length >= 3 && !saving) ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+            {saving ? 'Saving…' : 'Apply & Save →'}
           </button>
+          {saveError && (
+            <div style={{ fontSize: 10, color: '#c0392b', textAlign: 'center', padding: 4 }}>{saveError}</div>
+          )}
+          {existingOverlay?.planPts?.length >= 3 && (
+            <div style={{ fontSize: 10, color: '#7a8a94', textAlign: 'center', fontStyle: 'italic' }}>
+              ✓ Previously saved — editing will replace
+            </div>
+          )}
 
           <button onClick={removeLastPoint} disabled={points.length === 0}
             style={{ padding: '7px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: points.length ? '#1a3a4a' : '#b8c1c5', fontSize: 11, cursor: points.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
