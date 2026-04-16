@@ -90,12 +90,19 @@ class Application(Base):
     site_crossover_latlon = Column(JSON, nullable=True)           # [[lat,lng], ...] geo-referenced
     site_plan_measures = Column(JSON, nullable=True)              # [{id,type,p1,p2,pxDist,color,label,...}] from measure tool
 
+    # Soft delete
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    delete_reason = Column(Text, nullable=True)
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     assigned_officer = relationship("User", back_populates="assigned_applications", foreign_keys=[officer_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
     notes = relationship("ApplicationNote", back_populates="application", cascade="all, delete-orphan", order_by="ApplicationNote.created_at.desc()")
     documents = relationship("Document", back_populates="application", cascade="all, delete-orphan")
     inspections = relationship("Inspection", back_populates="application", cascade="all, delete-orphan")

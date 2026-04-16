@@ -684,6 +684,83 @@ function GeoDataTab() {
   );
 }
 
+// ═══════════════════════════════════════════════════════
+//  Deleted Applications Tab (admin only)
+// ═══════════════════════════════════════════════════════
+function DeletedAppsTab() {
+  const [deleted, setDeleted] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [restoring, setRestoring] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try { setDeleted(await api.listDeletedApplications()); }
+    catch (e) { console.error("Failed to load deleted apps", e); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleRestore = async (id, ref) => {
+    if (!window.confirm(`Restore application ${ref}? It will return to "Pending Review".`)) return;
+    setRestoring(id);
+    try {
+      await api.restoreApplication(id);
+      setDeleted(prev => prev.filter(a => a.id !== id));
+    } catch (e) { alert("Restore failed: " + (e.message || e)); }
+    setRestoring(null);
+  };
+
+  if (loading) return <div style={{ padding: 24, color: T.c.textMuted, fontSize: 13 }}>Loading deleted applications…</div>;
+
+  if (deleted.length === 0) return (
+    <div style={{ padding: 32, textAlign: "center", color: T.c.textMuted }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>🗑️</div>
+      <div style={{ fontSize: 14 }}>No deleted applications</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: T.c.textMuted, marginBottom: 12 }}>{deleted.length} deleted application{deleted.length !== 1 ? "s" : ""}</div>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th style={thS}>Application No</th>
+            <th style={thS}>Property Address</th>
+            <th style={thS}>Owner</th>
+            <th style={thS}>Deleted By</th>
+            <th style={thS}>Deleted At</th>
+            <th style={thS}>Reason</th>
+            <th style={{ ...thS, textAlign: "center" }}>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {deleted.map(a => (
+            <tr key={a.id} style={{ background: "#fff" }}>
+              <td style={{ ...tdS, fontWeight: T.w.bold, fontFamily: "monospace", fontSize: 12 }}>{a.ref_number}</td>
+              <td style={tdS}>{a.property_address}</td>
+              <td style={tdS}>{a.owner_name}</td>
+              <td style={tdS}>{a.deleted_by}</td>
+              <td style={{ ...tdS, fontSize: 11, color: T.c.textMuted }}>{a.deleted_at ? new Date(a.deleted_at).toLocaleString() : "—"}</td>
+              <td style={{ ...tdS, fontStyle: "italic", color: T.c.textSecondary, maxWidth: 260 }}>{a.reason || "—"}</td>
+              <td style={{ ...tdS, textAlign: "center" }}>
+                <button
+                  onClick={() => handleRestore(a.id, a.ref_number)}
+                  disabled={restoring === a.id}
+                  style={{ padding: "5px 14px", borderRadius: T.r.md, border: "1px solid #27ae60", background: restoring === a.id ? "#ccc" : "#e8f8f0", color: "#27ae60", fontSize: 11, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  {restoring === a.id ? "Restoring…" : "Restore"}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PROP, roles, departments }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
   const [activeTab, setActiveTab] = useState('users');
@@ -694,6 +771,7 @@ function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PR
     { id: 'rules', icon: '⚙️', label: 'Assessment Rules' },
     { id: 'sight_dist', icon: '👁', label: 'Sight Distances' },
     { id: 'geodata', icon: '🗺️', label: 'GeoData (Data WA)' },
+    { id: 'deleted', icon: '🗑️', label: 'Deleted Applications' },
   ];
 
   return (
@@ -715,6 +793,7 @@ function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PR
       {activeTab === 'rules' && <RulesTab />}
       {activeTab === 'sight_dist' && <SightDistTab />}
       {activeTab === 'geodata' && <GeoDataTab />}
+      {activeTab === 'deleted' && <DeletedAppsTab />}
     </div>
   );
 }

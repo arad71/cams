@@ -656,6 +656,9 @@ export default function WorkflowView({
   const [assessments, setAssessments] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
   const [showMap, setShowMap] = useState(currentStep === 3);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   // Load assessments for step stats
   useEffect(() => {
@@ -717,8 +720,55 @@ export default function WorkflowView({
     }]);
   };
 
+  const handleDeleteApp = async () => {
+    if (!deleteReason.trim()) return;
+    setDeleting(true);
+    try {
+      await api.deleteApplication(localApp._dbId, deleteReason.trim());
+      setShowDeleteModal(false);
+      setDeleteReason("");
+      // Navigate back to list
+      if (onSelectApp) onSelectApp(null);
+    } catch (e) { alert("Delete failed: " + (e.message || e)); }
+    setDeleting(false);
+  };
+
   return (
     <div>
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.45)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setShowDeleteModal(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: T.r.lg, padding: 24, width: 420, maxWidth: "90vw", boxShadow: "0 8px 40px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: T.w.black, color: "#c0392b", marginBottom: 4 }}>🗑️ Delete Application</div>
+            <div style={{ fontSize: 13, color: T.c.textSecondary, marginBottom: 16 }}>
+              This will soft-delete <strong>{localApp.ref_number}</strong> ({localApp.property_address}). It can be restored from System Administration.
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, display: "block", marginBottom: 4 }}>Reason for deletion *</label>
+              <textarea
+                value={deleteReason}
+                onChange={e => setDeleteReason(e.target.value)}
+                placeholder="e.g. Duplicate application, Submitted in error, Owner withdrew…"
+                rows={3}
+                style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", resize: "vertical" }}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => { setShowDeleteModal(false); setDeleteReason(""); }}
+                style={{ padding: "8px 20px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: "#fff", color: T.c.textSecondary, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                Cancel
+              </button>
+              <button onClick={handleDeleteApp} disabled={!deleteReason.trim() || deleting}
+                style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none", background: !deleteReason.trim() || deleting ? "#ccc" : "#c0392b", color: "#fff", fontSize: 12, fontWeight: T.w.bold, cursor: !deleteReason.trim() || deleting ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+                {deleting ? "Deleting…" : "Delete Application"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stepper */}
       <Stepper currentStep={currentStep} completedUpTo={completedUpTo} onStepClick={setCurrentStep} stepStats={stepStats} />
 
@@ -755,6 +805,12 @@ export default function WorkflowView({
           <button onClick={() => setShowMap(m => !m)}
             style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#7a8a94", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
             🗺️ {showMap ? "Hide Map" : "Show Map"}
+          </button>
+        )}
+        {currentUser?.role === "admin" && (
+          <button onClick={() => setShowDeleteModal(true)}
+            style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e74c3c40", background: "#fdf0ef", color: "#c0392b", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+            🗑️ Delete
           </button>
         )}
       </div>

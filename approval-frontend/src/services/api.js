@@ -127,6 +127,11 @@ const api = {
   async analyseDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}/analyse`, { method: "POST" }); },
   async correctSitePlan(appId, corrections) { return this._fetch(`/applications/${appId}/site-plan-correction`, { method: "PATCH", body: corrections }); },
 
+  // Application soft-delete
+  async deleteApplication(appId, reason) { return this._fetch(`/applications/${appId}`, { method: "DELETE", body: { reason } }); },
+  async listDeletedApplications() { return this._fetch("/applications/deleted/list"); },
+  async restoreApplication(appId) { return this._fetch(`/applications/${appId}/restore`, { method: "POST" }); },
+
   // AI Training data
   async trainingStats() { return this._fetch("/training/stats"); },
   async trainingVerify(sampleId) { return this._fetch(`/training/samples/${sampleId}/verify`, { method: "POST" }); },

@@ -132,9 +132,13 @@ def _backfill_columns():
         # Add extraction_locked column if it doesn't exist
         try:
             db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE"))
+            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE NOT NULL"))
+            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ"))
+            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER REFERENCES users(id)"))
+            db.execute(text("ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT"))
             db.commit()
         except Exception:
-            db.rollback()  # Column might already exist or DB doesn't support IF NOT EXISTS
+            db.rollback()
     except Exception as e:
         print(f"  ⚠ Backfill error: {e}")
         db.rollback()

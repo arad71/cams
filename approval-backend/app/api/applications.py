@@ -44,6 +44,9 @@ def list_applications(
 ):
     q = db.query(Application).options(joinedload(Application.assigned_officer))
 
+    # Exclude soft-deleted applications
+    q = q.filter(Application.is_deleted == False)
+
     # Engineers only see their assigned cases
     if current_user.role == "engineer":
         q = q.filter(Application.officer_id == current_user.id)
@@ -63,6 +66,34 @@ def list_applications(
             property_address=a.property_address,
             officer_name=a.assigned_officer.name if a.assigned_officer else None,
         )
+        for a in apps
+    ]
+
+
+# ─── List Deleted Applications (admin only) ───────────────
+@router.get("/deleted/list")
+def list_deleted_applications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """Return all soft-deleted applications for the admin panel."""
+    apps = (
+        db.query(Application)
+        .options(joinedload(Application.deleted_by))
+        .filter(Application.is_deleted == True)
+        .order_by(Application.deleted_at.desc())
+        .all()
+    )
+    return [
+        {
+            "id": a.id,
+            "ref_number": a.ref_number,
+            "property_address": a.property_address,
+            "owner_name": a.owner_name,
+            "deleted_by": a.deleted_by.name if a.deleted_by else "Unknown",
+            "deleted_at": a.deleted_at.isoformat() if a.deleted_at else None,
+            "reason": a.delete_reason,
+        }
         for a in apps
     ]
 
@@ -522,3 +553,77 @@ def download_report_pdf(app_id: int, version: int, db: Session = Depends(get_db)
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ─── Soft-Delete Application (admin only) ─────────────────
+@router.delete("/{app_id}")
+def delete_application(
+    app_id: int,
+    body: dict,  # {"reason": "Duplicate application"}
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    request: Request = None,
+):
+    """Soft-delete an application. Requires a reason. Admin only."""
+    from app.services.audit import log_audit
+    from datetime import timezone
+
+    reason = (body.get("reason") or "").strip()
+    if not reason:
+        raise HTTPException(400, "A reason for deletion is required")
+
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if app.is_deleted:
+        raise HTTPException(400, "Application is already deleted")
+
+    app.is_deleted = True
+    app.deleted_at = datetime.now(timezone.utc)
+    app.deleted_by_id = current_user.id
+    app.delete_reason = reason
+    app.status = "deleted"
+    db.commit()
+
+    log_audit(
+        db=db, action="delete", entity_type="application", user=current_user,
+        entity_id=str(app.id), entity_ref=app.ref_number,
+        description=f"Soft-deleted application {app.ref_number}: {reason}",
+        request=request,
+    )
+
+    return {"message": f"Application {app.ref_number} deleted", "reason": reason}
+
+
+# ─── Restore Deleted Application (admin only) ─────────────
+@router.post("/{app_id}/restore")
+def restore_application(
+    app_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+    request: Request = None,
+):
+    """Restore a soft-deleted application."""
+    from app.services.audit import log_audit
+
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+    if not app.is_deleted:
+        raise HTTPException(400, "Application is not deleted")
+
+    app.is_deleted = False
+    app.deleted_at = None
+    app.deleted_by_id = None
+    app.delete_reason = None
+    app.status = "pending_review"
+    db.commit()
+
+    log_audit(
+        db=db, action="restore", entity_type="application", user=current_user,
+        entity_id=str(app.id), entity_ref=app.ref_number,
+        description=f"Restored application {app.ref_number}",
+        request=request,
+    )
+
+    return {"message": f"Application {app.ref_number} restored"}
