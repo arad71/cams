@@ -61,41 +61,60 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
   const toggleMax = () => setMaximized(m => !m);
 
   // Convert screen click to image pixel coords
-  const screenToImage = (e) => {
-    const wrap = wrapRef.current;
-    if (!wrap) return null;
-    const rect = wrap.getBoundingClientRect();
-    const sx = e.clientX - rect.left;
-    const sy = e.clientY - rect.top;
-    // Inverse of: translate(pan) * scale(zoom)
-    return { x: (sx - pan.x) / zoom, y: (sy - pan.y) / zoom };
-  };
+  // Mousedown: remember position; if mouseup close to same spot, treat as click
+  const mouseDownPos = useRef(null);
+  const mouseDownPanning = useRef(false);
 
-  // Click to add point, or drag to pan
   const handleMouseDown = (e) => {
     if (!imgLoaded) return;
-    if (e.button === 1 || e.shiftKey) {
-      // Middle click or shift = pan
+    e.preventDefault();
+    // Shift, right button, or middle button = pan
+    if (e.button === 1 || e.button === 2 || e.shiftKey) {
       setPanning(true);
+      mouseDownPanning.current = true;
       panStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
       return;
     }
+    // Record mousedown for click detection
+    mouseDownPos.current = { x: e.clientX, y: e.clientY };
+    mouseDownPanning.current = false;
   };
-  const handleMouseMove = (e) => {
-    if (!panning) return;
-    setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
-  };
-  const handleMouseUp = () => setPanning(false);
 
-  const handleClick = (e) => {
-    if (panning || !imgLoaded) return;
-    // Don't add point if shift held (pan mode)
-    if (e.shiftKey) return;
-    const pt = screenToImage(e);
-    if (!pt) return;
+  const handleMouseMove = (e) => {
+    if (mouseDownPanning.current && panning) {
+      setPan({ x: e.clientX - panStart.current.x, y: e.clientY - panStart.current.y });
+    }
+  };
+
+  const handleMouseUp = (e) => {
+    const wasPanning = mouseDownPanning.current;
+    setPanning(false);
+    mouseDownPanning.current = false;
+
+    if (wasPanning) {
+      mouseDownPos.current = null;
+      return;
+    }
+    // Check if this was a click (mouse didn't move much)
+    const down = mouseDownPos.current;
+    mouseDownPos.current = null;
+    if (!down) return;
+    const dx = e.clientX - down.x;
+    const dy = e.clientY - down.y;
+    if (Math.sqrt(dx * dx + dy * dy) > 5) return; // treat as drag, not click
+
+    // It's a click — add point
+    if (!imgLoaded) return;
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const imgX = (sx - pan.x) / zoom;
+    const imgY = (sy - pan.y) / zoom;
     // Only add if within image bounds
-    if (pt.x < 0 || pt.y < 0 || pt.x > imgSize.w || pt.y > imgSize.h) return;
-    setPoints(prev => [...prev, pt]);
+    if (imgX < 0 || imgY < 0 || imgX > imgSize.w || imgY > imgSize.h) return;
+    setPoints(prev => [...prev, { x: imgX, y: imgY }]);
   };
 
   // Zoom with wheel
@@ -226,7 +245,7 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          onClick={handleClick}
+          onContextMenu={(e) => e.preventDefault()}
           onWheel={handleWheel}>
           <div style={{ position: 'absolute', transformOrigin: '0 0', transform: `translate(${pan.x}px,${pan.y}px) scale(${zoom})` }}>
             <img ref={imgRef} src={imgUrl} crossOrigin="anonymous" alt="Site Plan"
