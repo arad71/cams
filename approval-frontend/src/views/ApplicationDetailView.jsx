@@ -15,7 +15,7 @@ import { T, S, cx } from '../styles/tokens';
 //  Application Detail View
 // ═══════════════════════════════════════════════════════
 
-function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, users, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData }) {
+function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, reloadAllApps, users, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData }) {
   const [localApp, setLocalApp] = useState(JSON.parse(JSON.stringify(app)));
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
@@ -73,8 +73,8 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
       </div>
 
       <WorkflowView
-        app={app} apps={apps} onSelectApp={onSelectApp}
-        currentUser={currentUser} reloadApp={reloadApp} users={users}
+        app={app} apps={apps} onSelectApp={onSelectApp} onBack={onBack}
+        currentUser={currentUser} reloadApp={reloadApp} reloadAllApps={reloadAllApps} users={users}
         globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
         globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
         globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}

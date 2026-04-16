@@ -639,7 +639,7 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
 // ═══════════════════════════════════════════════════════════
 
 export default function WorkflowView({
-  app, apps, onSelectApp, currentUser, reloadApp, users,
+  app, apps, onSelectApp, onBack, currentUser, reloadApp, reloadAllApps, users,
   globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData,
   globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData,
   // Shared state from parent
@@ -727,8 +727,10 @@ export default function WorkflowView({
       await api.deleteApplication(localApp._dbId, deleteReason.trim());
       setShowDeleteModal(false);
       setDeleteReason("");
-      // Navigate back to list
-      if (onSelectApp) onSelectApp(null);
+      // Refresh the app list so the deleted app disappears, then navigate back
+      if (reloadAllApps) await reloadAllApps();
+      if (onBack) onBack();
+      else if (onSelectApp) onSelectApp(null);
     } catch (e) { alert("Delete failed: " + (e.message || e)); }
     setDeleting(false);
   };
