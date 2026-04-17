@@ -404,14 +404,23 @@ def _evaluate_condition(field_value, operator: str, threshold_str: str) -> bool:
 
     threshold = _cast_value(threshold_str, field_value)
 
-    if operator == "gte":
-        return float(field_value) >= float(threshold) if threshold is not None else False
-    if operator == "lte":
-        return float(field_value) <= float(threshold) if threshold is not None else False
-    if operator == "gt":
-        return float(field_value) > float(threshold) if threshold is not None else False
-    if operator == "lt":
-        return float(field_value) < float(threshold) if threshold is not None else False
+    # Numeric comparisons — safely convert both sides
+    if operator in ("gte", "lte", "gt", "lt"):
+        try:
+            fv = float(field_value)
+            tv = float(threshold) if threshold is not None else None
+            if tv is None:
+                return False
+        except (ValueError, TypeError):
+            return False  # Non-numeric field can't be compared numerically
+        if operator == "gte":
+            return fv >= tv
+        if operator == "lte":
+            return fv <= tv
+        if operator == "gt":
+            return fv > tv
+        if operator == "lt":
+            return fv < tv
     if operator == "eq":
         return str(field_value).lower() == str(threshold).lower()
     if operator == "neq":
