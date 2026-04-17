@@ -544,3 +544,79 @@ export function checkUtilityClearance(crossoverCorners, utilityData, utilityType
   results.sort((a, b) => a.distance - b.distance);
   return results;
 }
+
+
+// ───────────────────────────────────────────────────────────
+// Find nearest road(s) to lot boundary from map data
+// ───────────────────────────────────────────────────────────
+
+/**
+ * For each lot edge, find the nearest road feature and its distance.
+ * Returns the roads adjacent to the lot, sorted by distance.
+ *
+ * @param {Array<[lat,lng]>} lotPoly — lot boundary polygon
+ * @param {...Object} roadDataSources — GeoJSON FeatureCollections (speedRoads, roadNetwork)
+ * @returns {Array<{road_name, distance, edgeIndex, edgeMidLat, edgeMidLng}>}
+ */
+export function findNearestRoadsToLot(lotPoly, ...roadDataSources) {
+  if (!lotPoly || lotPoly.length < 4) return [];
+
+  const mLat = M_PER_DEG_LAT;
+  const mLng = mPerDegLng(lotPoly[0][0]);
+
+  // For each lot edge, find the nearest road
+  const edgeRoads = [];
+  for (let i = 0; i < lotPoly.length - 1; i++) {
+    const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
+    const midLng = (lotPoly[i][1] + lotPoly[i + 1][1]) / 2;
+    const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mLng) ** 2);
+    if (edgeLen < 3) continue; // skip tiny edges
+
+    let bestDist = Infinity;
+    let bestName = null;
+
+    for (const src of roadDataSources.filter(s => s?.features)) {
+      for (const feat of src.features) {
+        const g = feat.geometry;
+        if (!g || g.type !== "LineString") continue;
+        const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || feat.properties?.full_name || '';
+        if (!rn) continue;
+
+        for (let j = 0; j < g.coordinates.length - 1; j++) {
+          const [aLng, aLat] = g.coordinates[j];
+          const [bLng, bLat] = g.coordinates[j + 1];
+          // Distance from edge midpoint to road segment
+          const d = pointToSegmentDist(midLat, midLng, aLat, aLng, bLat, bLng);
+          if (d < bestDist) {
+            bestDist = d;
+            bestName = rn;
+          }
+        }
+      }
+    }
+
+    if (bestName && bestDist < 20) { // within 20m = adjacent
+      edgeRoads.push({
+        road_name: bestName,
+        distance: Math.round(bestDist * 10) / 10,
+        edgeIndex: i,
+        edgeMidLat: midLat,
+        edgeMidLng: midLng,
+        edgeLen: Math.round(edgeLen * 10) / 10,
+      });
+    }
+  }
+
+  // Deduplicate by road name (keep the closest edge per road)
+  const seen = {};
+  const unique = [];
+  for (const er of edgeRoads.sort((a, b) => a.distance - b.distance)) {
+    const key = er.road_name.toUpperCase();
+    if (!seen[key]) {
+      seen[key] = true;
+      unique.push(er);
+    }
+  }
+
+  return unique;
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { SIGHT_DISTANCE_TABLE, AI_OVERRIDE_FIELDS } from '../../data/constants';
 import { getAppCoords, getFirstRing, normalizeLotPolygon, findNearestRoadSpeed, getSightDistances } from '../../utils/geoHelpers';
-import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCrossoverRect, checkUtilityClearance } from '../../utils/geo';
+import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCrossoverRect, checkUtilityClearance, findNearestRoadsToLot } from '../../utils/geo';
 import LeafletMap from './LeafletMap';
 import { T, S, cx } from '../../styles/tokens';
 
@@ -1849,26 +1849,76 @@ Respond with JSON only:
             const sm = ext?.siteplan_measurements || {};
             const con = ext?.construction || {};
             const hasData = Object.keys(cd).length > 0 || Object.keys(sm).length > 0;
-            if (!hasData) return null;
+
+            // Detect road from map data
+            const lotPoly = app?.lot_polygon;
+            const mapRoads = lotPoly ? findNearestRoadsToLot(lotPoly, speedRoadsData, roadNetworkData) : [];
+            const mapPrimaryRoad = mapRoads[0]?.road_name || null;
+            const mapSecondaryRoad = mapRoads[1]?.road_name || null;
+            const aiRoad = sm.crossover_on_road || sm.road_name || null;
+            const aiSecondaryRoad = sm.secondary_road_name || null;
+
+            // Check if AI road matches map road (case-insensitive, first word match)
+            const roadsMatch = aiRoad && mapPrimaryRoad && (
+              aiRoad.toUpperCase() === mapPrimaryRoad.toUpperCase() ||
+              aiRoad.toUpperCase().split(' ')[0] === mapPrimaryRoad.toUpperCase().split(' ')[0]
+            );
+
+            if (!hasData && !mapPrimaryRoad) return null;
             const V = (v, u) => v != null && v !== '' && v !== 'null' ? `${v}${u || ''}` : '—';
             return (
-              <div style={{ padding: "6px 12px", borderTop: "1px solid #d5e8f020", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px 16px", fontSize: 9, lineHeight: 1.6 }}>
-                <div style={{ fontWeight: 700, color: "#1a3a4a", gridColumn: "1/-1", fontSize: 10, marginBottom: 2 }}>📊 AI Extraction Reference</div>
+              <div style={{ padding: "6px 12px", borderTop: "1px solid #d5e8f020", fontSize: 9, lineHeight: 1.6 }}>
+                <div style={{ fontWeight: 700, color: "#1a3a4a", fontSize: 10, marginBottom: 2 }}>📊 AI Extraction Reference</div>
+                {/* Road name: AI vs Map comparison */}
+                <div style={{ marginBottom: 4, padding: "4px 6px", background: (!roadsMatch && aiRoad && mapPrimaryRoad) ? "#fef9e7" : "transparent", borderRadius: 3 }}>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                    <span><span style={{ color: "#7a8a94" }}>Road (AI):</span> <strong>{V(aiRoad)}</strong></span>
+                    <span><span style={{ color: "#7a8a94" }}>Road (Map):</span> <strong style={{ color: mapPrimaryRoad ? "#27ae60" : "#bdc3c7" }}>{mapPrimaryRoad || '—'}</strong>
+                      {mapPrimaryRoad && <span style={{ color: "#95a5a6", marginLeft: 3 }}>({mapRoads[0]?.distance}m)</span>}
+                    </span>
+                    {mapSecondaryRoad && (
+                      <span><span style={{ color: "#7a8a94" }}>2nd Road:</span> <strong style={{ color: "#8e44ad" }}>{mapSecondaryRoad}</strong>
+                        <span style={{ color: "#95a5a6", marginLeft: 3 }}>({mapRoads[1]?.distance}m)</span>
+                      </span>
+                    )}
+                    {!roadsMatch && aiRoad && mapPrimaryRoad && onMeasureCorrection && (
+                      <button onClick={() => {
+                        onMeasureCorrection('siteplan_measurements.crossover_on_road', mapPrimaryRoad, '');
+                        alert(`📍 Road name overridden: "${aiRoad}" → "${mapPrimaryRoad}" (from map data)`);
+                      }} style={{ padding: "1px 6px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                        Use Map Road
+                      </button>
+                    )}
+                    {!aiRoad && mapPrimaryRoad && onMeasureCorrection && (
+                      <button onClick={() => {
+                        onMeasureCorrection('siteplan_measurements.crossover_on_road', mapPrimaryRoad, '');
+                        onMeasureCorrection('siteplan_measurements.road_name', mapPrimaryRoad, '');
+                        alert(`📍 Road name set from map: "${mapPrimaryRoad}"`);
+                      }} style={{ padding: "1px 6px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                        Set from Map
+                      </button>
+                    )}
+                  </div>
+                  {!roadsMatch && aiRoad && mapPrimaryRoad && (
+                    <div style={{ marginTop: 2, color: "#e67e22", fontWeight: 600, fontSize: 8 }}>⚠️ AI road name doesn't match nearest map road</div>
+                  )}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px 16px" }}>
                 <div><span style={{ color: "#7a8a94" }}>Crossover Width:</span> <strong>{V(cd.width_at_boundary_m, 'm')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Verge Depth:</span> <strong>{V(cd.verge_depth_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Road:</span> <strong>{V(sm.crossover_on_road || sm.road_name)}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Speed Zone:</span> <strong>{V(sm.road_speed_zone_kmh, ' km/h')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Left Boundary:</span> <strong>{V(cd.distance_to_left_boundary_m, 'm')}</strong> {cd.left_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.left_boundary_feature})</span> : ''}</div>
                 <div><span style={{ color: "#7a8a94" }}>Right Boundary:</span> <strong>{V(cd.distance_to_right_boundary_m, 'm')}</strong> {cd.right_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.right_boundary_feature})</span> : ''}</div>
                 <div><span style={{ color: "#7a8a94" }}>Nearest Boundary:</span> <strong style={{ color: "#c0392b" }}>{V(Math.min(...[cd.distance_to_left_boundary_m, cd.distance_to_right_boundary_m].filter(v => v != null && !isNaN(v))), 'm')}</strong> <span style={{ color: "#95a5a6" }}>({cd.constrained_side || '—'})</span></div>
                 <div><span style={{ color: "#7a8a94" }}>Lot Corner Dist:</span> <strong>{V(cd.distance_to_nearest_lot_corner_m, 'm')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Intersection:</span> <strong>{V(cd.distance_to_intersection_tangent_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Speed Zone:</span> <strong>{V(sm.road_speed_zone_kmh, ' km/h')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Lot Frontage:</span> <strong>{V(sm.lot_frontage_m, 'm')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Lot Depth:</span> <strong>{V(sm.lot_depth_m, 'm')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Front Setback:</span> <strong>{V(sm.building_setback_front_m, 'm')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Garage to Kerb:</span> <strong>{V(sm.garage_to_kerb_m, 'm')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Material:</span> <strong>{V(con.material)}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Kerb Type:</span> <strong>{V(con.kerb_type)}</strong></div>
+                </div>
               </div>
             );
           })()}
