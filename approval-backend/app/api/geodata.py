@@ -149,6 +149,23 @@ LAYERS = {
         "output_file": "Power_Streetlights.geojson",
         "description": "Western Power (WP-036) — Streetlight locations",
     },
+    # ── ATCO Gas (via Subscription service — requires SLIP approval + token) ──
+    "gas_mains": {
+        "url": "https://services.slip.wa.gov.au/arcgis/rest/services/ATCO_Subscription_Services/ATCO_Pipes_Limited/MapServer/3/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Gas_Mains.geojson",
+        "description": "ATCO (ATCO-022) — Distribution gas mains",
+    },
+    "gas_valves": {
+        "url": "https://services.slip.wa.gov.au/arcgis/rest/services/ATCO_Subscription_Services/ATCO_Pipes_Limited/MapServer/5/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Gas_Valves.geojson",
+        "description": "ATCO (ATCO-028) — Gas valves",
+    },
 }
 
 # MRWA Road Network — separate service with speed limits
@@ -184,6 +201,8 @@ _refresh_status: dict = {
     "power_structures": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "power_transformers": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "power_streetlights": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "gas_mains": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "gas_valves": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
 }
 _refresh_lock = asyncio.Lock()
 
@@ -701,8 +720,14 @@ async def _refresh_all():
     logger.info("\n[12/13] Refreshing Western Power transformers...")
     _refresh_status["power_transformers"] = await _refresh_generic_layer("power_transformers")
 
-    logger.info("\n[13/13] Refreshing Western Power streetlights...")
+    logger.info("\n[13/15] Refreshing Western Power streetlights...")
     _refresh_status["power_streetlights"] = await _refresh_generic_layer("power_streetlights")
+
+    logger.info("\n[14/15] Refreshing ATCO gas mains...")
+    _refresh_status["gas_mains"] = await _refresh_generic_layer("gas_mains")
+
+    logger.info("\n[15/15] Refreshing ATCO gas valves...")
+    _refresh_status["gas_valves"] = await _refresh_generic_layer("gas_valves")
 
     logger.info("\nRefresh complete.")
     return _refresh_status
@@ -716,7 +741,7 @@ async def geodata_status():
     # Check what files exist on disk
     files = {}
     file_feature_counts = {}
-    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson", "Urban_Forest.geojson", "Drainage_Pipes.geojson", "Drainage_Pits.geojson", "Water_Pipes.geojson", "Power_Buried.geojson", "Power_Overhead.geojson", "Power_Structures.geojson", "Power_Transformers.geojson", "Power_Streetlights.geojson"]:
+    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson", "Urban_Forest.geojson", "Drainage_Pipes.geojson", "Drainage_Pits.geojson", "Water_Pipes.geojson", "Power_Buried.geojson", "Power_Overhead.geojson", "Power_Structures.geojson", "Power_Transformers.geojson", "Power_Streetlights.geojson", "Gas_Mains.geojson", "Gas_Valves.geojson"]:
         path = OUTPUT_DIR / name
         if path.exists():
             stat = path.stat()

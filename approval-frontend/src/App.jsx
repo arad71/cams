@@ -35,6 +35,7 @@ export default function CouncilApprovalPortal() {
   const [globalPowerBuriedData, setGlobalPowerBuriedData] = useState(null);
   const [globalPowerOverheadData, setGlobalPowerOverheadData] = useState(null);
   const [globalPowerStructuresData, setGlobalPowerStructuresData] = useState(null);
+  const [globalGasMainsData, setGlobalGasMainsData] = useState(null);
   const [roles, setRoles] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [siteSettings, setSiteSettings] = useState({});
@@ -170,6 +171,12 @@ export default function CouncilApprovalPortal() {
         const r = await fetch('/Power_Structures.geojson', { cache: 'no-cache' });
         if (!cancelled && r.ok) setGlobalPowerStructuresData(await r.json());
       } catch (e) { console.warn('Power_Structures.geojson not loaded:', e.message); }
+
+      // ATCO Gas layers
+      try {
+        const r = await fetch('/Gas_Mains.geojson', { cache: 'no-cache' });
+        if (!cancelled && r.ok) setGlobalGasMainsData(await r.json());
+      } catch (e) { console.warn('Gas_Mains.geojson not loaded:', e.message); }
     }
     loadGeoData();
     return () => { cancelled = true; };
@@ -343,7 +350,7 @@ export default function CouncilApprovalPortal() {
     // Viewer role — only sees executive dashboard
     if (role === "viewer") return <ExecutiveDashboard apps={apps} branding={S} />;
 
-    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} reloadAllApps={reloadAllApps} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData} globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData} globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData} globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData} globalPowerStructuresData={globalPowerStructuresData} />;
+    if (activeView === "detail" && selectedApp) return <ApplicationDetailView app={selectedApp} apps={visibleApps} onBack={() => { setActiveView("applications"); setSelectedApp(null); }} onUpdateApp={handleUpdateApp} onSelectApp={handleSelectApp} currentUser={currentUser} reloadApp={reloadApp} reloadAllApps={reloadAllApps} users={users} globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData} globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData} globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData} globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData} globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData} globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData} />;
     switch (activeView) {
       case "exec_dashboard": return <ExecutiveDashboard apps={apps} branding={S} />;
       case "dashboard": return <WorkflowDashboard apps={visibleApps} allApps={apps} onSelectApp={handleSelectApp} currentUser={currentUser} users={users} />;

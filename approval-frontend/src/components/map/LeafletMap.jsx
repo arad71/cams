@@ -7,7 +7,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, showPowerBuried = false, powerBuriedData = null, showPowerOverhead = false, powerOverheadData = null, showPowerStructures = false, powerStructuresData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, showPowerBuried = false, powerBuriedData = null, showPowerOverhead = false, powerOverheadData = null, showPowerStructures = false, powerStructuresData = null, showGasMains = false, gasMainsData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -417,6 +417,27 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
     }).addTo(mapInstanceRef.current);
   }, [showPowerStructures, powerStructuresData, leafletLoaded]);
+
+  // ── ATCO Gas Mains ──
+  const gasMainsLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (gasMainsLayerRef.current) { mapInstanceRef.current.removeLayer(gasMainsLayerRef.current); gasMainsLayerRef.current = null; }
+    if (!showGasMains || !gasMainsData?.features) return;
+    const L = window.L;
+    gasMainsLayerRef.current = L.geoJSON(gasMainsData, {
+      style: () => ({ color: '#f39c12', weight: 3, opacity: 0.75 }),
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const tips = [`<b>🔥 Gas Main</b>`];
+        if (p.SUBTYPE || p.subtype) tips.push(`Type: ${p.SUBTYPE || p.subtype}`);
+        if (p.PIPE_MATERIAL || p.pipe_material || p.MATERIAL || p.material) tips.push(`Material: ${p.PIPE_MATERIAL || p.pipe_material || p.MATERIAL || p.material}`);
+        if (p.DIAMETER || p.diameter || p.PIPE_DIAM || p.pipe_diam) tips.push(`Ø ${p.DIAMETER || p.diameter || p.PIPE_DIAM || p.pipe_diam}mm`);
+        if (p.MAOP || p.maop) tips.push(`MAOP: ${p.MAOP || p.maop} kPa`);
+        layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showGasMains, gasMainsData, leafletLoaded]);
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);

@@ -95,7 +95,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null, powerBuriedData = null, powerOverheadData = null, powerStructuresData = null, onMeasureCorrection = null, georefData = null, onGeorefDone = null }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null, powerBuriedData = null, powerOverheadData = null, powerStructuresData = null, gasMainsData = null, onMeasureCorrection = null, georefData = null, onGeorefDone = null }) {
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(false);
   const [showStreetNames, setShowStreetNames] = useState(false);
@@ -108,6 +108,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showPowerBuried, setShowPowerBuried] = useState(false);
   const [showPowerOverhead, setShowPowerOverhead] = useState(false);
   const [showPowerStructures, setShowPowerStructures] = useState(false);
+  const [showGasMains, setShowGasMains] = useState(false);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
@@ -1503,6 +1504,7 @@ Respond with JSON only:
                   { key: "pburied", state: showPowerBuried, set: () => setShowPowerBuried(!showPowerBuried), label: "Power (Buried)", icon: "⚡", color: "#e67e22", data: powerBuriedData },
                   { key: "poverhead", state: showPowerOverhead, set: () => setShowPowerOverhead(!showPowerOverhead), label: "Power (Overhead)", icon: "🔌", color: "#c0392b", data: powerOverheadData },
                   { key: "pstruct", state: showPowerStructures, set: () => setShowPowerStructures(!showPowerStructures), label: "Power Poles", icon: "🔩", color: "#7f8c8d", data: powerStructuresData },
+                  { key: "gas", state: showGasMains, set: () => setShowGasMains(!showGasMains), label: "Gas Mains", icon: "🔥", color: "#f39c12", data: gasMainsData },
                 ].map(l => (
                   <div key={l.key} onClick={l.set}
                     style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11, transition: "background 0.1s" }}
@@ -1877,6 +1879,7 @@ Respond with JSON only:
         showPowerBuried={showPowerBuried} powerBuriedData={powerBuriedData}
         showPowerOverhead={showPowerOverhead} powerOverheadData={powerOverheadData}
         showPowerStructures={showPowerStructures} powerStructuresData={powerStructuresData}
+        showGasMains={showGasMains} gasMainsData={gasMainsData}
         mapTool={mapTool} setMapTool={setMapTool}
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}
