@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { SIGHT_DISTANCE_TABLE, AI_OVERRIDE_FIELDS } from '../../data/constants';
 import { getAppCoords, getFirstRing, normalizeLotPolygon, findNearestRoadSpeed, getSightDistances } from '../../utils/geoHelpers';
-import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCrossoverRect, checkUtilityClearance, findNearestRoadsToLot } from '../../utils/geo';
+import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCrossoverRect, checkUtilityClearance, findNearestRoadsToLot, computeMapMeasurements } from '../../utils/geo';
 import LeafletMap from './LeafletMap';
 import { T, S, cx } from '../../styles/tokens';
 
@@ -1903,22 +1903,95 @@ Respond with JSON only:
                     <div style={{ marginTop: 2, color: "#e67e22", fontWeight: 600, fontSize: 8 }}>⚠️ AI road name doesn't match nearest map road</div>
                   )}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px 16px" }}>
-                <div><span style={{ color: "#7a8a94" }}>Crossover Width:</span> <strong>{V(cd.width_at_boundary_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Verge Depth:</span> <strong>{V(cd.verge_depth_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Speed Zone:</span> <strong>{V(sm.road_speed_zone_kmh, ' km/h')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Left Boundary:</span> <strong>{V(cd.distance_to_left_boundary_m, 'm')}</strong> {cd.left_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.left_boundary_feature})</span> : ''}</div>
-                <div><span style={{ color: "#7a8a94" }}>Right Boundary:</span> <strong>{V(cd.distance_to_right_boundary_m, 'm')}</strong> {cd.right_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.right_boundary_feature})</span> : ''}</div>
-                <div><span style={{ color: "#7a8a94" }}>Nearest Boundary:</span> <strong style={{ color: "#c0392b" }}>{V(Math.min(...[cd.distance_to_left_boundary_m, cd.distance_to_right_boundary_m].filter(v => v != null && !isNaN(v))), 'm')}</strong> <span style={{ color: "#95a5a6" }}>({cd.constrained_side || '—'})</span></div>
-                <div><span style={{ color: "#7a8a94" }}>Lot Corner Dist:</span> <strong>{V(cd.distance_to_nearest_lot_corner_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Intersection:</span> <strong>{V(cd.distance_to_intersection_tangent_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Lot Frontage:</span> <strong>{V(sm.lot_frontage_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Lot Depth:</span> <strong>{V(sm.lot_depth_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Front Setback:</span> <strong>{V(sm.building_setback_front_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Garage to Kerb:</span> <strong>{V(sm.garage_to_kerb_m, 'm')}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Material:</span> <strong>{V(con.material)}</strong></div>
-                <div><span style={{ color: "#7a8a94" }}>Kerb Type:</span> <strong>{V(con.kerb_type)}</strong></div>
-                </div>
+                {/* Measurements: AI vs Map comparison for verifiable values */}
+                {(() => {
+                  // Compute map-derived measurements
+                  const mapMeas = computeMapMeasurements(
+                    lotPoly, aiRoad || mapPrimaryRoad,
+                    parseFloat(cd.distance_to_left_boundary_m) < parseFloat(cd.distance_to_right_boundary_m) ? parseFloat(cd.distance_to_left_boundary_m) : parseFloat(cd.distance_to_right_boundary_m),
+                    parseFloat(cd.width_at_boundary_m) || parseFloat(cd.total_width_at_road_m),
+                    cd.constrained_side,
+                    speedRoadsData, roadNetworkData
+                  );
+
+                  const compRows = [
+                    { label: "Lot Frontage", aiVal: sm.lot_frontage_m, mapVal: mapMeas.lot_frontage_m, unit: "m", aiField: "siteplan_measurements.lot_frontage_m" },
+                    { label: "Lot Depth", aiVal: sm.lot_depth_m, mapVal: mapMeas.lot_depth_m, unit: "m", aiField: "siteplan_measurements.lot_depth_m" },
+                    { label: "Verge Depth", aiVal: cd.verge_depth_m, mapVal: mapMeas.verge_depth_m, unit: "m", aiField: "crossover_dimensions.verge_depth_m" },
+                    { label: "Lot Corner Dist", aiVal: cd.distance_to_nearest_lot_corner_m, mapVal: mapMeas.distance_to_nearest_lot_corner_m, unit: "m", aiField: "crossover_dimensions.distance_to_nearest_lot_corner_m" },
+                    { label: "Intersection Dist", aiVal: cd.distance_to_intersection_tangent_m, mapVal: mapMeas.distance_to_intersection_m, unit: "m", aiField: "crossover_dimensions.distance_to_intersection_tangent_m" },
+                  ];
+
+                  const hasMapData = compRows.some(r => r.mapVal != null);
+
+                  return (
+                    <div style={{ marginTop: 4 }}>
+                      {hasMapData && (
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9, marginBottom: 4 }}>
+                          <thead>
+                            <tr style={{ borderBottom: "1px solid #e4e9ec" }}>
+                              <th style={{ textAlign: "left", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Measurement</th>
+                              <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>AI</th>
+                              <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Map</th>
+                              <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {compRows.map((r) => {
+                              const ai = r.aiVal != null && r.aiVal !== '' && r.aiVal !== 'null' ? parseFloat(r.aiVal) : null;
+                              const mp = r.mapVal;
+                              const diff = (ai != null && mp != null) ? Math.abs(ai - mp) : null;
+                              const significant = diff != null && diff > 1.0; // >1m difference is notable
+                              const aiMissing = ai == null;
+                              return (
+                                <tr key={r.label} style={{ borderBottom: "1px solid #f0f2f5", background: significant ? "#fef9e7" : "transparent" }}>
+                                  <td style={{ padding: "3px 4px", fontWeight: 600 }}>{r.label}</td>
+                                  <td style={{ padding: "3px 4px", textAlign: "center", color: aiMissing ? "#bdc3c7" : "#1a3a4a", fontStyle: aiMissing ? "italic" : "normal" }}>
+                                    {ai != null ? `${ai}${r.unit}` : '—'}
+                                  </td>
+                                  <td style={{ padding: "3px 4px", textAlign: "center", fontWeight: 700, color: mp != null ? (significant ? "#e67e22" : "#27ae60") : "#bdc3c7" }}>
+                                    {mp != null ? `${mp}${r.unit}` : '—'}
+                                  </td>
+                                  <td style={{ padding: "3px 4px", textAlign: "center" }}>
+                                    {aiMissing && mp != null && onMeasureCorrection && (
+                                      <button onClick={() => {
+                                        onMeasureCorrection(r.aiField, String(mp), r.unit);
+                                        alert(`📐 ${r.label} set from map: ${mp}${r.unit}`);
+                                      }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                                        Set
+                                      </button>
+                                    )}
+                                    {significant && onMeasureCorrection && (
+                                      <button onClick={() => {
+                                        onMeasureCorrection(r.aiField, String(mp), r.unit);
+                                        alert(`📐 ${r.label} overridden: ${ai}${r.unit} → ${mp}${r.unit} (from map)`);
+                                      }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                                        Use Map
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      )}
+                      {/* Non-comparable fields (no map source — AI only) */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px 16px" }}>
+                        <div><span style={{ color: "#7a8a94" }}>Crossover Width:</span> <strong>{V(cd.width_at_boundary_m, 'm')}</strong></div>
+                        <div><span style={{ color: "#7a8a94" }}>Speed Zone:</span> <strong>{V(sm.road_speed_zone_kmh, ' km/h')}</strong></div>
+                        <div><span style={{ color: "#7a8a94" }}>Constrained:</span> <strong>{V(cd.constrained_side)}</strong></div>
+                        <div><span style={{ color: "#7a8a94" }}>Left Boundary:</span> <strong>{V(cd.distance_to_left_boundary_m, 'm')}</strong> {cd.left_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.left_boundary_feature})</span> : ''}</div>
+                        <div><span style={{ color: "#7a8a94" }}>Right Boundary:</span> <strong>{V(cd.distance_to_right_boundary_m, 'm')}</strong> {cd.right_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.right_boundary_feature})</span> : ''}</div>
+                        <div><span style={{ color: "#7a8a94" }}>Nearest Boundary:</span> <strong style={{ color: "#c0392b" }}>{V(Math.min(...[cd.distance_to_left_boundary_m, cd.distance_to_right_boundary_m].filter(v => v != null && !isNaN(v))), 'm')}</strong></div>
+                        <div><span style={{ color: "#7a8a94" }}>Front Setback:</span> <strong>{V(sm.building_setback_front_m, 'm')}</strong></div>
+                        <div><span style={{ color: "#7a8a94" }}>Garage to Kerb:</span> <strong>{V(sm.garage_to_kerb_m, 'm')}</strong></div>
+                        <div><span style={{ color: "#7a8a94" }}>Material:</span> <strong>{V(con.material)}</strong></div>
+                        <div><span style={{ color: "#7a8a94" }}>Kerb Type:</span> <strong>{V(con.kerb_type)}</strong></div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}

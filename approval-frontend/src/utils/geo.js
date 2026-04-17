@@ -620,3 +620,187 @@ export function findNearestRoadsToLot(lotPoly, ...roadDataSources) {
 
   return unique;
 }
+
+
+// ───────────────────────────────────────────────────────────
+// Map-derived assessment measurements
+// ───────────────────────────────────────────────────────────
+
+/**
+ * Compute lot dimensions and distances from cadastre + road data.
+ * Returns all measurable values that can be compared against AI extraction.
+ *
+ * @param {Array<[lat,lng]>} lotPoly — lot boundary polygon
+ * @param {string} crossoverRoad — road name the crossover is on
+ * @param {number} offsetFromBoundary — distance from constrained boundary (m)
+ * @param {number} crossoverWidth — crossover width (m)
+ * @param {string} constrainedSide — "left" or "right"
+ * @param {...Object} roadDataSources — GeoJSON FeatureCollections
+ * @returns {Object} with lot_frontage_m, lot_depth_m, verge_depth_m,
+ *   distance_to_nearest_lot_corner_m, distance_to_intersection_m
+ */
+export function computeMapMeasurements(lotPoly, crossoverRoad, offsetFromBoundary, crossoverWidth, constrainedSide, ...roadDataSources) {
+  const result = {
+    lot_frontage_m: null,
+    lot_depth_m: null,
+    verge_depth_m: null,
+    distance_to_nearest_lot_corner_m: null,
+    distance_to_intersection_m: null,
+  };
+
+  if (!lotPoly || lotPoly.length < 4) return result;
+
+  const mLat = M_PER_DEG_LAT;
+  const mLng = mPerDegLng(lotPoly[0][0]);
+
+  // Close polygon if not closed
+  let poly = lotPoly;
+  if (poly[0][0] !== poly[poly.length - 1][0] || poly[0][1] !== poly[poly.length - 1][1]) {
+    poly = [...poly, poly[0]];
+  }
+
+  // Compute all edge lengths and find road-facing edges
+  const edges = [];
+  for (let i = 0; i < poly.length - 1; i++) {
+    const len = Math.sqrt(((poly[i][0] - poly[i + 1][0]) * mLat) ** 2 + ((poly[i][1] - poly[i + 1][1]) * mLng) ** 2);
+    const midLat = (poly[i][0] + poly[i + 1][0]) / 2;
+    const midLng = (poly[i][1] + poly[i + 1][1]) / 2;
+    const angle = Math.atan2((poly[i + 1][1] - poly[i][1]) * mLng, (poly[i + 1][0] - poly[i][0]) * mLat);
+    edges.push({ i, len, midLat, midLng, angle, from: poly[i], to: poly[i + 1] });
+  }
+
+  // Find the road-facing edge (nearest to crossover road)
+  let roadEdge = null, roadEdgeDist = Infinity;
+  let roadSegments = []; // collect matching road segments for intersection detection
+
+  for (const edge of edges) {
+    if (edge.len < 3) continue;
+    for (const src of roadDataSources.filter(s => s?.features)) {
+      for (const feat of src.features) {
+        const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || feat.properties?.full_name || '').toUpperCase();
+        const g = feat.geometry;
+        if (!g || g.type !== 'LineString') continue;
+
+        // Match road name if provided
+        const isMatchingRoad = crossoverRoad && rn && (
+          crossoverRoad.toUpperCase().includes(rn.split(' ')[0]) ||
+          rn.includes(crossoverRoad.toUpperCase().split(' ')[0])
+        );
+
+        for (let j = 0; j < g.coordinates.length - 1; j++) {
+          const [aLng, aLat] = g.coordinates[j];
+          const [bLng, bLat] = g.coordinates[j + 1];
+          const d = pointToSegmentDist(edge.midLat, edge.midLng, aLat, aLng, bLat, bLng);
+
+          if (isMatchingRoad && d < roadEdgeDist) {
+            roadEdgeDist = d;
+            roadEdge = edge;
+          }
+        }
+
+        // Collect road segments for intersection detection
+        if (rn) {
+          for (let j = 0; j < g.coordinates.length - 1; j++) {
+            roadSegments.push({
+              road_name: rn,
+              aLat: g.coordinates[j][1], aLng: g.coordinates[j][0],
+              bLat: g.coordinates[j + 1][1], bLng: g.coordinates[j + 1][0],
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // If no road name match, use the edge closest to any road
+  if (!roadEdge) {
+    for (const edge of edges) {
+      if (edge.len < 3) continue;
+      for (const seg of roadSegments) {
+        const d = pointToSegmentDist(edge.midLat, edge.midLng, seg.aLat, seg.aLng, seg.bLat, seg.bLng);
+        if (d < roadEdgeDist) { roadEdgeDist = d; roadEdge = edge; }
+      }
+    }
+  }
+
+  if (!roadEdge) return result;
+
+  // ── 1. Lot frontage = length of road-facing edge ──
+  result.lot_frontage_m = Math.round(roadEdge.len * 10) / 10;
+
+  // ── 2. Lot depth = max perpendicular distance from road edge to any other vertex ──
+  const edgeDx = (roadEdge.to[1] - roadEdge.from[1]) * mLng;
+  const edgeDy = (roadEdge.to[0] - roadEdge.from[0]) * mLat;
+  const edgeLen = Math.sqrt(edgeDx * edgeDx + edgeDy * edgeDy);
+  // Normal vector (perpendicular to edge, pointing inward)
+  const nxRaw = -edgeDy / edgeLen;
+  const nyRaw = edgeDx / edgeLen;
+  // Check which direction is inward (towards lot centroid)
+  const cLat = poly.reduce((s, p) => s + p[0], 0) / poly.length;
+  const cLng = poly.reduce((s, p) => s + p[1], 0) / poly.length;
+  const toC = ((cLat - roadEdge.midLat) * mLat) * (nxRaw * mLat) + ((cLng - roadEdge.midLng) * mLng) * (nyRaw * mLng);
+  const sign = toC >= 0 ? 1 : -1;
+
+  let maxDepth = 0;
+  for (const p of poly) {
+    // Project vertex onto the perpendicular direction
+    const vx = (p[0] - roadEdge.midLat) * mLat;
+    const vy = (p[1] - roadEdge.midLng) * mLng;
+    const proj = (vx * nxRaw * mLat + vy * nyRaw * mLng) * sign;
+    // But simpler: just use perpendicular distance from the edge line
+    const d = pointToSegmentDist(p[0], p[1], roadEdge.from[0], roadEdge.from[1], roadEdge.to[0], roadEdge.to[1]);
+    if (d > maxDepth) maxDepth = d;
+  }
+  result.lot_depth_m = Math.round(maxDepth * 10) / 10;
+
+  // ── 3. Verge depth = distance from lot boundary (road edge) to road centreline ──
+  result.verge_depth_m = Math.round(roadEdgeDist * 10) / 10;
+
+  // ── 4. Distance to nearest lot corner from crossover centre ──
+  // Crossover centre position on the road edge
+  const yOffset = (offsetFromBoundary || 0) + 0.5 * (crossoverWidth || 3);
+  const edgeFrac = Math.min(0.9, Math.max(0.1, yOffset / roadEdge.len));
+  const crossCLat = roadEdge.from[0] + (roadEdge.to[0] - roadEdge.from[0]) * edgeFrac;
+  const crossCLng = roadEdge.from[1] + (roadEdge.to[1] - roadEdge.from[1]) * edgeFrac;
+
+  // Distance to each end of the road-facing edge (lot corners on the road side)
+  const dCorner1 = Math.sqrt(((crossCLat - roadEdge.from[0]) * mLat) ** 2 + ((crossCLng - roadEdge.from[1]) * mLng) ** 2);
+  const dCorner2 = Math.sqrt(((crossCLat - roadEdge.to[0]) * mLat) ** 2 + ((crossCLng - roadEdge.to[1]) * mLng) ** 2);
+  result.distance_to_nearest_lot_corner_m = Math.round(Math.min(dCorner1, dCorner2) * 10) / 10;
+
+  // ── 5. Distance to nearest intersection from crossover position ──
+  // An intersection is where two different-named roads meet (vertex shared between roads)
+  // Find road vertices near the crossover road, then check which ones are shared with another road
+  const crossoverRoadUpper = (crossoverRoad || '').toUpperCase();
+  let minIntersectionDist = Infinity;
+
+  // Collect endpoints of crossover road segments near the lot
+  const nearbyVertices = [];
+  for (const seg of roadSegments) {
+    if (!crossoverRoadUpper || !seg.road_name.includes(crossoverRoadUpper.split(' ')[0])) continue;
+    const dA = Math.sqrt(((crossCLat - seg.aLat) * mLat) ** 2 + ((crossCLng - seg.aLng) * mLng) ** 2);
+    const dB = Math.sqrt(((crossCLat - seg.bLat) * mLat) ** 2 + ((crossCLng - seg.bLng) * mLng) ** 2);
+    if (dA < 200) nearbyVertices.push({ lat: seg.aLat, lng: seg.aLng, dist: dA });
+    if (dB < 200) nearbyVertices.push({ lat: seg.bLat, lng: seg.bLng, dist: dB });
+  }
+
+  // For each vertex, check if another road also has a vertex nearby (<5m)
+  for (const v of nearbyVertices) {
+    for (const seg of roadSegments) {
+      if (crossoverRoadUpper && seg.road_name.includes(crossoverRoadUpper.split(' ')[0])) continue; // skip same road
+      const dA = Math.sqrt(((v.lat - seg.aLat) * mLat) ** 2 + ((v.lng - seg.aLng) * mLng) ** 2);
+      const dB = Math.sqrt(((v.lat - seg.bLat) * mLat) ** 2 + ((v.lng - seg.bLng) * mLng) ** 2);
+      if (dA < 5 || dB < 5) {
+        // This vertex is an intersection point
+        const distFromCross = Math.sqrt(((crossCLat - v.lat) * mLat) ** 2 + ((crossCLng - v.lng) * mLng) ** 2);
+        if (distFromCross < minIntersectionDist) minIntersectionDist = distFromCross;
+      }
+    }
+  }
+
+  if (minIntersectionDist < Infinity) {
+    result.distance_to_intersection_m = Math.round(minIntersectionDist * 10) / 10;
+  }
+
+  return result;
+}
