@@ -1922,12 +1922,13 @@ Respond with JSON only:
               </div>
             );
           })()}
-          {/* Utility clearance check — auto-compute distances from crossover to nearby utilities */}
+          {/* Utility clearance check — AI vs Map comparison */}
           {(() => {
             const spd = app?.cor_site_plan_data || app?.site_plan_data;
             const ext = spd?.extraction || spd || {};
             const cd = ext?.crossover_dimensions || {};
             const sm = ext?.siteplan_measurements || {};
+            const aiUtil = ext?.utilities || {};
             const crossoverRoad = sm.crossover_on_road || sm.road_name;
             const crossoverWidth = parseFloat(cd.width_at_boundary_m) || parseFloat(cd.total_width_at_road_m);
             const constrainedSide = cd.constrained_side;
@@ -1936,54 +1937,154 @@ Respond with JSON only:
             const vergeDepth = parseFloat(cd.verge_depth_m) || 4.0;
             const offsetFromBoundary = constrainedSide === "left" ? leftDist : constrainedSide === "right" ? rightDist : Math.min(leftDist || 99, rightDist || 99);
 
-            if (!crossoverRoad || !crossoverWidth || isNaN(offsetFromBoundary)) return null;
-
             const lotPoly = app?.lot_polygon;
-            if (!lotPoly || lotPoly.length < 4) return null;
 
-            const rect = buildCrossoverRect(lotPoly, crossoverRoad, offsetFromBoundary, crossoverWidth, vergeDepth, constrainedSide, speedRoadsData, roadNetworkData);
-            if (!rect) return null;
-
-            // Check all available utility layers
-            const allResults = [];
-            const utilSources = [
-              { data: powerBuriedData, type: "power_buried", label: "⚡ Buried Power" },
-              { data: powerOverheadData, type: "power_overhead", label: "🔌 Overhead Power" },
-              { data: powerStructuresData, type: "power_overhead", label: "🔩 Power Pole" },
-              { data: gasMainsData, type: "gas", label: "🔥 Gas Main" },
-              { data: waterPipesData, type: "water", label: "🚰 Water Main" },
-              { data: drainagePipesData, type: "drainage", label: "💧 Drainage" },
-            ];
-            for (const src of utilSources) {
-              if (!src.data?.features?.length) continue;
-              const hits = checkUtilityClearance(rect.corners, src.data, src.type, 30);
-              for (const h of hits.slice(0, 3)) { // top 3 closest per type
-                allResults.push({ ...h, label: src.label });
+            // Compute map-based clearances if possible
+            let mapResults = {};
+            let rect = null;
+            if (lotPoly?.length >= 4 && crossoverRoad && crossoverWidth && !isNaN(offsetFromBoundary)) {
+              rect = buildCrossoverRect(lotPoly, crossoverRoad, offsetFromBoundary, crossoverWidth, vergeDepth, constrainedSide, speedRoadsData, roadNetworkData);
+            }
+            if (rect) {
+              const sources = [
+                { data: powerBuriedData, type: "power_buried", key: "power" },
+                { data: powerOverheadData, type: "power_overhead", key: "power" },
+                { data: powerStructuresData, type: "power_overhead", key: "power" },
+                { data: gasMainsData, type: "gas", key: "gas" },
+                { data: waterPipesData, type: "water", key: "water" },
+                { data: drainagePipesData, type: "drainage", key: "drainage" },
+              ];
+              for (const src of sources) {
+                if (!src.data?.features?.length) continue;
+                const hits = checkUtilityClearance(rect.corners, src.data, src.type, 30);
+                if (hits.length > 0 && (!mapResults[src.key] || hits[0].distance < mapResults[src.key].distance)) {
+                  mapResults[src.key] = hits[0]; // keep nearest per utility type
+                }
               }
             }
-            allResults.sort((a, b) => a.distance - b.distance);
 
-            if (allResults.length === 0) return null;
+            // Build comparison rows: AI value vs Map value
+            const rows = [
+              {
+                label: "⚡ Power", key: "power",
+                aiConflict: aiUtil.power_conflict,
+                aiShown: aiUtil.power_line_shown,
+                aiField: "utilities.power_conflict",
+                mapHit: mapResults.power,
+                minClear: 0.6,
+              },
+              {
+                label: "🚰 Water", key: "water",
+                aiConflict: aiUtil.water_conflict,
+                aiShown: aiUtil.water_main_shown,
+                aiField: "utilities.water_conflict",
+                mapHit: mapResults.water,
+                minClear: 0.5,
+              },
+              {
+                label: "🔥 Gas", key: "gas",
+                aiConflict: aiUtil.gas_conflict,
+                aiShown: aiUtil.gas_main_shown,
+                aiField: "utilities.gas_conflict",
+                mapHit: mapResults.gas,
+                minClear: 0.6,
+              },
+              {
+                label: "💧 Drainage", key: "drainage",
+                aiConflict: aiUtil.drainage_conflict,
+                aiShown: aiUtil.drainage_shown,
+                aiField: "utilities.drainage_conflict",
+                mapHit: mapResults.drainage,
+                minClear: 0.5,
+              },
+            ];
+
+            // Only show if we have any data (AI or map)
+            const hasAny = rows.some(r => r.aiConflict != null || r.aiShown != null || r.mapHit);
+            if (!hasAny) return null;
 
             return (
               <div style={{ padding: "6px 12px", borderTop: "1px solid #e4e9ec", fontSize: 9, lineHeight: 1.6 }}>
-                <div style={{ fontWeight: 700, color: "#1a3a4a", fontSize: 10, marginBottom: 4 }}>🔧 Utility Clearance (from crossover edge)</div>
-                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: "2px 10px", alignItems: "center" }}>
-                  {allResults.slice(0, 10).map((r, i) => (
-                    <React.Fragment key={i}>
-                      <span>{r.label}</span>
-                      <span style={{ color: "#7a8a94", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {r.feature?.SUBTYPE || r.feature?.subtype || r.feature?.PIPE_NAME || r.feature?.pipe_name || r.feature?.VOLTAGE || r.feature?.voltage || r.feature?.STRUCTURE_TYPE || r.feature?.structure_type || ''}
-                      </span>
-                      <span style={{ fontWeight: 700, color: r.conflict ? "#c0392b" : r.warning ? "#e67e22" : "#27ae60", textAlign: "right" }}>
-                        {r.distance}m {r.conflict ? "⛔" : r.warning ? "⚠️" : "✓"}
-                      </span>
-                    </React.Fragment>
-                  ))}
-                </div>
-                {allResults.some(r => r.conflict) && (
+                <div style={{ fontWeight: 700, color: "#1a3a4a", fontSize: 10, marginBottom: 4 }}>🔧 Utility Clearance — AI vs Map</div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #e4e9ec" }}>
+                      <th style={{ textAlign: "left", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Utility</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>AI (Site Plan)</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Map (GeoData)</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Status</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => {
+                      const aiVal = r.aiConflict != null
+                        ? (r.aiConflict === true || r.aiConflict === 'true' ? 'Conflict' : 'Clear')
+                        : (r.aiShown != null ? (r.aiShown === true || r.aiShown === 'true' ? 'Present' : 'Not shown') : '—');
+                      const mapVal = r.mapHit ? `${r.mapHit.distance}m` : (rect ? 'None nearby' : 'No data');
+                      const mapConflict = r.mapHit?.conflict;
+                      const mapWarning = r.mapHit?.warning;
+
+                      // Determine if AI and map disagree
+                      const aiSaysConflict = r.aiConflict === true || r.aiConflict === 'true';
+                      const aiSaysClear = r.aiConflict === false || r.aiConflict === 'false';
+                      const disagree = r.mapHit && ((aiSaysClear && mapConflict) || (aiSaysConflict && !mapConflict));
+
+                      // Status: use map data if available, fall back to AI
+                      let statusIcon, statusColor;
+                      if (r.mapHit) {
+                        statusIcon = mapConflict ? '⛔' : mapWarning ? '⚠️' : '✓';
+                        statusColor = mapConflict ? '#c0392b' : mapWarning ? '#e67e22' : '#27ae60';
+                      } else if (r.aiConflict != null) {
+                        statusIcon = aiSaysConflict ? '⛔' : '✓';
+                        statusColor = aiSaysConflict ? '#c0392b' : '#27ae60';
+                      } else {
+                        statusIcon = '—';
+                        statusColor = '#bdc3c7';
+                      }
+
+                      return (
+                        <tr key={r.key} style={{ borderBottom: "1px solid #f0f2f5", background: disagree ? "#fef9e7" : "transparent" }}>
+                          <td style={{ padding: "4px", fontWeight: 600 }}>{r.label}</td>
+                          <td style={{ padding: "4px", textAlign: "center", color: aiSaysConflict ? "#c0392b" : "#7a8a94", fontStyle: r.aiConflict == null && r.aiShown == null ? "italic" : "normal" }}>
+                            {aiVal}
+                          </td>
+                          <td style={{ padding: "4px", textAlign: "center", fontWeight: 700, color: mapConflict ? "#c0392b" : mapWarning ? "#e67e22" : r.mapHit ? "#27ae60" : "#bdc3c7" }}>
+                            {mapVal}
+                            {r.mapHit && <span style={{ color: "#95a5a6", fontWeight: 400, marginLeft: 3 }}>
+                              (min {r.minClear}m)
+                            </span>}
+                          </td>
+                          <td style={{ padding: "4px", textAlign: "center", fontSize: 12 }}>
+                            <span style={{ color: statusColor }}>{statusIcon}</span>
+                          </td>
+                          <td style={{ padding: "4px", textAlign: "center" }}>
+                            {disagree && onMeasureCorrection && (
+                              <button onClick={() => {
+                                const newVal = r.mapHit ? (mapConflict ? 'true' : 'false') : (aiSaysConflict ? 'true' : 'false');
+                                onMeasureCorrection(r.aiField, newVal, '');
+                                alert(`🔧 ${r.label} conflict updated from map data: ${newVal === 'true' ? 'CONFLICT (< ' + r.minClear + 'm)' : 'CLEAR (' + r.mapHit.distance + 'm)'}`);
+                              }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                                Use Map
+                              </button>
+                            )}
+                            {r.aiConflict == null && r.mapHit && onMeasureCorrection && (
+                              <button onClick={() => {
+                                onMeasureCorrection(r.aiField, mapConflict ? 'true' : 'false', '');
+                                alert(`🔧 ${r.label}: set from map data — ${mapConflict ? 'CONFLICT' : 'clear'} (${r.mapHit.distance}m)`);
+                              }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                                Set
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {rows.some(r => r.mapHit?.conflict) && (
                   <div style={{ marginTop: 4, padding: "3px 6px", background: "#fdedec", borderRadius: 3, color: "#c0392b", fontWeight: 600 }}>
-                    ⛔ Utility conflict — clearance less than {allResults.find(r => r.conflict)?.minClearance}m minimum
+                    ⛔ Map data shows utility within minimum clearance distance
                   </div>
                 )}
               </div>
