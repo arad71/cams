@@ -216,8 +216,10 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
       setSaving(false);
     }
 
-    // Continue with in-session pairing flow
-    if (onGeorefPoints) {
+    // Only trigger manual map-pairing flow if auto-match was NOT available
+    // (when auto-matched, the saved overlay already has planPts + mapPts + bounds
+    // and MapWithOverlay will render it directly from app.georef_overlay on reload)
+    if (!autoMatched && onGeorefPoints) {
       onGeorefPoints(points, imgUrl, imgW, imgH);
     }
     if (onClose) onClose();
