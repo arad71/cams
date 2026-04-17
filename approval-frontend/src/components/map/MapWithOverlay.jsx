@@ -113,8 +113,9 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
   const [mapTool, setMapTool] = useState(null); // "measure" | "draw" | null
-  const [measureDist, setMeasureDist] = useState(null);
-  const [measureOverrideField, setMeasureOverrideField] = useState(""); // selected AI field key
+  const [measureDist, setMeasureDist] = useState(null); // current in-progress text OR array of completed measurements
+  const [measureOverrideField, setMeasureOverrideField] = useState(""); // legacy — not used in new flow
+  const [measurements, setMeasurements] = useState([]); // [{id, value, field, label}]
   const [radiusResult, setRadiusResult] = useState(null);
   const [centrelineDist, setCentrelineDist] = useState(null);
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
@@ -1747,37 +1748,99 @@ Respond with JSON only:
       {mapTool === "measure" && (
         <div style={{ background: "#f0f7ff", borderBottom: "1px solid #d5e8f0" }}>
           <div style={{ padding: "4px 12px", fontSize: 10, color: T.c.info, fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span>Click to measure distance · Double-click to start new</span>
-            {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 9 }}>{measureDist}</span>}
-            {/* AI field override — only show when there's a measurement and onMeasureCorrection is available */}
-            {measureDist && onMeasureCorrection && (
-              <>
-                <span style={{ color: "#7a8a94", fontSize: 9 }}>→</span>
-                <select value={measureOverrideField} onChange={e => setMeasureOverrideField(e.target.value)}
-                  style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #d5dde2", fontSize: 9, fontFamily: "inherit", color: "#1a3a4a", maxWidth: 160 }}>
-                  <option value="">Override AI field…</option>
-                  {AI_OVERRIDE_FIELDS.filter(f => f.unit === 'm' || f.unit === 'km/h').map(f => (
-                    <option key={f.key} value={f.key}>{f.label} ({f.unit})</option>
-                  ))}
-                </select>
-                {measureOverrideField && (
-                  <button onClick={() => {
-                    const numMatch = measureDist.match(/([\d.]+)/);
-                    if (numMatch) {
-                      const field = AI_OVERRIDE_FIELDS.find(f => f.key === measureOverrideField);
-                      onMeasureCorrection(measureOverrideField, numMatch[1], field?.unit || 'm');
-                      alert(`📏 Map measurement ${numMatch[1]} ${field?.unit || 'm'} saved as correction for "${field?.label || measureOverrideField}".`);
-                      setMeasureOverrideField("");
-                    }
-                  }}
-                    style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    Save as Correction
-                  </button>
-                )}
-              </>
+            <span>Click to measure · Double-click to finish each measurement · Multiple measurements allowed</span>
+            {/* Show in-progress measurement */}
+            {typeof measureDist === 'string' && measureDist && (
+              <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 9 }}>measuring: {measureDist}</span>
             )}
-            <button onClick={() => { setMapTool(null); setMeasureDist(null); setMeasureOverrideField(""); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Done</button>
+            <button onClick={() => {
+              // Save all overrides
+              if (onMeasureCorrection && measurements.length > 0) {
+                const toSave = measurements.filter(m => m.field);
+                for (const m of toSave) {
+                  const f = AI_OVERRIDE_FIELDS.find(x => x.key === m.field);
+                  onMeasureCorrection(m.field, String(m.value), f?.unit || 'm');
+                }
+                if (toSave.length > 0) {
+                  alert(`📏 Saved ${toSave.length} correction(s):\n${toSave.map(m => {
+                    const f = AI_OVERRIDE_FIELDS.find(x => x.key === m.field);
+                    return `  ${f?.label || m.field}: ${m.value} ${f?.unit || 'm'}`;
+                  }).join('\n')}`);
+                }
+              }
+              setMapTool(null); setMeasureDist(null); setMeasurements([]); setMeasureOverrideField("");
+            }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>
+              {measurements.some(m => m.field) ? 'Save & Done' : 'Done'}
+            </button>
           </div>
+          {/* Completed measurements list with field override */}
+          {(() => {
+            // Collect completed measurements from measureDist (array form)
+            const completed = Array.isArray(measureDist) ? measureDist : [];
+            // Sync measurements state with completed
+            if (completed.length > measurements.length) {
+              const newOnes = completed.slice(measurements.length).map(m => ({ ...m, field: '' }));
+              // Can't setState during render — use a timeout
+              setTimeout(() => setMeasurements(prev => [...prev, ...newOnes]), 0);
+            }
+
+            if (measurements.length === 0 && completed.length === 0) return null;
+
+            // Get current AI values
+            const spd = app?.cor_site_plan_data || app?.site_plan_data;
+            const ext = spd?.extraction || spd || {};
+            const getAIValue = (fieldKey) => {
+              const parts = fieldKey.split('.');
+              let obj = ext;
+              for (const p of parts) { obj = obj?.[p]; if (obj == null) return '—'; }
+              return obj;
+            };
+
+            return (
+              <div style={{ padding: "6px 12px", borderTop: "1px solid #d5e8f020" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#1a3a4a", marginBottom: 4 }}>📏 Measurements ({measurements.length})</div>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #e4e9ec" }}>
+                      <th style={{ textAlign: "left", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>#</th>
+                      <th style={{ textAlign: "left", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Measured</th>
+                      <th style={{ textAlign: "left", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Override Field</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Current</th>
+                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>New</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {measurements.map((m, i) => {
+                      const selectedField = AI_OVERRIDE_FIELDS.find(f => f.key === m.field);
+                      const currentVal = m.field ? getAIValue(m.field) : '';
+                      return (
+                        <tr key={m.id || i} style={{ borderBottom: "1px solid #f0f2f5" }}>
+                          <td style={{ padding: "4px", color: "#7a8a94" }}>{i + 1}</td>
+                          <td style={{ padding: "4px", fontWeight: 700, color: "#3498db" }}>{m.value}m</td>
+                          <td style={{ padding: "4px" }}>
+                            <select value={m.field || ''} onChange={e => {
+                              setMeasurements(prev => prev.map((x, j) => j === i ? { ...x, field: e.target.value } : x));
+                            }} style={{ padding: "2px 4px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 9, fontFamily: "inherit", color: "#1a3a4a", width: "100%" }}>
+                              <option value="">— select field —</option>
+                              {AI_OVERRIDE_FIELDS.filter(f => f.unit === 'm' || f.unit === 'km/h').map(f => (
+                                <option key={f.key} value={f.key}>{f.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{ padding: "4px", textAlign: "center", color: m.field ? "#7a8a94" : "#d5dde2", fontStyle: "italic" }}>
+                            {m.field ? String(currentVal) : ''}
+                          </td>
+                          <td style={{ padding: "4px", textAlign: "center", fontWeight: 700, color: m.field ? (String(currentVal) !== String(m.value) ? "#e67e22" : "#27ae60") : "#d5dde2" }}>
+                            {m.field ? `${m.value}` : ''}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
           {/* AI extraction reference panel — key distances for assessment */}
           {(() => {
             const spd = app?.cor_site_plan_data || app?.site_plan_data;

@@ -646,28 +646,28 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     });
   }, [waLayers, leafletLoaded]);
 
-  // ── Measure tool — multi-segment with running total ──
-  const measureRef = useRef({ pts: [], layers: [], total: 0 });
+  // ── Measure tool — multiple measurements, each double-click completes one ──
+  const measureRef = useRef({ pts: [], layers: [], total: 0, allLayers: [], measureId: 0 });
   useEffect(() => {
     if (!mapInstanceRef.current || !leafletLoaded) return;
     const L = window.L;
     const map = mapInstanceRef.current;
 
-    // Clean up previous measure layers
+    // Clean up ALL measure layers
+    measureRef.current.allLayers.forEach(l => map.removeLayer(l));
     measureRef.current.layers.forEach(l => map.removeLayer(l));
-    measureRef.current = { pts: [], layers: [], total: 0 };
+    measureRef.current = { pts: [], layers: [], total: 0, allLayers: [], measureId: 0 };
 
     if (mapTool !== "measure") return;
 
     map.getContainer().style.cursor = "crosshair";
-    // Disable map dragging temporarily for better click handling
+
     const onClick = (e) => {
       L.DomEvent.stopPropagation(e);
       const pts = measureRef.current.pts;
       const latlng = e.latlng;
       pts.push(latlng);
 
-      // Dot at click point
       const dot = L.circleMarker(latlng, { radius: 5, color: T.c.info, fillColor: "#fff", fillOpacity: 1, weight: 2.5, pane: "markerPane" }).addTo(map);
       measureRef.current.layers.push(dot);
 
@@ -676,16 +676,13 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
         const segDist = prev.distanceTo(latlng);
         measureRef.current.total += segDist;
 
-        // Line segment
         const line = L.polyline([prev, latlng], { color: T.c.info, weight: 2.5, dashArray: "8,4" }).addTo(map);
         measureRef.current.layers.push(line);
 
-        // Segment distance label
         const mid = L.latLng((prev.lat + latlng.lat) / 2, (prev.lng + latlng.lng) / 2);
         const segLabel = L.marker(mid, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#3498db;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 1px 3px rgba(0,0,0,0.2)">${segDist.toFixed(1)}m</div>`, iconAnchor: [20, 8] }) }).addTo(map);
         measureRef.current.layers.push(segLabel);
 
-        // Running total at current point
         const totalLabel = L.marker(latlng, { interactive: false, icon: L.divIcon({ className: "", html: `<div style="background:#1a3a4a;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;white-space:nowrap;font-family:sans-serif;box-shadow:0 2px 4px rgba(0,0,0,0.3);margin-top:-20px">Σ ${measureRef.current.total.toFixed(1)}m</div>`, iconAnchor: [25, 30] }) }).addTo(map);
         measureRef.current.layers.push(totalLabel);
 
@@ -695,8 +692,22 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const onDblClick = (e) => {
       L.DomEvent.stopPropagation(e);
-      // Double-click closes measurement — reset points for next one
+      // Double-click completes current measurement — keep layers on map, start new one
+      if (measureRef.current.pts.length >= 2 && measureRef.current.total > 0) {
+        measureRef.current.measureId++;
+        // Move current layers to allLayers (persist on map)
+        measureRef.current.allLayers.push(...measureRef.current.layers);
+        // Notify parent of completed measurement
+        if (setMeasureDist) {
+          setMeasureDist(prev => {
+            const newEntry = { id: measureRef.current.measureId, value: parseFloat(measureRef.current.total.toFixed(1)), label: `${measureRef.current.total.toFixed(1)}m` };
+            if (typeof prev === 'object' && Array.isArray(prev)) return [...prev, newEntry];
+            return [newEntry];
+          });
+        }
+      }
       measureRef.current.pts = [];
+      measureRef.current.layers = [];
       measureRef.current.total = 0;
     };
 
