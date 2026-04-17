@@ -370,7 +370,7 @@ function StepExtract({ app, currentUser, onReload, measureCorrections, onMeasure
   );
 }
 
-function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, categories, currentUser, onMeasureCorrection, georefData, onGeorefDone }) {
+function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, categories, currentUser, onMeasureCorrection, georefData, onGeorefDone }) {
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
@@ -379,6 +379,8 @@ function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, 
           contoursData={globalContoursData} urbanForestData={globalUrbanForestData}
           drainagePipesData={globalDrainagePipesData} drainagePitsData={globalDrainagePitsData}
           waterPipesData={globalWaterPipesData}
+          powerBuriedData={globalPowerBuriedData} powerOverheadData={globalPowerOverheadData}
+          powerStructuresData={globalPowerStructuresData}
           onMeasureCorrection={onMeasureCorrection}
           georefData={georefData} onGeorefDone={onGeorefDone} />
       </div>
@@ -643,6 +645,7 @@ export default function WorkflowView({
   app, apps, onSelectApp, onBack, currentUser, reloadApp, reloadAllApps, users,
   globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData,
   globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData,
+  globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData,
   // Shared state from parent
   localApp, setLocalApp, newNote, setNewNote, addNote,
   assignee, setAssignee, newStatus, setNewStatus, saveChanges,
@@ -838,6 +841,8 @@ export default function WorkflowView({
               globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
               globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
               globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
+              globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
+              globalPowerStructuresData={globalPowerStructuresData}
               categories={categories}
               currentUser={currentUser}
               onMeasureCorrection={onMeasureCorrection}

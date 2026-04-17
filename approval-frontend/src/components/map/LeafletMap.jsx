@@ -7,7 +7,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, showPowerBuried = false, powerBuriedData = null, showPowerOverhead = false, powerOverheadData = null, showPowerStructures = false, powerStructuresData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -357,6 +357,66 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
     }).addTo(mapInstanceRef.current);
   }, [showWaterPipes, waterPipesData, leafletLoaded]);
+
+  // ── Western Power: Buried Powerlines ──
+  const powerBuriedLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (powerBuriedLayerRef.current) { mapInstanceRef.current.removeLayer(powerBuriedLayerRef.current); powerBuriedLayerRef.current = null; }
+    if (!showPowerBuried || !powerBuriedData?.features) return;
+    const L = window.L;
+    powerBuriedLayerRef.current = L.geoJSON(powerBuriedData, {
+      style: () => ({ color: '#e67e22', weight: 2.5, opacity: 0.7, dashArray: '6,4' }),
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const tips = [`<b>⚡ Buried Power Cable</b>`];
+        if (p.VOLTAGE || p.voltage) tips.push(`Voltage: ${p.VOLTAGE || p.voltage}`);
+        if (p.CABLE_TYPE || p.cable_type) tips.push(`Type: ${p.CABLE_TYPE || p.cable_type}`);
+        layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showPowerBuried, powerBuriedData, leafletLoaded]);
+
+  // ── Western Power: Overhead Powerlines ──
+  const powerOverheadLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (powerOverheadLayerRef.current) { mapInstanceRef.current.removeLayer(powerOverheadLayerRef.current); powerOverheadLayerRef.current = null; }
+    if (!showPowerOverhead || !powerOverheadData?.features) return;
+    const L = window.L;
+    powerOverheadLayerRef.current = L.geoJSON(powerOverheadData, {
+      style: () => ({ color: '#c0392b', weight: 2, opacity: 0.7 }),
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const tips = [`<b>🔌 Overhead Power Line</b>`];
+        if (p.VOLTAGE || p.voltage) tips.push(`Voltage: ${p.VOLTAGE || p.voltage}`);
+        if (p.SUPPLY_TYPE || p.supply_type) tips.push(`Supply: ${p.SUPPLY_TYPE || p.supply_type}`);
+        layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showPowerOverhead, powerOverheadData, leafletLoaded]);
+
+  // ── Western Power: Structures (poles, pillars) ──
+  const powerStructuresLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (powerStructuresLayerRef.current) { mapInstanceRef.current.removeLayer(powerStructuresLayerRef.current); powerStructuresLayerRef.current = null; }
+    if (!showPowerStructures || !powerStructuresData?.features) return;
+    const L = window.L;
+    powerStructuresLayerRef.current = L.geoJSON(powerStructuresData, {
+      pointToLayer: (feature, latlng) => {
+        return L.circleMarker(latlng, { radius: 4, color: '#7f8c8d', fillColor: '#e67e22', fillOpacity: 0.8, weight: 1.5 });
+      },
+      onEachFeature: (feature, layer) => {
+        const p = feature.properties || {};
+        const stype = p.STRUCTURE_TYPE || p.structure_type || p.TYPE || p.type || 'Structure';
+        const tips = [`<b>🔩 ${stype}</b>`];
+        if (p.MATERIAL || p.material) tips.push(`Material: ${p.MATERIAL || p.material}`);
+        if (p.HEIGHT || p.height) tips.push(`Height: ${p.HEIGHT || p.height}m`);
+        layer.bindTooltip(tips.join('<br/>'), { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showPowerStructures, powerStructuresData, leafletLoaded]);
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);

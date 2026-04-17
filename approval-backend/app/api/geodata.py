@@ -108,6 +108,47 @@ LAYERS = {
         "output_file": "Water_Pipes.geojson",
         "description": "WaterCorp (WCORP-002) — Water main locations",
     },
+    # ── Western Power (via Public Secure service — requires SLIP login) ──
+    "power_buried": {
+        "url": "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Secure_Services/Western_Power_WFS/MapServer/3/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Power_Buried.geojson",
+        "description": "Western Power (WP-030) — Distribution buried powerlines",
+    },
+    "power_overhead": {
+        "url": "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Secure_Services/Western_Power_WFS/MapServer/5/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Power_Overhead.geojson",
+        "description": "Western Power (WP-031) — Distribution overhead powerlines",
+    },
+    "power_structures": {
+        "url": "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Secure_Services/Western_Power_WFS/MapServer/7/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Power_Structures.geojson",
+        "description": "Western Power (WP-033) — Distribution structures (poles, pillars)",
+    },
+    "power_transformers": {
+        "url": "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Secure_Services/Western_Power_WFS/MapServer/9/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Power_Transformers.geojson",
+        "description": "Western Power (WP-035) — Ground-mounted transformers",
+    },
+    "power_streetlights": {
+        "url": "https://services.slip.wa.gov.au/public/rest/services/SLIP_Public_Secure_Services/Western_Power_WFS/MapServer/10/query",
+        "max_record_count": 5000,
+        "where": "1=1",
+        "out_fields": "*",
+        "output_file": "Power_Streetlights.geojson",
+        "description": "Western Power (WP-036) — Streetlight locations",
+    },
 }
 
 # MRWA Road Network — separate service with speed limits
@@ -138,6 +179,11 @@ _refresh_status: dict = {
     "drainage_pipes": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "drainage_pits": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
     "water_pipes": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "power_buried": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "power_overhead": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "power_structures": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "power_transformers": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
+    "power_streetlights": {"last_refresh": None, "feature_count": 0, "error": None, "duration_s": 0},
 }
 _refresh_lock = asyncio.Lock()
 
@@ -640,8 +686,23 @@ async def _refresh_all():
     logger.info("\n[7/8] Refreshing drainage pits...")
     _refresh_status["drainage_pits"] = await _refresh_generic_layer("drainage_pits")
 
-    logger.info("\n[8/8] Refreshing water pipes...")
+    logger.info("\n[8/13] Refreshing water pipes...")
     _refresh_status["water_pipes"] = await _refresh_generic_layer("water_pipes")
+
+    logger.info("\n[9/13] Refreshing Western Power buried lines...")
+    _refresh_status["power_buried"] = await _refresh_generic_layer("power_buried")
+
+    logger.info("\n[10/13] Refreshing Western Power overhead lines...")
+    _refresh_status["power_overhead"] = await _refresh_generic_layer("power_overhead")
+
+    logger.info("\n[11/13] Refreshing Western Power structures...")
+    _refresh_status["power_structures"] = await _refresh_generic_layer("power_structures")
+
+    logger.info("\n[12/13] Refreshing Western Power transformers...")
+    _refresh_status["power_transformers"] = await _refresh_generic_layer("power_transformers")
+
+    logger.info("\n[13/13] Refreshing Western Power streetlights...")
+    _refresh_status["power_streetlights"] = await _refresh_generic_layer("power_streetlights")
 
     logger.info("\nRefresh complete.")
     return _refresh_status
@@ -655,7 +716,7 @@ async def geodata_status():
     # Check what files exist on disk
     files = {}
     file_feature_counts = {}
-    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson", "Urban_Forest.geojson", "Drainage_Pipes.geojson", "Drainage_Pits.geojson", "Water_Pipes.geojson"]:
+    for name in ["lot.geojson", "Road_Network.geojson", "Legal_Speed_Limits.geojson", "Contours_2m.geojson", "Urban_Forest.geojson", "Drainage_Pipes.geojson", "Drainage_Pits.geojson", "Water_Pipes.geojson", "Power_Buried.geojson", "Power_Overhead.geojson", "Power_Structures.geojson", "Power_Transformers.geojson", "Power_Streetlights.geojson"]:
         path = OUTPUT_DIR / name
         if path.exists():
             stat = path.stat()
