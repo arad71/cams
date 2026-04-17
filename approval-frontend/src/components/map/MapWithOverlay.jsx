@@ -1737,38 +1737,70 @@ Respond with JSON only:
       )}
       {/* Tool context bar */}
       {mapTool === "measure" && (
-        <div style={{ padding: "4px 12px", background: "#f0f7ff", borderBottom: "1px solid #d5e8f0", fontSize: 10, color: T.c.info, fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span>Click to measure distance · Double-click to start new</span>
-          {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 9 }}>{measureDist}</span>}
-          {/* AI field override — only show when there's a measurement and onMeasureCorrection is available */}
-          {measureDist && onMeasureCorrection && (
-            <>
-              <span style={{ color: "#7a8a94", fontSize: 9 }}>→</span>
-              <select value={measureOverrideField} onChange={e => setMeasureOverrideField(e.target.value)}
-                style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #d5dde2", fontSize: 9, fontFamily: "inherit", color: "#1a3a4a", maxWidth: 160 }}>
-                <option value="">Override AI field…</option>
-                {AI_OVERRIDE_FIELDS.filter(f => f.unit === 'm' || f.unit === 'km/h').map(f => (
-                  <option key={f.key} value={f.key}>{f.label} ({f.unit})</option>
-                ))}
-              </select>
-              {measureOverrideField && (
-                <button onClick={() => {
-                  // Extract numeric value from measureDist string like "12.3m (2 segments)"
-                  const numMatch = measureDist.match(/([\d.]+)/);
-                  if (numMatch) {
-                    const field = AI_OVERRIDE_FIELDS.find(f => f.key === measureOverrideField);
-                    onMeasureCorrection(measureOverrideField, numMatch[1], field?.unit || 'm');
-                    alert(`📏 Map measurement ${numMatch[1]} ${field?.unit || 'm'} saved as correction for "${field?.label || measureOverrideField}".`);
-                    setMeasureOverrideField("");
-                  }
-                }}
-                  style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                  Save as Correction
-                </button>
-              )}
-            </>
-          )}
-          <button onClick={() => { setMapTool(null); setMeasureDist(null); setMeasureOverrideField(""); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Done</button>
+        <div style={{ background: "#f0f7ff", borderBottom: "1px solid #d5e8f0" }}>
+          <div style={{ padding: "4px 12px", fontSize: 10, color: T.c.info, fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span>Click to measure distance · Double-click to start new</span>
+            {measureDist && <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 9 }}>{measureDist}</span>}
+            {/* AI field override — only show when there's a measurement and onMeasureCorrection is available */}
+            {measureDist && onMeasureCorrection && (
+              <>
+                <span style={{ color: "#7a8a94", fontSize: 9 }}>→</span>
+                <select value={measureOverrideField} onChange={e => setMeasureOverrideField(e.target.value)}
+                  style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #d5dde2", fontSize: 9, fontFamily: "inherit", color: "#1a3a4a", maxWidth: 160 }}>
+                  <option value="">Override AI field…</option>
+                  {AI_OVERRIDE_FIELDS.filter(f => f.unit === 'm' || f.unit === 'km/h').map(f => (
+                    <option key={f.key} value={f.key}>{f.label} ({f.unit})</option>
+                  ))}
+                </select>
+                {measureOverrideField && (
+                  <button onClick={() => {
+                    const numMatch = measureDist.match(/([\d.]+)/);
+                    if (numMatch) {
+                      const field = AI_OVERRIDE_FIELDS.find(f => f.key === measureOverrideField);
+                      onMeasureCorrection(measureOverrideField, numMatch[1], field?.unit || 'm');
+                      alert(`📏 Map measurement ${numMatch[1]} ${field?.unit || 'm'} saved as correction for "${field?.label || measureOverrideField}".`);
+                      setMeasureOverrideField("");
+                    }
+                  }}
+                    style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    Save as Correction
+                  </button>
+                )}
+              </>
+            )}
+            <button onClick={() => { setMapTool(null); setMeasureDist(null); setMeasureOverrideField(""); }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Done</button>
+          </div>
+          {/* AI extraction reference panel — key distances for assessment */}
+          {(() => {
+            const spd = app?.cor_site_plan_data || app?.site_plan_data;
+            const ext = spd?.extraction || spd || {};
+            const cd = ext?.crossover_dimensions || {};
+            const sm = ext?.siteplan_measurements || {};
+            const con = ext?.construction || {};
+            const hasData = Object.keys(cd).length > 0 || Object.keys(sm).length > 0;
+            if (!hasData) return null;
+            const V = (v, u) => v != null && v !== '' && v !== 'null' ? `${v}${u || ''}` : '—';
+            return (
+              <div style={{ padding: "6px 12px", borderTop: "1px solid #d5e8f020", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px 16px", fontSize: 9, lineHeight: 1.6 }}>
+                <div style={{ fontWeight: 700, color: "#1a3a4a", gridColumn: "1/-1", fontSize: 10, marginBottom: 2 }}>📊 AI Extraction Reference</div>
+                <div><span style={{ color: "#7a8a94" }}>Crossover Width:</span> <strong>{V(cd.width_at_boundary_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Verge Depth:</span> <strong>{V(cd.verge_depth_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Road:</span> <strong>{V(sm.crossover_on_road || sm.road_name)}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Left Boundary:</span> <strong>{V(cd.distance_to_left_boundary_m, 'm')}</strong> {cd.left_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.left_boundary_feature})</span> : ''}</div>
+                <div><span style={{ color: "#7a8a94" }}>Right Boundary:</span> <strong>{V(cd.distance_to_right_boundary_m, 'm')}</strong> {cd.right_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.right_boundary_feature})</span> : ''}</div>
+                <div><span style={{ color: "#7a8a94" }}>Nearest Boundary:</span> <strong style={{ color: "#c0392b" }}>{V(Math.min(...[cd.distance_to_left_boundary_m, cd.distance_to_right_boundary_m].filter(v => v != null && !isNaN(v))), 'm')}</strong> <span style={{ color: "#95a5a6" }}>({cd.constrained_side || '—'})</span></div>
+                <div><span style={{ color: "#7a8a94" }}>Lot Corner Dist:</span> <strong>{V(cd.distance_to_nearest_lot_corner_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Intersection:</span> <strong>{V(cd.distance_to_intersection_tangent_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Speed Zone:</span> <strong>{V(sm.road_speed_zone_kmh, ' km/h')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Lot Frontage:</span> <strong>{V(sm.lot_frontage_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Lot Depth:</span> <strong>{V(sm.lot_depth_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Front Setback:</span> <strong>{V(sm.building_setback_front_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Garage to Kerb:</span> <strong>{V(sm.garage_to_kerb_m, 'm')}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Material:</span> <strong>{V(con.material)}</strong></div>
+                <div><span style={{ color: "#7a8a94" }}>Kerb Type:</span> <strong>{V(con.kerb_type)}</strong></div>
+              </div>
+            );
+          })()}
         </div>
       )}
       {mapTool === "draw" && (
