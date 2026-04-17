@@ -670,8 +670,11 @@ def correct_site_plan(
     base["extraction"] = extraction
 
     # Re-run compliance check with corrected data
-    from app.services.ai_analyser import check_compliance
-    base["compliance"] = check_compliance(extraction)
+    try:
+        from app.services.ai_analyser import check_compliance
+        base["compliance"] = check_compliance(extraction)
+    except Exception as e:
+        print(f"  Compliance check failed (non-fatal): {e}")
     base["corrected_by"] = current_user.name
     base["corrected_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -704,20 +707,31 @@ def correct_site_plan(
                 db.commit()
         except Exception as e:
             print(f"  Training capture failed: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
 
     # Re-run auto-assess
-    _ensure_case_rows(db, app_id)
-    results = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
-    now = datetime.now(timezone.utc)
     assessed = 0
-    for ca in results:
-        ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
-        ca.ai_result = ai_result
-        ca.ai_confidence = confidence
-        ca.ai_reason = reason
-        ca.ai_assessed_at = now
-        assessed += 1
-    db.commit()
+    try:
+        _ensure_case_rows(db, app_id)
+        results = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
+        now = datetime.now(timezone.utc)
+        for ca in results:
+            ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
+            ca.ai_result = ai_result
+            ca.ai_confidence = confidence
+            ca.ai_reason = reason
+            ca.ai_assessed_at = now
+            assessed += 1
+        db.commit()
+    except Exception as e:
+        print(f"  Auto-assess failed (non-fatal): {e}")
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
     log_audit(db=db, action="correct_extraction", entity_type="application", user=current_user,
               entity_id=str(app.id), entity_ref=app.ref_number,
