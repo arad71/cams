@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { SIGHT_DISTANCE_TABLE, AI_OVERRIDE_FIELDS } from '../../data/constants';
 import { getAppCoords, getFirstRing, normalizeLotPolygon, findNearestRoadSpeed, getSightDistances } from '../../utils/geoHelpers';
-import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment } from '../../utils/geo';
+import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCrossoverRect, checkUtilityClearance } from '../../utils/geo';
 import LeafletMap from './LeafletMap';
 import { T, S, cx } from '../../styles/tokens';
 
@@ -1806,6 +1806,73 @@ Respond with JSON only:
                 <div><span style={{ color: "#7a8a94" }}>Garage to Kerb:</span> <strong>{V(sm.garage_to_kerb_m, 'm')}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Material:</span> <strong>{V(con.material)}</strong></div>
                 <div><span style={{ color: "#7a8a94" }}>Kerb Type:</span> <strong>{V(con.kerb_type)}</strong></div>
+              </div>
+            );
+          })()}
+          {/* Utility clearance check — auto-compute distances from crossover to nearby utilities */}
+          {(() => {
+            const spd = app?.cor_site_plan_data || app?.site_plan_data;
+            const ext = spd?.extraction || spd || {};
+            const cd = ext?.crossover_dimensions || {};
+            const sm = ext?.siteplan_measurements || {};
+            const crossoverRoad = sm.crossover_on_road || sm.road_name;
+            const crossoverWidth = parseFloat(cd.width_at_boundary_m) || parseFloat(cd.total_width_at_road_m);
+            const constrainedSide = cd.constrained_side;
+            const leftDist = parseFloat(cd.distance_to_left_boundary_m);
+            const rightDist = parseFloat(cd.distance_to_right_boundary_m);
+            const vergeDepth = parseFloat(cd.verge_depth_m) || 4.0;
+            const offsetFromBoundary = constrainedSide === "left" ? leftDist : constrainedSide === "right" ? rightDist : Math.min(leftDist || 99, rightDist || 99);
+
+            if (!crossoverRoad || !crossoverWidth || isNaN(offsetFromBoundary)) return null;
+
+            const lotPoly = app?.lot_polygon;
+            if (!lotPoly || lotPoly.length < 4) return null;
+
+            const rect = buildCrossoverRect(lotPoly, crossoverRoad, offsetFromBoundary, crossoverWidth, vergeDepth, constrainedSide, speedRoadsData, roadNetworkData);
+            if (!rect) return null;
+
+            // Check all available utility layers
+            const allResults = [];
+            const utilSources = [
+              { data: powerBuriedData, type: "power_buried", label: "⚡ Buried Power" },
+              { data: powerOverheadData, type: "power_overhead", label: "🔌 Overhead Power" },
+              { data: powerStructuresData, type: "power_overhead", label: "🔩 Power Pole" },
+              { data: gasMainsData, type: "gas", label: "🔥 Gas Main" },
+              { data: waterPipesData, type: "water", label: "🚰 Water Main" },
+              { data: drainagePipesData, type: "drainage", label: "💧 Drainage" },
+            ];
+            for (const src of utilSources) {
+              if (!src.data?.features?.length) continue;
+              const hits = checkUtilityClearance(rect.corners, src.data, src.type, 30);
+              for (const h of hits.slice(0, 3)) { // top 3 closest per type
+                allResults.push({ ...h, label: src.label });
+              }
+            }
+            allResults.sort((a, b) => a.distance - b.distance);
+
+            if (allResults.length === 0) return null;
+
+            return (
+              <div style={{ padding: "6px 12px", borderTop: "1px solid #e4e9ec", fontSize: 9, lineHeight: 1.6 }}>
+                <div style={{ fontWeight: 700, color: "#1a3a4a", fontSize: 10, marginBottom: 4 }}>🔧 Utility Clearance (from crossover edge)</div>
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: "2px 10px", alignItems: "center" }}>
+                  {allResults.slice(0, 10).map((r, i) => (
+                    <React.Fragment key={i}>
+                      <span>{r.label}</span>
+                      <span style={{ color: "#7a8a94", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {r.feature?.SUBTYPE || r.feature?.subtype || r.feature?.PIPE_NAME || r.feature?.pipe_name || r.feature?.VOLTAGE || r.feature?.voltage || r.feature?.STRUCTURE_TYPE || r.feature?.structure_type || ''}
+                      </span>
+                      <span style={{ fontWeight: 700, color: r.conflict ? "#c0392b" : r.warning ? "#e67e22" : "#27ae60", textAlign: "right" }}>
+                        {r.distance}m {r.conflict ? "⛔" : r.warning ? "⚠️" : "✓"}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </div>
+                {allResults.some(r => r.conflict) && (
+                  <div style={{ marginTop: 4, padding: "3px 6px", background: "#fdedec", borderRadius: 3, color: "#c0392b", fontWeight: 600 }}>
+                    ⛔ Utility conflict — clearance less than {allResults.find(r => r.conflict)?.minClearance}m minimum
+                  </div>
+                )}
               </div>
             );
           })()}

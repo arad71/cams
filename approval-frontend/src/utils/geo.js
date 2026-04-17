@@ -336,3 +336,211 @@ export function bestProcrustesAlign(planPts, mapCornersOrdered) {
     offset: bestOffset,
   };
 }
+
+
+// ───────────────────────────────────────────────────────────
+// Utility clearance — crossover edge to utility distance
+// ───────────────────────────────────────────────────────────
+
+const M_PER_DEG_LAT = 111320;
+const mPerDegLng = (lat) => 111320 * Math.cos(lat * Math.PI / 180);
+
+/**
+ * Distance in metres from a point to a line segment (all in lat/lng).
+ */
+function pointToSegmentDist(pLat, pLng, aLat, aLng, bLat, bLng) {
+  const mLng = mPerDegLng((aLat + bLat) / 2);
+  const dx = (bLng - aLng) * mLng, dy = (bLat - aLat) * M_PER_DEG_LAT;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-10) {
+    const ex = (pLng - aLng) * mLng, ey = (pLat - aLat) * M_PER_DEG_LAT;
+    return Math.sqrt(ex * ex + ey * ey);
+  }
+  const px = (pLng - aLng) * mLng, py = (pLat - aLat) * M_PER_DEG_LAT;
+  const t = Math.max(0, Math.min(1, (px * dx + py * dy) / lenSq));
+  const nx = px - t * dx, ny = py - t * dy;
+  return Math.sqrt(nx * nx + ny * ny);
+}
+
+/**
+ * Minimum distance in metres from a point to a polygon edge (rectangle).
+ * polyPts = [{lat,lng}, ...] — the crossover rectangle corners.
+ */
+function pointToPolygonEdgeDist(pLat, pLng, polyPts) {
+  let minD = Infinity;
+  for (let i = 0; i < polyPts.length; i++) {
+    const a = polyPts[i], b = polyPts[(i + 1) % polyPts.length];
+    const d = pointToSegmentDist(pLat, pLng, a.lat, a.lng, b.lat, b.lng);
+    if (d < minD) minD = d;
+  }
+  return minD;
+}
+
+/**
+ * Minimum distance in metres from a line segment to a polygon edge.
+ * Checks both endpoints AND closest approach between all segment pairs.
+ */
+function segmentToPolygonEdgeDist(aLat, aLng, bLat, bLng, polyPts) {
+  let minD = Infinity;
+  // Check segment endpoints to polygon edges
+  minD = Math.min(minD, pointToPolygonEdgeDist(aLat, aLng, polyPts));
+  minD = Math.min(minD, pointToPolygonEdgeDist(bLat, bLng, polyPts));
+  // Check polygon corners to the segment
+  for (const p of polyPts) {
+    const d = pointToSegmentDist(p.lat, p.lng, aLat, aLng, bLat, bLng);
+    if (d < minD) minD = d;
+  }
+  return minD;
+}
+
+/**
+ * Build the crossover rectangle in lat/lng from known data.
+ *
+ * @param {Array<[lat,lng]>} lotPoly — lot boundary polygon
+ * @param {string} crossoverRoad — road name the crossover is on
+ * @param {number} offsetFromBoundary — distance from constrained boundary to crossover edge (m)
+ * @param {number} crossoverWidth — width of crossover (m)
+ * @param {number} vergeDepth — depth from road edge into lot (m)
+ * @param {string} constrainedSide — "left" or "right"
+ * @param {Object} roadData — speed roads / road network GeoJSON
+ * @returns {{corners: [{lat,lng},...], centre: {lat,lng}}} or null
+ */
+export function buildCrossoverRect(lotPoly, crossoverRoad, offsetFromBoundary, crossoverWidth, vergeDepth, constrainedSide, ...roadDataSources) {
+  if (!lotPoly || lotPoly.length < 4 || !crossoverRoad || !crossoverWidth) return null;
+
+  const mLat = M_PER_DEG_LAT;
+  const mLng = mPerDegLng(lotPoly[0][0]);
+
+  // Find the road-facing edge (same logic as sight analysis auto-draw)
+  let bestEdge = null, bestDist = Infinity;
+  for (let i = 0; i < lotPoly.length - 1; i++) {
+    const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
+    const midLng = (lotPoly[i][1] + lotPoly[i + 1][1]) / 2;
+    const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mLng) ** 2);
+    if (edgeLen < 3) continue;
+    for (const src of roadDataSources.filter(s => s?.features)) {
+      for (const feat of src.features) {
+        const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "").toUpperCase();
+        const crUpper = crossoverRoad.toUpperCase();
+        if (!rn || !(crUpper.includes(rn.split(" ")[0]) || rn.includes(crUpper.split(" ")[0]))) continue;
+        const g = feat.geometry;
+        if (!g || g.type !== "LineString") continue;
+        for (const pt of g.coordinates) {
+          const d = Math.sqrt(((midLat - pt[1]) * mLat) ** 2 + ((midLng - pt[0]) * mLng) ** 2);
+          if (d < bestDist) { bestDist = d; bestEdge = { i, from: lotPoly[i], to: lotPoly[i + 1], edgeLen }; }
+        }
+      }
+    }
+  }
+
+  if (!bestEdge || bestDist >= 25) return null;
+
+  // Edge direction and normals
+  const edgeDx = (bestEdge.to[1] - bestEdge.from[1]) * mLng;
+  const edgeDy = (bestEdge.to[0] - bestEdge.from[0]) * mLat;
+  const edgeAngle = Math.atan2(edgeDx, edgeDy);
+  const lotCLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
+  const lotCLng = lotPoly.reduce((s, p) => s + p[1], 0) / lotPoly.length;
+  const n1 = edgeAngle + Math.PI / 2, n2 = edgeAngle - Math.PI / 2;
+  const t1Lat = bestEdge.from[0] + Math.cos(n1) * 5 / mLat;
+  const t1Lng = bestEdge.from[1] + Math.sin(n1) * 5 / mLng;
+  const d1 = Math.sqrt(((t1Lat - lotCLat) * mLat) ** 2 + ((t1Lng - lotCLng) * mLng) ** 2);
+  const inward = d1 < Math.sqrt(((bestEdge.from[0] + Math.cos(n2) * 5 / mLat - lotCLat) * mLat) ** 2 + ((bestEdge.from[1] + Math.sin(n2) * 5 / mLng - lotCLng) * mLng) ** 2) ? n1 : n2;
+  const outward = inward === n1 ? n2 : n1;
+
+  // Position along edge: offset from constrained boundary
+  const yOffset = (offsetFromBoundary || 0) + 0.5 * crossoverWidth;
+  const edgeFrac = Math.min(0.9, Math.max(0.1, yOffset / bestEdge.edgeLen));
+
+  // Edge unit vector
+  const eUnitLat = (bestEdge.to[0] - bestEdge.from[0]) / bestEdge.edgeLen * mLat;
+  const eUnitLng = (bestEdge.to[1] - bestEdge.from[1]) / bestEdge.edgeLen * mLng;
+
+  // Crossover centre on the road edge
+  const cLat = bestEdge.from[0] + (bestEdge.to[0] - bestEdge.from[0]) * edgeFrac;
+  const cLng = bestEdge.from[1] + (bestEdge.to[1] - bestEdge.from[1]) * edgeFrac;
+
+  // Half-width along edge direction
+  const hw = crossoverWidth / 2;
+  // Depth perpendicular (into lot = inward, or out to road = outward)
+  const depth = vergeDepth || 4.0;
+
+  // 4 corners: road-left, road-right, lot-right, lot-left
+  const corners = [
+    { lat: cLat - eUnitLat * hw / mLat + Math.cos(outward) * 0.1 / mLat, lng: cLng - eUnitLng * hw / mLng + Math.sin(outward) * 0.1 / mLng },
+    { lat: cLat + eUnitLat * hw / mLat + Math.cos(outward) * 0.1 / mLat, lng: cLng + eUnitLng * hw / mLng + Math.sin(outward) * 0.1 / mLng },
+    { lat: cLat + eUnitLat * hw / mLat + Math.cos(inward) * depth / mLat, lng: cLng + eUnitLng * hw / mLng + Math.sin(inward) * depth / mLng },
+    { lat: cLat - eUnitLat * hw / mLat + Math.cos(inward) * depth / mLat, lng: cLng - eUnitLng * hw / mLng + Math.sin(inward) * depth / mLng },
+  ];
+
+  return { corners, centre: { lat: cLat, lng: cLng } };
+}
+
+
+/**
+ * Check all utility features near a crossover and compute clearance distances.
+ *
+ * @param {Array<{lat,lng}>} crossoverCorners — 4 corners of the crossover rectangle
+ * @param {Object} utilityData — GeoJSON FeatureCollection
+ * @param {string} utilityType — "power_buried"|"power_overhead"|"gas"|"water"|"drainage"
+ * @param {number} searchRadius — max distance to check (metres)
+ * @returns {Array<{type, distance, feature, conflict, warning}>}
+ */
+export function checkUtilityClearance(crossoverCorners, utilityData, utilityType, searchRadius = 50) {
+  if (!crossoverCorners || crossoverCorners.length < 3 || !utilityData?.features) return [];
+
+  const MIN_CLEARANCES = {
+    gas: 0.6,           // 600mm
+    power_buried: 0.6,  // 600mm
+    power_overhead: 1.0,// 1m (lateral from pole base)
+    water: 0.5,         // 500mm
+    drainage: 0.5,      // 500mm
+    telco: 0.3,         // 300mm
+  };
+
+  const minClear = MIN_CLEARANCES[utilityType] || 0.5;
+  const results = [];
+
+  for (const feature of utilityData.features) {
+    const geom = feature.geometry;
+    if (!geom) continue;
+
+    let minDist = Infinity;
+
+    if (geom.type === "Point") {
+      const [lng, lat] = geom.coordinates;
+      minDist = pointToPolygonEdgeDist(lat, lng, crossoverCorners);
+    } else if (geom.type === "LineString") {
+      for (let i = 0; i < geom.coordinates.length - 1; i++) {
+        const [aLng, aLat] = geom.coordinates[i];
+        const [bLng, bLat] = geom.coordinates[i + 1];
+        const d = segmentToPolygonEdgeDist(aLat, aLng, bLat, bLng, crossoverCorners);
+        if (d < minDist) minDist = d;
+      }
+    } else if (geom.type === "MultiLineString") {
+      for (const line of geom.coordinates) {
+        for (let i = 0; i < line.length - 1; i++) {
+          const [aLng, aLat] = line[i];
+          const [bLng, bLat] = line[i + 1];
+          const d = segmentToPolygonEdgeDist(aLat, aLng, bLat, bLng, crossoverCorners);
+          if (d < minDist) minDist = d;
+        }
+      }
+    }
+
+    if (minDist <= searchRadius) {
+      results.push({
+        type: utilityType,
+        distance: Math.round(minDist * 10) / 10,
+        feature: feature.properties || {},
+        conflict: minDist < minClear,
+        warning: minDist < minClear * 2 && minDist >= minClear,
+        minClearance: minClear,
+      });
+    }
+  }
+
+  // Sort by distance ascending
+  results.sort((a, b) => a.distance - b.distance);
+  return results;
+}
