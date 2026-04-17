@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { T } from '../../styles/tokens';
 import api from '../../services/api';
-import { extractCorners, procrustesAlign } from '../../utils/geo';
+import { extractCorners, bestProcrustesAlign } from '../../utils/geo';
 
 /**
  * Focused georeferencing tool.
@@ -165,18 +165,22 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
       const cadastreCorners = extractCorners(lotCorners, points.length);
 
       if (cadastreCorners.length === points.length) {
-        // Map corners are in polygon order; plan points are in click order.
-        // Assume user clicked in the same winding order as the polygon.
-        matchedMapPts = cadastreCorners.map(c => ({ lat: c.lat, lng: c.lng }));
+        // Try all rotational offsets × 2 winding directions to find best match.
+        // User can click corners in ANY order — system finds the right pairing.
+        const best = bestProcrustesAlign(
+          points,
+          cadastreCorners.map(c => ({ lat: c.lat, lng: c.lng }))
+        );
 
-        // Compute Procrustes alignment to get image bounds on the map
-        const alignment = procrustesAlign(points, matchedMapPts);
-        if (alignment) {
+        if (best && best.alignment) {
+          matchedMapPts = best.mapPts;
+
           // Compute map bounds: transform image corners to lat/lng
-          const tl = alignment.transform(0, 0);
-          const tr = alignment.transform(imgW, 0);
-          const bl = alignment.transform(0, imgH);
-          const br = alignment.transform(imgW, imgH);
+          const t = best.alignment.transform;
+          const tl = t(0, 0);
+          const tr = t(imgW, 0);
+          const bl = t(0, imgH);
+          const br = t(imgW, imgH);
           const lats = [tl.lat, tr.lat, bl.lat, br.lat];
           const lngs = [tl.lng, tr.lng, bl.lng, br.lng];
           bounds = [

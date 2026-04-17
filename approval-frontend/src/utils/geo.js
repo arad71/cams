@@ -132,47 +132,207 @@ export function extractCorners(polygon, k) {
  */
 export function procrustesAlign(planPts, mapPts) {
   const n = planPts.length;
-  if (n < 2 || n !== mapPts.length) return null;
+  if (n < 3 || n !== mapPts.length) return null;
 
-  // 1. Centroids
+  // Convert lat/lng to local metres around centroid
+  const mapCLat = mapPts.reduce((s, p) => s + p.lat, 0) / n;
+  const mapCLng = mapPts.reduce((s, p) => s + p.lng, 0) / n;
+  const M_PER_DEG_LAT = 111320;
+  const M_PER_DEG_LNG = 111320 * Math.cos(mapCLat * Math.PI / 180);
+
+  // Map to metres: x=east (lng), y=south (lat goes down like pixels)
+  const mapM = mapPts.map(p => ({
+    x: (p.lng - mapCLng) * M_PER_DEG_LNG,
+    y: -(p.lat - mapCLat) * M_PER_DEG_LAT,
+  }));
+  const mapMCx = mapM.reduce((s, p) => s + p.x, 0) / n;
+  const mapMCy = mapM.reduce((s, p) => s + p.y, 0) / n;
+
   const planCx = planPts.reduce((s, p) => s + p.x, 0) / n;
   const planCy = planPts.reduce((s, p) => s + p.y, 0) / n;
-  const mapCx = mapPts.reduce((s, p) => s + p.lat, 0) / n;
-  const mapCy = mapPts.reduce((s, p) => s + p.lng, 0) / n;
 
-  // 2. Center
+  // Center both sets
   const cp = planPts.map(p => ({ x: p.x - planCx, y: p.y - planCy }));
-  const cm = mapPts.map(p => ({ x: p.lat - mapCx, y: p.lng - mapCy }));
+  const cm = mapM.map(p => ({ x: p.x - mapMCx, y: p.y - mapMCy }));
 
-  // 3. Compute rotation using atan2 of cross/dot products
+  // Procrustes: rotation via cross/dot
   let dot = 0, cross = 0;
   for (let i = 0; i < n; i++) {
     dot += cp[i].x * cm[i].x + cp[i].y * cm[i].y;
     cross += cp[i].x * cm[i].y - cp[i].y * cm[i].x;
   }
-  const rotation = Math.atan2(cross, dot); // radians
+  const rotation = Math.atan2(cross, dot);
 
-  // 4. Scale: ratio of RMS distances from centroid
+  // Scale: pixels → metres
   const planRms = Math.sqrt(cp.reduce((s, p) => s + p.x * p.x + p.y * p.y, 0) / n);
   const mapRms = Math.sqrt(cm.reduce((s, p) => s + p.x * p.x + p.y * p.y, 0) / n);
   const scale = planRms > 0 ? mapRms / planRms : 1;
 
-  // 5. Transform function: plan pixel → map lat/lng
   const cosR = Math.cos(rotation), sinR = Math.sin(rotation);
+
+  // Compute residual in metres
+  let sse = 0;
+  for (let i = 0; i < n; i++) {
+    const rx = (cp[i].x * cosR - cp[i].y * sinR) * scale;
+    const ry = (cp[i].x * sinR + cp[i].y * cosR) * scale;
+    const dx = rx + mapMCx - mapM[i].x;
+    const dy = ry + mapMCy - mapM[i].y;
+    sse += dx * dx + dy * dy;
+  }
+
+  // Transform: plan pixel → lat/lng
   const transform = (px, py) => {
     const cx = px - planCx;
     const cy = py - planCy;
-    const rx = cx * cosR - cy * sinR;
-    const ry = cx * sinR + cy * cosR;
+    const mx = (cx * cosR - cy * sinR) * scale + mapMCx;
+    const my = (cx * sinR + cy * cosR) * scale + mapMCy;
     return {
-      lat: rx * scale + mapCx,
-      lng: ry * scale + mapCy,
+      lat: -(my / M_PER_DEG_LAT) + mapCLat,  // invert y back to lat
+      lng: mx / M_PER_DEG_LNG + mapCLng,
     };
   };
 
   return {
-    scale, rotation, planCx, planCy, mapCx, mapCy,
+    scale, rotation, planCx, planCy,
+    mapCx: mapCLat, mapCy: mapCLng,
     rotationDeg: rotation * 180 / Math.PI,
+    residual: sse,
     transform,
+  };
+}
+
+
+/**
+ * Compute a least-squares affine transform from plan pixels to lat/lng.
+ * Model: lat = a*x + b*y + e,  lng = c*x + d*y + f
+ */
+function affineTransform(planPts, mapPts) {
+  const n = planPts.length;
+  if (n < 3 || n !== mapPts.length) return null;
+
+  let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+  let sxLat = 0, syLat = 0, sLat = 0;
+  let sxLng = 0, syLng = 0, sLng = 0;
+
+  for (let i = 0; i < n; i++) {
+    const x = planPts[i].x, y = planPts[i].y;
+    const lat = mapPts[i].lat, lng = mapPts[i].lng;
+    sx += x; sy += y;
+    sxx += x * x; syy += y * y; sxy += x * y;
+    sxLat += x * lat; syLat += y * lat; sLat += lat;
+    sxLng += x * lng; syLng += y * lng; sLng += lng;
+  }
+
+  const det = sxx * (syy * n - sy * sy) - sxy * (sxy * n - sy * sx) + sx * (sxy * sy - syy * sx);
+  if (Math.abs(det) < 1e-30) return null;
+
+  const solve = (r1, r2, r3) => {
+    const a = (r1 * (syy * n - sy * sy) - sxy * (r2 * n - sy * r3) + sx * (r2 * sy - syy * r3)) / det;
+    const b = (sxx * (r2 * n - sy * r3) - r1 * (sxy * n - sy * sx) + sx * (sxy * r3 - r2 * sx)) / det;
+    const e = (sxx * (syy * r3 - r2 * sy) - sxy * (sxy * r3 - r2 * sx) + r1 * (sxy * sy - syy * sx)) / det;
+    return [a, b, e];
+  };
+
+  const [a, b, e] = solve(sxLat, syLat, sLat);
+  const [c, d, f] = solve(sxLng, syLng, sLng);
+
+  const transform = (px, py) => ({
+    lat: a * px + b * py + e,
+    lng: c * px + d * py + f,
+  });
+
+  return { transform, a, b, c, d, e, f };
+}
+
+
+/**
+ * Compute the angle of each point relative to the centroid of the set.
+ * Returns angles in radians, sorted order gives the winding.
+ */
+function angularOrder(pts, cx, cy) {
+  return pts.map((p, i) => ({
+    index: i,
+    angle: Math.atan2(p.y - cy, p.x - cx),
+  })).sort((a, b) => a.angle - b.angle);
+}
+
+
+/**
+ * Find the best point pairing between plan clicks and map corners,
+ * then compute an affine transform for the final pixel→lat/lng mapping.
+ *
+ * The user can click corners in ANY order. This function:
+ *   1. Sorts both plan points and map corners by angle from their
+ *      respective centroids (angular ordering)
+ *   2. Tries K rotational offsets to find the best cyclic match
+ *   3. Computes a least-squares affine transform from the best pairing
+ *
+ * Angular ordering handles any click order because corners of a convex
+ * polygon always sort into the same cyclic sequence regardless of which
+ * corner was clicked first or which direction.
+ *
+ * @param {Array<{x,y}>} planPts - pixel coords clicked on plan
+ * @param {Array<{lat,lng}>} mapCornersOrdered - cadastre corners in polygon order
+ * @returns {{ alignment, mapPts, residual, offset }} or null
+ */
+export function bestProcrustesAlign(planPts, mapCornersOrdered) {
+  const n = planPts.length;
+  if (n < 3 || mapCornersOrdered.length < n) return null;
+
+  const mc = mapCornersOrdered.slice(0, n);
+
+  // Sort plan points by angle from centroid
+  const planCx = planPts.reduce((s, p) => s + p.x, 0) / n;
+  const planCy = planPts.reduce((s, p) => s + p.y, 0) / n;
+  const planOrder = angularOrder(
+    planPts.map(p => ({ x: p.x, y: p.y })),
+    planCx, planCy
+  );
+  const sortedPlan = planOrder.map(o => planPts[o.index]);
+
+  // Sort map corners by angle from centroid (in a flat x=lng, y=-lat space)
+  const mapCLat = mc.reduce((s, p) => s + p.lat, 0) / n;
+  const mapCLng = mc.reduce((s, p) => s + p.lng, 0) / n;
+  const mapFlat = mc.map(p => ({ x: p.lng - mapCLng, y: -(p.lat - mapCLat) }));
+  const mapCx = 0, mapCyF = 0;
+  const mapOrder = angularOrder(mapFlat, mapCx, mapCyF);
+  const sortedMap = mapOrder.map(o => mc[o.index]);
+
+  // Try K rotational offsets on the sorted map corners
+  let bestAffine = null;
+  let bestResidual = Infinity;
+  let bestMapPts = null;
+  let bestOffset = 0;
+
+  for (let offset = 0; offset < n; offset++) {
+    const rotated = sortedMap.map((_, i) => sortedMap[(i + offset) % n]);
+    const affine = affineTransform(sortedPlan, rotated);
+    if (!affine) continue;
+
+    // Compute residual
+    let sse = 0;
+    for (let i = 0; i < n; i++) {
+      const t = affine.transform(sortedPlan[i].x, sortedPlan[i].y);
+      const dlat = t.lat - rotated[i].lat;
+      const dlng = t.lng - rotated[i].lng;
+      sse += dlat * dlat + dlng * dlng;
+    }
+
+    if (sse < bestResidual) {
+      bestResidual = sse;
+      bestAffine = affine;
+      bestMapPts = rotated;
+      bestOffset = offset;
+    }
+  }
+
+  if (!bestAffine) return null;
+
+  return {
+    alignment: bestAffine,
+    mapPts: bestMapPts,
+    residual: bestResidual,
+    reversed: false,
+    offset: bestOffset,
   };
 }
