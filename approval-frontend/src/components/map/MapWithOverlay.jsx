@@ -116,6 +116,7 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [measureDist, setMeasureDist] = useState(null); // current in-progress text OR array of completed measurements
   const [measureOverrideField, setMeasureOverrideField] = useState(""); // legacy — not used in new flow
   const [measurements, setMeasurements] = useState([]); // [{id, value, field, label}]
+  const [measureTab, setMeasureTab] = useState("measure"); // measure | reference | utilities | road
   const [radiusResult, setRadiusResult] = useState(null);
   const [centrelineDist, setCentrelineDist] = useState(null);
   const [offsetState, setOffsetState] = useState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null });
@@ -1543,33 +1544,43 @@ Respond with JSON only:
               🗂️ Layers <span style={{ fontSize: 7, opacity: 0.7 }}>▼</span>
             </button>
             {showLayerPanel && (
-              <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 2, zIndex: 1000, background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", minWidth: 220, padding: "6px 0" }}
+              <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 2, zIndex: 1000, background: "#fff", borderRadius: 8, border: "1px solid #e4e9ec", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", minWidth: 220, padding: "6px 0", maxHeight: 400, overflowY: "auto" }}
                 onMouseLeave={() => setShowLayerPanel(false)}>
-                <div style={{ padding: "4px 12px 6px", fontSize: 9, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", borderBottom: "1px solid #f0f3f5" }}>Map Layers</div>
                 {[
-                  { key: "lots", state: showLots, set: () => setShowLots(!showLots), label: "Lot Boundaries", icon: "🏠", color: "#2980b9", data: lotsData },
-                  { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), label: "Speed Limits", icon: "⚡", color: "#e67e22", data: speedRoadsData },
-                  { key: "streets", state: showStreetNames, set: () => setShowStreetNames(!showStreetNames), label: "Street Names", icon: "🛣️", color: "#16a085", data: roadNetworkData },
-                  { key: "contours", state: showContours, set: () => setShowContours(!showContours), label: "2m Contours", icon: "⛰️", color: "#854F0B", data: contoursData },
-                  { key: "urban", state: showUrbanForest, set: () => setShowUrbanForest(!showUrbanForest), label: "Urban Forest", icon: "🌳", color: "#27ae60", data: null },
-                  { key: "dpipes", state: showDrainagePipes, set: () => setShowDrainagePipes(!showDrainagePipes), label: "Drainage Pipes", icon: "💧", color: "#2980b9", data: null },
-                  { key: "dpits", state: showDrainagePits, set: () => setShowDrainagePits(!showDrainagePits), label: "Drainage Pits", icon: "🕳️", color: "#8e44ad", data: null },
-                  { key: "water", state: showWaterPipes, set: () => setShowWaterPipes(!showWaterPipes), label: "Water Pipes", icon: "🚰", color: T.c.info, data: null },
-                  { key: "pburied", state: showPowerBuried, set: () => setShowPowerBuried(!showPowerBuried), label: "Power (Buried)", icon: "⚡", color: "#e67e22", data: powerBuriedData },
-                  { key: "poverhead", state: showPowerOverhead, set: () => setShowPowerOverhead(!showPowerOverhead), label: "Power (Overhead)", icon: "🔌", color: "#c0392b", data: powerOverheadData },
-                  { key: "pstruct", state: showPowerStructures, set: () => setShowPowerStructures(!showPowerStructures), label: "Power Poles", icon: "🔩", color: "#7f8c8d", data: powerStructuresData },
-                  { key: "gas", state: showGasMains, set: () => setShowGasMains(!showGasMains), label: "Gas Mains", icon: "🔥", color: "#f39c12", data: gasMainsData },
-                ].map(l => (
-                  <div key={l.key} onClick={l.set}
-                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11, transition: "background 0.1s" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                    <div style={{ width: 16, height: 16, borderRadius: 3, border: l.state ? `2px solid ${l.color}` : "1.5px solid #d5dde2", background: l.state ? `${l.color}20` : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {l.state && <span style={{ fontSize: 10, color: l.color, fontWeight: T.w.bold }}>✓</span>}
+                  { group: "Base", layers: [
+                    { key: "lots", state: showLots, set: () => setShowLots(!showLots), label: "Lot Boundaries", icon: "🏠", color: "#2980b9" },
+                    { key: "speed", state: showSpeedRoads, set: () => setShowSpeedRoads(!showSpeedRoads), label: "Speed Limits", icon: "🚗", color: "#e67e22" },
+                    { key: "streets", state: showStreetNames, set: () => setShowStreetNames(!showStreetNames), label: "Street Names", icon: "🛣️", color: "#16a085" },
+                    { key: "contours", state: showContours, set: () => setShowContours(!showContours), label: "2m Contours", icon: "⛰️", color: "#854F0B" },
+                    { key: "urban", state: showUrbanForest, set: () => setShowUrbanForest(!showUrbanForest), label: "Urban Forest", icon: "🌳", color: "#27ae60" },
+                  ]},
+                  { group: "Utilities", layers: [
+                    { key: "dpipes", state: showDrainagePipes, set: () => setShowDrainagePipes(!showDrainagePipes), label: "Drainage Pipes", icon: "💧", color: "#2980b9" },
+                    { key: "dpits", state: showDrainagePits, set: () => setShowDrainagePits(!showDrainagePits), label: "Drainage Pits", icon: "🕳️", color: "#8e44ad" },
+                    { key: "water", state: showWaterPipes, set: () => setShowWaterPipes(!showWaterPipes), label: "Water Pipes", icon: "🚰", color: T.c.info },
+                    { key: "pburied", state: showPowerBuried, set: () => setShowPowerBuried(!showPowerBuried), label: "Power (Buried)", icon: "⚡", color: "#e67e22" },
+                    { key: "poverhead", state: showPowerOverhead, set: () => setShowPowerOverhead(!showPowerOverhead), label: "Power (Overhead)", icon: "🔌", color: "#c0392b" },
+                    { key: "pstruct", state: showPowerStructures, set: () => setShowPowerStructures(!showPowerStructures), label: "Power Poles", icon: "🔩", color: "#7f8c8d" },
+                    { key: "gas", state: showGasMains, set: () => setShowGasMains(!showGasMains), label: "Gas Mains", icon: "🔥", color: "#f39c12" },
+                  ]},
+                ].map(group => (
+                  <div key={group.group}>
+                    <div style={{ padding: "4px 12px 2px", fontSize: 8, fontWeight: 700, color: T.c.textSecondary, textTransform: "uppercase", letterSpacing: "0.05em", borderTop: group.group !== "Base" ? "1px solid #f0f3f5" : "none", marginTop: group.group !== "Base" ? 2 : 0 }}>
+                      {group.group}
+                      {group.layers.some(l => l.state) && <span style={{ marginLeft: 4, fontSize: 7, color: "#27ae60" }}>({group.layers.filter(l => l.state).length})</span>}
                     </div>
-                    <span style={{ fontSize: 12 }}>{l.icon}</span>
-                    <span style={{ flex: 1, fontWeight: l.state ? 600 : 400, color: l.state ? l.color : "#5a6a74" }}>{l.label}</span>
-                    {l.data === null && !["urban", "dpipes", "dpits", "water"].includes(l.key) && <span style={{ fontSize: 8, color: "#c0392b", fontWeight: T.w.semi }}>no data</span>}
+                    {group.layers.map(l => (
+                      <div key={l.key} onClick={l.set}
+                        style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px", cursor: "pointer", fontSize: 10, transition: "background 0.1s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <div style={{ width: 14, height: 14, borderRadius: 3, border: l.state ? `2px solid ${l.color}` : "1.5px solid #d5dde2", background: l.state ? `${l.color}20` : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {l.state && <span style={{ fontSize: 9, color: l.color, fontWeight: T.w.bold }}>✓</span>}
+                        </div>
+                        <span style={{ fontSize: 11 }}>{l.icon}</span>
+                        <span style={{ flex: 1, fontWeight: l.state ? 600 : 400, color: l.state ? l.color : "#5a6a74", fontSize: 10 }}>{l.label}</span>
+                      </div>
+                    ))}
                   </div>
                 ))}
                 {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary) && (
@@ -1800,432 +1811,292 @@ Respond with JSON only:
       {/* Tool context bar */}
       {mapTool === "measure" && (
         <div style={{ background: "#f0f7ff", borderBottom: "1px solid #d5e8f0" }}>
-          <div style={{ padding: "4px 12px", fontSize: 10, color: T.c.info, fontWeight: T.w.semi, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span>Click to measure · Double-click to finish</span>
-            {/* Show in-progress measurement */}
+          {/* Header bar with tabs */}
+          <div style={{ display: "flex", alignItems: "center", padding: "0 12px", gap: 0, borderBottom: "1px solid #d5e8f020" }}>
+            {[
+              { id: "measure", label: "📏 Measure", show: true },
+              { id: "reference", label: "📊 Reference", show: true },
+              { id: "utilities", label: "🔧 Utilities", show: true },
+            ].filter(t => t.show).map(t => (
+              <button key={t.id} onClick={() => setMeasureTab(t.id)}
+                style={{ padding: "6px 10px", border: "none", borderBottom: measureTab === t.id ? "2px solid #3498db" : "2px solid transparent", background: "transparent", color: measureTab === t.id ? "#3498db" : "#7a8a94", fontSize: 9, fontWeight: measureTab === t.id ? 700 : 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
+                {t.label}
+              </button>
+            ))}
+            <div style={{ flex: 1 }} />
             {typeof measureDist === 'string' && measureDist && (
-              <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 9 }}>{measureDist}</span>
+              <span style={{ background: "#3498db", color: "#fff", padding: "1px 8px", borderRadius: 10, fontWeight: T.w.bold, fontSize: 8 }}>{measureDist}</span>
             )}
             <button onClick={() => {
-              setMapTool(null); setMeasureDist(null); setMeasurements([]); setMeasureOverrideField("");
-            }} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>
-              Measurement Done
+              setMapTool(null); setMeasureDist(null); setMeasurements([]); setMeasureOverrideField(""); setMeasureTab("measure");
+            }} style={{ padding: "3px 10px", borderRadius: 4, border: "1px solid #3498db30", background: "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer", marginLeft: 6 }}>
+              Done
             </button>
           </div>
-          {/* Single measurement result — select field, see current vs new, save */}
-          {(() => {
-            try {
-            // Get the latest completed measurement
-            const completed = Array.isArray(measureDist) ? measureDist : [];
-            const latest = completed.length > 0 ? completed[completed.length - 1] : null;
 
-            if (!latest) return null;
-
-            // Get current AI/corrected values
-            const spd = app?.cor_site_plan_data || app?.site_plan_data;
-            const ext = spd?.extraction || spd || {};
-            const getFieldValue = (fieldKey) => {
-              if (!fieldKey) return null;
-              const parts = fieldKey.split('.');
-              let obj = ext;
-              for (const p of parts) { obj = obj?.[p]; if (obj == null) return null; }
-              return obj;
-            };
-
-            const selectedField = AI_OVERRIDE_FIELDS.find(f => f.key === measureOverrideField);
-            const currentVal = measureOverrideField ? getFieldValue(measureOverrideField) : null;
-            const currentDisplay = currentVal != null && currentVal !== '' ? String(currentVal) : null;
-            const newVal = latest.value;
-            const isDifferent = currentDisplay != null && String(currentDisplay) !== String(newVal);
-            const isMissing = currentDisplay == null;
-
-            return (
-              <div style={{ padding: "6px 12px", borderTop: "1px solid #d5e8f020" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span style={{ fontWeight: 700, color: "#3498db", fontSize: 12 }}>📏 {newVal}m</span>
-                  <span style={{ color: "#7a8a94", fontSize: 9 }}>→</span>
-                  <select value={measureOverrideField} onChange={e => setMeasureOverrideField(e.target.value)}
-                    style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid #d5dde2", fontSize: 9, fontFamily: "inherit", color: "#1a3a4a", minWidth: 140 }}>
-                    <option value="">— assign to field —</option>
-                    {AI_OVERRIDE_FIELDS.filter(f => f.unit === 'm' || f.unit === 'km/h').map(f => {
-                      // Show current value next to each option
-                      const fv = getFieldValue(f.key);
-                      const saved = measurements.find(m => m.field === f.key && m.saved);
-                      const display = saved ? `${f.label} [✓ ${saved.value}${f.unit}]` : (fv != null && fv !== '' ? `${f.label} (${fv}${f.unit})` : f.label);
-                      return <option key={f.key} value={f.key}>{display}</option>;
-                    })}
-                  </select>
-                  {measureOverrideField && (
-                    <>
-                      {currentDisplay != null && (
-                        <span style={{ fontSize: 9, color: "#7a8a94" }}>
-                          was: <strong style={{ color: isDifferent ? "#c0392b" : "#27ae60", textDecoration: isDifferent ? "line-through" : "none" }}>{currentDisplay}{selectedField?.unit || 'm'}</strong>
-                        </span>
+          {/* Tab: Measure */}
+          {measureTab === "measure" && (
+            <div style={{ padding: "6px 12px" }}>
+              <div style={{ fontSize: 9, color: "#7a8a94", marginBottom: 4 }}>Click map points · Double-click to finish measurement</div>
+              {(() => {
+                try {
+                const completed = Array.isArray(measureDist) ? measureDist : [];
+                const latest = completed.length > 0 ? completed[completed.length - 1] : null;
+                if (!latest) return null;
+                const spd = app?.cor_site_plan_data || app?.site_plan_data;
+                const ext = spd?.extraction || spd || {};
+                const getFieldValue = (fieldKey) => { if (!fieldKey) return null; const parts = fieldKey.split('.'); let obj = ext; for (const p of parts) { obj = obj?.[p]; if (obj == null) return null; } return obj; };
+                const selectedField = AI_OVERRIDE_FIELDS.find(f => f.key === measureOverrideField);
+                const currentVal = measureOverrideField ? getFieldValue(measureOverrideField) : null;
+                const currentDisplay = currentVal != null && currentVal !== '' ? String(currentVal) : null;
+                const newVal = latest.value;
+                const isDifferent = currentDisplay != null && String(currentDisplay) !== String(newVal);
+                const isMissing = currentDisplay == null;
+                return (
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700, color: "#3498db", fontSize: 13 }}>📏 {newVal}m</span>
+                      <span style={{ color: "#7a8a94", fontSize: 9 }}>→</span>
+                      <select value={measureOverrideField} onChange={e => setMeasureOverrideField(e.target.value)}
+                        style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid #d5dde2", fontSize: 9, fontFamily: "inherit", color: "#1a3a4a", minWidth: 140 }}>
+                        <option value="">— assign to field —</option>
+                        {AI_OVERRIDE_FIELDS.filter(f => f.unit === 'm' || f.unit === 'km/h').map(f => {
+                          const fv = getFieldValue(f.key);
+                          const saved = measurements.find(m => m.field === f.key && m.saved);
+                          const display = saved ? `${f.label} [✓ ${saved.value}${f.unit}]` : (fv != null && fv !== '' ? `${f.label} (${fv}${f.unit})` : f.label);
+                          return <option key={f.key} value={f.key}>{display}</option>;
+                        })}
+                      </select>
+                      {measureOverrideField && (
+                        <>
+                          {currentDisplay != null && (
+                            <span style={{ fontSize: 9, color: "#7a8a94" }}>
+                              was: <strong style={{ color: isDifferent ? "#c0392b" : "#27ae60", textDecoration: isDifferent ? "line-through" : "none" }}>{currentDisplay}{selectedField?.unit || 'm'}</strong>
+                            </span>
+                          )}
+                          {isMissing && <span style={{ fontSize: 9, color: "#e67e22", fontStyle: "italic" }}>no current value</span>}
+                          {onMeasureCorrection && (
+                            <button onClick={() => {
+                              onMeasureCorrection(measureOverrideField, String(newVal), selectedField?.unit || 'm');
+                              setMeasurements(prev => { const existing = prev.findIndex(m => m.field === measureOverrideField); const entry = { id: latest.id, value: newVal, field: measureOverrideField, saved: true }; if (existing >= 0) return prev.map((m, i) => i === existing ? entry : m); return [...prev, entry]; });
+                              setMeasureOverrideField("");
+                            }} style={{ padding: "2px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                              ✓ Save
+                            </button>
+                          )}
+                        </>
                       )}
-                      {isMissing && (
-                        <span style={{ fontSize: 9, color: "#e67e22", fontStyle: "italic" }}>no current value</span>
-                      )}
-                      {onMeasureCorrection && (
-                        <button onClick={() => {
-                          onMeasureCorrection(measureOverrideField, String(newVal), selectedField?.unit || 'm');
-                          // Track as saved measurement
-                          setMeasurements(prev => {
-                            const existing = prev.findIndex(m => m.field === measureOverrideField);
-                            const entry = { id: latest.id, value: newVal, field: measureOverrideField, saved: true };
-                            if (existing >= 0) return prev.map((m, i) => i === existing ? entry : m);
-                            return [...prev, entry];
-                          });
-                          setMeasureOverrideField("");
-                        }} style={{ padding: "2px 10px", borderRadius: 4, border: "none", background: "#27ae60", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                          ✓ Save
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-                {/* Saved corrections this session */}
-                {measurements.filter(m => m.saved).length > 0 && (
-                  <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {measurements.filter(m => m.saved).map((m) => {
-                      const f = AI_OVERRIDE_FIELDS.find(x => x.key === m.field);
-                      return (
-                        <span key={m.field} style={{ background: "#eafaf1", border: "1px solid #27ae60", borderRadius: 4, padding: "1px 6px", fontSize: 8, color: "#27ae60", fontWeight: 600 }}>
-                          ✓ {f?.label || m.field}: {m.value}{f?.unit || 'm'}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-            } catch (e) { console.error('Measure panel error:', e); return null; }
-          })()}
-          {/* AI extraction reference panel — key distances for assessment */}
-          {(() => {
-            try {
-            const spd = app?.cor_site_plan_data || app?.site_plan_data;
-            const ext = spd?.extraction || spd || {};
-            const cd = ext?.crossover_dimensions || {};
-            const sm = ext?.siteplan_measurements || {};
-            const con = ext?.construction || {};
-            const hasData = Object.keys(cd).length > 0 || Object.keys(sm).length > 0;
-
-            // Detect road from map data
-            const lotPoly = app?.lot_polygon;
-            const mapRoads = lotPoly ? findNearestRoadsToLot(lotPoly, speedRoadsData, roadNetworkData) : [];
-            const mapPrimaryRoad = mapRoads[0]?.road_name || null;
-            const mapSecondaryRoad = mapRoads[1]?.road_name || null;
-            const aiRoad = sm.crossover_on_road || sm.road_name || null;
-            const aiSecondaryRoad = sm.secondary_road_name || null;
-
-            // Check if AI road matches map road (case-insensitive, first word match)
-            const roadsMatch = aiRoad && mapPrimaryRoad && (
-              aiRoad.toUpperCase() === mapPrimaryRoad.toUpperCase() ||
-              aiRoad.toUpperCase().split(' ')[0] === mapPrimaryRoad.toUpperCase().split(' ')[0]
-            );
-
-            if (!hasData && !mapPrimaryRoad) return null;
-            const V = (v, u) => v != null && v !== '' && v !== 'null' ? `${v}${u || ''}` : '—';
-            return (
-              <div style={{ padding: "6px 12px", borderTop: "1px solid #d5e8f020", fontSize: 9, lineHeight: 1.6 }}>
-                <div style={{ fontWeight: 700, color: "#1a3a4a", fontSize: 10, marginBottom: 2 }}>📊 AI Extraction Reference</div>
-                {/* Road name: AI vs Map comparison */}
-                <div style={{ marginBottom: 4, padding: "4px 6px", background: (!roadsMatch && aiRoad && mapPrimaryRoad) ? "#fef9e7" : "transparent", borderRadius: 3 }}>
-                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                    <span><span style={{ color: "#7a8a94" }}>Road (AI):</span> <strong>{V(aiRoad)}</strong></span>
-                    <span><span style={{ color: "#7a8a94" }}>Road (Map):</span> <strong style={{ color: mapPrimaryRoad ? "#27ae60" : "#bdc3c7" }}>{mapPrimaryRoad || '—'}</strong>
-                      {mapPrimaryRoad && <span style={{ color: "#95a5a6", marginLeft: 3 }}>({mapRoads[0]?.distance}m)</span>}
-                    </span>
-                    {mapSecondaryRoad && (
-                      <span><span style={{ color: "#7a8a94" }}>2nd Road:</span> <strong style={{ color: "#8e44ad" }}>{mapSecondaryRoad}</strong>
-                        <span style={{ color: "#95a5a6", marginLeft: 3 }}>({mapRoads[1]?.distance}m)</span>
-                      </span>
-                    )}
-                    {!roadsMatch && aiRoad && mapPrimaryRoad && onMeasureCorrection && (
-                      <button onClick={() => {
-                        onMeasureCorrection('siteplan_measurements.crossover_on_road', mapPrimaryRoad, '');
-                        alert(`📍 Road name overridden: "${aiRoad}" → "${mapPrimaryRoad}" (from map data)`);
-                      }} style={{ padding: "1px 6px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                        Use Map Road
-                      </button>
-                    )}
-                    {!aiRoad && mapPrimaryRoad && onMeasureCorrection && (
-                      <button onClick={() => {
-                        onMeasureCorrection('siteplan_measurements.crossover_on_road', mapPrimaryRoad, '');
-                        onMeasureCorrection('siteplan_measurements.road_name', mapPrimaryRoad, '');
-                        alert(`📍 Road name set from map: "${mapPrimaryRoad}"`);
-                      }} style={{ padding: "1px 6px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                        Set from Map
-                      </button>
+                    </div>
+                    {measurements.filter(m => m.saved).length > 0 && (
+                      <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {measurements.filter(m => m.saved).map((m) => {
+                          const f = AI_OVERRIDE_FIELDS.find(x => x.key === m.field);
+                          return <span key={m.field} style={{ background: "#eafaf1", border: "1px solid #27ae60", borderRadius: 4, padding: "1px 6px", fontSize: 8, color: "#27ae60", fontWeight: 600 }}>✓ {f?.label || m.field}: {m.value}{f?.unit || 'm'}</span>;
+                        })}
+                      </div>
                     )}
                   </div>
-                  {!roadsMatch && aiRoad && mapPrimaryRoad && (
-                    <div style={{ marginTop: 2, color: "#e67e22", fontWeight: 600, fontSize: 8 }}>⚠️ AI road name doesn't match nearest map road</div>
-                  )}
-                </div>
-                {/* Measurements: AI vs Map comparison for verifiable values */}
-                {(() => {
-                  // Compute map-derived measurements
-                  const mapMeas = computeMapMeasurements(
-                    lotPoly, aiRoad || mapPrimaryRoad,
-                    parseFloat(cd.distance_to_left_boundary_m) < parseFloat(cd.distance_to_right_boundary_m) ? parseFloat(cd.distance_to_left_boundary_m) : parseFloat(cd.distance_to_right_boundary_m),
-                    parseFloat(cd.width_at_boundary_m) || parseFloat(cd.total_width_at_road_m),
-                    cd.constrained_side,
-                    speedRoadsData, roadNetworkData
-                  );
+                );
+                } catch (e) { console.error('Measure panel error:', e); return null; }
+              })()}
+            </div>
+          )}
 
-                  const compRows = [
-                    { label: "Lot Frontage", aiVal: sm.lot_frontage_m, mapVal: mapMeas.lot_frontage_m, unit: "m", aiField: "siteplan_measurements.lot_frontage_m" },
-                    { label: "Lot Depth", aiVal: sm.lot_depth_m, mapVal: mapMeas.lot_depth_m, unit: "m", aiField: "siteplan_measurements.lot_depth_m" },
-                    { label: "Verge Depth", aiVal: cd.verge_depth_m, mapVal: mapMeas.verge_depth_m, unit: "m", aiField: "crossover_dimensions.verge_depth_m" },
-                    { label: "Lot Corner Dist", aiVal: cd.distance_to_nearest_lot_corner_m, mapVal: mapMeas.distance_to_nearest_lot_corner_m, unit: "m", aiField: "crossover_dimensions.distance_to_nearest_lot_corner_m" },
-                    { label: "Intersection Dist", aiVal: cd.distance_to_intersection_tangent_m, mapVal: mapMeas.distance_to_intersection_m, unit: "m", aiField: "crossover_dimensions.distance_to_intersection_tangent_m" },
-                  ];
+          {/* Tab: Reference (AI extraction + Map comparison) */}
+          {measureTab === "reference" && (
+            <div style={{ padding: "6px 12px", maxHeight: 250, overflowY: "auto" }}>
+              {(() => {
+                try {
+                const spd = app?.cor_site_plan_data || app?.site_plan_data;
+                const ext = spd?.extraction || spd || {};
+                const cd = ext?.crossover_dimensions || {};
+                const sm = ext?.siteplan_measurements || {};
+                const con = ext?.construction || {};
+                const lotPolyLocal = app?.lot_polygon;
+                const mapRoads = lotPolyLocal ? findNearestRoadsToLot(lotPolyLocal, speedRoadsData, roadNetworkData) : [];
+                const mapPrimaryRoad = mapRoads[0]?.road_name || null;
+                const mapSecondaryRoad = mapRoads[1]?.road_name || null;
+                const aiRoad = sm.crossover_on_road || sm.road_name || null;
+                const roadsMatch = aiRoad && mapPrimaryRoad && (aiRoad.toUpperCase() === mapPrimaryRoad.toUpperCase() || aiRoad.toUpperCase().split(' ')[0] === mapPrimaryRoad.toUpperCase().split(' ')[0]);
+                const V = (v, u) => v != null && v !== '' && v !== 'null' ? `${v}${u || ''}` : '—';
 
-                  const hasMapData = compRows.some(r => r.mapVal != null);
+                // Map-derived measurements
+                const mapMeas = computeMapMeasurements(
+                  lotPolyLocal, aiRoad || mapPrimaryRoad,
+                  parseFloat(cd.distance_to_left_boundary_m) < parseFloat(cd.distance_to_right_boundary_m) ? parseFloat(cd.distance_to_left_boundary_m) : parseFloat(cd.distance_to_right_boundary_m),
+                  parseFloat(cd.width_at_boundary_m) || parseFloat(cd.total_width_at_road_m),
+                  cd.constrained_side, speedRoadsData, roadNetworkData
+                );
 
-                  return (
-                    <div style={{ marginTop: 4 }}>
-                      {hasMapData && (
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9, marginBottom: 4 }}>
-                          <thead>
-                            <tr style={{ borderBottom: "1px solid #e4e9ec" }}>
-                              <th style={{ textAlign: "left", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Measurement</th>
-                              <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>AI</th>
-                              <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Map</th>
-                              <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {compRows.map((r) => {
-                              const ai = r.aiVal != null && r.aiVal !== '' && r.aiVal !== 'null' ? parseFloat(r.aiVal) : null;
-                              const mp = r.mapVal;
-                              const diff = (ai != null && mp != null) ? Math.abs(ai - mp) : null;
-                              const significant = diff != null && diff > 1.0; // >1m difference is notable
-                              const aiMissing = ai == null;
-                              return (
-                                <tr key={r.label} style={{ borderBottom: "1px solid #f0f2f5", background: significant ? "#fef9e7" : "transparent" }}>
-                                  <td style={{ padding: "3px 4px", fontWeight: 600 }}>{r.label}</td>
-                                  <td style={{ padding: "3px 4px", textAlign: "center", color: aiMissing ? "#bdc3c7" : "#1a3a4a", fontStyle: aiMissing ? "italic" : "normal" }}>
-                                    {ai != null ? `${ai}${r.unit}` : '—'}
-                                  </td>
-                                  <td style={{ padding: "3px 4px", textAlign: "center", fontWeight: 700, color: mp != null ? (significant ? "#e67e22" : "#27ae60") : "#bdc3c7" }}>
-                                    {mp != null ? `${mp}${r.unit}` : '—'}
-                                  </td>
-                                  <td style={{ padding: "3px 4px", textAlign: "center" }}>
-                                    {aiMissing && mp != null && onMeasureCorrection && (
-                                      <button onClick={() => {
-                                        onMeasureCorrection(r.aiField, String(mp), r.unit);
-                                        alert(`📐 ${r.label} set from map: ${mp}${r.unit}`);
-                                      }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                                        Set
-                                      </button>
-                                    )}
-                                    {significant && onMeasureCorrection && (
-                                      <button onClick={() => {
-                                        onMeasureCorrection(r.aiField, String(mp), r.unit);
-                                        alert(`📐 ${r.label} overridden: ${ai}${r.unit} → ${mp}${r.unit} (from map)`);
-                                      }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                                        Use Map
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      )}
-                      {/* Non-comparable fields (no map source — AI only) */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "2px 16px" }}>
-                        <div><span style={{ color: "#7a8a94" }}>Crossover Width:</span> <strong>{V(cd.width_at_boundary_m, 'm')}</strong></div>
-                        <div><span style={{ color: "#7a8a94" }}>Speed Zone:</span> <strong>{V(sm.road_speed_zone_kmh, ' km/h')}</strong></div>
-                        <div><span style={{ color: "#7a8a94" }}>Constrained:</span> <strong>{V(cd.constrained_side)}</strong></div>
-                        <div><span style={{ color: "#7a8a94" }}>Left Boundary:</span> <strong>{V(cd.distance_to_left_boundary_m, 'm')}</strong> {cd.left_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.left_boundary_feature})</span> : ''}</div>
-                        <div><span style={{ color: "#7a8a94" }}>Right Boundary:</span> <strong>{V(cd.distance_to_right_boundary_m, 'm')}</strong> {cd.right_boundary_feature ? <span style={{ color: "#95a5a6" }}>({cd.right_boundary_feature})</span> : ''}</div>
-                        <div><span style={{ color: "#7a8a94" }}>Nearest Boundary:</span> <strong style={{ color: "#c0392b" }}>{V(Math.min(...[cd.distance_to_left_boundary_m, cd.distance_to_right_boundary_m].filter(v => v != null && !isNaN(v))), 'm')}</strong></div>
-                        <div><span style={{ color: "#7a8a94" }}>Front Setback:</span> <strong>{V(sm.building_setback_front_m, 'm')}</strong></div>
-                        <div><span style={{ color: "#7a8a94" }}>Garage to Kerb:</span> <strong>{V(sm.garage_to_kerb_m, 'm')}</strong></div>
-                        <div><span style={{ color: "#7a8a94" }}>Material:</span> <strong>{V(con.material)}</strong></div>
-                        <div><span style={{ color: "#7a8a94" }}>Kerb Type:</span> <strong>{V(con.kerb_type)}</strong></div>
+                return (
+                  <div style={{ fontSize: 9, lineHeight: 1.6 }}>
+                    {/* Road comparison */}
+                    <div style={{ marginBottom: 6, padding: "3px 6px", background: (!roadsMatch && aiRoad && mapPrimaryRoad) ? "#fef9e7" : "#f8fafb", borderRadius: 3 }}>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                        <span><span style={{ color: "#7a8a94" }}>Road (AI):</span> <strong>{V(aiRoad)}</strong></span>
+                        <span><span style={{ color: "#7a8a94" }}>Road (Map):</span> <strong style={{ color: mapPrimaryRoad ? "#27ae60" : "#bdc3c7" }}>{mapPrimaryRoad || '—'}</strong></span>
+                        {mapSecondaryRoad && <span><span style={{ color: "#7a8a94" }}>2nd:</span> <strong style={{ color: "#8e44ad" }}>{mapSecondaryRoad}</strong></span>}
+                        {!roadsMatch && aiRoad && mapPrimaryRoad && onMeasureCorrection && (
+                          <button onClick={() => { onMeasureCorrection('siteplan_measurements.crossover_on_road', mapPrimaryRoad, ''); }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Use Map</button>
+                        )}
+                        {!aiRoad && mapPrimaryRoad && onMeasureCorrection && (
+                          <button onClick={() => { onMeasureCorrection('siteplan_measurements.crossover_on_road', mapPrimaryRoad, ''); onMeasureCorrection('siteplan_measurements.road_name', mapPrimaryRoad, ''); }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Set</button>
+                        )}
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
-            );
-            } catch (e) { console.error('AI reference panel error:', e); return null; }
-          })()}
-          {/* Utility clearance check — AI vs Map comparison */}
-          {(() => {
-            try {
-            const spd = app?.cor_site_plan_data || app?.site_plan_data;
-            const ext = spd?.extraction || spd || {};
-            const cd = ext?.crossover_dimensions || {};
-            const sm = ext?.siteplan_measurements || {};
-            const aiUtil = ext?.utilities || {};
-            const crossoverRoad = sm.crossover_on_road || sm.road_name;
-            const crossoverWidth = parseFloat(cd.width_at_boundary_m) || parseFloat(cd.total_width_at_road_m);
-            const constrainedSide = cd.constrained_side;
-            const leftDist = parseFloat(cd.distance_to_left_boundary_m);
-            const rightDist = parseFloat(cd.distance_to_right_boundary_m);
-            const vergeDepth = parseFloat(cd.verge_depth_m) || 4.0;
-            const offsetFromBoundary = constrainedSide === "left" ? leftDist : constrainedSide === "right" ? rightDist : Math.min(leftDist || 99, rightDist || 99);
-
-            const lotPoly = app?.lot_polygon;
-
-            // Compute map-based clearances if possible
-            let mapResults = {};
-            let rect = null;
-            if (lotPoly?.length >= 4 && crossoverRoad && crossoverWidth && !isNaN(offsetFromBoundary)) {
-              rect = buildCrossoverRect(lotPoly, crossoverRoad, offsetFromBoundary, crossoverWidth, vergeDepth, constrainedSide, speedRoadsData, roadNetworkData);
-            }
-            if (rect) {
-              const sources = [
-                { data: powerBuriedData, type: "power_buried", key: "power" },
-                { data: powerOverheadData, type: "power_overhead", key: "power" },
-                { data: powerStructuresData, type: "power_overhead", key: "power" },
-                { data: gasMainsData, type: "gas", key: "gas" },
-                { data: waterPipesData, type: "water", key: "water" },
-                { data: drainagePipesData, type: "drainage", key: "drainage" },
-              ];
-              for (const src of sources) {
-                if (!src.data?.features?.length) continue;
-                const hits = checkUtilityClearance(rect.corners, src.data, src.type, 30);
-                if (hits.length > 0 && (!mapResults[src.key] || hits[0].distance < mapResults[src.key].distance)) {
-                  mapResults[src.key] = hits[0]; // keep nearest per utility type
-                }
-              }
-            }
-
-            // Build comparison rows: AI value vs Map value
-            const rows = [
-              {
-                label: "⚡ Power", key: "power",
-                aiConflict: aiUtil.power_conflict,
-                aiShown: aiUtil.power_line_shown,
-                aiField: "utilities.power_conflict",
-                mapHit: mapResults.power,
-                minClear: 0.6,
-              },
-              {
-                label: "🚰 Water", key: "water",
-                aiConflict: aiUtil.water_conflict,
-                aiShown: aiUtil.water_main_shown,
-                aiField: "utilities.water_conflict",
-                mapHit: mapResults.water,
-                minClear: 0.5,
-              },
-              {
-                label: "🔥 Gas", key: "gas",
-                aiConflict: aiUtil.gas_conflict,
-                aiShown: aiUtil.gas_main_shown,
-                aiField: "utilities.gas_conflict",
-                mapHit: mapResults.gas,
-                minClear: 0.6,
-              },
-              {
-                label: "💧 Drainage", key: "drainage",
-                aiConflict: aiUtil.drainage_conflict,
-                aiShown: aiUtil.drainage_shown,
-                aiField: "utilities.drainage_conflict",
-                mapHit: mapResults.drainage,
-                minClear: 0.5,
-              },
-            ];
-
-            // Only show if we have any data (AI or map)
-            const hasAny = rows.some(r => r.aiConflict != null || r.aiShown != null || r.mapHit);
-            if (!hasAny) return null;
-
-            return (
-              <div style={{ padding: "6px 12px", borderTop: "1px solid #e4e9ec", fontSize: 9, lineHeight: 1.6 }}>
-                <div style={{ fontWeight: 700, color: "#1a3a4a", fontSize: 10, marginBottom: 4 }}>🔧 Utility Clearance — AI vs Map</div>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid #e4e9ec" }}>
-                      <th style={{ textAlign: "left", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Utility</th>
-                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>AI (Site Plan)</th>
-                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Map (GeoData)</th>
-                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}>Status</th>
-                      <th style={{ textAlign: "center", padding: "3px 4px", color: "#7a8a94", fontWeight: 600 }}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r) => {
-                      const aiVal = r.aiConflict != null
-                        ? (r.aiConflict === true || r.aiConflict === 'true' ? 'Conflict' : 'Clear')
-                        : (r.aiShown != null ? (r.aiShown === true || r.aiShown === 'true' ? 'Present' : 'Not shown') : '—');
-                      const mapVal = r.mapHit ? `${r.mapHit.distance}m` : (rect ? 'None nearby' : 'No data');
-                      const mapConflict = r.mapHit?.conflict;
-                      const mapWarning = r.mapHit?.warning;
-
-                      // Determine if AI and map disagree
-                      const aiSaysConflict = r.aiConflict === true || r.aiConflict === 'true';
-                      const aiSaysClear = r.aiConflict === false || r.aiConflict === 'false';
-                      const disagree = r.mapHit && ((aiSaysClear && mapConflict) || (aiSaysConflict && !mapConflict));
-
-                      // Status: use map data if available, fall back to AI
-                      let statusIcon, statusColor;
-                      if (r.mapHit) {
-                        statusIcon = mapConflict ? '⛔' : mapWarning ? '⚠️' : '✓';
-                        statusColor = mapConflict ? '#c0392b' : mapWarning ? '#e67e22' : '#27ae60';
-                      } else if (r.aiConflict != null) {
-                        statusIcon = aiSaysConflict ? '⛔' : '✓';
-                        statusColor = aiSaysConflict ? '#c0392b' : '#27ae60';
-                      } else {
-                        statusIcon = '—';
-                        statusColor = '#bdc3c7';
-                      }
-
-                      return (
-                        <tr key={r.key} style={{ borderBottom: "1px solid #f0f2f5", background: disagree ? "#fef9e7" : "transparent" }}>
-                          <td style={{ padding: "4px", fontWeight: 600 }}>{r.label}</td>
-                          <td style={{ padding: "4px", textAlign: "center", color: aiSaysConflict ? "#c0392b" : "#7a8a94", fontStyle: r.aiConflict == null && r.aiShown == null ? "italic" : "normal" }}>
-                            {aiVal}
-                          </td>
-                          <td style={{ padding: "4px", textAlign: "center", fontWeight: 700, color: mapConflict ? "#c0392b" : mapWarning ? "#e67e22" : r.mapHit ? "#27ae60" : "#bdc3c7" }}>
-                            {mapVal}
-                            {r.mapHit && <span style={{ color: "#95a5a6", fontWeight: 400, marginLeft: 3 }}>
-                              (min {r.minClear}m)
-                            </span>}
-                          </td>
-                          <td style={{ padding: "4px", textAlign: "center", fontSize: 12 }}>
-                            <span style={{ color: statusColor }}>{statusIcon}</span>
-                          </td>
-                          <td style={{ padding: "4px", textAlign: "center" }}>
-                            {disagree && onMeasureCorrection && (
-                              <button onClick={() => {
-                                const newVal = r.mapHit ? (mapConflict ? 'true' : 'false') : (aiSaysConflict ? 'true' : 'false');
-                                onMeasureCorrection(r.aiField, newVal, '');
-                                alert(`🔧 ${r.label} conflict updated from map data: ${newVal === 'true' ? 'CONFLICT (< ' + r.minClear + 'm)' : 'CLEAR (' + r.mapHit.distance + 'm)'}`);
-                              }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                                Use Map
-                              </button>
-                            )}
-                            {r.aiConflict == null && r.mapHit && onMeasureCorrection && (
-                              <button onClick={() => {
-                                onMeasureCorrection(r.aiField, mapConflict ? 'true' : 'false', '');
-                                alert(`🔧 ${r.label}: set from map data — ${mapConflict ? 'CONFLICT' : 'clear'} (${r.mapHit.distance}m)`);
-                              }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                                Set
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {rows.some(r => r.mapHit?.conflict) && (
-                  <div style={{ marginTop: 4, padding: "3px 6px", background: "#fdedec", borderRadius: 3, color: "#c0392b", fontWeight: 600 }}>
-                    ⛔ Map data shows utility within minimum clearance distance
+                    {/* AI vs Map comparison table */}
+                    {mapMeas && (mapMeas.lot_frontage_m || mapMeas.lot_depth_m || mapMeas.verge_depth_m) && (
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9, marginBottom: 6 }}>
+                        <thead><tr style={{ borderBottom: "1px solid #e4e9ec" }}>
+                          <th style={{ textAlign: "left", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Measurement</th>
+                          <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>AI</th>
+                          <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Map</th>
+                          <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}></th>
+                        </tr></thead>
+                        <tbody>
+                          {[
+                            { label: "Lot Frontage", aiVal: sm.lot_frontage_m, mapVal: mapMeas.lot_frontage_m, aiField: "siteplan_measurements.lot_frontage_m" },
+                            { label: "Lot Depth", aiVal: sm.lot_depth_m, mapVal: mapMeas.lot_depth_m, aiField: "siteplan_measurements.lot_depth_m" },
+                            { label: "Verge Depth", aiVal: cd.verge_depth_m, mapVal: mapMeas.verge_depth_m, aiField: "crossover_dimensions.verge_depth_m" },
+                            { label: "Corner Dist", aiVal: cd.distance_to_nearest_lot_corner_m, mapVal: mapMeas.distance_to_nearest_lot_corner_m, aiField: "crossover_dimensions.distance_to_nearest_lot_corner_m" },
+                            { label: "Intersection", aiVal: cd.distance_to_intersection_tangent_m, mapVal: mapMeas.distance_to_intersection_m, aiField: "crossover_dimensions.distance_to_intersection_tangent_m" },
+                          ].map(r => {
+                            const ai = r.aiVal != null && r.aiVal !== '' ? parseFloat(r.aiVal) : null;
+                            const mp = r.mapVal;
+                            const diff = (ai != null && mp != null) ? Math.abs(ai - mp) : null;
+                            const sig = diff != null && diff > 1.0;
+                            return (
+                              <tr key={r.label} style={{ borderBottom: "1px solid #f0f2f5", background: sig ? "#fef9e7" : "transparent" }}>
+                                <td style={{ padding: "2px 4px", fontWeight: 600 }}>{r.label}</td>
+                                <td style={{ padding: "2px 4px", textAlign: "center", color: ai != null ? "#1a3a4a" : "#bdc3c7" }}>{ai != null ? `${ai}m` : '—'}</td>
+                                <td style={{ padding: "2px 4px", textAlign: "center", fontWeight: 700, color: mp != null ? (sig ? "#e67e22" : "#27ae60") : "#bdc3c7" }}>{mp != null ? `${mp}m` : '—'}</td>
+                                <td style={{ padding: "2px 4px", textAlign: "center" }}>
+                                  {((ai == null && mp != null) || sig) && onMeasureCorrection && (
+                                    <button onClick={() => { onMeasureCorrection(r.aiField, String(mp), 'm'); }} style={{ padding: "1px 4px", borderRadius: 3, border: `1px solid ${sig ? "#e67e22" : "#27ae60"}`, background: "#fff", color: sig ? "#e67e22" : "#27ae60", fontSize: 7, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{ai == null ? 'Set' : 'Map'}</button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                    {/* Other AI values (non-comparable) */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "1px 12px" }}>
+                      <div><span style={{ color: "#7a8a94" }}>Width:</span> <strong>{V(cd.width_at_boundary_m, 'm')}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>Speed:</span> <strong>{V(sm.road_speed_zone_kmh, 'km/h')}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>Side:</span> <strong>{V(cd.constrained_side)}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>L Bnd:</span> <strong>{V(cd.distance_to_left_boundary_m, 'm')}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>R Bnd:</span> <strong>{V(cd.distance_to_right_boundary_m, 'm')}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>Setback:</span> <strong>{V(sm.building_setback_front_m, 'm')}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>Garage:</span> <strong>{V(sm.garage_to_kerb_m, 'm')}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>Material:</span> <strong>{V(con.material)}</strong></div>
+                      <div><span style={{ color: "#7a8a94" }}>Kerb:</span> <strong>{V(con.kerb_type)}</strong></div>
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-            } catch (e) { console.error('Utility clearance panel error:', e); return null; }
-          })()}
+                );
+                } catch (e) { console.error('Reference panel error:', e); return null; }
+              })()}
+            </div>
+          )}
+
+          {/* Tab: Utilities */}
+          {measureTab === "utilities" && (
+            <div style={{ padding: "6px 12px", maxHeight: 250, overflowY: "auto" }}>
+              {(() => {
+                try {
+                const spd2 = app?.cor_site_plan_data || app?.site_plan_data;
+                const ext2 = spd2?.extraction || spd2 || {};
+                const cd2 = ext2?.crossover_dimensions || {};
+                const sm2 = ext2?.siteplan_measurements || {};
+                const aiUtil = ext2?.utilities || {};
+                const crossoverRoad = sm2.crossover_on_road || sm2.road_name;
+                const crossoverWidth = parseFloat(cd2.width_at_boundary_m) || parseFloat(cd2.total_width_at_road_m);
+                const constrainedSide = cd2.constrained_side;
+                const leftDist = parseFloat(cd2.distance_to_left_boundary_m);
+                const rightDist = parseFloat(cd2.distance_to_right_boundary_m);
+                const vergeDepth = parseFloat(cd2.verge_depth_m) || 4.0;
+                const offsetFromBoundary = constrainedSide === "left" ? leftDist : constrainedSide === "right" ? rightDist : Math.min(leftDist || 99, rightDist || 99);
+                const lotPolyU = app?.lot_polygon;
+
+                let mapResults = {};
+                let rect = null;
+                if (lotPolyU?.length >= 4 && crossoverRoad && crossoverWidth && !isNaN(offsetFromBoundary)) {
+                  rect = buildCrossoverRect(lotPolyU, crossoverRoad, offsetFromBoundary, crossoverWidth, vergeDepth, constrainedSide, speedRoadsData, roadNetworkData);
+                }
+                if (rect) {
+                  for (const src of [
+                    { data: powerBuriedData, type: "power_buried", key: "power" },
+                    { data: powerOverheadData, type: "power_overhead", key: "power" },
+                    { data: powerStructuresData, type: "power_overhead", key: "power" },
+                    { data: gasMainsData, type: "gas", key: "gas" },
+                    { data: waterPipesData, type: "water", key: "water" },
+                    { data: drainagePipesData, type: "drainage", key: "drainage" },
+                  ]) {
+                    if (!src.data?.features?.length) continue;
+                    const hits = checkUtilityClearance(rect.corners, src.data, src.type, 30);
+                    if (hits.length > 0 && (!mapResults[src.key] || hits[0].distance < mapResults[src.key].distance)) {
+                      mapResults[src.key] = hits[0];
+                    }
+                  }
+                }
+
+                const rows = [
+                  { label: "⚡ Power", key: "power", aiConflict: aiUtil.power_conflict, aiField: "utilities.power_conflict", mapHit: mapResults.power, minClear: 0.6 },
+                  { label: "🚰 Water", key: "water", aiConflict: aiUtil.water_conflict, aiField: "utilities.water_conflict", mapHit: mapResults.water, minClear: 0.5 },
+                  { label: "🔥 Gas", key: "gas", aiConflict: aiUtil.gas_conflict, aiField: "utilities.gas_conflict", mapHit: mapResults.gas, minClear: 0.6 },
+                  { label: "💧 Drain", key: "drainage", aiConflict: aiUtil.drainage_conflict, aiField: "utilities.drainage_conflict", mapHit: mapResults.drainage, minClear: 0.5 },
+                ];
+                const hasAny = rows.some(r => r.aiConflict != null || r.mapHit);
+                if (!hasAny) return <div style={{ fontSize: 9, color: "#7a8a94", fontStyle: "italic" }}>No utility data available. Enable utility layers and ensure crossover data is extracted.</div>;
+
+                return (
+                  <div style={{ fontSize: 9 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr style={{ borderBottom: "1px solid #e4e9ec" }}>
+                        <th style={{ textAlign: "left", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Utility</th>
+                        <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>AI</th>
+                        <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}>Map</th>
+                        <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}></th>
+                        <th style={{ textAlign: "center", padding: "2px 4px", color: "#7a8a94", fontWeight: 600 }}></th>
+                      </tr></thead>
+                      <tbody>
+                        {rows.map(r => {
+                          const aiSaysConflict = r.aiConflict === true || r.aiConflict === 'true';
+                          const aiVal = r.aiConflict != null ? (aiSaysConflict ? 'Conflict' : 'Clear') : '—';
+                          const mapVal = r.mapHit ? `${r.mapHit.distance}m` : (rect ? 'None' : '—');
+                          const mapConflict = r.mapHit?.conflict;
+                          const disagree = r.mapHit && ((r.aiConflict === false && mapConflict) || (aiSaysConflict && !mapConflict));
+                          const statusIcon = r.mapHit ? (mapConflict ? '⛔' : '✓') : (r.aiConflict != null ? (aiSaysConflict ? '⛔' : '✓') : '—');
+                          const statusColor = r.mapHit ? (mapConflict ? '#c0392b' : '#27ae60') : (aiSaysConflict ? '#c0392b' : '#7a8a94');
+                          return (
+                            <tr key={r.key} style={{ borderBottom: "1px solid #f0f2f5", background: disagree ? "#fef9e7" : "transparent" }}>
+                              <td style={{ padding: "3px 4px", fontWeight: 600 }}>{r.label}</td>
+                              <td style={{ padding: "3px 4px", textAlign: "center", color: aiSaysConflict ? "#c0392b" : "#7a8a94" }}>{aiVal}</td>
+                              <td style={{ padding: "3px 4px", textAlign: "center", fontWeight: 700, color: mapConflict ? "#c0392b" : r.mapHit ? "#27ae60" : "#bdc3c7" }}>{mapVal}</td>
+                              <td style={{ padding: "3px 4px", textAlign: "center", color: statusColor }}>{statusIcon}</td>
+                              <td style={{ padding: "3px 4px" }}>
+                                {disagree && onMeasureCorrection && (
+                                  <button onClick={() => { onMeasureCorrection(r.aiField, mapConflict ? 'true' : 'false', ''); }} style={{ padding: "1px 4px", borderRadius: 3, border: "1px solid #e67e22", background: "#fff", color: "#e67e22", fontSize: 7, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Map</button>
+                                )}
+                                {r.aiConflict == null && r.mapHit && onMeasureCorrection && (
+                                  <button onClick={() => { onMeasureCorrection(r.aiField, mapConflict ? 'true' : 'false', ''); }} style={{ padding: "1px 4px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 7, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Set</button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {rows.some(r => r.mapHit?.conflict) && (
+                      <div style={{ marginTop: 4, padding: "2px 6px", background: "#fdedec", borderRadius: 3, color: "#c0392b", fontWeight: 600, fontSize: 8 }}>⛔ Utility within minimum clearance</div>
+                    )}
+                  </div>
+                );
+                } catch (e) { console.error('Utility clearance panel error:', e); return null; }
+              })()}
+            </div>
+          )}
         </div>
       )}
       {mapTool === "draw" && (
