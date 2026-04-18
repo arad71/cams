@@ -1212,10 +1212,44 @@ Respond with JSON only:
         const outward = d1 < d2 ? n2 : n1;
 
         // 3. Position along edge: y metres from constrained side
+        // Need to determine which end of the edge is "left" and which is "right"
+        // relative to someone standing on the lot looking outward toward the road.
+        // "Left" = when facing the road from inside the lot, the left-hand end.
+        
+        // The edge goes from bestEdge.from to bestEdge.to.
+        // Inward normal points toward lot centre.
+        // Standing inside looking out (opposite of inward): 
+        //   "right-hand" end = cross(outward, edge_direction) > 0
+        // Convention: if cross product of (outward direction) × (from→to) is positive,
+        //   then "from" is on the RIGHT and "to" is on the LEFT (when facing outward).
+        const edgeDirLat = (bestEdge.to[0] - bestEdge.from[0]) * mPerLat;
+        const edgeDirLng = (bestEdge.to[1] - bestEdge.from[1]) * mPerLng;
+        const outDirLat = Math.cos(outward);
+        const outDirLng = Math.sin(outward);
+        // Cross product: outward × edgeDir (2D: ax*by - ay*bx)
+        const cross = outDirLng * edgeDirLat - outDirLat * edgeDirLng;
+        // If cross > 0: from=right, to=left (facing outward)
+        // If cross < 0: from=left, to=right (facing outward)
+        
+        // Determine which end to measure from based on constrained side
+        const fromIsLeft = cross < 0;
+        let measureFromEnd, measureToEnd;
+        if (constrainedSide === "left") {
+          measureFromEnd = fromIsLeft ? bestEdge.from : bestEdge.to;
+          measureToEnd = fromIsLeft ? bestEdge.to : bestEdge.from;
+        } else if (constrainedSide === "right") {
+          measureFromEnd = fromIsLeft ? bestEdge.to : bestEdge.from;
+          measureToEnd = fromIsLeft ? bestEdge.from : bestEdge.to;
+        } else {
+          // No constrained side specified — default from→to
+          measureFromEnd = bestEdge.from;
+          measureToEnd = bestEdge.to;
+        }
+        
         const yOffset = autoY;
         const edgeFrac = Math.min(0.9, Math.max(0.1, yOffset / bestEdge.edgeLen));
-        const ptOnEdgeLat = bestEdge.from[0] + (bestEdge.to[0] - bestEdge.from[0]) * edgeFrac;
-        const ptOnEdgeLng = bestEdge.from[1] + (bestEdge.to[1] - bestEdge.from[1]) * edgeFrac;
+        const ptOnEdgeLat = measureFromEnd[0] + (measureToEnd[0] - measureFromEnd[0]) * edgeFrac;
+        const ptOnEdgeLng = measureFromEnd[1] + (measureToEnd[1] - measureFromEnd[1]) * edgeFrac;
 
         // 4. Point A = 2.5m inward from road edge
         const xOffset = 2.5;
