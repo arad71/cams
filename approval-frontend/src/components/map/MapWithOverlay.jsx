@@ -981,6 +981,19 @@ Respond with JSON only:
       crossoverWidth = parseFloat(ext.crossover_dimensions?.width_at_boundary_m)
         || parseFloat(ext.crossover_dimensions?.total_width_at_road_m) || null;
 
+      // Auto-determine constrained side from distances (distances always win over AI label)
+      if (leftBoundaryDist != null && rightBoundaryDist != null) {
+        const measuredSide = leftBoundaryDist <= rightBoundaryDist ? "left" : "right";
+        if (constrainedSide && constrainedSide !== measuredSide) {
+          console.log(`Constrained side override: AI said "${constrainedSide}" but distances show ${measuredSide} (L=${leftBoundaryDist}m, R=${rightBoundaryDist}m)`);
+        }
+        constrainedSide = measuredSide;
+      } else if (leftBoundaryDist != null && rightBoundaryDist == null) {
+        constrainedSide = "left";
+      } else if (rightBoundaryDist != null && leftBoundaryDist == null) {
+        constrainedSide = "right";
+      }
+
       // Auto-calculate Y (fence/side distance for Point A)
       // Point A lateral position = constrained side distance + 0.5 * crossover width
       if (constrainedSide && crossoverWidth) {
@@ -988,11 +1001,6 @@ Respond with JSON only:
         if (constrainedDist != null) {
           autoY = constrainedDist + 0.5 * crossoverWidth;
         }
-      } else if (leftBoundaryDist != null && rightBoundaryDist != null && crossoverWidth) {
-        // If no constrained side set, use the shorter one
-        const minDist = Math.min(leftBoundaryDist, rightBoundaryDist);
-        constrainedSide = leftBoundaryDist <= rightBoundaryDist ? "left" : "right";
-        autoY = minDist + 0.5 * crossoverWidth;
       }
     }
 
