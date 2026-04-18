@@ -714,7 +714,8 @@ export default function WorkflowView({
     if (fresh) setLocalApp(fresh);
   };
 
-  const onMeasureCorrection = (fieldKey, value, unit) => {
+  const onMeasureCorrection = async (fieldKey, value, unit) => {
+    // 1. Update local state for UI
     setMeasureCorrections(prev => [...prev.filter(c => c.field_path !== fieldKey), {
       field_path: fieldKey,
       ai_value: (() => { const spd = localApp?.cor_site_plan_data || localApp?.site_plan_data; const ext = spd?.extraction || spd || {}; const parts = fieldKey.split('.'); let v = ext; for (const p of parts) v = v?.[p]; return String(v ?? '—'); })(),
@@ -722,6 +723,18 @@ export default function WorkflowView({
       type: "measure_override",
       unit: unit || "m",
     }]);
+
+    // 2. Save to backend immediately
+    try {
+      await api.correctSitePlan(localApp._dbId, { [fieldKey]: value });
+      // Reload app to get updated data
+      if (reloadApp) {
+        const updated = await reloadApp(localApp._dbId);
+        if (updated) setLocalApp(prev => ({ ...prev, ...updated, _dbId: prev._dbId }));
+      }
+    } catch (e) {
+      console.error("Measure correction save failed:", e);
+    }
   };
 
   const handleDeleteApp = async () => {
