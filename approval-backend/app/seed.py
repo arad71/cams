@@ -446,9 +446,9 @@ def run_seed():
             R("compliance_enforcement", 0, "app", "submitted_date", "exists", None, "pass", 0.9, "Post-1 Jan 2018 — subject to compliance enforcement (R-170)")
 
             # ── Application Pathway (NEW) ──
-            R("da_pathway",          0, "app", "da_number",        "exists", None,  "pass",   0.85, "DA {field_value} includes crossover — no separate application needed (R-014)")
-            R("da_pathway",          1, "sp",  "property.da_linked", "true", None,   "pass",   0.9,  "DA-linked crossover identified on site plan")
-            R("da_pathway",          9, "app", "da_number",        "not_exists", None, "pass", 0.9, "Not DA-linked — standalone application pathway")
+            R("da_pathway",          0, "doc", "Building Application", "not_exists", None, "pass", 0.9, "No Building Application — standalone crossover application (R-014)")
+            R("da_pathway",          1, "doc", "Site Plan",           "exists", None,  "pass",   0.85, "Building Application and Site Plan both present — DA pathway confirmed (R-014)")
+            R("da_pathway",          9, "doc", "Building Application", "exists", None, "review", 0.7, "Building Application uploaded but no Site Plan — site plan required for assessment (R-014)")
             R("standalone_required", 0, "app", "da_number",        "not_exists", None, "pass", 0.9, "Standalone crossover — application form + site plan required (R-001 to R-003)")
             R("standalone_required", 1, "app", "da_number",        "exists", None,  "pass",   0.8,  "DA-linked — standalone may not be required if DA covers crossover design (R-014)")
             R("standalone_required", 9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Application pathway to be confirmed")

@@ -160,6 +160,41 @@ def _migrate_columns():
                 print("  ✓ Column migrations complete")
             except Exception:
                 conn.rollback()
+
+            # ── Assessment rule updates ──
+            try:
+                # Update da_pathway rules (R-014): check Building Application + Site Plan documents
+                # Delete old da_pathway rules and insert new ones
+                result = conn.execute(text(
+                    "SELECT COUNT(*) FROM assessment_rules ar "
+                    "JOIN assessment_items ai ON ar.item_id = ai.id "
+                    "WHERE ai.code = 'da_pathway' AND ar.source = 'app'"
+                ))
+                old_count = result.scalar() or 0
+                if old_count > 0:
+                    conn.execute(text(
+                        "DELETE FROM assessment_rules WHERE item_id IN "
+                        "(SELECT id FROM assessment_items WHERE code = 'da_pathway')"
+                    ))
+                    # Get the item id
+                    result = conn.execute(text("SELECT id FROM assessment_items WHERE code = 'da_pathway'"))
+                    row = result.fetchone()
+                    if row:
+                        iid = row[0]
+                        conn.execute(text(
+                            "INSERT INTO assessment_rules (item_id, priority, source, field, operator, value, result, confidence, reason_template, is_active) VALUES "
+                            "(:iid, 0, 'doc', 'Building Application', 'not_exists', NULL, 'pass', 0.9, 'No Building Application — standalone crossover application (R-014)', TRUE),"
+                            "(:iid2, 1, 'doc', 'Site Plan', 'exists', NULL, 'pass', 0.85, 'Building Application and Site Plan both present — DA pathway confirmed (R-014)', TRUE),"
+                            "(:iid3, 9, 'doc', 'Building Application', 'exists', NULL, 'review', 0.7, 'Building Application uploaded but no Site Plan — site plan required for assessment (R-014)', TRUE)"
+                        ), {"iid": iid, "iid2": iid, "iid3": iid})
+                    conn.commit()
+                    print("  ✓ da_pathway rules updated (R-014)")
+            except Exception as e:
+                print(f"  ⚠ da_pathway rule update: {e}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
     except Exception as e:
         print(f"  ⚠ Migration error (non-fatal): {e}")
 
