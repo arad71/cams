@@ -664,6 +664,7 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const onClick = (e) => {
       L.DomEvent.stopPropagation(e);
+
       const pts = measureRef.current.pts;
       const latlng = e.latlng;
       pts.push(latlng);
@@ -693,15 +694,19 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     const onDblClick = (e) => {
       L.DomEvent.stopPropagation(e);
       // Double-click completes current measurement — keep layers on map, start new one
-      if (measureRef.current.pts.length >= 2 && measureRef.current.total > 0) {
+      const total = measureRef.current.total;
+      const ptCount = measureRef.current.pts.length;
+      if (ptCount >= 2 && total > 0) {
         measureRef.current.measureId++;
+        const mid = measureRef.current.measureId;
+        const val = parseFloat(total.toFixed(1));
         // Move current layers to allLayers (persist on map)
         measureRef.current.allLayers.push(...measureRef.current.layers);
-        // Notify parent of completed measurement
+        // Notify parent of completed measurement (value captured above, not from ref)
         if (setMeasureDist) {
           setMeasureDist(prev => {
-            const newEntry = { id: measureRef.current.measureId, value: parseFloat(measureRef.current.total.toFixed(1)), label: `${measureRef.current.total.toFixed(1)}m` };
-            if (typeof prev === 'object' && Array.isArray(prev)) return [...prev, newEntry];
+            const newEntry = { id: mid, value: val, label: `${val}m` };
+            if (Array.isArray(prev)) return [...prev, newEntry];
             return [newEntry];
           });
         }
@@ -711,12 +716,12 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       measureRef.current.total = 0;
     };
 
-    map.on("preclick", onClick);
+    map.on("click", onClick);
     map.on("dblclick", onDblClick);
     map.doubleClickZoom.disable();
 
     return () => {
-      map.off("preclick", onClick);
+      map.off("click", onClick);
       map.off("dblclick", onDblClick);
       map.doubleClickZoom.enable();
       map.getContainer().style.cursor = "";
