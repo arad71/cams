@@ -1220,27 +1220,34 @@ Respond with JSON only:
         const outward = d1 < d2 ? n2 : n1;
 
         // 3. Position along edge: y metres from constrained side
-        // Need to determine which end of the edge is "left" and which is "right"
-        // relative to someone standing on the lot looking outward toward the road.
-        // "Left" = when facing the road from inside the lot, the left-hand end.
+        // Determine which end of the road-facing edge is "left" and "right"
+        // by checking which end a person at the crossover sees on their left
+        // when facing the road (outward from lot).
+        //
+        // Method: find the perpendicular (left/right) direction when facing outward.
+        // The outward direction is known. The "left" direction (when facing outward)
+        // is outward rotated 90° clockwise in map space.
+        //
+        // We check which edge endpoint is more in the "left" direction.
         
-        // The edge goes from bestEdge.from to bestEdge.to.
-        // Inward normal points toward lot centre.
-        // Standing inside looking out (opposite of inward): 
-        //   "right-hand" end = cross(outward, edge_direction) > 0
-        // Convention: if cross product of (outward direction) × (from→to) is positive,
-        //   then "from" is on the RIGHT and "to" is on the LEFT (when facing outward).
-        const edgeDirLat = (bestEdge.to[0] - bestEdge.from[0]) * mPerLat;
-        const edgeDirLng = (bestEdge.to[1] - bestEdge.from[1]) * mPerLng;
-        const outDirLat = Math.cos(outward);
-        const outDirLng = Math.sin(outward);
-        // Cross product: outward × edgeDir (2D: ax*by - ay*bx)
-        const cross = outDirLng * edgeDirLat - outDirLat * edgeDirLng;
-        // If cross > 0: from=right, to=left (facing outward)
-        // If cross < 0: from=left, to=right (facing outward)
+        const outCos = Math.cos(outward), outSin = Math.sin(outward);
+        // Left direction when facing outward = rotate outward 90° clockwise
+        // In our coordinate system (angle from atan2(dx_lng, dy_lat)):
+        // rotating clockwise by 90° means subtracting π/2
+        const leftAngle = outward - Math.PI / 2;
+        const leftCos = Math.cos(leftAngle), leftSin = Math.sin(leftAngle);
+        
+        // Project both edge endpoints onto the "left" direction
+        // More positive = more to the left (when facing the road)
+        const fromOnLeft = (bestEdge.from[0] - bestEdge.midLat) * mPerLat * leftCos +
+                           (bestEdge.from[1] - bestEdge.midLng) * mPerLng * leftSin;
+        const toOnLeft = (bestEdge.to[0] - bestEdge.midLat) * mPerLat * leftCos +
+                         (bestEdge.to[1] - bestEdge.midLng) * mPerLng * leftSin;
+        
+        // The endpoint with higher projection is on the LEFT side
+        const fromIsLeft = fromOnLeft > toOnLeft;
         
         // Determine which end to measure from based on constrained side
-        const fromIsLeft = cross < 0;
         let measureFromEnd, measureToEnd;
         if (constrainedSide === "left") {
           measureFromEnd = fromIsLeft ? bestEdge.from : bestEdge.to;
@@ -1249,7 +1256,6 @@ Respond with JSON only:
           measureFromEnd = fromIsLeft ? bestEdge.to : bestEdge.from;
           measureToEnd = fromIsLeft ? bestEdge.from : bestEdge.to;
         } else {
-          // No constrained side specified — default from→to
           measureFromEnd = bestEdge.from;
           measureToEnd = bestEdge.to;
         }
@@ -1258,6 +1264,8 @@ Respond with JSON only:
         const edgeFrac = Math.min(0.9, Math.max(0.1, yOffset / bestEdge.edgeLen));
         const ptOnEdgeLat = measureFromEnd[0] + (measureToEnd[0] - measureFromEnd[0]) * edgeFrac;
         const ptOnEdgeLng = measureFromEnd[1] + (measureToEnd[1] - measureFromEnd[1]) * edgeFrac;
+        
+        console.log(`Point A positioning: constrainedSide=${constrainedSide}, fromIsLeft=${fromIsLeft}, edgeFrac=${edgeFrac.toFixed(2)}, yOffset=${yOffset.toFixed(1)}m, edgeLen=${bestEdge.edgeLen.toFixed(1)}m`);
 
         // 4. Point A = 2.5m inward from road edge
         const xOffset = 2.5;
