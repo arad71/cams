@@ -58,10 +58,10 @@ function getStepStats(app, assessments = []) {
   };
 }
 
-// ─── Workflow Stepper ───────────────────────────────────
+// ─── Workflow Stepper — Vertical sidebar ─────────────
 function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "10px 14px", background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, marginBottom: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
       {STEPS.map((step, i) => {
         const done = step.id < completedUpTo;
         const active = step.id === currentStep;
@@ -69,32 +69,36 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
         const stats = stepStats?.[step.key];
         const hasAlert = stats?.alert;
         return (
-          <div key={step.id} style={{ display: "contents" }}>
-            <div style={{ flex: 1, textAlign: "center", cursor: "pointer", opacity: future ? 0.4 : 1 }} onClick={() => onStepClick(step.id)}>
-              <div style={{ position: "relative", display: "inline-block" }}>
+          <div key={step.id}>
+            <div onClick={() => onStepClick(step.id)}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", cursor: "pointer", opacity: future ? 0.5 : 1, borderRadius: 6, background: active ? `${step.color}10` : "transparent", border: active ? `1.5px solid ${step.color}30` : "1.5px solid transparent", transition: "all 0.15s" }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.background = "#f8fafb"; }}
+              onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+              <div style={{ position: "relative", flexShrink: 0 }}>
                 <div style={{
-                  width: 28, height: 28, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 12, fontWeight: T.w.bold, transition: "all 0.2s",
+                  width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: T.w.bold,
                   background: active ? step.color : done ? "#085041" : "#f0f2f5",
-                  color: active ? step.bg : done ? "#E1F5EE" : "#b0bec5",
+                  color: active ? "#fff" : done ? "#E1F5EE" : "#b0bec5",
                   border: active ? `2px solid ${step.color}` : done ? "2px solid #085041" : "1.5px solid #d5dde2",
-                  boxShadow: active ? `0 0 0 3px ${step.bg}` : "none",
                 }}>
                   {stats?.done ? "✓" : step.id}
                 </div>
-                {hasAlert && <div style={{ position: "absolute", top: -3, right: -3, width: 8, height: 8, borderRadius: "50%", background: "#e74c3c", border: "1.5px solid #fff" }} />}
+                {hasAlert && <div style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderRadius: "50%", background: "#e74c3c", border: "1.5px solid #fff" }} />}
               </div>
-              <div style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: active ? step.color : done ? "#085041" : "#b0bec5", marginTop: 2 }}>
-                {step.label}
-              </div>
-              {stats && (
-                <div style={{ fontSize: 7, color: hasAlert ? "#e74c3c" : stats.done ? "#27ae60" : "#95a5a6", fontWeight: 600, marginTop: 1, letterSpacing: 0.2 }}>
-                  {hasAlert || stats.badge}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? step.color : done ? "#085041" : "#7a8a94", lineHeight: 1.2 }}>
+                  {step.label}
                 </div>
-              )}
+                {stats && (
+                  <div style={{ fontSize: 8, color: hasAlert ? "#e74c3c" : stats.done ? "#27ae60" : "#95a5a6", fontWeight: 600, marginTop: 1 }}>
+                    {hasAlert || stats.badge}
+                  </div>
+                )}
+              </div>
             </div>
             {i < STEPS.length - 1 && (
-              <div style={{ flex: "0 0 28px", height: 2, background: done || active ? "#085041" : "#e4e9ec", marginTop: -16 }} />
+              <div style={{ marginLeft: 21, width: 2, height: 6, background: done || active ? "#08504140" : "#e4e9ec" }} />
             )}
           </div>
         );
@@ -788,56 +792,58 @@ export default function WorkflowView({
         </div>
       )}
 
-      {/* Stepper */}
-      <Stepper currentStep={currentStep} completedUpTo={completedUpTo} onStepClick={setCurrentStep} stepStats={stepStats} />
-
-      {/* Step header with next-step suggestion */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "6px 12px", background: stepDef.bg, borderRadius: T.r.md, border: `1px solid ${stepDef.color}20` }}>
-        <div style={{ width: 24, height: 24, borderRadius: "50%", background: stepDef.color, color: stepDef.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: T.w.bold }}>{stepDef.id}</div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: T.w.bold, color: stepDef.color }}>{stepDef.label}</div>
-          <div style={{ fontSize: 10, color: stepDef.color, opacity: 0.7 }}>{stepDef.desc}</div>
+      {/* Main layout: vertical stepper left + content right */}
+      <div style={{ display: "grid", gridTemplateColumns: "160px minmax(0, 1fr) 240px", gap: 12 }}>
+        {/* Left: Vertical Stepper */}
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: "10px 6px", alignSelf: "start", position: "sticky", top: 8 }}>
+          <Stepper currentStep={currentStep} completedUpTo={completedUpTo} onStepClick={setCurrentStep} stepStats={stepStats} />
+          {/* Quick actions under stepper */}
+          <div style={{ borderTop: `1px solid ${T.c.borderLight}`, marginTop: 8, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+            {currentStep !== 3 && (
+              <button onClick={() => setShowMap(m => !m)}
+                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#7a8a94", fontSize: 9, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
+                🗺️ {showMap ? "Hide Map" : "Show Map"}
+              </button>
+            )}
+            {currentUser?.role === "admin" && (
+              <button onClick={() => setShowDeleteModal(true)}
+                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e74c3c40", background: "#fdf0ef", color: "#c0392b", fontSize: 9, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
+                🗑️ Delete
+              </button>
+            )}
+          </div>
         </div>
-        {/* Next step suggestion */}
-        {currentStep === 1 && stepStats.upload.done && !stepStats.extract.done && (
-          <button onClick={() => setCurrentStep(2)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#534AB7", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-            Next: Run AI Extraction →
-          </button>
-        )}
-        {currentStep === 2 && stepStats.extract.done && (
-          <button onClick={() => setCurrentStep(3)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#185FA5", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-            Next: Assessment →
-          </button>
-        )}
-        {currentStep === 3 && stepStats.assess.done && (
-          <button onClick={() => setCurrentStep(4)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#854F0B", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-            Next: Review →
-          </button>
-        )}
-        {currentStep === 4 && stepStats.review.done && (
-          <button onClick={() => setCurrentStep(5)} style={{ padding: "4px 12px", borderRadius: T.r.sm, border: "none", background: "#993C1D", color: "#fff", fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-            Next: Decision →
-          </button>
-        )}
-        {/* Map toggle for non-Assess steps */}
-        {currentStep !== 3 && (
-          <button onClick={() => setShowMap(m => !m)}
-            style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#7a8a94", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
-            🗺️ {showMap ? "Hide Map" : "Show Map"}
-          </button>
-        )}
-        {currentUser?.role === "admin" && (
-          <button onClick={() => setShowDeleteModal(true)}
-            style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e74c3c40", background: "#fdf0ef", color: "#c0392b", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
-            🗑️ Delete
-          </button>
-        )}
-      </div>
 
-      {/* Main grid: step content + sidebar */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 260px", gap: 12 }}>
-        {/* Step content */}
+        {/* Right: Step content */}
         <div>
+          {/* Step header with next suggestion */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "5px 12px", background: stepDef.bg, borderRadius: T.r.md, border: `1px solid ${stepDef.color}20` }}>
+            <div style={{ width: 22, height: 22, borderRadius: "50%", background: stepDef.color, color: stepDef.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: T.w.bold }}>{stepDef.id}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, fontWeight: T.w.bold, color: stepDef.color }}>{stepDef.label}</div>
+              <div style={{ fontSize: 9, color: stepDef.color, opacity: 0.7 }}>{stepDef.desc}</div>
+            </div>
+            {currentStep === 1 && stepStats.upload.done && !stepStats.extract.done && (
+              <button onClick={() => setCurrentStep(2)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#534AB7", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                Next: Extract →
+              </button>
+            )}
+            {currentStep === 2 && stepStats.extract.done && (
+              <button onClick={() => setCurrentStep(3)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#185FA5", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                Next: Assess →
+              </button>
+            )}
+            {currentStep === 3 && stepStats.assess.done && (
+              <button onClick={() => setCurrentStep(4)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#854F0B", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                Next: Review →
+              </button>
+            )}
+            {currentStep === 4 && stepStats.review.done && (
+              <button onClick={() => setCurrentStep(5)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#993C1D", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                Next: Decision →
+              </button>
+            )}
+          </div>
           {currentStep === 1 && (
             <StepUpload app={localApp} currentUser={currentUser}
               onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection}
@@ -870,7 +876,7 @@ export default function WorkflowView({
           )}
         </div>
 
-        {/* Persistent sidebar */}
+        {/* Right sidebar */}
         <WorkflowSidebar
           app={localApp} currentUser={currentUser} users={users} categories={categories}
           onReload={onDocUpdated} newNote={newNote} setNewNote={setNewNote} addNote={addNote}
