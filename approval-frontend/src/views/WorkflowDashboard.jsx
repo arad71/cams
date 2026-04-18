@@ -13,9 +13,11 @@ function MiniBar({ value, max, color, height = 6 }) {
   return <div style={{ width: "100%", height, background: T.c.grey200, borderRadius: T.r.xs, overflow: "hidden" }}><div style={{ width: `${p}%`, height: "100%", background: color, borderRadius: T.r.xs, transition: T.tr.slow }} /></div>;
 }
 
-function MetricBox({ value, label, color }) {
+function MetricBox({ value, label, color, onClick }) {
   return (
-    <div style={cx(S.card, { padding: `${T.s.md}px ${T.s.sm}px`, textAlign: "center", flex: "1 1 0" })}>
+    <div onClick={onClick} style={cx(S.card, { padding: `${T.s.md}px ${T.s.sm}px`, textAlign: "center", flex: "1 1 0", cursor: onClick ? "pointer" : "default", transition: "transform 0.1s, box-shadow 0.1s" })}
+      onMouseEnter={e => { if (onClick) { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)"; }}}
+      onMouseLeave={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = ""; }}>
       <div style={{ fontSize: T.f.xxl + 2, fontWeight: T.w.black, color, lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: T.f.xxs, fontWeight: T.w.semi, textTransform: "uppercase", color, marginTop: T.s.xs, letterSpacing: 0.5 }}>{label}</div>
     </div>
@@ -111,15 +113,41 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
       <h2 style={{ fontSize: T.f.xxl, fontWeight: T.w.black, color: T.c.text, margin: `0 0 ${T.s.xs}px`, letterSpacing: -0.3 }}>Dashboard</h2>
       <p style={{ color: T.c.textSecondary, fontSize: T.f.base, margin: `0 0 ${T.s.lg}px` }}>{new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
 
-      {/* Top metrics */}
-      <div style={{ display: "flex", gap: T.s.sm, marginBottom: T.s.lg }}>
-        <MetricBox value={total} label="Total" color={T.c.primary} />
-        <MetricBox value={sc.pending_review || 0} label="Pending" color={T.c.amber400} />
+      {/* Top metrics — click to jump to filtered list */}
+      <div style={{ display: "flex", gap: T.s.sm, marginBottom: T.s.md }}>
+        <MetricBox value={total} label="Total" color={T.c.primary} onClick={() => onSelectApp && onSelectApp(null)} />
+        <MetricBox value={sc.pending_review || 0} label="Pending" color={T.c.amber400} onClick={() => overdue[0] ? onSelectApp(overdue[0]) : null} />
         <MetricBox value={sc.under_assessment || 0} label="Assessing" color={T.c.info} />
         <MetricBox value={sc.referral_pending || 0} label="Referrals" color="#8e44ad" />
         <MetricBox value={sc.approved || 0} label="Approved" color={T.c.success} />
         <MetricBox value={sc.rejected || 0} label="Rejected" color={T.c.red500} />
       </div>
+
+      {/* Quick Actions — needs attention */}
+      {(overdue.length > 0 || unassigned.length > 0 || atRisk.length > 0) && (
+        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: "10px 16px", marginBottom: T.s.md }}>
+          <div style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.text, marginBottom: 8 }}>⚡ Needs Attention</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {overdue.length > 0 && (
+              <div onClick={() => onSelectApp(overdue[0])} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: T.r.md, background: "#fdedec", border: "1px solid #f5c6cb", cursor: "pointer", fontSize: 11 }}>
+                <span style={{ fontWeight: T.w.bold, color: "#c0392b" }}>🔴 {overdue.length} overdue</span>
+                <span style={{ color: "#7a8a94", fontSize: 10 }}>({overdue[0]?.id})</span>
+              </div>
+            )}
+            {atRisk.length > 0 && (
+              <div onClick={() => onSelectApp(atRisk[0])} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: T.r.md, background: "#fef9e7", border: "1px solid #f9e79f", cursor: "pointer", fontSize: 11 }}>
+                <span style={{ fontWeight: T.w.bold, color: "#e67e22" }}>🟡 {atRisk.length} at risk</span>
+                <span style={{ color: "#7a8a94", fontSize: 10 }}>(&gt;14 days)</span>
+              </div>
+            )}
+            {unassigned.length > 0 && (
+              <div onClick={() => onSelectApp(unassigned[0])} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: T.r.md, background: "#ebf5fb", border: "1px solid #aed6f1", cursor: "pointer", fontSize: 11 }}>
+                <span style={{ fontWeight: T.w.bold, color: "#2980b9" }}>📋 {unassigned.length} unassigned</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* SLA + Trends row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>

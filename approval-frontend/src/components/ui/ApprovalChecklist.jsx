@@ -10,6 +10,7 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
   const [editNoteId, setEditNoteId] = useState(null);
   const [noteText, setNoteText] = useState("");
   const [saving, setSaving] = useState(null); // item_id being saved
+  const [filter, setFilter] = useState("all"); // all | ai_fail | ai_review | pending | rejected
 
   const appDbId = app?._dbId;
 
@@ -98,70 +99,121 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
     setSaving(null);
   };
 
+  // Bulk accept all AI-pass items
+  const acceptAllAIPass = async () => {
+    if (!appDbId) return;
+    setSaving("acceptAll");
+    try {
+      await api.bulkOfficerDecision(appDbId, "pass", "approved");
+      await loadAssessments();
+    } catch (e) { console.error("Accept all AI pass failed:", e); }
+    setSaving(null);
+  };
+
   const ac = { pass: "#27ae60", review: "#e67e22", fail: "#c0392b" };
   const ai2 = { pass: "✓", review: "?", fail: "✕" };
   const al = { pass: "PASS", review: "REVIEW", fail: "FAIL" };
+
+  // Filter items
+  const matchesFilter = (item) => {
+    if (filter === "all") return true;
+    const a = byCode[item.code];
+    if (filter === "ai_fail") return a?.ai_result === "fail";
+    if (filter === "ai_review") return a?.ai_result === "review";
+    if (filter === "pending") return !a?.officer_result;
+    if (filter === "rejected") return a?.officer_result === "rejected";
+    return true;
+  };
+
+  // Count filtered items per category
+  const filteredCounts = {};
+  categories.forEach(cat => {
+    filteredCounts[cat.code] = (cat.items || []).filter(matchesFilter).length;
+  });
 
   if (loading) return <div style={{ padding: 20, color: T.c.textSecondary, textAlign: "center" }}>Loading assessments...</div>;
 
   return (
     <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "10px 16px", borderBottom: `1px solid ${T.c.borderLight}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: T.c.bgAlt, flexWrap: "wrap", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: 15 }}>📋</span>
-          <span style={{ fontWeight: T.w.black, fontSize: 13, color: T.c.text }}>Approval Checklist</span>
-          <span style={{ fontSize: 10, color: T.c.textMuted }}>v3.1 — {stats.total} items</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {[["pass", stats.pass], ["review", stats.review], ["fail", stats.fail]].map(([k, v]) => (
-            <span key={k} style={{ padding: "2px 7px", borderRadius: T.r.sm, fontSize: 10, fontWeight: T.w.bold, background: `${ac[k]}12`, color: ac[k] }}>{v} {al[k]}</span>
-          ))}
-          <button onClick={runAutoAssess} disabled={saving === "auto"}
-            style={{ padding: "5px 12px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: T.c.white, fontWeight: T.w.bold, fontSize: 10, cursor: saving === "auto" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "auto" ? 0.6 : 1 }}>
-            {saving === "auto" ? "⟳ Assessing..." : "🤖 Auto-Assess"}
-          </button>
+      <div style={{ padding: "8px 16px", borderBottom: `1px solid ${T.c.borderLight}`, background: T.c.bgAlt }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 14 }}>📋</span>
+            <span style={{ fontWeight: T.w.black, fontSize: 13, color: T.c.text }}>Assessment Checklist</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button onClick={runAutoAssess} disabled={saving === "auto"}
+              style={{ padding: "4px 10px", borderRadius: T.r.sm, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: T.c.white, fontWeight: T.w.bold, fontSize: 9, cursor: saving === "auto" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "auto" ? 0.6 : 1 }}>
+              {saving === "auto" ? "⟳ ..." : "🤖 Auto-Assess"}
+            </button>
+            {stats.pass > 0 && stats.oPending > 0 && (
+              <button onClick={acceptAllAIPass} disabled={saving === "acceptAll"}
+                style={{ padding: "4px 10px", borderRadius: T.r.sm, border: "none", background: "#27ae60", color: T.c.white, fontWeight: T.w.bold, fontSize: 9, cursor: saving === "acceptAll" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "acceptAll" ? 0.6 : 1 }}>
+                {saving === "acceptAll" ? "⟳ ..." : `✓ Accept ${stats.pass} AI Pass`}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Progress */}
+      {/* Progress bar + stats */}
       <div style={{ padding: "6px 16px", borderBottom: `1px solid ${T.c.borderLight}`, background: "#fafcfd" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-          <span style={{ fontSize: 9, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase" }}>Officer Sign-Off</span>
-          <span style={{ fontSize: 9, fontWeight: T.w.bold, color: allPassed ? "#27ae60" : "#1a3a4a" }}>{oDecided}/{stats.total}</span>
+          <div style={{ display: "flex", gap: 8, fontSize: 9, fontWeight: T.w.bold }}>
+            <span style={{ color: "#27ae60" }}>{stats.pass} pass</span>
+            <span style={{ color: "#e67e22" }}>{stats.review} review</span>
+            <span style={{ color: "#c0392b" }}>{stats.fail} fail</span>
+          </div>
+          <span style={{ fontSize: 9, fontWeight: T.w.bold, color: allPassed ? "#27ae60" : "#1a3a4a" }}>Officer: {oDecided}/{stats.total}</span>
         </div>
-        <div style={{ height: 5, background: T.c.borderLight, borderRadius: 3, overflow: "hidden", display: "flex" }}>
+        <div style={{ height: 6, background: T.c.borderLight, borderRadius: 3, overflow: "hidden", display: "flex" }}>
           <div style={{ width: `${(stats.oApproved / Math.max(stats.total, 1)) * 100}%`, background: "#27ae60", transition: "width 0.3s" }} />
           <div style={{ width: `${(stats.oNA / Math.max(stats.total, 1)) * 100}%`, background: "#7f8c8d", transition: "width 0.3s" }} />
           <div style={{ width: `${(stats.oReferred / Math.max(stats.total, 1)) * 100}%`, background: "#8e44ad", transition: "width 0.3s" }} />
           <div style={{ width: `${(stats.oInvestigation / Math.max(stats.total, 1)) * 100}%`, background: "#2980b9", transition: "width 0.3s" }} />
           <div style={{ width: `${(stats.oRejected / Math.max(stats.total, 1)) * 100}%`, background: "#e74c3c", transition: "width 0.3s" }} />
         </div>
-        <div style={{ display: "flex", gap: 6, marginTop: 3, fontSize: 9, color: T.c.textMuted, flexWrap: "wrap" }}>
-          <span>🟢 {stats.oApproved}</span><span>🔴 {stats.oRejected}</span><span>⚪ {stats.oNA}</span><span>🟣 {stats.oReferred}</span><span>🔵 {stats.oInvestigation}</span><span>⬜ {stats.oPending}</span>
-        </div>
+      </div>
+
+      {/* Filter chips */}
+      <div style={{ padding: "4px 16px", borderBottom: `1px solid ${T.c.borderLight}`, display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {[
+          { id: "all", label: "All", count: stats.total },
+          { id: "ai_fail", label: "AI Fail", count: stats.fail, color: "#c0392b" },
+          { id: "ai_review", label: "AI Review", count: stats.review, color: "#e67e22" },
+          { id: "pending", label: "Pending", count: stats.oPending, color: "#7a8a94" },
+          { id: "rejected", label: "Rejected", count: stats.oRejected, color: "#c0392b" },
+        ].map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)}
+            style={{ padding: "2px 8px", borderRadius: 10, border: filter === f.id ? `1.5px solid ${f.color || "#1a3a4a"}` : "1px solid #e4e9ec", background: filter === f.id ? `${f.color || "#1a3a4a"}10` : "#fff", color: filter === f.id ? (f.color || "#1a3a4a") : "#7a8a94", fontSize: 9, fontWeight: filter === f.id ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
+            {f.label} {f.count > 0 && <span style={{ fontWeight: 700 }}>({f.count})</span>}
+          </button>
+        ))}
       </div>
 
       {/* Categories */}
       {categories.map(cat => {
-        const exp = expandedCat === cat.code;
-        const catItems = cat.items || [];
-        const cf = catItems.filter(i => byCode[i.code]?.ai_result === "fail" || byCode[i.code]?.officer_result === "rejected").length;
-        const co = catItems.filter(i => byCode[i.code]?.officer_result).length;
+        const catItems = (cat.items || []).filter(matchesFilter);
+        if (filter !== "all" && catItems.length === 0) return null; // Hide empty categories when filtered
+        const exp = expandedCat === cat.code || (filter !== "all" && catItems.length > 0); // Auto-expand when filtered
+        const allCatItems = cat.items || [];
+        const cf = allCatItems.filter(i => byCode[i.code]?.ai_result === "fail" || byCode[i.code]?.officer_result === "rejected").length;
+        const co = allCatItems.filter(i => byCode[i.code]?.officer_result).length;
         return (
           <div key={cat.code}>
-            <div onClick={() => setExpandedCat(exp ? null : cat.code)}
-              style={{ padding: "9px 16px", borderBottom: `1px solid ${T.c.borderLight}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", background: exp ? "#f5f8fa" : "transparent" }}
+            <div onClick={() => setExpandedCat(exp && filter === "all" ? null : cat.code)}
+              style={{ padding: "8px 16px", borderBottom: `1px solid ${T.c.borderLight}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", background: exp ? "#f5f8fa" : "transparent" }}
               onMouseEnter={e => { if (!exp) e.currentTarget.style.background = "#fafcfd"; }} onMouseLeave={e => { if (!exp) e.currentTarget.style.background = "transparent"; }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                <span style={{ fontSize: 14 }}>{cat.icon}</span>
-                <span style={{ fontWeight: T.w.bold, fontSize: 12, color: T.c.text }}>{cat.label}</span>
-                <span style={{ fontSize: 10, color: "#b0bdb2" }}>({catItems.length})</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 13 }}>{cat.icon}</span>
+                <span style={{ fontWeight: T.w.bold, fontSize: 11, color: T.c.text }}>{cat.label}</span>
+                <span style={{ fontSize: 9, color: "#b0bdb2" }}>({filter !== "all" ? `${catItems.length}/` : ""}{allCatItems.length})</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                {cf > 0 && <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: T.w.bold, background: T.c.dangerLight, color: "#c0392b" }}>{cf}!</span>}
-                <span style={{ fontSize: 10, fontWeight: T.w.semi, color: co === catItems.length ? "#27ae60" : "#95a5a6" }}>{co}/{catItems.length}</span>
-                <span style={{ fontSize: 11, color: "#b0bdb2", transform: exp ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>▶</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {cf > 0 && <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: T.w.bold, background: T.c.dangerLight, color: "#c0392b" }}>{cf}!</span>}
+                <span style={{ fontSize: 9, fontWeight: T.w.semi, color: co === allCatItems.length ? "#27ae60" : "#95a5a6" }}>{co}/{allCatItems.length}</span>
+                <span style={{ fontSize: 10, color: "#b0bdb2", transform: exp ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>▶</span>
               </div>
             </div>
             {exp && catItems.map(item => {

@@ -927,31 +927,102 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
 //  Application List View
 // ═══════════════════════════════════════════════════════
 export default function ApplicationListView({ apps, filter, onSelectApp, onAppCreated, globalLotsData }) {
-  const [search, setSearch] = useState(""); const [sf, setSf] = useState(filter || "all"); const [showNewModal, setShowNewModal] = useState(false);
-  const filtered = apps.filter(a => { if (sf !== "all" && a.status !== sf) return false; if (search) { const q = search.toLowerCase(); return a.id.toLowerCase().includes(q) || a.owner.name.toLowerCase().includes(q) || a.property.address.toLowerCase().includes(q); } return true; });
+  const [search, setSearch] = useState("");
+  const [sf, setSf] = useState(filter || "all");
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [sortCol, setSortCol] = useState("date");
+  const [sortDir, setSortDir] = useState("desc");
+
+  const handleSort = (col) => {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir(col === "date" ? "desc" : "asc"); }
+  };
+
+  const filtered = apps
+    .filter(a => { if (sf !== "all" && a.status !== sf) return false; if (search) { const q = search.toLowerCase(); return a.id.toLowerCase().includes(q) || a.owner.name.toLowerCase().includes(q) || a.property.address.toLowerCase().includes(q); } return true; })
+    .sort((a, b) => {
+      let cmp = 0;
+      if (sortCol === "ref") cmp = a.id.localeCompare(b.id);
+      else if (sortCol === "name") cmp = a.owner.name.localeCompare(b.owner.name);
+      else if (sortCol === "address") cmp = a.property.address.localeCompare(b.property.address);
+      else if (sortCol === "width") cmp = (a.crossover.width || 0) - (b.crossover.width || 0);
+      else if (sortCol === "status") cmp = (a.status || "").localeCompare(b.status || "");
+      else cmp = new Date(a.submittedDate) - new Date(b.submittedDate);
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+
+  // Count apps per status for chips
+  const statusCounts = { all: apps.length };
+  apps.forEach(a => { statusCounts[a.status] = (statusCounts[a.status] || 0) + 1; });
+
+  const sortIcon = (col) => sortCol === col ? (sortDir === "asc" ? " ↑" : " ↓") : "";
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ fontSize: 22, fontWeight: T.w.black, color: T.c.text, margin: 0 }}>{filter === "pending_review" ? "Pending Review" : filter === "referral_pending" ? "Referrals" : "All Applications"}</h2>
-        <button onClick={() => setShowNewModal(true)} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", fontSize: 12 }}><span style={{ fontSize: 15, lineHeight: 1 }}>＋</span> New Application</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h2 style={{ fontSize: 20, fontWeight: T.w.black, color: T.c.text, margin: 0 }}>{filter === "pending_review" ? "Pending Review" : filter === "referral_pending" ? "Referrals" : "Applications"}</h2>
+        <button onClick={() => setShowNewModal(true)} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 12 }}><span style={{ fontSize: 14, lineHeight: 1 }}>＋</span> New Application</button>
       </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by reference, applicant, or address…" style={{ flex: 1, padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: T.c.card, outline: "none" }} />
-        <select value={sf} onChange={e => setSf(e.target.value)} style={{ padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: T.c.card }}><option value="all">All Statuses</option>{Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>
+
+      {/* Search + quick filter chips */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ref, applicant, address…" style={{ flex: 1, minWidth: 180, padding: "7px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", background: T.c.card, outline: "none" }} />
       </div>
-      <div style={{ background: T.c.card, borderRadius: 14, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr style={{ background: T.c.bg }}>{["Ref", "Applicant", "Property", "Road", "Width", "Status"].map(h => <th key={h} style={{ padding: "9px 12px", textAlign: "left", fontWeight: T.w.bold, color: T.c.grey800, fontSize: 10, textTransform: "uppercase", borderBottom: `1px solid ${T.c.border}` }}>{h}</th>)}</tr></thead>
-          <tbody>{filtered.length === 0 ? (<tr><td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: "#9aabb5", fontSize: 13 }}>{search ? "No applications match your search." : "No applications found."}</td></tr>) : filtered.map(app => (
+      <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
+        {[
+          { key: "all", label: "All", color: "#1a3a4a" },
+          { key: "pending_review", label: "Pending", color: "#e67e22" },
+          { key: "in_assessment", label: "Assessment", color: "#3498db" },
+          { key: "approved", label: "Approved", color: "#27ae60" },
+          { key: "rejected", label: "Rejected", color: "#c0392b" },
+          { key: "referred", label: "Referred", color: "#8e44ad" },
+        ].filter(f => f.key === "all" || statusCounts[f.key]).map(f => (
+          <button key={f.key} onClick={() => setSf(f.key)}
+            style={{ padding: "3px 10px", borderRadius: 12, border: sf === f.key ? `1.5px solid ${f.color}` : "1px solid #e4e9ec", background: sf === f.key ? `${f.color}10` : "#fff", color: sf === f.key ? f.color : "#7a8a94", fontSize: 10, fontWeight: sf === f.key ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
+            {f.label} {statusCounts[f.key] != null && <span style={{ fontWeight: 700 }}>({statusCounts[f.key] || 0})</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Table with sortable columns */}
+      <div style={{ background: T.c.card, borderRadius: 12, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead><tr style={{ background: T.c.bg }}>
+            {[
+              { key: "ref", label: "Ref" },
+              { key: "name", label: "Applicant" },
+              { key: "address", label: "Property" },
+              { key: "date", label: "Submitted" },
+              { key: "width", label: "Width" },
+              { key: "status", label: "Status" },
+            ].map(h => (
+              <th key={h.key} onClick={() => handleSort(h.key)}
+                style={{ padding: "8px 12px", textAlign: "left", fontWeight: T.w.bold, color: sortCol === h.key ? "#1a3a4a" : T.c.grey800, fontSize: 10, textTransform: "uppercase", borderBottom: `1px solid ${T.c.border}`, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+                {h.label}{sortIcon(h.key)}
+              </th>
+            ))}
+          </tr></thead>
+          <tbody>{filtered.length === 0 ? (<tr><td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: "#9aabb5", fontSize: 12 }}>{search ? "No applications match your search." : "No applications found."}</td></tr>) : filtered.map(app => {
+            const sc = STATUS_CONFIG[app.status] || {};
+            return (
             <tr key={app.id} onClick={() => onSelectApp(app)} style={{ cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <td style={{ padding: "9px 12px", fontWeight: T.w.bold, color: T.c.info, borderBottom: `1px solid ${T.c.borderLight}` }}>{app.id}</td>
-              <td style={{ padding: "9px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}>{app.owner.name}</td>
-              <td style={{ padding: "9px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{app.property.address}</td>
-              <td style={{ padding: "9px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11, fontWeight: T.w.semi, color: app.property.roadType === "red" ? "#c0392b" : app.property.roadType === "blue" ? "#2980b9" : "#5a6a74" }}>{app.property.roadType}</td>
-              <td style={{ padding: "9px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}` }}>{app.crossover.width}m</td>
-              <td style={{ padding: "9px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}><StatusBadge status={app.status} /></td>
-            </tr>))}</tbody>
+              <td style={{ padding: "8px 12px", fontWeight: T.w.bold, color: T.c.info, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.id}</td>
+              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.owner.name}</td>
+              <td style={{ padding: "8px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>{app.property.address}</td>
+              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 10, color: T.c.textMuted }}>{new Date(app.submittedDate).toLocaleDateString("en-AU")}</td>
+              <td style={{ padding: "8px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.crossover.width}m</td>
+              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: `${sc.color || "#7a8a94"}12`, color: sc.color || "#7a8a94" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: sc.color || "#7a8a94" }} />
+                  {sc.label || app.status}
+                </span>
+              </td>
+            </tr>);
+          })}</tbody>
         </table>
+        <div style={{ padding: "6px 12px", borderTop: `1px solid ${T.c.borderLight}`, fontSize: 10, color: T.c.textMuted, textAlign: "right" }}>
+          {filtered.length} of {apps.length} applications
+        </div>
       </div>
       {showNewModal && <NewApplicationModal onClose={() => setShowNewModal(false)} onCreated={(r) => { if (onAppCreated) onAppCreated(apiAppToFrontend(r)); }} globalLotsData={globalLotsData} />}
     </div>
