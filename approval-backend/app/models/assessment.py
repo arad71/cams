@@ -59,6 +59,15 @@ class AssessmentRule(Base):
     Database-driven assessment rules.
     Each rule evaluates a condition against application data or site_plan_data.
     Multiple rules per item are evaluated in priority order (first match wins).
+    
+    Supports two modes:
+    1. Simple (single field): uses source, field, operator, value columns
+    2. Compound (multiple fields): uses conditions JSON column with AND/OR logic
+       Format: {"logic": "and"|"or", "checks": [
+         {"source": "app", "field": "crossover_width", "operator": "gte", "value": "3.0"},
+         {"source": "sp", "field": "crossover_dimensions.width_at_boundary_m", "operator": "gte", "value": "3.0"}
+       ]}
+    When conditions is set, it takes precedence over source/field/operator/value.
     """
     __tablename__ = "assessment_rules"
 
@@ -67,17 +76,19 @@ class AssessmentRule(Base):
     priority = Column(Integer, default=0)          # Lower = evaluated first
     is_active = Column(Boolean, default=True)
 
-    # Condition: what to check
-    # source: "app" (application fields) or "sp" (site_plan_data.extraction nested)
-    source = Column(String(10), default="app")     # app | sp
+    # Simple condition (single field)
+    source = Column(String(10), default="app")     # app | sp | doc
     field = Column(String(100), nullable=False)     # e.g. "crossover_width", "crossover_dimensions.width_at_boundary_m"
     operator = Column(String(20), nullable=False)   # gte, lte, gt, lt, eq, neq, exists, not_exists, contains, true, false
     value = Column(String(200), nullable=True)      # threshold value (cast to appropriate type at runtime)
 
+    # Compound condition (multiple fields with AND/OR)
+    conditions = Column(JSON, nullable=True)        # {"logic": "and"|"or", "checks": [{source, field, operator, value}, ...]}
+
     # Result when condition matches
     result = Column(String(10), nullable=False)     # pass | fail | review | na
     confidence = Column(Float, default=0.8)
-    reason_template = Column(String(500), nullable=False)  # Can use {field_value}, {threshold} placeholders
+    reason_template = Column(String(500), nullable=False)  # Can use {field_value}, {threshold}, {field_values} placeholders
 
     # Fallback: what to return if NO rules match for this item
     # (only used on the last rule via a convention — see engine)

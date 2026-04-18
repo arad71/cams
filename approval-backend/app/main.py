@@ -132,6 +132,7 @@ def _migrate_columns():
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS form_extraction_data JSONB",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS title_extraction_data JSONB",
+        "ALTER TABLE assessment_rules ADD COLUMN IF NOT EXISTS conditions JSONB",
     ]
 
     # Use engine directly (not ORM session) for DDL

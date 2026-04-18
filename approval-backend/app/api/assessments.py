@@ -433,12 +433,63 @@ def _evaluate_condition(field_value, operator: str, threshold_str: str) -> bool:
     return False
 
 
-def _render_reason(template: str, field_value, threshold_str: str) -> str:
-    """Fill in {field_value} and {threshold} placeholders in reason template."""
+def _render_reason(template: str, field_value, threshold_str: str, field_values: dict = None) -> str:
+    """Fill in {field_value}, {threshold}, and {field_values.xxx} placeholders in reason template."""
     result = template
     result = result.replace("{field_value}", str(field_value) if field_value is not None else "N/A")
     result = result.replace("{threshold}", str(threshold_str) if threshold_str is not None else "")
+    # Replace {field_values} with summary of all resolved values
+    if field_values:
+        summary = ", ".join(f"{k}={v}" for k, v in field_values.items() if v is not None)
+        result = result.replace("{field_values}", summary)
+        # Also replace individual {field_values.xxx} patterns
+        for k, v in field_values.items():
+            result = result.replace("{" + k + "}", str(v) if v is not None else "N/A")
     return result
+
+
+def _evaluate_compound(conditions: dict, app: Application) -> tuple[bool, dict]:
+    """
+    Evaluate a compound condition with AND/OR logic.
+    
+    conditions format:
+    {
+      "logic": "and" | "or",
+      "checks": [
+        {"source": "app", "field": "crossover_width", "operator": "gte", "value": "3.0"},
+        {"source": "sp", "field": "crossover_dimensions.width_at_boundary_m", "operator": "gte", "value": "3.0"}
+      ]
+    }
+    
+    Returns (matched: bool, field_values: dict) where field_values maps field names to resolved values.
+    """
+    logic = conditions.get("logic", "and").lower()
+    checks = conditions.get("checks", [])
+    if not checks:
+        return False, {}
+
+    field_values = {}
+    results = []
+
+    for check in checks:
+        src = check.get("source", "app")
+        fld = check.get("field", "")
+        op = check.get("operator", "exists")
+        val = check.get("value")
+
+        try:
+            fv = _resolve_field_value(src, fld, app)
+            field_values[f"{src}.{fld}"] = fv
+            matched = _evaluate_condition(fv, op, val)
+            results.append(matched)
+        except Exception:
+            results.append(False)
+            field_values[f"{src}.{fld}"] = None
+
+    if logic == "or":
+        return any(results), field_values
+    else:  # "and"
+        return all(results), field_values
 
 
 def _auto_assess_item(item_code: str, app: Application, db: Session) -> tuple[str, float, str]:
@@ -446,6 +497,9 @@ def _auto_assess_item(item_code: str, app: Application, db: Session) -> tuple[st
     Evaluate a checklist item using database-driven rules.
     Rules are loaded from assessment_rules table, evaluated in priority order.
     First matching rule wins. If no rules match, returns "review" with low confidence.
+    
+    Supports both simple rules (single source/field/operator/value) and
+    compound rules (conditions JSON with AND/OR logic over multiple fields).
     """
     # Load rules for this item code
     item = db.query(AssessmentItem).filter(AssessmentItem.code == item_code).first()
@@ -465,11 +519,21 @@ def _auto_assess_item(item_code: str, app: Application, db: Session) -> tuple[st
     # Evaluate rules in priority order — first match wins
     for rule in rules:
         try:
-            field_value = _resolve_field_value(rule.source, rule.field, app)
-            matched = _evaluate_condition(field_value, rule.operator, rule.value)
-            if matched:
-                reason = _render_reason(rule.reason_template, field_value, rule.value)
-                return (rule.result, rule.confidence, reason)
+            # Check if this is a compound rule
+            if rule.conditions and isinstance(rule.conditions, dict) and rule.conditions.get("checks"):
+                matched, field_values = _evaluate_compound(rule.conditions, app)
+                if matched:
+                    # Use first field value for {field_value} placeholder
+                    first_fv = next((v for v in field_values.values() if v is not None), None)
+                    reason = _render_reason(rule.reason_template, first_fv, rule.value, field_values)
+                    return (rule.result, rule.confidence, reason)
+            else:
+                # Simple single-field rule (backwards compatible)
+                field_value = _resolve_field_value(rule.source, rule.field, app)
+                matched = _evaluate_condition(field_value, rule.operator, rule.value)
+                if matched:
+                    reason = _render_reason(rule.reason_template, field_value, rule.value)
+                    return (rule.result, rule.confidence, reason)
         except Exception as e:
             # Skip broken rules gracefully
             continue

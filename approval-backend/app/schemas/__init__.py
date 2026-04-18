@@ -393,6 +393,7 @@ class AssessmentRuleOut(BaseModel):
     field: str
     operator: str
     value: Optional[str] = None
+    conditions: Optional[dict] = None
     result: str
     confidence: float = 0.8
     reason_template: str
@@ -403,9 +404,10 @@ class AssessmentRuleCreate(BaseModel):
     item_id: int
     priority: int = 0
     source: str = "app"
-    field: str
-    operator: str
+    field: str = ""
+    operator: str = "exists"
     value: Optional[str] = None
+    conditions: Optional[dict] = None
     result: str
     confidence: float = 0.8
     reason_template: str
@@ -417,6 +419,7 @@ class AssessmentRuleUpdate(BaseModel):
     field: Optional[str] = None
     operator: Optional[str] = None
     value: Optional[str] = None
+    conditions: Optional[dict] = None
     result: Optional[str] = None
     confidence: Optional[float] = None
     reason_template: Optional[str] = None

@@ -239,7 +239,7 @@ def run_seed():
             item_map = {i.code: i.id for i in db.query(AssessmentItem).all()}
 
             def R(code, priority, source, field, operator, value, result, confidence, reason):
-                """Shorthand to create a rule dict."""
+                """Shorthand to create a simple rule."""
                 iid = item_map.get(code)
                 if not iid:
                     return
@@ -247,6 +247,26 @@ def run_seed():
                     item_id=iid, priority=priority, source=source, field=field,
                     operator=operator, value=value, result=result,
                     confidence=confidence, reason_template=reason,
+                ))
+
+            def RC(code, priority, logic, checks, result, confidence, reason):
+                """Shorthand to create a compound rule with AND/OR logic.
+                checks = [("source", "field", "operator", "value"), ...]
+                """
+                iid = item_map.get(code)
+                if not iid:
+                    return
+                conditions = {
+                    "logic": logic,
+                    "checks": [
+                        {"source": c[0], "field": c[1], "operator": c[2], "value": c[3] if len(c) > 3 else None}
+                        for c in checks
+                    ]
+                }
+                db.add(AssessmentRule(
+                    item_id=iid, priority=priority, source="compound", field="compound",
+                    operator="compound", value=None, conditions=conditions,
+                    result=result, confidence=confidence, reason_template=reason,
                 ))
 
             # ── Ownership & Application ──
@@ -281,6 +301,16 @@ def run_seed():
             # ── Width & Dimensions ──
             R("min_width",           0, "app", "crossover_width",  "gte", "3.0",    "pass",   0.95, "Width {field_value}m ≥ 3.0m minimum")
             R("min_width",           1, "app", "crossover_width",  "lt",  "3.0",    "fail",   0.95, "Width {field_value}m < 3.0m minimum")
+            # Compound: app and sp both confirm width ≥ 3.0m → highest confidence
+            RC("min_width",          3, "and", [
+                ("app", "crossover_width", "gte", "3.0"),
+                ("sp", "crossover_dimensions.width_at_boundary_m", "gte", "3.0"),
+            ], "pass", 0.99, "Width confirmed ≥ 3.0m by both application ({app.crossover_width}) and site plan ({sp.crossover_dimensions.width_at_boundary_m})")
+            # Compound: app and sp disagree on width → review
+            RC("min_width",          4, "and", [
+                ("app", "crossover_width", "gte", "3.0"),
+                ("sp", "crossover_dimensions.width_at_boundary_m", "lt", "3.0"),
+            ], "review", 0.9, "Width conflict: application says {app.crossover_width}m but site plan shows {sp.crossover_dimensions.width_at_boundary_m}m — verify on-site")
             R("min_width",           5, "sp",  "crossover_dimensions.width_at_boundary_m", "gte", "3.0", "pass", 0.98, "Width {field_value}m ≥ 3.0m — confirmed from site plan")
             R("min_width",           6, "sp",  "crossover_dimensions.width_at_boundary_m", "lt",  "3.0", "fail", 0.98, "Width {field_value}m < 3.0m — from site plan")
             R("min_width",           9, "app", "crossover_width",  "not_exists", None, "review", 0.5, "Crossover width not provided")
@@ -301,10 +331,16 @@ def run_seed():
             R("separation_dist",     9, "app", "crossover_count",  "gt",  "1",      "review", 0.5,  "Dual separation to be verified")
             R("setback_boundary",    0, "app", "offset_from_left", "gte", "0.5",    "pass",   0.8,  "Left boundary offset {field_value}m ≥ 0.5m — from application")
             R("setback_boundary",    1, "app", "offset_from_left", "lt",  "0.5",    "fail",   0.8,  "Left boundary offset {field_value}m < 0.5m — too close")
-            R("setback_boundary",    5, "sp",  "crossover_dimensions.distance_to_left_boundary_m", "gte", "0.5", "pass", 0.95, "Left boundary offset {field_value}m ≥ 0.5m — from site plan")
-            R("setback_boundary",    6, "sp",  "crossover_dimensions.distance_to_right_boundary_m", "gte", "0.5", "pass", 0.95, "Right boundary offset {field_value}m ≥ 0.5m — from site plan")
-            R("setback_boundary",    7, "sp",  "crossover_dimensions.distance_to_left_boundary_m", "lt", "0.5", "fail", 0.95, "Left boundary offset {field_value}m < 0.5m — too close")
-            R("setback_boundary",    8, "sp",  "crossover_dimensions.distance_to_right_boundary_m", "lt", "0.5", "fail", 0.95, "Right boundary offset {field_value}m < 0.5m — too close")
+            # Compound: both boundary distances from site plan ≥ 0.5m → pass
+            RC("setback_boundary",   3, "and", [
+                ("sp", "crossover_dimensions.distance_to_left_boundary_m", "gte", "0.5"),
+                ("sp", "crossover_dimensions.distance_to_right_boundary_m", "gte", "0.5"),
+            ], "pass", 0.98, "Both boundaries clear: left {sp.crossover_dimensions.distance_to_left_boundary_m}m, right {sp.crossover_dimensions.distance_to_right_boundary_m}m — both ≥ 0.5m")
+            # Compound: either boundary < 0.5m → fail
+            RC("setback_boundary",   4, "or", [
+                ("sp", "crossover_dimensions.distance_to_left_boundary_m", "lt", "0.5"),
+                ("sp", "crossover_dimensions.distance_to_right_boundary_m", "lt", "0.5"),
+            ], "fail", 0.95, "Boundary too close: left {sp.crossover_dimensions.distance_to_left_boundary_m}m, right {sp.crossover_dimensions.distance_to_right_boundary_m}m — minimum 0.5m required")
             R("setback_boundary",    9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Boundary setback ≥ 0.5m to be confirmed on-site")
 
             # ── Construction & Materials ──
