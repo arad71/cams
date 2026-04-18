@@ -402,60 +402,81 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       </div>
 
       {/* Document rows */}
-      <div style={{ maxHeight: 280, overflowY: "auto" }}>
+      <div style={{ maxHeight: 320, overflowY: "auto" }}>
         {filtered.map(doc => {
           const sc = getStatusConfig(doc.status);
           const isSelected = selectedDocId === doc.id;
+          const isImage = ["jpg", "jpeg", "png", "gif"].includes((doc.type || "").toLowerCase());
+          const isPdf = (doc.type || "").toLowerCase() === "pdf";
+          const thumbUrl = (isImage || isPdf) ? api.getDocumentFileUrl(appDbId, doc.id) + (isPdf ? "&page=1&thumb=1" : "") : null;
+          const catColors = { "Site Plan": "#8e44ad", "Application Form": "#3498db", "Certificate of Title": "#e67e22", "Building Application": "#c0392b", "Site Photos": "#27ae60", "Other Documents": "#7a8a94" };
+          const catColor = catColors[doc.category] || "#7a8a94";
           return (
-            <div key={doc.id} style={{ borderBottom: "1px solid #f8fafb" }}>
-              <div style={{ padding: "9px 16px", display: "flex", alignItems: "center", gap: 10, background: isSelected ? "#ebf5fb" : "transparent", transition: "background 0.15s" }}
+            <div key={doc.id} style={{ borderBottom: "1px solid #f5f7f8" }}>
+              <div style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: 10, background: isSelected ? "#ebf5fb" : "transparent", transition: "background 0.15s" }}
                 onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#f8fafb"; }}
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? "#ebf5fb" : "transparent"; }}>
-                <span style={{ fontSize: 18 }}>{typeIcons[doc.type] || "📄"}</span>
+                {/* Thumbnail */}
+                {isImage && thumbUrl ? (
+                  <div style={{ width: 36, height: 36, borderRadius: 4, overflow: "hidden", border: "1px solid #e4e9ec", flexShrink: 0, cursor: "pointer" }} onClick={() => setViewerDoc(doc)}>
+                    <img src={thumbUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
+                ) : (
+                  <div style={{ width: 36, height: 36, borderRadius: 4, background: `${catColor}10`, border: `1px solid ${catColor}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, cursor: "pointer" }} onClick={() => setViewerDoc(doc)}>
+                    {typeIcons[doc.type] || "📄"}
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setSelectedDocId(isSelected ? null : doc.id)}>
-                  <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</div>
-                  <div style={{ fontSize: 12, color: T.c.textMuted }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
+                    <span style={{ padding: "0 5px", borderRadius: 3, fontSize: 8, fontWeight: 600, background: `${catColor}12`, color: catColor, whiteSpace: "nowrap", flexShrink: 0 }}>{doc.category}</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: T.c.textMuted, marginTop: 1 }}>
                     {doc.type.toUpperCase()} · {doc.size} · {doc.date}
-                    {doc.reviewedBy && <span style={{ marginLeft: 6, color: T.c.textSecondary }}>· {doc.reviewedBy}</span>}
+                    {doc.reviewedBy && <span style={{ marginLeft: 4, color: T.c.textSecondary }}>· {doc.reviewedBy}</span>}
                   </div>
                 </div>
-                {/* View button */}
-                <button onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}
-                  title="Open document viewer"
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #d5dde2", background: T.c.card, color: T.c.info, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                  👁 View
-                </button>
-                {/* Download button */}
-                <a href={api.getDocumentDownloadUrl(appDbId, doc.id)} download={doc.name}
-                  onClick={(e) => e.stopPropagation()}
-                  title="Download file"
-                  style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #27ae6040", background: T.c.successLight, color: T.c.success, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", textDecoration: "none", display: "inline-block" }}>
-                  📥 Download
-                </a>
+                {/* Status dot */}
+                <span style={{ padding: "2px 6px", borderRadius: 8, fontSize: 8, fontWeight: 600, background: sc.bg, color: sc.color, border: `1px solid ${sc.color}30`, flexShrink: 0 }}>
+                  {sc.label}
+                </span>
+                {/* Actions */}
+                <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                  <button onClick={(e) => { e.stopPropagation(); setViewerDoc(doc); }}
+                    title="View"
+                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #d5dde2", background: "#fff", color: T.c.info, fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+                    👁
+                  </button>
+                  <a href={api.getDocumentDownloadUrl(appDbId, doc.id)} download={doc.name}
+                    onClick={(e) => e.stopPropagation()}
+                    title="Download"
+                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #27ae6040", background: "#f0faf3", color: T.c.success, fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                    📥
+                  </a>
                 {/* Measure button — for site plan docs */}
                 {(doc.category || "").toLowerCase().includes("site") && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && (
                   <>
                     <button onClick={(e) => { e.stopPropagation(); setGeorefDocId(doc.id); setShowGeoref(true); }}
-                      title="Align plan to map (georeference)"
-                      style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #8e44ad40", background: "#f7f0fa", color: "#8e44ad", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                      🗺️ Align to Map
+                      title="Align plan to map"
+                      style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #8e44ad40", background: "#f7f0fa", color: "#8e44ad", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+                      🗺️
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); setMeasureDocId(doc.id); setShowMeasure(true); }}
-                      title="Open measurement tool on this document"
-                      style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                      📏 Measure
+                      title="Measure"
+                      style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #00838f40", background: "#e0f7fa", color: "#00838f", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+                      📏
                     </button>
                   </>
                 )}
-                {/* Extract & Analyse button — for multi-page PDFs */}
+                {/* Extract button */}
                 {canUpload && doc.type === "pdf" && ["Building Application", "Other Documents"].includes(doc.category) && (
                   <button onClick={(e) => { e.stopPropagation(); setExtractDoc(doc); setExtractPages(""); setExtractResult(null); setExtractCategory("Site Plan"); }}
-                    title="Extract pages and analyse"
-                    style={{ padding: "6px 14px", borderRadius: T.r.md, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                    ✂ Extract
+                    title="Extract pages"
+                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #8e44ad40", background: "#f4ecf7", color: "#8e44ad", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+                    ✂
                   </button>
                 )}
-                {/* AI Read button — for Application Form and Certificate of Title */}
+                {/* AI Read button */}
                 {canUpload && ["pdf","jpg","jpeg","png"].includes((doc.type || "").toLowerCase()) && ["Application Form", "Certificate of Title", "Site Plan"].includes(doc.category) && (
                   <button onClick={(e) => {
                     e.stopPropagation();
@@ -463,29 +484,25 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     setExtractPages("");
                     setExtractResult(null);
                     setExtractCategory(doc.category);
-                    // App Form and Title always use local OCR; Site Plan defaults to ai_live
                     setExtractMethod(doc.category === "Site Plan" ? "ai_live" : "ai_local");
                   }}
-                    title={`Extract data from ${doc.category}`}
-                    style={{ padding: "6px 14px", borderRadius: T.r.md, border: "1px solid #16a08540", background: "#e8f8f5", color: "#16a085", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
-                    🤖 AI Read
+                    title={`AI Read ${doc.category}`}
+                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #16a08540", background: "#e8f8f5", color: "#16a085", fontSize: 10, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+                    🤖
                   </button>
                 )}
                 {/* Delete button */}
                 {canUpload && (
                   <button onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
-                    title="Delete document"
-                    style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, background: T.c.card, color: T.c.danger, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                    title="Delete"
+                    style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${T.c.border}`, background: "#fff", color: T.c.danger, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
                     🗑
                   </button>
                 )}
-                {/* Status badge */}
-                <span style={{ padding: "3px 8px", borderRadius: T.r.sm, fontSize: 12, fontWeight: T.w.semi, background: `${sc.color}14`, color: sc.color, whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: 3 }}>
-                  {sc.icon} {sc.label}
-                </span>
-                {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: T.c.amber400 }}>💬</span>}
+                </div>
+                {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 10, color: T.c.amber400, flexShrink: 0 }}>💬</span>}
                 <span onClick={() => setSelectedDocId(isSelected ? null : doc.id)}
-                  style={{ fontSize: 10, color: T.c.grey400, cursor: "pointer", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+                  style={{ fontSize: 9, color: T.c.grey400, cursor: "pointer", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}>▼</span>
               </div>
             </div>
           );
