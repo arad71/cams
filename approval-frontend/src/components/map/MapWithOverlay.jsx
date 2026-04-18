@@ -795,7 +795,8 @@ Respond with JSON only:
 
     // 3) Approximate rectangle around coords center using frontage/depth
     if (!coords) return [];
-    const c = coords, p = app.property;
+    const c = coords, p = app?.property;
+    if (!p || !p.frontage || !p.depth) return [];
     const mLat = 111320, mLng = 111320 * Math.cos(c.lat * Math.PI / 180);
     const hW = (p.frontage / 2) / mLng, hD = (p.depth / 2) / mLat;
     return [
@@ -1761,6 +1762,7 @@ Respond with JSON only:
           </div>
           {/* Single measurement result — select field, see current vs new, save */}
           {(() => {
+            try {
             // Get the latest completed measurement
             const completed = Array.isArray(measureDist) ? measureDist : [];
             const latest = completed.length > 0 ? completed[completed.length - 1] : null;
@@ -1844,9 +1846,11 @@ Respond with JSON only:
                 )}
               </div>
             );
+            } catch (e) { console.error('Measure panel error:', e); return null; }
           })()}
           {/* AI extraction reference panel — key distances for assessment */}
           {(() => {
+            try {
             const spd = app?.cor_site_plan_data || app?.site_plan_data;
             const ext = spd?.extraction || spd || {};
             const cd = ext?.crossover_dimensions || {};
@@ -1998,9 +2002,11 @@ Respond with JSON only:
                 })()}
               </div>
             );
+            } catch (e) { console.error('AI reference panel error:', e); return null; }
           })()}
           {/* Utility clearance check — AI vs Map comparison */}
           {(() => {
+            try {
             const spd = app?.cor_site_plan_data || app?.site_plan_data;
             const ext = spd?.extraction || spd || {};
             const cd = ext?.crossover_dimensions || {};
@@ -2166,6 +2172,7 @@ Respond with JSON only:
                 )}
               </div>
             );
+            } catch (e) { console.error('Utility clearance panel error:', e); return null; }
           })()}
         </div>
       )}
