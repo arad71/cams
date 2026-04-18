@@ -805,9 +805,9 @@ export default function WorkflowView({
       )}
 
       {/* Main layout: vertical stepper left + content right */}
-      <div style={{ display: "grid", gridTemplateColumns: "160px minmax(0, 1fr) 240px", gap: 12 }}>
+      <div className="workflow-grid" style={{ display: "grid", gridTemplateColumns: "160px minmax(0, 1fr) 240px", gap: 12 }}>
         {/* Left: Vertical Stepper */}
-        <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: "10px 6px", alignSelf: "start", position: "sticky", top: 8 }}>
+        <div className="workflow-stepper" style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: "10px 6px", alignSelf: "start", position: "sticky", top: 8 }}>
           <Stepper currentStep={currentStep} completedUpTo={completedUpTo} onStepClick={setCurrentStep} stepStats={stepStats} />
           {/* Quick actions under stepper */}
           <div style={{ borderTop: `1px solid ${T.c.borderLight}`, marginTop: 8, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -828,6 +828,19 @@ export default function WorkflowView({
 
         {/* Right: Step content */}
         <div>
+          {/* Mobile stepper (hidden on desktop) */}
+          <div className="workflow-stepper-mobile" style={{ display: "none", gap: 4, marginBottom: 8, overflowX: "auto", padding: "6px 0" }}>
+            {STEPS.map(step => {
+              const active = step.id === currentStep;
+              const done = step.id < completedUpTo;
+              return (
+                <button key={step.id} onClick={() => setCurrentStep(step.id)}
+                  style={{ padding: "4px 10px", borderRadius: 12, border: active ? `2px solid ${step.color}` : "1px solid #d5dde2", background: active ? `${step.color}10` : done ? "#08504110" : "#fff", color: active ? step.color : done ? "#085041" : "#7a8a94", fontSize: 10, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {stepStats?.[step.key]?.done ? "✓ " : ""}{step.label}
+                </button>
+              );
+            })}
+          </div>
           {/* Step header with next suggestion */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "5px 12px", background: stepDef.bg, borderRadius: T.r.md, border: `1px solid ${stepDef.color}20` }}>
             <div style={{ width: 22, height: 22, borderRadius: "50%", background: stepDef.color, color: stepDef.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: T.w.bold }}>{stepDef.id}</div>
@@ -889,13 +902,15 @@ export default function WorkflowView({
         </div>
 
         {/* Right sidebar */}
-        <WorkflowSidebar
-          app={localApp} currentUser={currentUser} users={users} categories={categories}
-          onReload={onDocUpdated} newNote={newNote} setNewNote={setNewNote} addNote={addNote}
-          assignee={assignee} setAssignee={setAssignee} newStatus={newStatus} setNewStatus={setNewStatus}
-          saveChanges={saveChanges} canAssign={canAssign} canDecide={canDecide}
-          onInspect={startInspection} auditLog={auditLog} stepStats={stepStats}
-        />
+        <div className="workflow-sidebar">
+          <WorkflowSidebar
+            app={localApp} currentUser={currentUser} users={users} categories={categories}
+            onReload={onDocUpdated} newNote={newNote} setNewNote={setNewNote} addNote={addNote}
+            assignee={assignee} setAssignee={setAssignee} newStatus={newStatus} setNewStatus={setNewStatus}
+            saveChanges={saveChanges} canAssign={canAssign} canDecide={canDecide}
+            onInspect={startInspection} auditLog={auditLog} stepStats={stepStats}
+          />
+        </div>
       </div>
 
       {/* Collapsible map for non-Assess steps */}

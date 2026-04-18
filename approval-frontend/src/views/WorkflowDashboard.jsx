@@ -114,7 +114,7 @@ export default function WorkflowDashboard({ apps, allApps, onSelectApp, currentU
       <p style={{ color: T.c.textSecondary, fontSize: T.f.base, margin: `0 0 ${T.s.lg}px` }}>{new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p>
 
       {/* Top metrics — click to jump to filtered list */}
-      <div style={{ display: "flex", gap: T.s.sm, marginBottom: T.s.md }}>
+      <div className="dashboard-metrics" style={{ display: "flex", gap: T.s.sm, marginBottom: T.s.md }}>
         <MetricBox value={total} label="Total" color={T.c.primary} onClick={() => onSelectApp && onSelectApp(null)} />
         <MetricBox value={sc.pending_review || 0} label="Pending" color={T.c.amber400} onClick={() => overdue[0] ? onSelectApp(overdue[0]) : null} />
         <MetricBox value={sc.under_assessment || 0} label="Assessing" color={T.c.info} />

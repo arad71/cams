@@ -86,3 +86,76 @@ a, button, input, select, textarea { transition: border-color 0.15s ease, box-sh
   body { background: white; }
   .no-print { display: none !important; }
 }
+
+/* ─── Mobile responsive ─────────────────────────── */
+
+/* Tablet: < 1024px */
+@media (max-width: 1024px) {
+  /* Workflow 3-col → 2-col (stepper collapses) */
+  .workflow-grid {
+    grid-template-columns: minmax(0, 1fr) 220px !important;
+  }
+  .workflow-stepper {
+    display: none !important;
+  }
+  .workflow-stepper-mobile {
+    display: flex !important;
+  }
+  /* Dashboard metrics: 3 per row */
+  .dashboard-metrics {
+    flex-wrap: wrap !important;
+  }
+  .dashboard-metrics > * {
+    flex: 1 1 30% !important;
+    min-width: 100px !important;
+  }
+}
+
+/* Phone: < 768px */
+@media (max-width: 768px) {
+  /* Workflow → single column, no sidebar */
+  .workflow-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .workflow-sidebar {
+    display: none !important;
+  }
+  .workflow-sidebar-toggle {
+    display: block !important;
+  }
+  /* Dashboard metrics: 2 per row */
+  .dashboard-metrics > * {
+    flex: 1 1 45% !important;
+  }
+  /* App list: hide less important columns */
+  .app-list-hide-mobile {
+    display: none !important;
+  }
+  /* Make table more compact */
+  table td, table th {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+  /* Checklist: smaller padding */
+  .checklist-item {
+    padding-left: 16px !important;
+  }
+  /* Map: reduce min-height */
+  .map-container {
+    min-height: 250px !important;
+  }
+}
+
+/* Small phone: < 480px */
+@media (max-width: 480px) {
+  .dashboard-metrics > * {
+    flex: 1 1 100% !important;
+  }
+  /* Stack filter chips */
+  .filter-chips {
+    flex-wrap: wrap !important;
+  }
+  .filter-chips > * {
+    flex: 1 1 auto !important;
+  }
+}
