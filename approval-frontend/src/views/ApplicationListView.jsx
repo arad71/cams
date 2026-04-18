@@ -939,15 +939,15 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
   };
 
   const filtered = apps
-    .filter(a => { if (sf !== "all" && a.status !== sf) return false; if (search) { const q = search.toLowerCase(); return a.id.toLowerCase().includes(q) || a.owner.name.toLowerCase().includes(q) || a.property.address.toLowerCase().includes(q); } return true; })
+    .filter(a => { if (sf !== "all" && a.status !== sf) return false; if (search) { const q = search.toLowerCase(); return (a.id || "").toLowerCase().includes(q) || (a.owner?.name || "").toLowerCase().includes(q) || (a.property?.address || "").toLowerCase().includes(q); } return true; })
     .sort((a, b) => {
       let cmp = 0;
-      if (sortCol === "ref") cmp = a.id.localeCompare(b.id);
-      else if (sortCol === "name") cmp = a.owner.name.localeCompare(b.owner.name);
-      else if (sortCol === "address") cmp = a.property.address.localeCompare(b.property.address);
-      else if (sortCol === "width") cmp = (a.crossover.width || 0) - (b.crossover.width || 0);
+      if (sortCol === "ref") cmp = (a.id || "").localeCompare(b.id || "");
+      else if (sortCol === "name") cmp = (a.owner?.name || "").localeCompare(b.owner?.name || "");
+      else if (sortCol === "address") cmp = (a.property?.address || "").localeCompare(b.property?.address || "");
+      else if (sortCol === "width") cmp = (a.crossover?.width || 0) - (b.crossover?.width || 0);
       else if (sortCol === "status") cmp = (a.status || "").localeCompare(b.status || "");
-      else cmp = new Date(a.submittedDate) - new Date(b.submittedDate);
+      else cmp = (new Date(a.submittedDate || 0)) - (new Date(b.submittedDate || 0));
       return sortDir === "desc" ? -cmp : cmp;
     });
 
@@ -1007,10 +1007,10 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
             return (
             <tr key={app.id} onClick={() => onSelectApp(app)} style={{ cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
               <td style={{ padding: "8px 12px", fontWeight: T.w.bold, color: T.c.info, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.id}</td>
-              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.owner.name}</td>
-              <td style={{ padding: "8px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>{app.property.address}</td>
-              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 10, color: T.c.textMuted }}>{new Date(app.submittedDate).toLocaleDateString("en-AU")}</td>
-              <td style={{ padding: "8px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.crossover.width}m</td>
+              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.owner?.name || "—"}</td>
+              <td style={{ padding: "8px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>{app.property?.address || "—"}</td>
+              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 10, color: T.c.textMuted }}>{app.submittedDate ? new Date(app.submittedDate).toLocaleDateString("en-AU") : "—"}</td>
+              <td style={{ padding: "8px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.crossover?.width || "—"}m</td>
               <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: `${sc.color || "#7a8a94"}12`, color: sc.color || "#7a8a94" }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: sc.color || "#7a8a94" }} />
