@@ -16,18 +16,20 @@ function getStatusConfig(status) {
 }
 
 // ─── Floating Document Viewer ─────────────────────────
-function DocViewer({ doc, appDbId, onClose }) {
+function DocViewer({ doc, appDbId, app, onClose }) {
   const [pos, setPos] = useState({ x: 80, y: 60 });
-  const [size, setSize] = useState({ w: 640, h: 520 });
+  const [size, setSize] = useState({ w: 800, h: 560 });
   const [dragging, setDragging] = useState(false);
   const [dragOff, setDragOff] = useState({ x: 0, y: 0 });
   const [maximized, setMaximized] = useState(false);
+  const [showExtraction, setShowExtraction] = useState(false);
   const prevState = useRef(null);
 
   const fileUrl = api.getDocumentFileUrl(appDbId, doc.id);
   const downloadUrl = api.getDocumentDownloadUrl(appDbId, doc.id);
   const isImage = ["jpg", "jpeg", "png", "gif"].includes((doc.type || "").toLowerCase());
   const isPdf = (doc.type || "").toLowerCase() === "pdf";
+  const isSitePlan = (doc.category || "").toLowerCase().includes("site") || (doc.category || "").toLowerCase().includes("plan");
 
   // Drag handlers
   const onMouseDown = (e) => {
@@ -71,6 +73,10 @@ function DocViewer({ doc, appDbId, onClose }) {
           <span style={{ fontSize: 10, opacity: 0.6 }}>{doc.type.toUpperCase()} · {doc.size}</span>
         </div>
         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          {isSitePlan && (
+            <button onClick={() => setShowExtraction(!showExtraction)} title="Toggle extraction data"
+              style={{ background: showExtraction ? "rgba(39,174,96,0.3)" : "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 10, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px", fontWeight: showExtraction ? 700 : 400 }}>📊 Data</button>
+          )}
           <a href={downloadUrl} download={doc.name} title="Download"
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 12, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px", textDecoration: "none", display: "flex", alignItems: "center" }}>📥</a>
           <button onClick={() => window.open(fileUrl, "_blank")} title="Open in new tab"
@@ -81,26 +87,74 @@ function DocViewer({ doc, appDbId, onClose }) {
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 14, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px" }}>✕</button>
         </div>
       </div>
-      {/* Content */}
-      <div style={{ flex: 1, overflow: "hidden", background: "#e8ecef" }}>
-        {isPdf ? (
-          <iframe src={`${fileUrl}#toolbar=1&navpanes=1`} style={{ width: "100%", height: "100%", border: "none" }} title={doc.name} />
-        ) : isImage ? (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", padding: 12 }}>
-            <img src={fileUrl} alt={doc.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: T.r.sm, boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }} />
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
-            <span style={{ fontSize: 48 }}>{typeIcons[doc.type] || "📄"}</span>
-            <div style={{ fontSize: 13, color: T.c.grey800, fontWeight: T.w.semi }}>Preview not available for {doc.type.toUpperCase()} files</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <a href={downloadUrl} download={doc.name}
-                style={{ padding: "8px 18px", borderRadius: T.r.md, background: "#2980b9", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, textDecoration: "none" }}>📥 Download</a>
-              <button onClick={() => window.open(fileUrl, "_blank")}
-                style={{ padding: "8px 18px", borderRadius: T.r.md, background: T.c.primary, color: T.c.white, fontWeight: T.w.bold, fontSize: 12, border: "none", cursor: "pointer", fontFamily: "inherit" }}>↗ Open in Browser</button>
+      {/* Content — side by side when extraction shown */}
+      <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+        {/* Document panel */}
+        <div style={{ flex: 1, overflow: "hidden", background: "#e8ecef" }}>
+          {isPdf ? (
+            <iframe src={`${fileUrl}#toolbar=1&navpanes=1`} style={{ width: "100%", height: "100%", border: "none" }} title={doc.name} />
+          ) : isImage ? (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", overflow: "auto", padding: 12 }}>
+              <img src={fileUrl} alt={doc.name} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: T.r.sm, boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }} />
             </div>
-          </div>
-        )}
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 12 }}>
+              <span style={{ fontSize: 48 }}>{typeIcons[doc.type] || "📄"}</span>
+              <div style={{ fontSize: 13, color: T.c.grey800, fontWeight: T.w.semi }}>Preview not available for {doc.type.toUpperCase()} files</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <a href={downloadUrl} download={doc.name}
+                  style={{ padding: "8px 18px", borderRadius: T.r.md, background: "#2980b9", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, textDecoration: "none" }}>📥 Download</a>
+                <button onClick={() => window.open(fileUrl, "_blank")}
+                  style={{ padding: "8px 18px", borderRadius: T.r.md, background: T.c.primary, color: T.c.white, fontWeight: T.w.bold, fontSize: 12, border: "none", cursor: "pointer", fontFamily: "inherit" }}>↗ Open in Browser</button>
+              </div>
+            </div>
+          )}
+        </div>
+        {/* Extraction data panel — side by side */}
+        {showExtraction && isSitePlan && (() => {
+          const spd = app?.cor_site_plan_data || app?.site_plan_data || {};
+          const ext = spd.extraction || spd || {};
+          const cd = ext.crossover_dimensions || {};
+          const sm = ext.siteplan_measurements || {};
+          const con = ext.construction || {};
+          const drn = ext.drainage || {};
+          const util = ext.utilities || {};
+          const prop = ext.property || {};
+          const af = ext.additional_findings || {};
+          const V = (v) => v != null && v !== '' && v !== 'null' ? String(v) : '—';
+          const sections = [
+            { title: "Crossover Dimensions", data: cd },
+            { title: "Measurements", data: sm },
+            { title: "Construction", data: con },
+            { title: "Drainage", data: drn },
+            { title: "Utilities", data: util },
+            { title: "Property", data: prop },
+            { title: "Additional Findings", data: af },
+          ].filter(s => Object.keys(s.data).length > 0);
+          return (
+            <div style={{ width: 280, borderLeft: "1px solid #d5dde2", background: "#fafcfd", overflowY: "auto", flexShrink: 0 }}>
+              <div style={{ padding: "8px 12px", borderBottom: "1px solid #e4e9ec", background: "#f0f3f5" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#1a3a4a" }}>📊 AI Extraction Data</div>
+                <div style={{ fontSize: 8, color: "#7a8a94", marginTop: 1 }}>{app?.cor_site_plan_data ? "Corrected" : "Original"} extraction</div>
+              </div>
+              {sections.map(section => (
+                <div key={section.title} style={{ borderBottom: "1px solid #f0f2f5" }}>
+                  <div style={{ padding: "5px 12px", fontSize: 9, fontWeight: 700, color: "#7a8a94", textTransform: "uppercase", background: "#f8fafb" }}>{section.title}</div>
+                  <div style={{ padding: "4px 12px" }}>
+                    {Object.entries(section.data).map(([key, val]) => (
+                      <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 9, borderBottom: "1px solid #f5f7f8" }}>
+                        <span style={{ color: "#7a8a94", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{key.replace(/_/g, ' ')}</span>
+                        <span style={{ fontWeight: 600, color: V(val) === '—' ? "#bdc3c7" : typeof val === 'boolean' ? (val ? "#27ae60" : "#c0392b") : "#1a3a4a", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
+                          {typeof val === 'boolean' ? (val ? '✓ Yes' : '✕ No') : typeof val === 'object' ? JSON.stringify(val).slice(0, 30) : V(val)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -517,7 +571,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
 
       {/* Floating document viewer */}
       {viewerDoc && (
-        <DocViewer doc={viewerDoc} appDbId={appDbId} onClose={() => setViewerDoc(null)} />
+        <DocViewer doc={viewerDoc} appDbId={appDbId} app={app} onClose={() => setViewerDoc(null)} />
       )}
 
       {/* Delete confirmation popup */}
