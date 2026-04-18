@@ -313,18 +313,30 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
       {/* Activity Timeline */}
       {auditLog.length > 0 && (
         <div style={card}>
-          <div style={cardHdr}><span>🕐 Activity</span></div>
-          <div style={{ maxHeight: 200, overflowY: "auto", padding: "4px 0" }}>
-            {auditLog.slice(0, 15).map((log, i) => {
-              const icons = { create: "🆕", update: "✏️", upload: "📤", extract: "🤖", view: "👁", download: "📥", rotate: "🔄", delete: "🗑" };
+          <div style={cardHdr}><span>🕐 Activity Timeline</span></div>
+          <div style={{ maxHeight: 260, overflowY: "auto", padding: "8px 12px" }}>
+            {auditLog.slice(0, 20).map((log, i) => {
+              const icons = { create: "🆕", update: "✏️", upload: "📤", extract: "🤖", view: "👁", download: "📥", rotate: "🔄", delete: "🗑", assess: "📋", correct: "📐", approve: "✅", reject: "❌" };
+              const colors = { create: "#27ae60", upload: "#3498db", extract: "#8e44ad", delete: "#c0392b", assess: "#e67e22", correct: "#16a085", approve: "#27ae60", reject: "#c0392b", update: "#7a8a94" };
               const time = log.created_at ? new Date(log.created_at) : null;
               const timeStr = time ? `${time.toLocaleDateString("en-AU", { day: "numeric", month: "short" })} ${time.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}` : "";
+              const actionColor = colors[log.action] || "#7a8a94";
+              const isLast = i === Math.min(auditLog.length, 20) - 1;
               return (
-                <div key={i} style={{ display: "flex", gap: 8, padding: "4px 12px", fontSize: 10, alignItems: "flex-start" }}>
-                  <div style={{ width: 14, textAlign: "center", flexShrink: 0, fontSize: 11, marginTop: 1 }}>{icons[log.action] || "●"}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: T.c.text, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.description || log.action}</div>
-                    <div style={{ color: T.c.textMuted, fontSize: 9 }}>{log.user_email?.split("@")[0] || "system"} · {timeStr}</div>
+                <div key={i} style={{ display: "flex", gap: 8, position: "relative", paddingBottom: isLast ? 0 : 8 }}>
+                  {/* Timeline line */}
+                  {!isLast && <div style={{ position: "absolute", left: 9, top: 18, bottom: 0, width: 1.5, background: "#e4e9ec" }} />}
+                  {/* Dot */}
+                  <div style={{ width: 19, height: 19, borderRadius: "50%", background: `${actionColor}15`, border: `2px solid ${actionColor}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, flexShrink: 0, zIndex: 1 }}>
+                    {icons[log.action] || "●"}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
+                    <div style={{ color: T.c.text, fontWeight: 500, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                      {log.description || log.action}
+                    </div>
+                    <div style={{ color: T.c.textMuted, fontSize: 8, marginTop: 1 }}>
+                      {log.user_email?.split("@")[0] || "system"} · {timeStr}
+                    </div>
                   </div>
                 </div>
               );
