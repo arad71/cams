@@ -970,14 +970,16 @@ Respond with JSON only:
 
       // Constrained side and boundary distances
       constrainedSide = ext.crossover_dimensions?.constrained_side || null;
-      leftBoundaryDist = ext.crossover_dimensions?.distance_to_left_boundary_m;
-      rightBoundaryDist = ext.crossover_dimensions?.distance_to_right_boundary_m;
+      leftBoundaryDist = parseFloat(ext.crossover_dimensions?.distance_to_left_boundary_m);
+      rightBoundaryDist = parseFloat(ext.crossover_dimensions?.distance_to_right_boundary_m);
+      if (isNaN(leftBoundaryDist)) leftBoundaryDist = null;
+      if (isNaN(rightBoundaryDist)) rightBoundaryDist = null;
       leftBoundaryFeature = ext.crossover_dimensions?.left_boundary_feature || null;
       rightBoundaryFeature = ext.crossover_dimensions?.right_boundary_feature || null;
 
       // Crossover width
-      crossoverWidth = ext.crossover_dimensions?.width_at_boundary_m
-        || ext.crossover_dimensions?.total_width_at_road_m || null;
+      crossoverWidth = parseFloat(ext.crossover_dimensions?.width_at_boundary_m)
+        || parseFloat(ext.crossover_dimensions?.total_width_at_road_m) || null;
 
       // Auto-calculate Y (fence/side distance for Point A)
       // Point A lateral position = constrained side distance + 0.5 * crossover width
@@ -1646,11 +1648,11 @@ Respond with JSON only:
               </div>
               {(sightConfig.leftBoundaryDist != null || sightConfig.rightBoundaryDist != null) ? (
                 <div style={{ marginTop: 3, fontSize: 8, color: T.c.textSecondary, lineHeight: 1.4 }}>
-                  {sightConfig.leftBoundaryDist != null && <div>L: {sightConfig.leftBoundaryDist.toFixed(1)}m{sightConfig.leftBoundaryFeature ? ` — ${sightConfig.leftBoundaryFeature}` : ''}</div>}
-                  {sightConfig.rightBoundaryDist != null && <div>R: {sightConfig.rightBoundaryDist.toFixed(1)}m{sightConfig.rightBoundaryFeature ? ` — ${sightConfig.rightBoundaryFeature}` : ''}</div>}
-                  {sightConfig.crossoverWidth && <div>Width: {sightConfig.crossoverWidth.toFixed(1)}m</div>}
+                  {sightConfig.leftBoundaryDist != null && <div>L: {Number(sightConfig.leftBoundaryDist).toFixed(1)}m{sightConfig.leftBoundaryFeature ? ` — ${sightConfig.leftBoundaryFeature}` : ''}</div>}
+                  {sightConfig.rightBoundaryDist != null && <div>R: {Number(sightConfig.rightBoundaryDist).toFixed(1)}m{sightConfig.rightBoundaryFeature ? ` — ${sightConfig.rightBoundaryFeature}` : ''}</div>}
+                  {sightConfig.crossoverWidth && <div>Width: {Number(sightConfig.crossoverWidth).toFixed(1)}m</div>}
                   {sightConfig.constrainedSide && sightConfig.crossoverWidth && (
-                    <div style={{ color: "#E65100", fontWeight: T.w.semi, marginTop: 1 }}>y = {(sightConfig.constrainedSide === "left" ? sightConfig.leftBoundaryDist : sightConfig.rightBoundaryDist)?.toFixed(1)} + {(0.5 * sightConfig.crossoverWidth).toFixed(1)} = {sightConfig.y.toFixed(1)}m</div>
+                    <div style={{ color: "#E65100", fontWeight: T.w.semi, marginTop: 1 }}>y = {Number(sightConfig.constrainedSide === "left" ? sightConfig.leftBoundaryDist : sightConfig.rightBoundaryDist).toFixed(1)} + {(0.5 * Number(sightConfig.crossoverWidth)).toFixed(1)} = {Number(sightConfig.y).toFixed(1)}m</div>
                   )}
                 </div>
               ) : (
