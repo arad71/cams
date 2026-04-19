@@ -574,6 +574,8 @@ export function findNearestRoadsToLot(lotPoly, ...roadDataSources) {
 
     let bestDist = Infinity;
     let bestName = null;
+    let bestNetworkType = null;
+    let bestSpeed = null;
 
     for (const src of roadDataSources.filter(s => s?.features)) {
       for (const feat of src.features) {
@@ -581,21 +583,33 @@ export function findNearestRoadsToLot(lotPoly, ...roadDataSources) {
         if (!g || g.type !== "LineString") continue;
         const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || feat.properties?.full_name || '';
         if (!rn) continue;
+        const nt = feat.properties?.nt || feat.properties?.NETWORK_TYPE || feat.properties?.network_type || '';
+        const sp = feat.properties?.sp || feat.properties?.GAZETTED_SPEED_LIMIT || null;
 
         for (let j = 0; j < g.coordinates.length - 1; j++) {
           const [aLng, aLat] = g.coordinates[j];
           const [bLng, bLat] = g.coordinates[j + 1];
-          // Distance from edge midpoint to road segment
           const d = pointToSegmentDist(midLat, midLng, aLat, aLng, bLat, bLng);
           if (d < bestDist) {
             bestDist = d;
             bestName = rn;
+            bestNetworkType = nt;
+            bestSpeed = sp;
           }
         }
       }
     }
 
-    if (bestName && bestDist < 20) { // within 20m = adjacent
+    if (bestName && bestDist < 20) {
+      // Classify road type from MRWA network type
+      const ntUpper = (bestNetworkType || '').toUpperCase();
+      let roadClass = 'local'; // default
+      if (ntUpper.includes('STATE') || ntUpper.includes('HIGHWAY') || ntUpper.includes('MAIN ROAD') || ntUpper.includes('PRIMARY')) {
+        roadClass = 'red'; // MRWA controlled
+      } else if (ntUpper.includes('DISTRIBUTOR') || ntUpper.includes('REGIONAL') || ntUpper.includes('SECONDARY')) {
+        roadClass = 'blue'; // DPLH controlled
+      }
+
       edgeRoads.push({
         road_name: bestName,
         distance: Math.round(bestDist * 10) / 10,
@@ -603,6 +617,9 @@ export function findNearestRoadsToLot(lotPoly, ...roadDataSources) {
         edgeMidLat: midLat,
         edgeMidLng: midLng,
         edgeLen: Math.round(edgeLen * 10) / 10,
+        network_type: bestNetworkType,
+        road_class: roadClass,
+        speed: bestSpeed,
       });
     }
   }

@@ -2006,8 +2006,17 @@ Respond with JSON only:
                 const mapRoads = lotPolyLocal ? findNearestRoadsToLot(lotPolyLocal, speedRoadsData, roadNetworkData) : [];
                 const mapPrimaryRoad = mapRoads[0]?.road_name || null;
                 const mapSecondaryRoad = mapRoads[1]?.road_name || null;
+                const mapRoadClass = mapRoads[0]?.road_class || null;
+                const mapNetworkType = mapRoads[0]?.network_type || null;
+                const mapSpeed = mapRoads[0]?.speed || null;
                 const aiRoad = sm.crossover_on_road || sm.road_name || null;
+                const aiRoadClass = sm.road_classification || null;
                 const roadsMatch = aiRoad && mapPrimaryRoad && (aiRoad.toUpperCase() === mapPrimaryRoad.toUpperCase() || aiRoad.toUpperCase().split(' ')[0] === mapPrimaryRoad.toUpperCase().split(' ')[0]);
+
+                // Auto-set road classification from map data if not already set
+                if (mapRoadClass && !aiRoadClass && onMeasureCorrection && mapPrimaryRoad) {
+                  onMeasureCorrection('siteplan_measurements.road_classification', mapRoadClass, '');
+                }
                 const V = (v, u) => v != null && v !== '' && v !== 'null' ? `${v}${u || ''}` : '—';
 
                 // Map-derived measurements
@@ -2033,6 +2042,21 @@ Respond with JSON only:
                           <button onClick={() => { onMeasureCorrection('siteplan_measurements.crossover_on_road', mapPrimaryRoad, ''); onMeasureCorrection('siteplan_measurements.road_name', mapPrimaryRoad, ''); }} style={{ padding: "1px 5px", borderRadius: 3, border: "1px solid #27ae60", background: "#fff", color: "#27ae60", fontSize: 8, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Set</button>
                         )}
                       </div>
+                      {/* Road classification */}
+                      {(mapRoadClass || mapNetworkType) && (
+                        <div style={{ marginTop: 3, display: "flex", gap: 6, alignItems: "center", fontSize: 9 }}>
+                          <span style={{ color: "#7a8a94" }}>Class:</span>
+                          <span style={{ padding: "1px 6px", borderRadius: 3, fontWeight: 700, fontSize: 8,
+                            background: mapRoadClass === "red" ? "#fdedec" : mapRoadClass === "blue" ? "#ebf5fb" : "#eafaf1",
+                            color: mapRoadClass === "red" ? "#c0392b" : mapRoadClass === "blue" ? "#2980b9" : "#27ae60" }}>
+                            {mapRoadClass === "red" ? "🔴 MRWA (Red)" : mapRoadClass === "blue" ? "🔵 DPLH (Blue)" : "🟢 Local"}
+                          </span>
+                          {mapNetworkType && <span style={{ color: "#95a5a6", fontSize: 8 }}>({mapNetworkType})</span>}
+                          {mapSpeed && <span style={{ color: "#7a8a94", fontSize: 8 }}>{mapSpeed}km/h</span>}
+                          {mapRoadClass === "red" && <span style={{ color: "#c0392b", fontSize: 8, fontWeight: 600 }}>⚠ MRWA referral required</span>}
+                          {mapRoadClass === "blue" && <span style={{ color: "#2980b9", fontSize: 8, fontWeight: 600 }}>⚠ DPLH referral required</span>}
+                        </div>
+                      )}
                     </div>
                     {/* AI vs Map comparison table */}
                     {mapMeas && (mapMeas.lot_frontage_m || mapMeas.lot_depth_m || mapMeas.verge_depth_m) && (
