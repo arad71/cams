@@ -7,7 +7,7 @@ Assessment API:
 """
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, contains_eager
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_role
@@ -557,9 +557,13 @@ def _auto_assess_item(item_code: str, app: Application, db: Session) -> tuple[st
 def list_rules(item_code: str = None, db: Session = Depends(get_db),
                current_user: User = Depends(get_current_user)):
     """List all rules, optionally filtered by item code."""
-    q = db.query(AssessmentRule).options(joinedload(AssessmentRule.item))
     if item_code:
-        q = q.join(AssessmentItem).filter(AssessmentItem.code == item_code)
+        q = (db.query(AssessmentRule)
+             .join(AssessmentItem, AssessmentRule.item_id == AssessmentItem.id)
+             .options(contains_eager(AssessmentRule.item))
+             .filter(AssessmentItem.code == item_code))
+    else:
+        q = db.query(AssessmentRule).options(joinedload(AssessmentRule.item))
     rules = q.order_by(AssessmentRule.item_id, AssessmentRule.priority).all()
     return [
         AssessmentRuleOut(
