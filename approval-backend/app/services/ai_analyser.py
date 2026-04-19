@@ -189,11 +189,13 @@ RULES:
     - Example: lot address is Fennell Crescent but garage/driveway faces Plumosa Way then crossover_on_road = "Plumosa Way"
   For corner lots, set secondary_road_name to the other road.
   Also set corner_roads array with ALL road names found adjacent to the lot.
-- CORNER LOT: A lot is a corner lot if it has road frontage on TWO or more sides. Check:
-  (a) Are there two different road names along two different lot boundaries?
-  (b) Is there kerb/footpath shown along two sides of the lot?
-  (c) Does the vicinity map show the lot at an intersection?
-  If yes then is_corner_lot = true, corner_roads = all road names.
+- CORNER LOT: A lot is a corner lot ONLY if the lot boundary DIRECTLY touches TWO or more public roads. Being near an intersection does NOT make it a corner lot. Check:
+  (a) Does the lot have property boundary lines directly adjacent to TWO different named roads? The roads must run along DIFFERENT sides of the lot boundary (not the same side).
+  (b) Is there kerb line or footpath drawn along TWO separate sides/edges of the lot (not just the front)?
+  (c) IMPORTANT: If the lot is a standard rectangular lot with only ONE road along the front boundary, it is NOT a corner lot even if there is an intersection nearby. A lot that is close to a corner/intersection but only fronts ONE road is a SINGLE FRONTAGE lot, not a corner lot.
+  (d) Do NOT count rear laneways, pedestrian access ways (PAWs), or service roads as a second road frontage unless they are a full public road with a road name.
+  Set is_corner_lot = true ONLY if the lot genuinely has two road frontages along two different boundary edges.
+  If yes, set corner_roads = all road names the lot directly fronts.
   The crossover may be on EITHER road - check where the garage faces and where CROSSOVER is labelled.
   Sight distance must be checked on BOTH roads for corner lots.
 - INTERSECTION TANGENT: Measure distance from crossover to nearest intersection tangent point. Must be ≥ 6.0m per R-100.
