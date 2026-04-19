@@ -731,3 +731,101 @@ def reseed_rules(db: Session = Depends(get_db),
     log_audit(db=db, action="reseed_rules", entity_type="assessment", user=current_user,
               description=f"Full reseed: {old_apps} apps deleted, {old_rules} old rules deleted, {new_rules} new rules + {new_apps} sample apps created")
     return {"message": f"Full reseed complete: {old_apps} applications removed, {old_rules}→{new_rules} rules, {new_apps} sample apps created"}
+
+
+# ─── RULE BACKUP / RESTORE ───────────────────────────
+
+@router.get("/assessment/rules/export")
+def export_rules(db: Session = Depends(get_db),
+                 current_user: User = Depends(get_current_user)):
+    """Export all assessment rules as JSON for backup."""
+    rules = (
+        db.query(AssessmentRule)
+        .options(joinedload(AssessmentRule.item))
+        .order_by(AssessmentRule.item_id, AssessmentRule.priority)
+        .all()
+    )
+    exported = []
+    for r in rules:
+        exported.append({
+            "item_code": r.item.code if r.item else None,
+            "priority": r.priority,
+            "is_active": r.is_active,
+            "source": r.source,
+            "field": r.field,
+            "operator": r.operator,
+            "value": r.value,
+            "conditions": r.conditions,
+            "result": r.result,
+            "confidence": r.confidence,
+            "reason_template": r.reason_template,
+        })
+    return {
+        "version": "1.0",
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_by": current_user.name,
+        "rule_count": len(exported),
+        "rules": exported,
+    }
+
+
+@router.post("/assessment/rules/import")
+def import_rules(data: dict, mode: str = "replace",
+                 db: Session = Depends(get_db),
+                 current_user: User = Depends(require_role("admin"))):
+    """
+    Import assessment rules from JSON backup.
+    mode: 'replace' (delete all existing then import) or 'merge' (add to existing).
+    Body: { "rules": [ { item_code, priority, source, field, operator, value, conditions, result, confidence, reason_template } ] }
+    """
+    from app.services.audit import log_audit
+    from sqlalchemy import text
+
+    rules_data = data.get("rules", [])
+    if not rules_data:
+        raise HTTPException(400, "No rules in import data")
+
+    # Build item_code → item_id map
+    item_map = {i.code: i.id for i in db.query(AssessmentItem).all()}
+
+    old_count = db.query(AssessmentRule).count()
+
+    if mode == "replace":
+        try:
+            db.execute(text("DELETE FROM assessment_rules"))
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(500, f"Failed to clear existing rules: {e}")
+
+    imported = 0
+    skipped = 0
+    for rd in rules_data:
+        item_code = rd.get("item_code")
+        iid = item_map.get(item_code)
+        if not iid:
+            skipped += 1
+            continue
+        rule = AssessmentRule(
+            item_id=iid,
+            priority=rd.get("priority", 0),
+            is_active=rd.get("is_active", True),
+            source=rd.get("source", "app"),
+            field=rd.get("field", ""),
+            operator=rd.get("operator", "exists"),
+            value=rd.get("value"),
+            conditions=rd.get("conditions"),
+            result=rd.get("result", "review"),
+            confidence=rd.get("confidence", 0.8),
+            reason_template=rd.get("reason_template", ""),
+        )
+        db.add(rule)
+        imported += 1
+
+    db.commit()
+    new_count = db.query(AssessmentRule).count()
+
+    log_audit(db=db, action="import_rules", entity_type="assessment", user=current_user,
+              description=f"Rules imported ({mode}): {imported} imported, {skipped} skipped, {old_count}→{new_count}")
+
+    return {"message": f"Imported {imported} rules ({skipped} skipped — unknown item codes)", "old_count": old_count, "new_count": new_count}

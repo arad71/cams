@@ -213,6 +213,8 @@ const api = {
   async updateSettings(updates) { return this._fetch("/settings/", { method: "PATCH", body: updates }); },
   async resetRules() { return this._fetch("/assessment/reset-rules", { method: "POST" }); },
   async reseedRules() { return this._fetch("/assessment/reseed-rules", { method: "POST" }); },
+  async exportRules() { return this._fetch("/assessment/rules/export"); },
+  async importRules(data, mode = "replace") { return this._fetch(`/assessment/rules/import?mode=${mode}`, { method: "POST", body: data }); },
 
   // GeoData — Data WA SLIP integration
   async getGeodataStatus() { return this._fetch("/geodata/status"); },

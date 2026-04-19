@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import api from '../services/api';
 import { apiUserToFrontend } from '../utils/transforms';
 import { T, S, cx } from '../styles/tokens';
@@ -412,6 +412,39 @@ function RulesTab() {
     } catch (e) { console.error(e); }
   };
 
+  const fileInputRef = useRef(null);
+
+  const handleExport = async () => {
+    try {
+      const data = await api.exportRules();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cams-rules-backup-${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { alert("Export failed: " + (e.message || e)); }
+  };
+
+  const handleImport = async (file, mode) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.rules?.length) { alert("No rules found in file"); return; }
+      const confirmMsg = mode === "replace"
+        ? `Replace ALL current rules with ${data.rules.length} rules from backup?\n\nExported by: ${data.exported_by || "unknown"}\nDate: ${data.exported_at || "unknown"}`
+        : `Merge ${data.rules.length} rules from backup into existing rules?`;
+      if (!window.confirm(confirmMsg)) return;
+      setSaving("import");
+      const res = await api.importRules(data, mode);
+      alert(res.message || "Import complete");
+      await load();
+    } catch (e) { alert("Import failed: " + (e.message || e)); }
+    setSaving(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   if (loading) return <div style={{ padding: 20, color: T.c.textSecondary }}>Loading rules...</div>;
 
   return (
@@ -454,6 +487,18 @@ function RulesTab() {
             style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #c0392b", background: "#fdedec", color: "#c0392b", fontWeight: T.w.bold, fontSize: 10, cursor: saving === "reseed" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "reseed" ? 0.5 : 1 }}>
             {saving === "reseed" ? "⟳ Reseeding..." : "⚠️ Full Reseed"}
           </button>
+          <button onClick={handleExport}
+            style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #27ae60", background: "#eafaf1", color: "#27ae60", fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+            📥 Backup
+          </button>
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <button onClick={() => fileInputRef.current?.click()} disabled={saving === "import"}
+              style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #3498db", background: "#ebf5fb", color: "#3498db", fontWeight: T.w.bold, fontSize: 10, cursor: saving === "import" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "import" ? 0.5 : 1 }}>
+              {saving === "import" ? "⟳ Importing..." : "📤 Restore"}
+            </button>
+            <input ref={fileInputRef} type="file" accept=".json" style={{ display: "none" }}
+              onChange={e => { if (e.target.files?.[0]) handleImport(e.target.files[0], "replace"); }} />
+          </div>
         </div>
       </div>
 
