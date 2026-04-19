@@ -132,6 +132,10 @@ def _migrate_columns():
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS form_extraction_data JSONB",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS title_extraction_data JSONB",
+    ]
+
+    # Separate migration for assessment_rules (may not exist on first run)
+    assessment_rule_stmts = [
         "ALTER TABLE assessment_rules ADD COLUMN IF NOT EXISTS conditions JSONB",
     ]
 
@@ -153,6 +157,19 @@ def _migrate_columns():
                 except Exception as e:
                     print(f"  ⚠ Migration: {e}")
                     conn.rollback()
+
+            # Assessment rules migrations (table may not exist on first run)
+            result = conn.execute(text(
+                "SELECT 1 FROM information_schema.tables WHERE table_name='assessment_rules'"
+            ))
+            if result.fetchone():
+                for stmt in assessment_rule_stmts:
+                    try:
+                        conn.execute(text(stmt))
+                        conn.commit()
+                    except Exception as e:
+                        print(f"  ⚠ Assessment rule migration: {e}")
+                        conn.rollback()
 
             # Backfill NULLs
             try:

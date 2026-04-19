@@ -355,8 +355,6 @@ def _resolve_field_value(source: str, field: str, app: Application):
         return obj
     elif source == "doc":
         # Check uploaded documents by category
-        # field = document category (e.g. "site_plan", "application_form", "photos")
-        # Returns the document status string if found, or None
         from app.models.application import Document
         from app.core.database import SessionLocal
         db_sess = SessionLocal()
@@ -369,8 +367,15 @@ def _resolve_field_value(source: str, field: str, app: Application):
             if doc:
                 return doc.status or "received"
             return None
+        except Exception as e:
+            import logging
+            logging.warning(f"Doc source query error for app {app.id}, category '{field}': {e}")
+            return None
         finally:
             db_sess.close()
+    elif source == "compound":
+        # Compound rules are handled by _evaluate_compound, not here
+        return None
     return None
 
 
@@ -535,7 +540,9 @@ def _auto_assess_item(item_code: str, app: Application, db: Session) -> tuple[st
                     reason = _render_reason(rule.reason_template, field_value, rule.value)
                     return (rule.result, rule.confidence, reason)
         except Exception as e:
-            # Skip broken rules gracefully
+            # Log broken rules for debugging
+            import logging
+            logging.warning(f"Assessment rule error: item={item_code} rule_id={rule.id} source={rule.source} field={rule.field} op={rule.operator}: {e}")
             continue
 
     # No rule matched — return the default fallback
