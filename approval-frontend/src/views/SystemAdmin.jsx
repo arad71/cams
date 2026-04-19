@@ -335,6 +335,7 @@ function RulesTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [addForm, setAddForm] = useState({ item_id: "", priority: 0, source: "app", field: "", operator: "exists", value: "", result: "review", confidence: 0.8, reason_template: "", mode: "simple" });
   const [compoundChecks, setCompoundChecks] = useState([{ source: "app", field: "", operator: "gte", value: "" }]);
+  const [saving, setSaving] = useState(null);
 
   const load = useCallback(async () => {
     try {
