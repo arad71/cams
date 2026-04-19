@@ -300,153 +300,199 @@ def run_seed():
             R("battleaxe_check",     9, "app", "frontage",         "lt",  "10",     "review", 0.6,  "Narrow frontage {field_value}m — check for battleaxe")
 
             # ── Width & Dimensions ──
+            # Simple: app-only checks (P0-P1)
             R("min_width",           0, "app", "crossover_width",  "gte", "3.0",    "pass",   0.95, "Width {field_value}m ≥ 3.0m minimum")
             R("min_width",           1, "app", "crossover_width",  "lt",  "3.0",    "fail",   0.95, "Width {field_value}m < 3.0m minimum")
-            # Compound: app and sp both confirm width ≥ 3.0m → highest confidence
+            # Compound: cross-verify app vs sp (P3-P4)
             RC("min_width",          3, "and", [
                 ("app", "crossover_width", "gte", "3.0"),
                 ("sp", "crossover_dimensions.width_at_boundary_m", "gte", "3.0"),
-            ], "pass", 0.99, "Width confirmed ≥ 3.0m by both application ({app.crossover_width}) and site plan ({sp.crossover_dimensions.width_at_boundary_m})")
-            # Compound: app and sp disagree on width → review
+            ], "pass", 0.99, "Width confirmed ≥ 3.0m by both application and site plan")
             RC("min_width",          4, "and", [
                 ("app", "crossover_width", "gte", "3.0"),
                 ("sp", "crossover_dimensions.width_at_boundary_m", "lt", "3.0"),
-            ], "review", 0.9, "Width conflict: application says {app.crossover_width}m but site plan shows {sp.crossover_dimensions.width_at_boundary_m}m — verify on-site")
-            R("min_width",           5, "sp",  "crossover_dimensions.width_at_boundary_m", "gte", "3.0", "pass", 0.98, "Width {field_value}m ≥ 3.0m — confirmed from site plan")
-            R("min_width",           6, "sp",  "crossover_dimensions.width_at_boundary_m", "lt",  "3.0", "fail", 0.98, "Width {field_value}m < 3.0m — from site plan")
+            ], "review", 0.9, "Width conflict: application ≥ 3.0m but site plan < 3.0m — verify on-site")
+            # Simple: sp-only (P5-P6)
+            R("min_width",           5, "sp",  "crossover_dimensions.width_at_boundary_m", "gte", "3.0", "pass", 0.98, "Width {field_value}m ≥ 3.0m — site plan")
+            R("min_width",           6, "sp",  "crossover_dimensions.width_at_boundary_m", "lt",  "3.0", "fail", 0.98, "Width {field_value}m < 3.0m — site plan")
             R("min_width",           9, "app", "crossover_width",  "not_exists", None, "review", 0.5, "Crossover width not provided")
+
             R("max_width",           0, "app", "crossover_width",  "lte", "6.0",    "pass",   0.95, "Width {field_value}m within max limit")
             R("max_width",           1, "app", "crossover_width",  "gt",  "6.0",    "fail",   0.95, "Width {field_value}m exceeds 6.0m maximum")
+            RC("max_width",          3, "and", [
+                ("app", "crossover_width", "lte", "6.0"),
+                ("sp", "crossover_dimensions.width_at_boundary_m", "lte", "6.0"),
+            ], "pass", 0.99, "Width confirmed ≤ 6.0m by both application and site plan")
+            RC("max_width",          4, "or", [
+                ("app", "crossover_width", "gt", "6.0"),
+                ("sp", "crossover_dimensions.width_at_boundary_m", "gt", "6.0"),
+            ], "fail", 0.95, "Width exceeds 6.0m maximum — from application or site plan")
             R("max_width",           9, "app", "crossover_width",  "not_exists", None, "review", 0.5, "Width data not available")
-            R("road_edge_width",     0, "app", "crossover_width",  "lte", "6.0",    "pass",   0.8,  "Road edge widening ≤ 6.0m")
-            R("road_edge_width",     5, "sp",  "crossover_dimensions.total_width_at_road_m", "lte", "6.0", "pass", 0.95, "Total width at road {field_value}m ≤ 6.0m — site plan confirmed")
+
+            RC("road_edge_width",    3, "and", [
+                ("app", "crossover_width", "lte", "6.0"),
+                ("sp", "crossover_dimensions.total_width_at_road_m", "lte", "6.0"),
+            ], "pass", 0.98, "Road edge width confirmed ≤ 6.0m by both sources")
+            R("road_edge_width",     5, "sp",  "crossover_dimensions.total_width_at_road_m", "lte", "6.0", "pass", 0.95, "Total width at road {field_value}m ≤ 6.0m — site plan")
             R("road_edge_width",     6, "sp",  "crossover_dimensions.total_width_at_road_m", "gt",  "6.0", "fail", 0.95, "Total width at road {field_value}m > 6.0m — exceeds limit")
-            R("road_edge_width",     9, "app", "crossover_width",  "gt",  "6.0",    "review", 0.7,  "Width may exceed road edge limit")
+            R("road_edge_width",     9, "app", "crossover_width",  "not_exists", None, "review", 0.5,  "Road edge width to be verified")
+
             R("dual_crossover",      0, "app", "crossover_count",  "lte", "1",      "pass",   0.9,  "Single crossover")
-            R("dual_crossover",      1, "app", "frontage",         "gt",  "20",     "pass",   0.95, "Dual crossover: frontage {field_value}m > 20m")
-            R("dual_crossover",      5, "sp",  "siteplan_measurements.lot_frontage_m", "gt", "20", "pass", 0.9, "Dual crossover: site plan frontage {field_value}m > 20m")
-            R("dual_crossover",      6, "sp",  "siteplan_measurements.lot_frontage_m", "lte", "20", "fail", 0.9, "Dual crossover not permitted — site plan frontage ≤ 20m")
+            RC("dual_crossover",     3, "and", [
+                ("app", "frontage", "gt", "20"),
+                ("sp", "siteplan_measurements.lot_frontage_m", "gt", "20"),
+            ], "pass", 0.98, "Dual crossover: frontage > 20m confirmed by both sources")
+            R("dual_crossover",      5, "app", "frontage",         "gt",  "20",     "pass",   0.95, "Dual crossover: frontage {field_value}m > 20m")
             R("dual_crossover",      9, "app", "frontage",         "lte", "20",     "fail",   0.95, "Dual crossover not permitted — frontage ≤ 20m")
+
             R("separation_dist",     0, "app", "crossover_count",  "lte", "1",      "pass",   0.9,  "N/A — single crossover")
-            R("separation_dist",     5, "sp",  "siteplan_measurements.existing_driveway_width_m", "exists", None, "review", 0.6, "Existing driveway shown — separation distance to be verified")
             R("separation_dist",     9, "app", "crossover_count",  "gt",  "1",      "review", 0.5,  "Dual separation to be verified")
-            R("setback_boundary",    0, "app", "offset_from_left", "gte", "0.5",    "pass",   0.8,  "Left boundary offset {field_value}m ≥ 0.5m — from application")
-            R("setback_boundary",    1, "app", "offset_from_left", "lt",  "0.5",    "fail",   0.8,  "Left boundary offset {field_value}m < 0.5m — too close")
-            # Compound: both boundary distances from site plan ≥ 0.5m → pass
+
+            # Compound: both boundaries from site plan
             RC("setback_boundary",   3, "and", [
                 ("sp", "crossover_dimensions.distance_to_left_boundary_m", "gte", "0.5"),
                 ("sp", "crossover_dimensions.distance_to_right_boundary_m", "gte", "0.5"),
-            ], "pass", 0.98, "Both boundaries clear: left {sp.crossover_dimensions.distance_to_left_boundary_m}m, right {sp.crossover_dimensions.distance_to_right_boundary_m}m — both ≥ 0.5m")
-            # Compound: either boundary < 0.5m → fail
+            ], "pass", 0.98, "Both boundaries clear ≥ 0.5m — site plan confirmed")
             RC("setback_boundary",   4, "or", [
                 ("sp", "crossover_dimensions.distance_to_left_boundary_m", "lt", "0.5"),
                 ("sp", "crossover_dimensions.distance_to_right_boundary_m", "lt", "0.5"),
-            ], "fail", 0.95, "Boundary too close: left {sp.crossover_dimensions.distance_to_left_boundary_m}m, right {sp.crossover_dimensions.distance_to_right_boundary_m}m — minimum 0.5m required")
+            ], "fail", 0.95, "Boundary < 0.5m — too close to property boundary")
             R("setback_boundary",    9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Boundary setback ≥ 0.5m to be confirmed on-site")
 
             # ── Construction & Materials ──
-            R("base_course",         0, "app", "crossover_surface","exists", None,   "review", 0.5,  "Surface specified as {field_value} — base course to be confirmed")
+            RC("base_course",        3, "and", [
+                ("app", "crossover_surface", "exists"),
+                ("sp", "construction.base_course_specified", "true"),
+            ], "pass", 0.95, "Base course confirmed by both application and site plan")
             R("base_course",         5, "sp",  "construction.base_course_specified", "true", None, "pass", 0.9, "Base course specified on site plan")
-            R("base_course",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Base course spec to be verified at inspection")
+            R("base_course",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Base course to be verified at inspection")
+
+            RC("surface_material",   3, "and", [
+                ("app", "crossover_surface", "exists"),
+                ("sp", "construction.material", "exists"),
+            ], "pass", 0.98, "Surface material confirmed by both sources")
             R("surface_material",    0, "app", "crossover_surface","exists", None,   "pass",   0.8,  "Surface: {field_value}")
-            R("surface_material",    5, "sp",  "construction.material", "exists", None, "pass", 0.95, "Material: {field_value} — from site plan")
+            R("surface_material",    5, "sp",  "construction.material", "exists", None, "pass", 0.95, "Material: {field_value} — site plan")
             R("surface_material",    9, "app", "crossover_surface","not_exists", None,"review", 0.5,  "Surface material not specified")
-            R("concrete_joints",     0, "app", "crossover_surface","eq", "Concrete", "review", 0.6, "Concrete surface — expansion joints to be verified")
-            R("concrete_joints",     5, "sp",  "construction.expansion_joints", "true", None, "pass", 0.9, "Expansion joints confirmed on site plan")
-            R("concrete_joints",     6, "sp",  "construction.expansion_joints", "false", None, "fail", 0.85, "No expansion joints shown on site plan")
-            R("concrete_joints",     7, "sp",  "construction.material", "neq", "Concrete", "pass", 0.8, "Non-concrete surface — expansion joints N/A")
+
+            RC("concrete_joints",    3, "and", [
+                ("sp", "construction.material", "eq", "Concrete"),
+                ("sp", "construction.expansion_joints", "true"),
+            ], "pass", 0.95, "Concrete with expansion joints confirmed on site plan")
+            RC("concrete_joints",    4, "and", [
+                ("sp", "construction.material", "eq", "Concrete"),
+                ("sp", "construction.expansion_joints", "false"),
+            ], "fail", 0.9, "Concrete surface but no expansion joints shown")
+            R("concrete_joints",     5, "sp",  "construction.material", "neq", "Concrete", "pass", 0.8, "Non-concrete surface — joints N/A")
             R("concrete_joints",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Jointing to be verified at inspection")
+
             R("commercial_spec",     0, "app", "lot_type",         "eq",  "commercial", "review", 0.7, "Commercial lot — spec to be verified")
-            R("commercial_spec",     9, "app", "lot_type",         "neq", "commercial", "pass",  0.8, "Residential lot — standard spec applies")
-            R("grade_alignment",     0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Grade alignment to be checked on-site")
-            R("grade_alignment",     5, "sp",  "construction.kerb_type", "exists", None, "pass", 0.7, "Kerb type {field_value} specified — grade alignment to be confirmed")
-            R("kerb_transition",     0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Kerb transition type to be confirmed on-site")
+            R("commercial_spec",     9, "app", "lot_type",         "neq", "commercial", "pass",  0.8, "Residential lot — standard spec")
+            R("grade_alignment",     5, "sp",  "construction.kerb_type", "exists", None, "pass", 0.7, "Kerb {field_value} — grade alignment to be confirmed")
+            R("grade_alignment",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Grade alignment to be checked on-site")
             R("kerb_transition",     5, "sp",  "construction.kerb_type", "eq", "Mountable", "pass", 0.9, "Mountable kerb — standard transition")
-            R("kerb_transition",     6, "sp",  "construction.kerb_type", "eq", "Semi-mountable", "pass", 0.85, "Semi-mountable kerb — appropriate transition")
-            R("kerb_transition",     7, "sp",  "construction.kerb_type", "eq", "Barrier", "review", 0.8, "Barrier kerb — kerb cut required, check details")
+            R("kerb_transition",     6, "sp",  "construction.kerb_type", "eq", "Semi-mountable", "pass", 0.85, "Semi-mountable kerb")
+            R("kerb_transition",     7, "sp",  "construction.kerb_type", "eq", "Barrier", "review", 0.8, "Barrier kerb — kerb cut required")
+            R("kerb_transition",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Kerb transition to be confirmed")
 
             # ── Vegetation & Trees ──
+            RC("tree_clearance",     3, "and", [
+                ("app", "trees_nearby", "false"),
+                ("sp", "additional_findings.vegetation_on_verge", "false"),
+            ], "pass", 0.98, "No trees — confirmed by both application and site plan")
+            RC("tree_clearance",     4, "or", [
+                ("app", "trees_nearby", "true"),
+                ("sp", "additional_findings.vegetation_on_verge", "true"),
+            ], "review", 0.8, "Trees/vegetation detected — clearance to be verified")
             R("tree_clearance",      0, "app", "trees_nearby",     "false", None,   "pass",   0.9,  "No trees nearby")
-            R("tree_clearance",      1, "app", "trees_nearby",     "true",  None,   "review", 0.6,  "Trees nearby — clearance to be verified")
-            R("tree_clearance",      5, "sp",  "additional_findings.vegetation_on_verge", "false", None, "pass", 0.9, "No vegetation on verge per site plan")
-            R("tree_clearance",      6, "sp",  "additional_findings.vegetation_on_verge", "true",  None, "review", 0.7, "Vegetation on verge — clearance to be verified")
+            R("tree_clearance",      5, "sp",  "additional_findings.vegetation_on_verge", "false", None, "pass", 0.9, "No vegetation on verge")
+            R("tree_clearance",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Tree clearance to be checked")
+
+            RC("tree_protection",    3, "and", [
+                ("app", "trees_nearby", "false"),
+                ("sp", "additional_findings.vegetation_on_verge", "false"),
+            ], "pass", 0.98, "No tree protection needed — confirmed by both sources")
             R("tree_protection",     0, "app", "trees_nearby",     "false", None,   "pass",   0.9,  "No tree protection needed")
-            R("tree_protection",     1, "app", "trees_nearby",     "true",  None,   "review", 0.6,  "Tree protection plan may be required")
-            R("tree_protection",     5, "sp",  "additional_findings.vegetation_on_verge", "false", None, "pass", 0.9, "No vegetation impact per site plan")
+            R("tree_protection",     5, "sp",  "additional_findings.vegetation_on_verge", "false", None, "pass", 0.9, "No vegetation impact")
+            R("tree_protection",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Tree protection to be assessed")
+
             R("no_clearing",         0, "app", "clearing",         "true",  None,   "fail",   0.95, "Clearing flagged — DWER permit required")
             R("no_clearing",         9, "app", "clearing",         "false", None,   "pass",   0.9,  "No clearing proposed")
             R("dwer_permit",         0, "app", "clearing",         "true",  None,   "fail",   0.9,  "DWER permit needed for clearing")
             R("dwer_permit",         9, "app", "clearing",         "false", None,   "pass",   0.9,  "No clearing — DWER not required")
             R("arborist_report",     0, "app", "trees_nearby",     "false", None,   "pass",   0.9,  "No arborist report needed")
-            R("arborist_report",     1, "app", "trees_nearby",     "true",  None,   "review", 0.6,  "Arborist report may be required for nearby trees")
-            R("arborist_report",     5, "sp",  "additional_findings.vegetation_on_verge", "true", None, "review", 0.7, "Vegetation on verge — arborist report may be needed")
+            R("arborist_report",     5, "sp",  "additional_findings.vegetation_on_verge", "true", None, "review", 0.7, "Vegetation on verge — arborist may be needed")
+            R("arborist_report",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Arborist report status unknown")
 
             # ── Drainage & Stormwater ──
             R("drainage_type",       0, "app", "drainage_type",    "exists", None,  "pass",   0.75, "Drainage: {field_value}")
-            R("drainage_type",       5, "sp",  "drainage.drainage_plan_included", "true", None, "pass", 0.9, "Drainage plan included on site plan")
+            R("drainage_type",       5, "sp",  "drainage.drainage_plan_included", "true", None, "pass", 0.9, "Drainage plan on site plan")
             R("drainage_type",       9, "app", "drainage_type",    "not_exists", None, "review", 0.5, "Drainage type not specified")
-            R("detention_ari",       0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Detention design to be verified if applicable")
-            R("detention_ari",       5, "sp",  "drainage.soakwells_proposed", "true", None, "pass", 0.85, "Soakwells shown on site plan")
-            R("detention_ari",       6, "sp",  "drainage.storage_tanks_proposed", "true", None, "pass", 0.85, "Storage tanks shown on site plan")
+            RC("detention_ari",      3, "or", [
+                ("sp", "drainage.soakwells_proposed", "true"),
+                ("sp", "drainage.storage_tanks_proposed", "true"),
+            ], "pass", 0.9, "Detention system shown on site plan (soakwells or tanks)")
+            R("detention_ari",       9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Detention design to be verified")
             R("culvert_design",      0, "app", "culvert",          "false", None,   "pass",   0.85, "No culvert required")
-            R("culvert_design",      1, "app", "culvert",          "true",  None,   "review", 0.6,  "Culvert design to be verified")
-            R("culvert_design",      5, "sp",  "drainage.pipe_diameter_mm", "exists", None, "pass", 0.9, "Culvert pipe {field_value}mm specified on site plan")
-            R("no_ponding",          0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Ponding assessment to be done on-site")
-            R("no_ponding",          5, "sp",  "drainage.drainage_plan_included", "true", None, "pass", 0.8, "Drainage plan addresses stormwater management")
-            R("stormwater_plan",     0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Stormwater plan to be reviewed if provided")
-            R("stormwater_plan",     5, "sp",  "drainage.drainage_plan_included", "true", None, "pass", 0.9, "Stormwater plan included in site plan")
+            R("culvert_design",      5, "sp",  "drainage.pipe_diameter_mm", "exists", None, "pass", 0.9, "Culvert pipe {field_value}mm on site plan")
+            R("culvert_design",      9, "app", "culvert",          "true",  None,   "review", 0.6,  "Culvert design to be verified")
+            R("no_ponding",          5, "sp",  "drainage.drainage_plan_included", "true", None, "pass", 0.8, "Drainage plan addresses stormwater")
+            R("no_ponding",          9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Ponding assessment on-site")
+            R("stormwater_plan",     5, "sp",  "drainage.drainage_plan_included", "true", None, "pass", 0.9, "Stormwater plan in site plan")
+            R("stormwater_plan",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Stormwater plan to be reviewed")
 
             # ── Sight Lines & Safety ──
-            R("sight_triangle",      0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Sight triangle to be verified via 3D analysis tool")
-            R("sight_triangle",      5, "sp",  "property.is_corner_lot", "true", None, "review", 0.85, "Corner lot — extended sight triangle requirements apply")
-            R("sight_triangle",      6, "sp",  "crossover_dimensions.verge_depth_m", "gte", "2.0", "pass", 0.7, "Verge depth {field_value}m — adequate for sight triangle")
-            R("sight_triangle",      7, "sp",  "crossover_dimensions.verge_depth_m", "lt", "2.0", "review", 0.8, "Verge depth {field_value}m — shallow, sight triangle needs verification")
-            R("intersection_dist",   0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Intersection distance to be measured on map")
-            R("intersection_dist",   5, "sp",  "crossover_dimensions.distance_to_nearest_lot_corner_m", "gte", "6.0", "pass", 0.8, "Driveway {field_value}m from nearest corner — adequate clearance")
-            R("intersection_dist",   6, "sp",  "crossover_dimensions.distance_to_nearest_lot_corner_m", "lt", "6.0", "review", 0.8, "Driveway only {field_value}m from nearest corner — intersection proximity check needed")
-            R("pedestrian_safety",   0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Pedestrian path continuity to be confirmed on-site")
-            R("pedestrian_safety",   5, "sp",  "construction.footpath_exists", "true", None, "pass", 0.8, "Footpath identified on site plan — pedestrian path maintained")
-            R("pedestrian_safety",   6, "sp",  "construction.footpath_exists", "false", None, "review", 0.7, "No footpath shown — pedestrian continuity to be confirmed")
-            R("vehicle_turning",     0, "app", "crossover_width",  "gte", "3.0",    "pass",   0.7,  "Width {field_value}m — adequate for vehicle turning")
-            R("vehicle_turning",     1, "app", "crossover_width",  "lt",  "3.0",    "fail",   0.8,  "Width {field_value}m — may cause vehicle encroachment")
-            R("vehicle_turning",     5, "sp",  "crossover_dimensions.width_at_boundary_m", "gte", "3.0", "pass", 0.8, "Site plan width {field_value}m — adequate for turning")
-            R("vehicle_turning",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Vehicle turning path to be checked")
-            R("driveway_grade",      0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Driveway grade to be measured on-site")
-            R("driveway_grade",      5, "sp",  "crossover_dimensions.verge_depth_m", "exists", None, "review", 0.6, "Verge depth {field_value}m — gradient to be confirmed ≤ 1:4")
+            R("sight_triangle",      5, "sp",  "property.is_corner_lot", "true", None, "review", 0.85, "Corner lot — extended sight requirements")
+            R("sight_triangle",      6, "sp",  "crossover_dimensions.verge_depth_m", "gte", "2.0", "pass", 0.7, "Verge depth {field_value}m — adequate")
+            R("sight_triangle",      7, "sp",  "crossover_dimensions.verge_depth_m", "lt", "2.0", "review", 0.8, "Verge {field_value}m shallow — verify sight")
+            R("sight_triangle",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Sight triangle via 3D analysis tool")
+            R("intersection_dist",   5, "sp",  "crossover_dimensions.distance_to_nearest_lot_corner_m", "gte", "6.0", "pass", 0.8, "Corner distance {field_value}m ≥ 6.0m")
+            R("intersection_dist",   6, "sp",  "crossover_dimensions.distance_to_nearest_lot_corner_m", "lt", "6.0", "review", 0.8, "Corner distance {field_value}m < 6.0m — check")
+            R("intersection_dist",   9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Intersection distance to be measured")
+            R("pedestrian_safety",   5, "sp",  "construction.footpath_exists", "true", None, "pass", 0.8, "Footpath identified")
+            R("pedestrian_safety",   6, "sp",  "construction.footpath_exists", "false", None, "review", 0.7, "No footpath — confirm pedestrian path")
+            R("pedestrian_safety",   9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Pedestrian path to be confirmed")
+            RC("vehicle_turning",    3, "and", [
+                ("app", "crossover_width", "gte", "3.0"),
+                ("sp", "crossover_dimensions.width_at_boundary_m", "gte", "3.0"),
+            ], "pass", 0.9, "Vehicle turning: width ≥ 3.0m confirmed by both sources")
+            R("vehicle_turning",     0, "app", "crossover_width",  "gte", "3.0",    "pass",   0.7,  "Width {field_value}m — adequate for turning")
+            R("vehicle_turning",     9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Vehicle turning to be checked")
+            R("driveway_grade",      5, "sp",  "crossover_dimensions.verge_depth_m", "exists", None, "review", 0.6, "Verge {field_value}m — gradient ≤ 1:4 to confirm")
+            R("driveway_grade",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Driveway grade on-site")
 
             # ── Road & Referrals ──
             R("road_class",          0, "app", "road_type",        "exists", None,  "pass",   0.85, "Road type: {field_value}")
-            R("road_class",          5, "sp",  "siteplan_measurements.road_name", "exists", None, "pass", 0.8, "Road: {field_value} — identified from site plan")
-            R("road_class",          9, "app", "road_type",        "not_exists", None, "review", 0.5, "Road classification not set")
-            R("mrwa_referral",       0, "app", "road_type",        "eq",  "red",    "fail",   0.9,  "MRWA referral required for red road")
-            R("mrwa_referral",       9, "app", "road_type",        "neq", "red",    "pass",   0.9,  "Not a red road — MRWA not required")
-            R("dplh_referral",       0, "app", "road_type",        "eq",  "blue",   "fail",   0.9,  "DPLH referral required for blue road")
-            R("dplh_referral",       9, "app", "road_type",        "neq", "blue",   "pass",   0.9,  "Not a blue road — DPLH not required")
-            R("rav_clearance",       0, "app", "owner_name",       "exists", None,  "review", 0.5,  "RAV clearance to be checked if applicable")
-            R("speed_zone",          0, "app", "road_width",       "gte", "7.0",    "review", 0.6,  "Road width {field_value}m — likely higher speed zone, verify")
-            R("speed_zone",          5, "sp",  "siteplan_measurements.road_name", "exists", None, "review", 0.7, "Road {field_value} — speed zone to be confirmed from speed road data")
+            R("road_class",          5, "sp",  "siteplan_measurements.road_name", "exists", None, "pass", 0.8, "Road: {field_value}")
+            R("road_class",          9, "app", "road_type",        "not_exists", None, "review", 0.5, "Road not set")
+            R("mrwa_referral",       0, "app", "road_type",        "eq",  "red",    "fail",   0.9,  "MRWA referral — red road")
+            R("mrwa_referral",       9, "app", "road_type",        "neq", "red",    "pass",   0.9,  "Not red road")
+            R("dplh_referral",       0, "app", "road_type",        "eq",  "blue",   "fail",   0.9,  "DPLH referral — blue road")
+            R("dplh_referral",       9, "app", "road_type",        "neq", "blue",   "pass",   0.9,  "Not blue road")
+            R("rav_clearance",       0, "app", "owner_name",       "exists", None,  "review", 0.5,  "RAV clearance if applicable")
+            R("speed_zone",          0, "app", "road_width",       "gte", "7.0",    "review", 0.6,  "Wide road {field_value}m — higher speed zone")
+            R("speed_zone",          5, "sp",  "siteplan_measurements.road_name", "exists", None, "review", 0.7, "Road {field_value} — speed zone to confirm")
             R("speed_zone",          9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Speed zone to be confirmed")
 
             # ── Underground Services ──
             R("dbyd_completed",      0, "doc", "Dial Before You Dig", "exists", None, "pass", 0.95, "DBYD report uploaded")
-            R("dbyd_completed",      1, "doc", "Other Documents",   "exists", None, "pass",   0.6,  "Supporting documents uploaded — may include DBYD")
-            R("dbyd_completed",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "DBYD search to be confirmed")
-            R("power_clear",         0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Power clearance to be verified on-site or via DBYD")
-            R("power_clear",         5, "sp",  "utilities.power_conflict", "false", None, "pass", 0.9, "No power conflicts detected on site plan")
-            R("power_clear",         6, "sp",  "utilities.power_conflict", "true", None, "fail", 0.9, "Power line/pole conflicts with crossover — {field_value}")
-            R("power_clear",         7, "sp",  "utilities.power_line_shown", "false", None, "pass", 0.7, "No power infrastructure shown on site plan")
-            R("water_clear",         0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Water main clearance to be verified")
-            R("water_clear",         5, "sp",  "utilities.water_conflict", "false", None, "pass", 0.9, "No water main conflicts on site plan")
-            R("water_clear",         6, "sp",  "utilities.water_conflict", "true", None, "fail", 0.9, "Water main/meter conflicts with crossover")
-            R("water_clear",         7, "sp",  "utilities.water_main_shown", "false", None, "pass", 0.7, "No water main shown on site plan")
-            R("gas_clear",           0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Gas pipeline clearance to be verified")
-            R("gas_clear",           5, "sp",  "utilities.gas_conflict", "false", None, "pass", 0.9, "No gas pipeline conflicts on site plan")
-            R("gas_clear",           6, "sp",  "utilities.gas_conflict", "true", None, "fail", 0.9, "Gas pipeline conflicts with crossover")
-            R("gas_clear",           7, "sp",  "utilities.gas_main_shown", "false", None, "pass", 0.7, "No gas main shown on site plan")
-            R("telco_clear",         0, "app", "owner_name",       "exists", None,  "review", 0.5,  "Telco/NBN clearance to be verified")
-            R("telco_clear",         5, "sp",  "utilities.telco_conflict", "false", None, "pass", 0.9, "No telco/NBN conflicts on site plan")
-            R("telco_clear",         6, "sp",  "utilities.telco_conflict", "true", None, "fail", 0.9, "Telco/NBN conflicts with crossover")
-            R("telco_clear",         7, "sp",  "utilities.telco_shown", "false", None, "pass", 0.7, "No telco infrastructure shown on site plan")
+            R("dbyd_completed",      9, "app", "owner_name",       "exists", None,  "review", 0.5,  "DBYD to be confirmed")
+            RC("power_clear",        3, "and", [
+                ("sp", "utilities.power_conflict", "false"),
+                ("sp", "utilities.power_line_shown", "exists"),
+            ], "pass", 0.95, "Power shown on plan with no conflict")
+            R("power_clear",         5, "sp",  "utilities.power_conflict", "false", None, "pass", 0.9, "No power conflicts")
+            R("power_clear",         6, "sp",  "utilities.power_conflict", "true", None, "fail", 0.9, "Power conflict detected")
+            R("power_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Power clearance to verify")
+            R("water_clear",         5, "sp",  "utilities.water_conflict", "false", None, "pass", 0.9, "No water conflicts")
+            R("water_clear",         6, "sp",  "utilities.water_conflict", "true", None, "fail", 0.9, "Water conflict")
+            R("water_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Water clearance to verify")
+            R("gas_clear",           5, "sp",  "utilities.gas_conflict", "false", None, "pass", 0.9, "No gas conflicts")
+            R("gas_clear",           6, "sp",  "utilities.gas_conflict", "true", None, "fail", 0.9, "Gas conflict")
+            R("gas_clear",           9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Gas clearance to verify")
+            R("telco_clear",         5, "sp",  "utilities.telco_conflict", "false", None, "pass", 0.9, "No telco conflicts")
+            R("telco_clear",         6, "sp",  "utilities.telco_conflict", "true", None, "fail", 0.9, "Telco conflict")
+            R("telco_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Telco clearance to verify")
 
             # ── Documentation — check uploaded documents first ──
             # source="doc", field=document category label, operator="exists" checks if uploaded

@@ -1239,10 +1239,32 @@ Respond with JSON only:
             }
           }
         }
-        if (fbBestEdge && fbBestDist < 25) {
+        if (fbBestEdge && fbBestDist < 50) {
           bestEdge = fbBestEdge;
           bestDist = fbBestDist;
           console.log(`Nearest road fallback: "${fbRoadName}" at ${fbBestDist.toFixed(1)}m from lot edge`);
+        }
+      }
+
+      // Final fallback: use the longest lot edge as presumed road frontage
+      if (!bestEdge || bestDist >= 50) {
+        console.log("No road data near lot. Using longest edge as road frontage.");
+        let longestLen = 0, longestIdx = 0;
+        for (let i = 0; i < lotPoly.length - 1; i++) {
+          const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mPerLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mPerLng) ** 2);
+          if (edgeLen > longestLen) { longestLen = edgeLen; longestIdx = i; }
+        }
+        if (longestLen >= 3) {
+          bestEdge = {
+            i: longestIdx,
+            midLat: (lotPoly[longestIdx][0] + lotPoly[longestIdx + 1][0]) / 2,
+            midLng: (lotPoly[longestIdx][1] + lotPoly[longestIdx + 1][1]) / 2,
+            edgeLen: longestLen,
+            from: lotPoly[longestIdx],
+            to: lotPoly[longestIdx + 1],
+          };
+          bestDist = 0;
+          console.log(`Longest edge fallback: edge ${longestIdx}, length ${longestLen.toFixed(1)}m`);
         }
       }
 
@@ -1340,18 +1362,43 @@ Respond with JSON only:
             }
           }
         }
-
-        if (autoPtB && bestProjDist < 30) {
-          // Auto-draw: set points — triangle useEffect fires automatically
-          setPtA(autoPtA);
-          setPtB(autoPtB);
-          setSightPhase("complete");
-          setDrawMode(null);
-          setMapTool(null);
-          setSightConfig(c => ({ ...c, autoDrawn: true }));
-          console.log(`Auto-drew triangle: road=${crossoverRoad}, x=${xOffset}m, y=${yOffset.toFixed(1)}m, constrained=${constrainedSide}`);
-          return;
+        // Fallback: project to ANY nearest road
+        if (!autoPtB || bestProjDist >= 30) {
+          for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+            for (const feat of src.features) {
+              const g = feat.geometry;
+              if (!g || g.type !== "LineString") continue;
+              for (let j = 0; j < g.coordinates.length - 1; j++) {
+                const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
+                const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
+                const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
+                const lenSq = dx * dx + dy * dy;
+                if (lenSq < 1e-10) continue;
+                const t = Math.max(0, Math.min(1, (((autoPtA.lng - aLng) * mPerLng * dx + (autoPtA.lat - aLat) * mPerLat * dy) / lenSq)));
+                const projLat = aLat + t * (bLat - aLat);
+                const projLng = aLng + t * (bLng - aLng);
+                const dist = Math.sqrt(((autoPtA.lat - projLat) * mPerLat) ** 2 + ((autoPtA.lng - projLng) * mPerLng) ** 2);
+                if (dist < bestProjDist) { bestProjDist = dist; autoPtB = { lat: projLat, lng: projLng }; }
+              }
+            }
+          }
         }
+        // Final fallback: place B 8m outward from A
+        if (!autoPtB || bestProjDist >= 50) {
+          autoPtB = { lat: autoPtA.lat + Math.cos(outward) * 8 / mPerLat, lng: autoPtA.lng + Math.sin(outward) * 8 / mPerLng };
+          bestProjDist = 8;
+          console.log("Point B fallback: placed 8m outward from Point A");
+        }
+
+        // Auto-draw: set points — triangle useEffect fires automatically
+        setPtA(autoPtA);
+        setPtB(autoPtB);
+        setSightPhase("complete");
+        setDrawMode(null);
+        setMapTool(null);
+        setSightConfig(c => ({ ...c, autoDrawn: true }));
+        console.log(`Auto-drew triangle: road=${crossoverRoad}, x=${xOffset}m, y=${yOffset.toFixed(1)}m, constrained=${constrainedSide}, ptBdist=${bestProjDist.toFixed(1)}m`);
+        return;
       }
       // If road edge found but projection failed, add to missing
       if (!bestEdge || bestDist >= 25) missing.push("road not near lot");
