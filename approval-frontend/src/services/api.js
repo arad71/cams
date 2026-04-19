@@ -211,6 +211,7 @@ const api = {
   async getPublicSettings() { const res = await fetch(`${API_BASE}/settings/public`); return res.ok ? res.json() : {}; },
   async getAllSettings() { return this._fetch("/settings/"); },
   async updateSettings(updates) { return this._fetch("/settings/", { method: "PATCH", body: updates }); },
+  async resetRules() { return this._fetch("/assessment/reset-rules", { method: "POST" }); },
   async reseedRules() { return this._fetch("/assessment/reseed-rules", { method: "POST" }); },
 
   // GeoData — Data WA SLIP integration

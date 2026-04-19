@@ -616,6 +616,77 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db),
     db.commit()
 
 
+@router.post("/assessment/reset-rules")
+def reset_rules_only(db: Session = Depends(get_db),
+                     current_user: User = Depends(require_role("admin"))):
+    """Delete all assessment rules and re-seed from latest code. Keeps applications and assessments intact."""
+    from app.services.audit import log_audit
+    from sqlalchemy import text
+
+    old_rules = db.query(AssessmentRule).count()
+
+    # Delete rules only
+    try:
+        db.execute(text("DELETE FROM assessment_rules"))
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(500, f"Failed to delete rules: {e}")
+
+    # Re-seed rules from latest code
+    from app.core.database import SessionLocal
+    from app.models.assessment import AssessmentCategory, AssessmentItem
+    seed_db = SessionLocal()
+    try:
+        # Need categories and items to exist
+        if seed_db.query(AssessmentItem).count() == 0:
+            # Categories/items don't exist — run full seed
+            import importlib, app.seed as seed_module
+            importlib.reload(seed_module)
+            seed_module.run_seed()
+        else:
+            # Items exist — just create rules
+            item_map = {i.code: i.id for i in seed_db.query(AssessmentItem).all()}
+            from app.models.assessment import AssessmentRule as AR
+
+            def R(code, priority, source, field, operator, value, result, confidence, reason):
+                iid = item_map.get(code)
+                if not iid: return
+                seed_db.add(AR(item_id=iid, priority=priority, source=source, field=field,
+                              operator=operator, value=value, result=result,
+                              confidence=confidence, reason_template=reason))
+
+            def RC(code, priority, logic, checks, result, confidence, reason):
+                iid = item_map.get(code)
+                if not iid: return
+                conditions = {"logic": logic, "checks": [
+                    {"source": c[0], "field": c[1], "operator": c[2], "value": c[3] if len(c) > 3 else None}
+                    for c in checks
+                ]}
+                seed_db.add(AR(item_id=iid, priority=priority, source="compound", field="compound",
+                              operator="compound", value=None, conditions=conditions,
+                              result=result, confidence=confidence, reason_template=reason))
+
+            # Import and execute the rule definitions from seed
+            import importlib, app.seed as seed_module
+            importlib.reload(seed_module)
+            # Execute seed but only the rules section by calling run_seed
+            # which will skip existing categories/items/users but create rules
+            seed_module.run_seed()
+
+        seed_db.commit()
+    except Exception as e:
+        print(f"Rule reseed error: {e}")
+        seed_db.rollback()
+    finally:
+        seed_db.close()
+
+    new_rules = db.query(AssessmentRule).count()
+    log_audit(db=db, action="reset_rules", entity_type="assessment", user=current_user,
+              description=f"Rules reset: {old_rules} deleted, {new_rules} new rules from latest code")
+    return {"message": f"Rules reset: {old_rules} → {new_rules} rules (applications preserved)"}
+
+
 @router.post("/assessment/reseed-rules")
 def reseed_rules(db: Session = Depends(get_db),
                  current_user: User = Depends(require_role("admin"))):

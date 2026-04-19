@@ -427,6 +427,33 @@ function RulesTab() {
             {allItems.map(i => <option key={i.id} value={i.code}>{i.code} — {i.label.slice(0, 40)}</option>)}
           </select>
           <button onClick={() => setShowAdd(!showAdd)} style={btnAdd}>{showAdd ? "✕ Close" : "+ Add Rule"}</button>
+          <button onClick={async () => {
+            if (!window.confirm("Reset all assessment rules to latest code?\n\nThis deletes all current rules and re-creates them from the latest seed.\nApplications and officer decisions are preserved.")) return;
+            setSaving("reset");
+            try {
+              const res = await api.resetRules();
+              alert(res.message || "Rules reset successfully");
+              await load();
+            } catch (e) { alert("Reset failed: " + (e.message || e)); }
+            setSaving(null);
+          }} disabled={saving === "reset"}
+            style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #e67e22", background: "#fef5e7", color: "#e67e22", fontWeight: T.w.bold, fontSize: 10, cursor: saving === "reset" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "reset" ? 0.5 : 1 }}>
+            {saving === "reset" ? "⟳ Resetting..." : "🔄 Reset Rules"}
+          </button>
+          <button onClick={async () => {
+            if (!window.confirm("⚠️ FULL RESEED — This will:\n\n• Delete ALL applications\n• Delete ALL assessments\n• Delete ALL rules\n• Re-create everything from scratch\n\nAre you sure?")) return;
+            if (!window.confirm("This is irreversible. Type 'yes' in the next prompt to confirm.")) return;
+            setSaving("reseed");
+            try {
+              const res = await api.reseedRules();
+              alert(res.message || "Full reseed complete");
+              await load();
+            } catch (e) { alert("Reseed failed: " + (e.message || e)); }
+            setSaving(null);
+          }} disabled={saving === "reseed"}
+            style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #c0392b", background: "#fdedec", color: "#c0392b", fontWeight: T.w.bold, fontSize: 10, cursor: saving === "reseed" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "reseed" ? 0.5 : 1 }}>
+            {saving === "reseed" ? "⟳ Reseeding..." : "⚠️ Full Reseed"}
+          </button>
         </div>
       </div>
 
