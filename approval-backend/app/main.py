@@ -155,15 +155,12 @@ def _migrate_columns():
 
             # Assessment rules — add conditions column (must exist before any ORM query)
             try:
-                result = conn.execute(text(
-                    "SELECT 1 FROM information_schema.tables WHERE table_name='assessment_rules'"
-                ))
-                if result.fetchone():
-                    conn.execute(text("ALTER TABLE assessment_rules ADD COLUMN IF NOT EXISTS conditions JSONB"))
-                    conn.commit()
-                    print("  ✓ assessment_rules.conditions column ensured")
+                conn.execute(text("ALTER TABLE assessment_rules ADD COLUMN IF NOT EXISTS conditions JSONB"))
+                conn.commit()
+                print("  ✓ assessment_rules.conditions column ensured")
             except Exception as e:
-                print(f"  ⚠ assessment_rules migration: {e}")
+                # Table might not exist yet (first run) — that's fine, create_all will handle it
+                print(f"  ℹ assessment_rules migration skipped: {e}")
                 try:
                     conn.rollback()
                 except Exception:
