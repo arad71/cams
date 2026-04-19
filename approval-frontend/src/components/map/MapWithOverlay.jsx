@@ -1183,6 +1183,21 @@ Respond with JSON only:
       const mPerLat = 111320, mPerLng = 111320 * Math.cos(lotPoly[0][0] * Math.PI / 180);
 
       // 1. Find the lot edge nearest to the crossover road
+      // Helper: check if two road names are likely the same road
+      const roadNamesMatch = (name1, name2) => {
+        if (!name1 || !name2) return false;
+        const n1 = name1.toUpperCase().trim(), n2 = name2.toUpperCase().trim();
+        if (n1 === n2) return true;
+        // First word match (e.g. STIRLING vs STIRLING HWY)
+        const w1 = n1.split(/\s+/)[0], w2 = n2.split(/\s+/)[0];
+        if (w1.length >= 3 && (n1.includes(w2) || n2.includes(w1))) return true;
+        // Remove common suffixes for comparison
+        const strip = s => s.replace(/\b(STREET|ST|ROAD|RD|AVENUE|AVE|DRIVE|DR|CRESCENT|CRES|CR|COURT|CT|PLACE|PL|WAY|LANE|LN|HIGHWAY|HWY|BOULEVARD|BLVD|TERRACE|TCE|PARADE|PDE|CLOSE|CL)\b/g, '').trim();
+        const s1 = strip(n1), s2 = strip(n2);
+        if (s1.length >= 3 && s1 === s2) return true;
+        return false;
+      };
+
       let bestEdge = null, bestDist = Infinity;
       for (let i = 0; i < lotPoly.length - 1; i++) {
         const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
@@ -1191,8 +1206,8 @@ Respond with JSON only:
         if (edgeLen < 3) continue;
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
           for (const feat of src.features) {
-            const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "").toUpperCase();
-            const crUpper = crossoverRoad.toUpperCase(); const rnUpper = rn.toUpperCase(); if (!rnUpper || !(crUpper.includes(rnUpper.split(" ")[0]) || rnUpper.includes(crUpper.split(" ")[0]))) continue;
+            const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
+            if (!roadNamesMatch(crossoverRoad, rn)) continue;
             const g = feat.geometry;
             if (!g || g.type !== "LineString") continue;
             for (const pt of g.coordinates) {
@@ -1200,6 +1215,34 @@ Respond with JSON only:
               if (d < bestDist) { bestDist = d; bestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] }; }
             }
           }
+        }
+      }
+
+      // Fallback: if named road not found, find the nearest road to ANY lot edge
+      if (!bestEdge || bestDist >= 25) {
+        console.log(`Road name match failed (crossoverRoad="${crossoverRoad}", bestDist=${bestDist.toFixed(1)}m). Trying nearest road fallback...`);
+        let fbBestEdge = null, fbBestDist = Infinity, fbRoadName = null;
+        for (let i = 0; i < lotPoly.length - 1; i++) {
+          const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
+          const midLng = (lotPoly[i][1] + lotPoly[i + 1][1]) / 2;
+          const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mPerLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mPerLng) ** 2);
+          if (edgeLen < 3) continue;
+          for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+            for (const feat of src.features) {
+              const g = feat.geometry;
+              if (!g || g.type !== "LineString") continue;
+              const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
+              for (const pt of g.coordinates) {
+                const d = Math.sqrt(((midLat - pt[1]) * mPerLat) ** 2 + ((midLng - pt[0]) * mPerLng) ** 2);
+                if (d < fbBestDist) { fbBestDist = d; fbBestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] }; fbRoadName = rn; }
+              }
+            }
+          }
+        }
+        if (fbBestEdge && fbBestDist < 25) {
+          bestEdge = fbBestEdge;
+          bestDist = fbBestDist;
+          console.log(`Nearest road fallback: "${fbRoadName}" at ${fbBestDist.toFixed(1)}m from lot edge`);
         }
       }
 
@@ -1279,8 +1322,8 @@ Respond with JSON only:
         let autoPtB = null, bestProjDist = Infinity;
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
           for (const feat of src.features) {
-            const rn = (feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "").toUpperCase();
-            const crUpper = crossoverRoad.toUpperCase(); const rnUpper = rn.toUpperCase(); if (!rnUpper || !(crUpper.includes(rnUpper.split(" ")[0]) || rnUpper.includes(crUpper.split(" ")[0]))) continue;
+            const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
+            if (!roadNamesMatch(crossoverRoad, rn)) continue;
             const g = feat.geometry;
             if (!g || g.type !== "LineString") continue;
             for (let j = 0; j < g.coordinates.length - 1; j++) {

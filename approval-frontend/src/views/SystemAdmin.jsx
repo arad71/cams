@@ -333,7 +333,8 @@ function RulesTab() {
   const [form, setForm] = useState({});
   const [filterItem, setFilterItem] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [addForm, setAddForm] = useState({ item_id: "", priority: 0, source: "app", field: "", operator: "exists", value: "", result: "review", confidence: 0.8, reason_template: "" });
+  const [addForm, setAddForm] = useState({ item_id: "", priority: 0, source: "app", field: "", operator: "exists", value: "", result: "review", confidence: 0.8, reason_template: "", mode: "simple" });
+  const [compoundChecks, setCompoundChecks] = useState([{ source: "app", field: "", operator: "gte", value: "" }]);
 
   const load = useCallback(async () => {
     try {
@@ -373,10 +374,27 @@ function RulesTab() {
 
   const handleAdd = async () => {
     try {
-      await api.createRule({ ...addForm, item_id: parseInt(addForm.item_id) });
+      if (addForm.mode === "compound") {
+        const conditions = {
+          logic: addForm.logic || "and",
+          checks: compoundChecks.filter(c => c.field).map(c => ({
+            source: c.source, field: c.field, operator: c.operator, value: c.value || null
+          }))
+        };
+        if (conditions.checks.length < 2) { alert("Compound rules need at least 2 conditions"); return; }
+        await api.createRule({
+          item_id: parseInt(addForm.item_id), priority: addForm.priority,
+          source: "compound", field: "compound", operator: "compound", value: null,
+          conditions, result: addForm.result, confidence: addForm.confidence,
+          reason_template: addForm.reason_template
+        });
+      } else {
+        await api.createRule({ ...addForm, item_id: parseInt(addForm.item_id) });
+      }
       await load();
       setShowAdd(false);
-      setAddForm({ item_id: "", priority: 0, source: "app", field: "", operator: "exists", value: "", result: "review", confidence: 0.8, reason_template: "" });
+      setAddForm({ item_id: "", priority: 0, source: "app", field: "", operator: "exists", value: "", result: "review", confidence: 0.8, reason_template: "", mode: "simple" });
+      setCompoundChecks([{ source: "app", field: "", operator: "gte", value: "" }]);
     } catch (e) { console.error(e); alert("Failed: " + e.message); }
   };
 
@@ -415,45 +433,94 @@ function RulesTab() {
       {/* Add rule form */}
       {showAdd && (
         <div style={{ background: T.c.card, borderRadius: T.r.lg, border: "2px solid #1abc9c", padding: 16, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text, marginBottom: 10 }}>New Assessment Rule</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text }}>New Assessment Rule</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => setAddForm(f => ({...f, mode: "simple"}))}
+                style={{ padding: "3px 10px", borderRadius: 12, border: addForm.mode === "simple" ? "2px solid #3498db" : "1px solid #d5dde2", background: addForm.mode === "simple" ? "#ebf5fb" : "#fff", color: addForm.mode === "simple" ? "#3498db" : "#7a8a94", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Simple</button>
+              <button onClick={() => setAddForm(f => ({...f, mode: "compound"}))}
+                style={{ padding: "3px 10px", borderRadius: 12, border: addForm.mode === "compound" ? "2px solid #8e44ad" : "1px solid #d5dde2", background: addForm.mode === "compound" ? "#f4ecf7" : "#fff", color: addForm.mode === "compound" ? "#8e44ad" : "#7a8a94", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>AND / OR</button>
+            </div>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px 12px" }}>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Assessment Item</label>
+            <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Assessment Item</label>
               <select value={addForm.item_id} onChange={e => setAddForm({...addForm, item_id: e.target.value})} style={inputS}>
                 <option value="">Select item...</option>
                 {allItems.map(i => <option key={i.id} value={i.id}>{i.code} — {i.label.slice(0, 50)}</option>)}
               </select></div>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Priority</label>
+            <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Priority</label>
               <input type="number" value={addForm.priority} onChange={e => setAddForm({...addForm, priority: parseInt(e.target.value)||0})} style={inputS} /></div>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Source</label>
-              <select value={addForm.source} onChange={e => setAddForm({...addForm, source: e.target.value, field: ""})} style={inputS}>
-                <option value="app">Application Field</option><option value="sp">Site Plan AI Data</option><option value="doc">Uploaded Document</option>
-              </select></div>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Field Path</label>
-              <select value={addForm.field} onChange={e => setAddForm({...addForm, field: e.target.value})} style={inputS}>
-                <option value="">Select field...</option>
-                {(SOURCE_FIELDS[addForm.source] || []).map(f => <option key={f.path} value={f.path}>{f.label}</option>)}
-                <option value="__custom__">— Custom field path —</option>
-              </select>
-              {addForm.field === "__custom__" && <input value="" onChange={e => setAddForm({...addForm, field: e.target.value})} style={{ ...inputS, marginTop: 4 }} placeholder="e.g. crossover_dimensions.width_m" />}
-            </div>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Operator</label>
-              <select value={addForm.operator} onChange={e => setAddForm({...addForm, operator: e.target.value})} style={inputS}>
-                {Object.entries(OPERATOR_LABELS).map(([k,v]) => <option key={k} value={k}>{k} ({v})</option>)}
-              </select></div>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Value / Threshold</label>
-              <input value={addForm.value} onChange={e => setAddForm({...addForm, value: e.target.value})} style={inputS} placeholder="e.g. 3.0" /></div>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Result</label>
+            <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Result</label>
               <select value={addForm.result} onChange={e => setAddForm({...addForm, result: e.target.value})} style={inputS}>
                 <option value="pass">Pass</option><option value="fail">Fail</option><option value="review">Review</option><option value="na">N/A</option>
               </select></div>
-            <div><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Confidence</label>
+            <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Confidence</label>
               <input type="number" step="0.05" min="0" max="1" value={addForm.confidence} onChange={e => setAddForm({...addForm, confidence: parseFloat(e.target.value)||0})} style={inputS} /></div>
           </div>
-          <div style={{ marginTop: 10 }}><label style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.03em" }}>Reason Template</label>
+
+          {/* Simple mode fields */}
+          {addForm.mode === "simple" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px 12px", marginTop: 10 }}>
+              <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Source</label>
+                <select value={addForm.source} onChange={e => setAddForm({...addForm, source: e.target.value, field: ""})} style={inputS}>
+                  <option value="app">Application Field</option><option value="sp">Site Plan AI Data</option><option value="doc">Uploaded Document</option>
+                </select></div>
+              <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Field</label>
+                <select value={addForm.field} onChange={e => setAddForm({...addForm, field: e.target.value})} style={inputS}>
+                  <option value="">Select field...</option>
+                  {(SOURCE_FIELDS[addForm.source] || []).map(f => <option key={f.path} value={f.path}>{f.label}</option>)}
+                  <option value="__custom__">— Custom —</option>
+                </select>
+                {addForm.field === "__custom__" && <input onChange={e => setAddForm({...addForm, field: e.target.value})} style={{ ...inputS, marginTop: 4 }} placeholder="custom.field.path" />}
+              </div>
+              <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Operator</label>
+                <select value={addForm.operator} onChange={e => setAddForm({...addForm, operator: e.target.value})} style={inputS}>
+                  {Object.entries(OPERATOR_LABELS).map(([k,v]) => <option key={k} value={k}>{k} ({v})</option>)}
+                </select></div>
+              <div><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Value</label>
+                <input value={addForm.value} onChange={e => setAddForm({...addForm, value: e.target.value})} style={inputS} placeholder="e.g. 3.0" /></div>
+            </div>
+          )}
+
+          {/* Compound mode fields */}
+          {addForm.mode === "compound" && (
+            <div style={{ marginTop: 10, padding: "8px 12px", background: "#f9f0fc", borderRadius: 8, border: "1px solid #d5b8e8" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <label style={{ fontSize: 10, fontWeight: T.w.semi, color: "#8e44ad", textTransform: "uppercase" }}>Logic</label>
+                <select value={addForm.logic || "and"} onChange={e => setAddForm({...addForm, logic: e.target.value})} style={{ ...inputS, width: 80, fontWeight: 700 }}>
+                  <option value="and">AND</option><option value="or">OR</option>
+                </select>
+                <span style={{ fontSize: 9, color: "#7a8a94" }}>All conditions must match (AND) or any one (OR)</span>
+              </div>
+              {compoundChecks.map((check, ci) => (
+                <div key={ci} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "#8e44ad", width: 16 }}>{ci + 1}.</span>
+                  <select value={check.source} onChange={e => { const nc = [...compoundChecks]; nc[ci] = {...nc[ci], source: e.target.value, field: ""}; setCompoundChecks(nc); }} style={{ ...inputS, width: 60 }}>
+                    <option value="app">app</option><option value="sp">sp</option><option value="doc">doc</option>
+                  </select>
+                  <select value={check.field} onChange={e => { const nc = [...compoundChecks]; nc[ci] = {...nc[ci], field: e.target.value}; setCompoundChecks(nc); }} style={{ ...inputS, flex: 1 }}>
+                    <option value="">Select field...</option>
+                    {(SOURCE_FIELDS[check.source] || []).map(f => <option key={f.path} value={f.path}>{f.label}</option>)}
+                  </select>
+                  <select value={check.operator} onChange={e => { const nc = [...compoundChecks]; nc[ci] = {...nc[ci], operator: e.target.value}; setCompoundChecks(nc); }} style={{ ...inputS, width: 55 }}>
+                    {Object.entries(OPERATOR_LABELS).map(([k,v]) => <option key={k} value={k}>{k}</option>)}
+                  </select>
+                  <input value={check.value} onChange={e => { const nc = [...compoundChecks]; nc[ci] = {...nc[ci], value: e.target.value}; setCompoundChecks(nc); }} style={{ ...inputS, width: 60 }} placeholder="value" />
+                  {compoundChecks.length > 1 && (
+                    <button onClick={() => setCompoundChecks(compoundChecks.filter((_, i) => i !== ci))} style={{ border: "none", background: "transparent", color: "#c0392b", cursor: "pointer", fontSize: 12, padding: 0 }}>✕</button>
+                  )}
+                </div>
+              ))}
+              <button onClick={() => setCompoundChecks([...compoundChecks, { source: "app", field: "", operator: "gte", value: "" }])}
+                style={{ padding: "3px 10px", borderRadius: 4, border: "1px dashed #8e44ad", background: "transparent", color: "#8e44ad", fontSize: 9, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", marginTop: 4 }}>+ Add Condition</button>
+            </div>
+          )}
+
+          <div style={{ marginTop: 10 }}><label style={{ fontSize: 10, fontWeight: T.w.semi, color: T.c.grey800, textTransform: "uppercase" }}>Reason Template</label>
             <input value={addForm.reason_template} onChange={e => setAddForm({...addForm, reason_template: e.target.value})} style={inputS} placeholder="e.g. Width {field_value}m ≥ {threshold}m minimum" /></div>
           <div style={{ marginTop: 10, display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button onClick={() => setShowAdd(false)} style={btnCancel}>Cancel</button>
-            <button onClick={handleAdd} disabled={!addForm.item_id || !addForm.field} style={{ ...btnAdd, opacity: addForm.item_id && addForm.field ? 1 : 0.5 }}>Create Rule</button>
+            <button onClick={handleAdd} disabled={!addForm.item_id || (addForm.mode === "simple" && !addForm.field)} style={{ ...btnAdd, opacity: addForm.item_id ? 1 : 0.5 }}>Create Rule</button>
           </div>
         </div>
       )}
@@ -469,24 +536,60 @@ function RulesTab() {
               <span style={{ fontSize: 12, color: T.c.textMuted, marginLeft: "auto" }}>{group.rules.length} rule{group.rules.length > 1 ? "s" : ""}</span>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr style={{ background: "#fafcfa" }}>{["Pri","Source","Field","Op","Value","Result","Conf","Reason","Actions"].map(h => <th key={h} style={{ ...thS, fontSize: 8, padding: "5px 8px" }}>{h}</th>)}</tr></thead>
+              <thead><tr style={{ background: "#fafcfa" }}>{["Pri","Type","Condition","Result","Conf","Reason","Actions"].map(h => <th key={h} style={{ ...thS, fontSize: 8, padding: "5px 8px" }}>{h}</th>)}</tr></thead>
               <tbody>
                 {group.rules.sort((a,b) => a.priority - b.priority).map((rule, ruleIdx, sortedArr) => {
                   const ed = editId === rule.id;
                   const rc = RESULT_COLORS[rule.result] || "#7a8a94";
                   const isFirst = ruleIdx === 0;
                   const isLast = ruleIdx === sortedArr.length - 1;
+                  const isCompound = rule.conditions && rule.conditions.checks?.length > 0;
+
+                  // Format condition display
+                  const conditionDisplay = isCompound ? (() => {
+                    const logic = rule.conditions.logic?.toUpperCase() || "AND";
+                    const checks = rule.conditions.checks || [];
+                    return (
+                      <div style={{ fontSize: 10 }}>
+                        <span style={{ background: logic === "OR" ? "#e74c3c18" : "#2980b918", color: logic === "OR" ? "#c0392b" : "#2980b9", padding: "1px 5px", borderRadius: 3, fontWeight: 700, fontSize: 9, marginRight: 4 }}>{logic}</span>
+                        {checks.map((c, ci) => (
+                          <div key={ci} style={{ marginTop: 2, paddingLeft: 8, borderLeft: `2px solid ${logic === "OR" ? "#e74c3c40" : "#2980b940"}` }}>
+                            <span style={{ background: c.source === "sp" ? "#f4ecf7" : c.source === "doc" ? "#fef5e7" : "#ebf5fb", color: c.source === "sp" ? "#8e44ad" : c.source === "doc" ? "#e67e22" : "#2980b9", padding: "0 3px", borderRadius: 2, fontSize: 9, fontWeight: 600 }}>{c.source}</span>
+                            <code style={{ fontSize: 9, color: T.c.grey800, marginLeft: 3 }}>{c.field}</code>
+                            <span style={{ fontWeight: 700, margin: "0 3px", fontSize: 9 }}>{OPERATOR_LABELS[c.operator] || c.operator}</span>
+                            {c.value && <span style={{ color: T.c.info, fontWeight: 600, fontSize: 9 }}>{c.value}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })() : (
+                    <div style={{ fontSize: 10 }}>
+                      <span style={{ background: rule.source === "sp" ? "#f4ecf7" : rule.source === "doc" ? "#fef5e7" : "#ebf5fb", color: rule.source === "sp" ? "#8e44ad" : rule.source === "doc" ? "#e67e22" : "#2980b9", padding: "1px 5px", borderRadius: 3, fontWeight: 700, fontSize: 9 }}>{rule.source}</span>
+                      <code style={{ fontSize: 9, color: T.c.grey800, marginLeft: 4 }}>{rule.field}</code>
+                      <span style={{ fontWeight: 700, margin: "0 3px", fontSize: 9 }}>{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
+                      {rule.value && <span style={{ color: T.c.info, fontWeight: 600, fontSize: 9 }}>{rule.value}</span>}
+                    </div>
+                  );
+
                   return (
                     <tr key={rule.id} style={{ background: ed ? "#ebf5fb" : "transparent" }}>
-                      <td style={{ ...tdS, width: 40, textAlign: "center" }}>{ed ? <input type="number" value={form.priority} onChange={e => setForm({...form, priority: parseInt(e.target.value)||0})} style={{ ...inputS, width: 40, textAlign: "center" }} /> : <span style={{ fontWeight: T.w.black, color: T.c.text }}>{rule.priority}</span>}</td>
-                      <td style={{ ...tdS, width: 60 }}>{ed ? <select value={form.source} onChange={e => setForm({...form, source: e.target.value, field: ""})} style={{ ...inputS, width: 55 }}><option value="app">app</option><option value="sp">sp</option><option value="doc">doc</option></select> : <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 3, background: rule.source === "sp" ? "#f4ecf7" : rule.source === "doc" ? "#fef5e7" : "#ebf5fb", color: rule.source === "sp" ? "#8e44ad" : rule.source === "doc" ? "#e67e22" : "#2980b9", fontWeight: T.w.bold }}>{rule.source}</span>}</td>
-                      <td style={{ ...tdS, maxWidth: 200 }}>{ed ? <select value={form.field} onChange={e => setForm({...form, field: e.target.value})} style={{ ...inputS, width: 190 }}><option value="">Select...</option>{(SOURCE_FIELDS[form.source] || []).map(f => <option key={f.path} value={f.path}>{f.label}</option>)}<option value={form.field}>{form.field}</option></select> : <code style={{ fontSize: 12, color: T.c.grey800, wordBreak: "break-all" }}>{rule.field}</code>}</td>
-                      <td style={{ ...tdS, width: 50 }}>{ed ? <select value={form.operator} onChange={e => setForm({...form, operator: e.target.value})} style={{ ...inputS, width: 50 }}>{Object.keys(OPERATOR_LABELS).map(k => <option key={k} value={k}>{k}</option>)}</select> : <span style={{ fontWeight: T.w.black, color: T.c.text }}>{OPERATOR_LABELS[rule.operator] || rule.operator}</span>}</td>
-                      <td style={{ ...tdS, width: 60 }}>{ed ? <input value={form.value || ""} onChange={e => setForm({...form, value: e.target.value})} style={{ ...inputS, width: 55 }} /> : <span style={{ fontWeight: T.w.semi, color: T.c.info }}>{rule.value || "—"}</span>}</td>
-                      <td style={{ ...tdS, width: 55 }}>{ed ? <select value={form.result} onChange={e => setForm({...form, result: e.target.value})} style={{ ...inputS, width: 55 }}><option value="pass">pass</option><option value="fail">fail</option><option value="review">review</option><option value="na">n/a</option></select> : <span style={{ padding: "2px 6px", borderRadius: 3, fontSize: 11, fontWeight: T.w.bold, background: `${rc}18`, color: rc }}>{rule.result}</span>}</td>
-                      <td style={{ ...tdS, width: 40, textAlign: "center" }}>{ed ? <input type="number" step="0.05" value={form.confidence} onChange={e => setForm({...form, confidence: parseFloat(e.target.value)||0})} style={{ ...inputS, width: 40 }} /> : <span style={{ fontSize: 12, color: T.c.grey800 }}>{(rule.confidence * 100).toFixed(0)}%</span>}</td>
-                      <td style={tdS}>{ed ? <input value={form.reason_template} onChange={e => setForm({...form, reason_template: e.target.value})} style={inputS} /> : <span style={{ fontSize: 12, color: T.c.textSecondary }}>{rule.reason_template}</span>}</td>
-                      <td style={{ ...tdS, width: 110 }}>
+                      <td style={{ ...tdS, width: 35, textAlign: "center" }}>{ed ? <input type="number" value={form.priority} onChange={e => setForm({...form, priority: parseInt(e.target.value)||0})} style={{ ...inputS, width: 35, textAlign: "center" }} /> : <span style={{ fontWeight: T.w.black, color: T.c.text }}>{rule.priority}</span>}</td>
+                      <td style={{ ...tdS, width: 45, textAlign: "center" }}>
+                        {isCompound ? <span style={{ fontSize: 8, fontWeight: 700, color: "#8e44ad", background: "#f4ecf7", padding: "1px 4px", borderRadius: 3 }}>{rule.conditions.logic?.toUpperCase()}</span>
+                          : <span style={{ fontSize: 8, color: "#7a8a94" }}>simple</span>}
+                      </td>
+                      <td style={{ ...tdS, maxWidth: 280 }}>{ed ? (
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                          <select value={form.source} onChange={e => setForm({...form, source: e.target.value, field: ""})} style={{ ...inputS, width: 55 }}><option value="app">app</option><option value="sp">sp</option><option value="doc">doc</option></select>
+                          <select value={form.field} onChange={e => setForm({...form, field: e.target.value})} style={{ ...inputS, width: 160 }}><option value="">Select...</option>{(SOURCE_FIELDS[form.source] || []).map(f => <option key={f.path} value={f.path}>{f.label}</option>)}<option value={form.field}>{form.field}</option></select>
+                          <select value={form.operator} onChange={e => setForm({...form, operator: e.target.value})} style={{ ...inputS, width: 50 }}>{Object.keys(OPERATOR_LABELS).map(k => <option key={k} value={k}>{k}</option>)}</select>
+                          <input value={form.value || ""} onChange={e => setForm({...form, value: e.target.value})} style={{ ...inputS, width: 50 }} placeholder="val" />
+                        </div>
+                      ) : conditionDisplay}</td>
+                      <td style={{ ...tdS, width: 50 }}>{ed ? <select value={form.result} onChange={e => setForm({...form, result: e.target.value})} style={{ ...inputS, width: 50 }}><option value="pass">pass</option><option value="fail">fail</option><option value="review">review</option><option value="na">n/a</option></select> : <span style={{ padding: "2px 6px", borderRadius: 3, fontSize: 10, fontWeight: T.w.bold, background: `${rc}18`, color: rc }}>{rule.result}</span>}</td>
+                      <td style={{ ...tdS, width: 35, textAlign: "center" }}>{ed ? <input type="number" step="0.05" value={form.confidence} onChange={e => setForm({...form, confidence: parseFloat(e.target.value)||0})} style={{ ...inputS, width: 35 }} /> : <span style={{ fontSize: 10, color: T.c.grey800 }}>{(rule.confidence * 100).toFixed(0)}%</span>}</td>
+                      <td style={tdS}>{ed ? <input value={form.reason_template} onChange={e => setForm({...form, reason_template: e.target.value})} style={inputS} /> : <span style={{ fontSize: 10, color: T.c.textSecondary }}>{rule.reason_template?.slice(0, 80)}{rule.reason_template?.length > 80 ? "…" : ""}</span>}</td>
+                      <td style={{ ...tdS, width: 100 }}>
                         {ed ? (
                           <div style={{ display: "flex", gap: 3 }}>
                             <button onClick={() => handleSave(rule)} style={btnSave}>Save</button>
