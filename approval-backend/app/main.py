@@ -134,11 +134,6 @@ def _migrate_columns():
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS title_extraction_data JSONB",
     ]
 
-    # Separate migration for assessment_rules (may not exist on first run)
-    assessment_rule_stmts = [
-        "ALTER TABLE assessment_rules ADD COLUMN IF NOT EXISTS conditions JSONB",
-    ]
-
     # Use engine directly (not ORM session) for DDL
     try:
         with engine.connect() as conn:
@@ -158,18 +153,21 @@ def _migrate_columns():
                     print(f"  ⚠ Migration: {e}")
                     conn.rollback()
 
-            # Assessment rules migrations (table may not exist on first run)
-            result = conn.execute(text(
-                "SELECT 1 FROM information_schema.tables WHERE table_name='assessment_rules'"
-            ))
-            if result.fetchone():
-                for stmt in assessment_rule_stmts:
-                    try:
-                        conn.execute(text(stmt))
-                        conn.commit()
-                    except Exception as e:
-                        print(f"  ⚠ Assessment rule migration: {e}")
-                        conn.rollback()
+            # Assessment rules — add conditions column (must exist before any ORM query)
+            try:
+                result = conn.execute(text(
+                    "SELECT 1 FROM information_schema.tables WHERE table_name='assessment_rules'"
+                ))
+                if result.fetchone():
+                    conn.execute(text("ALTER TABLE assessment_rules ADD COLUMN IF NOT EXISTS conditions JSONB"))
+                    conn.commit()
+                    print("  ✓ assessment_rules.conditions column ensured")
+            except Exception as e:
+                print(f"  ⚠ assessment_rules migration: {e}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
 
             # Backfill NULLs
             try:
