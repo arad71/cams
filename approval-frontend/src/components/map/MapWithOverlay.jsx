@@ -809,6 +809,45 @@ Respond with JSON only:
     ];
   }, [app?.lot_polygon, derivedLotFromAddress, coords, app?.property]);
 
+  // Auto-detect road classification from map data on load
+  const roadClassSetRef = useRef(false);
+  useEffect(() => {
+    if (roadClassSetRef.current) return;
+    if (!lotPoly || lotPoly.length < 4) return;
+    if (!speedRoadsData?.features?.length && !roadNetworkData?.features?.length) return;
+    if (!onMeasureCorrection) return;
+
+    // Check if road_classification already exists
+    const spd = app?.cor_site_plan_data || app?.site_plan_data || {};
+    const ext = spd.extraction || spd || {};
+    const sm = ext.siteplan_measurements || {};
+    if (sm.road_classification) return; // already set
+
+    const mapRoads = findNearestRoadsToLot(lotPoly, speedRoadsData, roadNetworkData);
+    if (mapRoads.length === 0) return;
+
+    const roadClass = mapRoads[0].road_class;
+    const roadName = mapRoads[0].road_name;
+    const networkType = mapRoads[0].network_type;
+    const speed = mapRoads[0].speed;
+
+    // Auto-save road classification
+    if (roadClass) {
+      roadClassSetRef.current = true;
+      onMeasureCorrection('siteplan_measurements.road_classification', roadClass, '');
+      console.log(`Auto-detected road classification: ${roadName} → ${roadClass} (${networkType}, ${speed}km/h)`);
+
+      // Also auto-set road name and speed if missing
+      if (!sm.crossover_on_road && !sm.road_name && roadName) {
+        onMeasureCorrection('siteplan_measurements.crossover_on_road', roadName, '');
+        onMeasureCorrection('siteplan_measurements.road_name', roadName, '');
+      }
+      if (!sm.road_speed_zone_kmh && speed) {
+        onMeasureCorrection('siteplan_measurements.road_speed_zone_kmh', String(speed), '');
+      }
+    }
+  }, [lotPoly, speedRoadsData, roadNetworkData, app?.cor_site_plan_data, app?.site_plan_data, onMeasureCorrection]);
+
   // Find the lot polygon that CONTAINS point A (from the 23k lots GeoJSON)
   const ptALotPoly = useMemo(() => {
     if (!ptA || !lotsData?.features) return null;
@@ -2012,11 +2051,6 @@ Respond with JSON only:
                 const aiRoad = sm.crossover_on_road || sm.road_name || null;
                 const aiRoadClass = sm.road_classification || null;
                 const roadsMatch = aiRoad && mapPrimaryRoad && (aiRoad.toUpperCase() === mapPrimaryRoad.toUpperCase() || aiRoad.toUpperCase().split(' ')[0] === mapPrimaryRoad.toUpperCase().split(' ')[0]);
-
-                // Auto-set road classification from map data if not already set
-                if (mapRoadClass && !aiRoadClass && onMeasureCorrection && mapPrimaryRoad) {
-                  onMeasureCorrection('siteplan_measurements.road_classification', mapRoadClass, '');
-                }
                 const V = (v, u) => v != null && v !== '' && v !== 'null' ? `${v}${u || ''}` : '—';
 
                 // Map-derived measurements
