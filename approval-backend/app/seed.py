@@ -50,6 +50,7 @@ def run_seed():
             "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS fence_left_type VARCHAR(100) DEFAULT NULL",
             "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS fence_right_type VARCHAR(100) DEFAULT NULL",
             "ALTER TABLE ai_training_samples ADD COLUMN IF NOT EXISTS quality_score DOUBLE PRECISION DEFAULT NULL",
+            "ALTER TABLE assessment_rules ADD COLUMN IF NOT EXISTS conditions JSONB DEFAULT NULL",
         ]:
             try:
                 conn.execute(text(stmt))
