@@ -503,9 +503,9 @@ def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
 
     if findings and "error" not in findings:
         clean = {k: v for k, v in findings.items() if not k.startswith("_")}
-        app.org_site_plan_data = clean   # Original AI extraction — never modified
+        app.org_site_plan_data = clean   # Original AI extraction — never modified after this run
         app.site_plan_data = clean       # Active copy — assessment reads this
-        # cor_site_plan_data stays null until officer corrects
+        app.cor_site_plan_data = None    # Clear officer corrections — they were based on old extraction
         db.commit()
 
         try:
