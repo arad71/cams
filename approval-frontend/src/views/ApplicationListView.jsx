@@ -192,9 +192,9 @@ const DOC_CATEGORIES = [
 
 const blankForm = {
   owner_name: "", owner_phone: "", owner_email: "", owner_postal_address: "",
-  property_address: "", lot_number: "", plan_number: "", lot_type: "green_title",
+  property_address: "", lot_number: "", plan_number: "", lot_type: "",
   frontage: "", depth: "", road_name: "", road_type: "local", road_width: "", verge_width: "",
-  crossover_width: "", crossover_count: "1", crossover_surface: "concrete",
+  crossover_width: "", crossover_count: "", crossover_surface: "concrete",
   crossover_est_date: "", da_number: "", offset_from_left: "",
   declaration_signed: false, date_signed: "", attachment_count: "",
   trees_nearby: false, tree_protection: "", clearing: false, drainage_type: "none", culvert: false,
@@ -636,6 +636,17 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   };
 
   const handleSubmit = async () => {
+    // Validate mandatory fields
+    const missing = [];
+    if (!form.owner_name.trim()) missing.push("Owner Name");
+    if (!form.property_address.trim()) missing.push("Property Address");
+    if (!form.lot_type) missing.push("Lot Type");
+    if (!form.crossover_count) missing.push("Number of Crossovers");
+    if (missing.length > 0) {
+      setError(`Required fields missing: ${missing.join(", ")}`);
+      setSaving(false);
+      return;
+    }
     setSaving(true); setError(null);
     try {
       const payload = {
@@ -654,7 +665,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         road_width: form.road_width ? parseFloat(form.road_width) : null,
         verge_width: form.verge_width ? parseFloat(form.verge_width) : null,
         crossover_width: form.crossover_width ? parseFloat(form.crossover_width) : null,
-        crossover_count: parseInt(form.crossover_count) || 1,
+        crossover_count: parseInt(form.crossover_count) || null,
         crossover_surface: form.crossover_surface || null,
         crossover_est_date: form.crossover_est_date || null,
         da_number: form.da_number || null,
@@ -831,7 +842,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
         <Field label="Lot Number"><input style={inputBase} value={form.lot_number} onChange={set("lot_number")} placeholder="e.g. 145" /></Field>
         <Field label="Plan / Diagram Number"><input style={inputBase} value={form.plan_number} onChange={set("plan_number")} placeholder="e.g. P012345" /></Field>
-        <Field label="Lot Type"><select style={selectBase} value={form.lot_type} onChange={set("lot_type")}><option value="green_title">Green Title</option><option value="strata">Strata</option><option value="survey_strata">Survey Strata</option><option value="battleaxe">Battleaxe</option><option value="commercial">Commercial</option></select></Field>
+        <Field label="Lot Type *"><select style={{ ...selectBase, borderColor: !form.lot_type ? "#e74c3c" : undefined }} value={form.lot_type} onChange={set("lot_type")}><option value="">— Select lot type —</option><option value="green_title">Green Title</option><option value="strata">Strata</option><option value="survey_strata">Survey Strata</option><option value="battleaxe">Battleaxe</option><option value="commercial">Commercial</option></select></Field>
         <Field label="Frontage (m)"><input style={inputBase} type="number" step="0.1" value={form.frontage} onChange={set("frontage")} placeholder="0.0" /></Field>
         <Field label="Depth (m)"><input style={inputBase} type="number" step="0.1" value={form.depth} onChange={set("depth")} placeholder="0.0" /></Field>
         <Field label="DA / Approval Number"><input style={inputBase} value={form.da_number} onChange={set("da_number")} placeholder="Optional" /></Field>
@@ -852,7 +863,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       <div style={sectionTitle}><span>📐</span> Crossover Design</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
         <Field label="Crossover Width (m)"><input style={inputBase} type="number" step="0.1" value={form.crossover_width} onChange={set("crossover_width")} placeholder="e.g. 4.5" /></Field>
-        <Field label="Number of Crossovers"><select style={selectBase} value={form.crossover_count} onChange={set("crossover_count")}><option value="1">1 — Single</option><option value="2">2 — Dual</option></select></Field>
+        <Field label="Number of Crossovers *"><select style={{ ...selectBase, borderColor: !form.crossover_count ? "#e74c3c" : undefined }} value={form.crossover_count} onChange={set("crossover_count")}><option value="">— Select —</option><option value="1">1 — Single</option><option value="2">2 — Dual</option></select></Field>
         <Field label="Surface Material"><select style={selectBase} value={form.crossover_surface} onChange={set("crossover_surface")}><option value="concrete">Concrete</option><option value="asphalt">Asphalt</option><option value="brick_paver">Brick Paver</option><option value="gravel">Gravel</option><option value="other">Other</option></select></Field>
         <Field label="Offset from Left Boundary (m)"><input style={inputBase} type="number" step="0.1" value={form.offset_from_left} onChange={set("offset_from_left")} placeholder="0.0" /></Field>
         <Field label="Est. Construction Date" span={2}><input style={inputBase} type="text" value={form.crossover_est_date} onChange={set("crossover_est_date")} placeholder="e.g. 15/03/2026" /></Field>
