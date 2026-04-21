@@ -110,14 +110,18 @@ const SOURCE_FIELDS = {
     { path: "property.da_linked", label: "DA-Linked" },
   ],
   doc: [
+    { path: "Application Form", label: "Application Form" },
     { path: "Site Plan", label: "Site Plan" },
+    { path: "Building Application", label: "Building Application" },
     { path: "Certificate of Title", label: "Certificate of Title" },
-    { path: "Site Photos", label: "Site Photos" },
-    { path: "Other Documents", label: "Other Documents" },
-    { path: "Dial Before You Dig", label: "Dial Before You Dig" },
     { path: "Engineering Drawing", label: "Engineering Drawing" },
+    { path: "Site Photos", label: "Site Photos" },
     { path: "Arborist Report", label: "Arborist Report" },
+    { path: "Stormwater Plan", label: "Stormwater Plan" },
     { path: "Drainage Plan", label: "Drainage Plan" },
+    { path: "Dial Before You Dig", label: "Dial Before You Dig" },
+    { path: "Inspection Report", label: "Inspection Report" },
+    { path: "Other Documents", label: "Other Documents" },
   ],
 };
 
