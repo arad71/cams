@@ -693,15 +693,14 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 </div>
               )}
 
-              {/* Extraction Method — only for Site Plan (App Form and Title always use local OCR) */}
+              {/* Extraction Method — only for Site Plan */}
               {extractCategory === "Site Plan" ? (
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, textTransform: "uppercase", display: "block", marginBottom: 4 }}>Extraction Method</label>
                   <div style={{ display: "flex", gap: 6 }}>
                     {[
-                      { id: "ai_live", icon: "🤖", label: "AI Live (Claude)", desc: "Most accurate — sends to AI API" },
-                      { id: "ai_local", icon: "💻", label: "AI Local (OCR)", desc: "Offline — local text recognition" },
-                      ...(isDirectRead ? [] : [{ id: "none", icon: "📋", label: "Extract Only", desc: "Just extract pages, no reading" }]),
+                      { id: "ai_live", icon: "🤖", label: "AI Vision (Claude)", desc: "Reads drawings, dimensions, layout — required for site plans" },
+                      ...(isDirectRead ? [] : [{ id: "none", icon: "📋", label: "Extract Only", desc: "Just extract pages, no AI reading" }]),
                     ].map(m => (
                       <button key={m.id} onClick={() => setExtractMethod(m.id)}
                         style={{ flex: 1, padding: "8px 6px", borderRadius: T.r.md, fontSize: 9, cursor: "pointer", fontFamily: "inherit", textAlign: "center",

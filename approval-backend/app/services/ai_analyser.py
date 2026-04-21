@@ -641,14 +641,13 @@ def save_training_sample(
                 extraction_json=extraction,
                 compliance_json=compliance,
                 raw_response=raw,
-                # Denormalised key fields
+                # Denormalised key fields for quick filtering
                 width_at_boundary=dims.get("width_at_boundary_m"),
                 total_width_at_road=dims.get("total_width_at_road_m"),
                 verge_depth=dims.get("verge_depth_m"),
                 material=cons.get("material"),
                 has_drainage=bool(drain.get("drainage_plan_included")),
                 has_vegetation=additional.get("vegetation_on_verge"),
-                # Additional training-relevant fields
                 crossover_road=site.get("crossover_on_road") or site.get("road_name"),
                 constrained_side=dims.get("constrained_side"),
                 is_corner_lot=prop.get("is_corner_lot"),
@@ -658,6 +657,10 @@ def save_training_sample(
                 right_boundary_dist=dims.get("distance_to_right_boundary_m"),
                 fence_left_type=dims.get("left_boundary_feature"),
                 fence_right_type=dims.get("right_boundary_feature"),
+                # Assessment requirement context
+                document_type=prop.get("lot_type") or "residential",
+                drawing_scale=site.get("all_dimensions_found", [None])[0] if isinstance(site.get("all_dimensions_found"), list) else None,
+                drawing_standard=cons.get("construction_standard"),
             )
             db.add(sample)
 
