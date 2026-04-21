@@ -1192,7 +1192,7 @@ Respond with JSON only:
 
     // ── AUTO-DRAW: compute Point A and B from known data ──
     const missing = [];
-    if (!crossoverRoad) missing.push("crossover road");
+    // crossoverRoad is optional — fallback will find nearest road
     // Use constrained side distance, or fall back to whichever boundary distance exists
     let autoDrawBoundaryDist = null;
     if (constrainedSide === "left" && leftBoundaryDist != null) {
@@ -1209,12 +1209,14 @@ Respond with JSON only:
       autoDrawBoundaryDist = rightBoundaryDist;
       if (!constrainedSide) constrainedSide = "right";
     }
-    if (autoDrawBoundaryDist == null) missing.push("boundary distance");
-    if (!crossoverWidth) missing.push("crossover width");
+    if (autoDrawBoundaryDist == null) {
+      autoDrawBoundaryDist = 1.5; // default 1.5m from boundary
+      if (!constrainedSide) constrainedSide = "left";
+    }
+    if (!crossoverWidth) crossoverWidth = 3.5; // default 3.5m standard crossover
     if (!lotPoly || lotPoly.length < 4) missing.push("lot polygon");
 
     const hasRoadData = [speedRoadsData, roadNetworkData].some(s => s?.features?.length > 0);
-    if (!hasRoadData) missing.push("road data");
 
     console.log("Auto-draw check:", { crossoverRoad, constrainedSide, autoDrawBoundaryDist, crossoverWidth, lotPolyLen: lotPoly?.length, hasRoadData, missing, autoY });
 
@@ -1777,6 +1779,15 @@ Respond with JSON only:
             <span style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text, letterSpacing: -0.3 }}>Sight Analysis</span>
             {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>🛣️ {sightConfig.crossoverRoad}</span>}
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
+            {sightConfig.isCorner && onMeasureCorrection && (
+              <button onClick={() => {
+                onMeasureCorrection('property.is_corner_lot', 'false', '');
+                setSightConfig(c => ({ ...c, isCorner: false, cornerSource: "officer_override" }));
+              }} style={{ fontSize: 7, padding: "1px 5px", borderRadius: 3, border: "1px solid #e65100", background: "#fff", color: "#e65100", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>✕ Not Corner</button>
+            )}
+            {!sightConfig.isCorner && sightConfig.cornerSource === "officer_override" && (
+              <span style={{ fontSize: 8, background: "#E8F5E9", color: "#2E7D32", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>Single Frontage ✓</span>
+            )}
             {sightConfig.constrainedSide && <span style={{ fontSize: 8, background: "#FFF3E0", color: "#E65100", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>⚠ {sightConfig.constrainedSide} side</span>}
             {!sightConfig.crossoverRoad && !sightTriangle && !sightConfig.missingData && <span style={{ fontSize: 8, background: "#FFF8E1", color: "#F57F17", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.semi }}>⚠ No site plan data — set x, y manually</span>}
             {sightConfig.missingData && (
