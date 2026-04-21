@@ -287,14 +287,36 @@ async def extract_pages_generic(
         "extraction": None,
     }
 
-    # If Site Plan, run site plan AI analysis
+    # If Site Plan, run analysis based on method
     if category == "Site Plan" and method != "none":
         try:
-            _run_site_plan_ai(app, new_doc, new_bytes, db)
-            result["message"] += " AI analysis complete."
-            result["analysed"] = True
+            if method == "ai_live":
+                _run_site_plan_ai(app, new_doc, new_bytes, db)
+                result["message"] += " AI analysis complete."
+                result["analysed"] = True
+            elif method == "ai_local":
+                from app.services.local_extractor import extract_local
+                local_result = extract_local(str(new_path), "site_plan")
+                if local_result and local_result.get("fields"):
+                    # Map local extraction fields to site_plan_data format
+                    extracted_fields = local_result.get("fields", {})
+                    raw_text = local_result.get("raw_text", "")
+                    sp_data = {
+                        "extraction": extracted_fields,
+                        "raw_text": raw_text[:2000] if raw_text else "",
+                        "method": "local_ocr",
+                    }
+                    app.org_site_plan_data = sp_data
+                    app.site_plan_data = sp_data
+                    db.commit()
+                    result["message"] += " Local OCR extraction complete."
+                    result["analysed"] = True
+                    result["extraction"] = extracted_fields
+                else:
+                    result["message"] += " Local OCR returned no fields."
         except Exception as e:
             result["analyseError"] = str(e)
+            result["message"] += f" Extraction error: {str(e)[:100]}"
 
     # If Application Form or Certificate of Title, run field extraction
     if category in ("Application Form", "Certificate of Title") and method != "none":
