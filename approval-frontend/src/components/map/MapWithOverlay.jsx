@@ -1496,7 +1496,23 @@ Respond with JSON only:
           outward = d1 < d2 ? n2 : n1;
         }
 
-        // Step 3: Position along edge — y metres from constrained boundary
+        // Step 3: Find the constrained side boundary and position Point A
+        // Point A = intersection of:
+        //   - 2.5m from road edge (perpendicular to road = inward direction)
+        //   - boundaryDist from the constrained side boundary (parallel to road edge)
+        //
+        // Method: find the side boundary edge adjacent to the road-facing edge,
+        // then measure boundaryDist inward from it along the road-facing edge.
+
+        // Find adjacent lot edges (left and right boundaries connected to the road-facing edge)
+        const numEdges = lotPoly.length - 1;
+        const roadEdgeIdx = bestEdge.i;
+        
+        // The "from" endpoint connects to the previous edge, "to" connects to the next
+        const prevEdgeIdx = (roadEdgeIdx - 1 + numEdges) % numEdges;
+        const nextEdgeIdx = (roadEdgeIdx + 1) % numEdges;
+        
+        // Determine which adjacent edge is on the "left" and "right" when facing the road
         const outCos = Math.cos(outward), outSin = Math.sin(outward);
         const leftAngle = outward - Math.PI / 2;
         const leftCos = Math.cos(leftAngle), leftSin = Math.sin(leftAngle);
@@ -1507,24 +1523,26 @@ Respond with JSON only:
                          (bestEdge.to[1] - bestEdge.midLng) * mPerLng * leftSin;
         const fromIsLeft = fromOnLeft > toOnLeft;
         
-        let measureFromEnd, measureToEnd;
+        // Get the constrained boundary endpoint (the corner where road edge meets side boundary)
+        let constrainedCorner, oppositeCorner;
         if (constrainedSide === "left") {
-          measureFromEnd = fromIsLeft ? bestEdge.from : bestEdge.to;
-          measureToEnd = fromIsLeft ? bestEdge.to : bestEdge.from;
+          constrainedCorner = fromIsLeft ? bestEdge.from : bestEdge.to;
+          oppositeCorner = fromIsLeft ? bestEdge.to : bestEdge.from;
         } else if (constrainedSide === "right") {
-          measureFromEnd = fromIsLeft ? bestEdge.to : bestEdge.from;
-          measureToEnd = fromIsLeft ? bestEdge.from : bestEdge.to;
+          constrainedCorner = fromIsLeft ? bestEdge.to : bestEdge.from;
+          oppositeCorner = fromIsLeft ? bestEdge.from : bestEdge.to;
         } else {
-          measureFromEnd = bestEdge.from;
-          measureToEnd = bestEdge.to;
+          constrainedCorner = bestEdge.from;
+          oppositeCorner = bestEdge.to;
         }
         
-        const yOffset = autoY;
-        const edgeFrac = Math.min(0.9, Math.max(0.1, yOffset / bestEdge.edgeLen));
-        const ptOnEdgeLat = measureFromEnd[0] + (measureToEnd[0] - measureFromEnd[0]) * edgeFrac;
-        const ptOnEdgeLng = measureFromEnd[1] + (measureToEnd[1] - measureFromEnd[1]) * edgeFrac;
+        // Point A position: boundaryDist from constrained corner, along the road-facing edge
+        const bDist = autoDrawBoundaryDist + (crossoverWidth ? crossoverWidth / 2 : 1.75);
+        const edgeFrac = Math.min(0.9, Math.max(0.05, bDist / bestEdge.edgeLen));
+        const ptOnEdgeLat = constrainedCorner[0] + (oppositeCorner[0] - constrainedCorner[0]) * edgeFrac;
+        const ptOnEdgeLng = constrainedCorner[1] + (oppositeCorner[1] - constrainedCorner[1]) * edgeFrac;
         
-        console.log(`Point A: constrained=${constrainedSide}, edgeFrac=${edgeFrac.toFixed(2)}, y=${yOffset.toFixed(1)}m, edgeLen=${bestEdge.edgeLen.toFixed(1)}m, roadDist=${roadProjDist.toFixed(1)}m`);
+        console.log(`Point A: constrained=${constrainedSide}, boundaryDist=${autoDrawBoundaryDist.toFixed(1)}m, halfWidth=${(crossoverWidth/2).toFixed(1)}m, edgeFrac=${edgeFrac.toFixed(2)}, edgeLen=${bestEdge.edgeLen.toFixed(1)}m`);
 
         // Step 4: Point A = 2.5m inward from road edge (perpendicular to road)
         const xOffset = 2.5;
