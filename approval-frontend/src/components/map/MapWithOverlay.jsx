@@ -1214,9 +1214,74 @@ Respond with JSON only:
       if (!constrainedSide) constrainedSide = "left";
     }
     if (!crossoverWidth) crossoverWidth = 3.5; // default 3.5m standard crossover
-    if (!lotPoly || lotPoly.length < 4) missing.push("lot polygon");
-
+    
     const hasRoadData = [speedRoadsData, roadNetworkData].some(s => s?.features?.length > 0);
+    
+    // If no lot polygon but we have a crossover road name + coords, find road and draw from there
+    if ((!lotPoly || lotPoly.length < 4) && crossoverRoad && coords && hasRoadData) {
+      console.log("No lot polygon — using crossover road name + coords to auto-draw");
+      const mPerLat = 111320, mPerLng = 111320 * Math.cos(coords.lat * Math.PI / 180);
+      
+      // Helper for road name matching
+      const roadNamesMatch = (name1, name2) => {
+        if (!name1 || !name2) return false;
+        const n1 = name1.toUpperCase().trim(), n2 = name2.toUpperCase().trim();
+        if (n1 === n2) return true;
+        const w1 = n1.split(/\s+/)[0], w2 = n2.split(/\s+/)[0];
+        if (w1.length >= 3 && (n1.includes(w2) || n2.includes(w1))) return true;
+        const strip = s => s.replace(/\b(STREET|ST|ROAD|RD|AVENUE|AVE|DRIVE|DR|CRESCENT|CRES|CR|COURT|CT|PLACE|PL|WAY|LANE|LN|HIGHWAY|HWY|BOULEVARD|BLVD|TERRACE|TCE|PARADE|PDE|CLOSE|CL)\b/g, '').trim();
+        return strip(n1).length >= 3 && strip(n1) === strip(n2);
+      };
+      
+      // Find nearest point on the named road to the app coords
+      let bestProjPt = null, bestProjDist = Infinity, bestRoadAngle = 0;
+      for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+        for (const feat of src.features) {
+          const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
+          if (!roadNamesMatch(crossoverRoad, rn)) continue;
+          const g = feat.geometry;
+          if (!g || g.type !== "LineString") continue;
+          for (let j = 0; j < g.coordinates.length - 1; j++) {
+            const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
+            const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
+            const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq < 1e-10) continue;
+            const t = Math.max(0, Math.min(1, (((coords.lng - aLng) * mPerLng * dx + (coords.lat - aLat) * mPerLat * dy) / lenSq)));
+            const projLat = aLat + t * (bLat - aLat);
+            const projLng = aLng + t * (bLng - aLng);
+            const dist = Math.sqrt(((coords.lat - projLat) * mPerLat) ** 2 + ((coords.lng - projLng) * mPerLng) ** 2);
+            if (dist < bestProjDist) {
+              bestProjDist = dist;
+              bestProjPt = { lat: projLat, lng: projLng };
+              bestRoadAngle = Math.atan2(dx, dy);
+            }
+          }
+        }
+      }
+      
+      if (bestProjPt && bestProjDist < 100) {
+        // Point B = on the road (nearest point)
+        const autoPtB = bestProjPt;
+        // Point A = 2.5m from road toward the app coords
+        const towardLot = Math.atan2((coords.lng - bestProjPt.lng) * mPerLng, (coords.lat - bestProjPt.lat) * mPerLat);
+        const autoPtA = {
+          lat: bestProjPt.lat + Math.cos(towardLot) * 2.5 / mPerLat,
+          lng: bestProjPt.lng + Math.sin(towardLot) * 2.5 / mPerLng,
+        };
+        
+        setPtA(autoPtA);
+        setPtB(autoPtB);
+        setSightPhase("complete");
+        setDrawMode(null);
+        setMapTool(null);
+        setSightConfig(c => ({ ...c, autoDrawn: true }));
+        console.log(`Auto-drew from road name: road=${crossoverRoad}, roadDist=${bestProjDist.toFixed(1)}m`);
+        return;
+      }
+    }
+    
+    if (!lotPoly || lotPoly.length < 4) missing.push("lot polygon");
 
     console.log("Auto-draw check:", { crossoverRoad, constrainedSide, autoDrawBoundaryDist, crossoverWidth, lotPolyLen: lotPoly?.length, hasRoadData, missing, autoY });
 
