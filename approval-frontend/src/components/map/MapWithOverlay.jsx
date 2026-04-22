@@ -1280,7 +1280,7 @@ Respond with JSON only:
             }
           }
         }
-        if (fbBestEdge && fbBestDist < 50) {
+        if (fbBestEdge && fbBestDist < 100) {
           bestEdge = fbBestEdge;
           bestDist = fbBestDist;
           console.log(`Nearest road fallback: "${fbRoadName}" at ${fbBestDist.toFixed(1)}m from lot edge`);
@@ -1288,7 +1288,7 @@ Respond with JSON only:
       }
 
       // Final fallback: use the longest lot edge as presumed road frontage
-      if (!bestEdge || bestDist >= 50) {
+      if (!bestEdge || bestDist >= 100) {
         console.log("No road data near lot. Using longest edge as road frontage.");
         let longestLen = 0, longestIdx = 0;
         for (let i = 0; i < lotPoly.length - 1; i++) {
@@ -1309,7 +1309,7 @@ Respond with JSON only:
         }
       }
 
-      if (bestEdge && bestDist < 25) {
+      if (bestEdge) {
         // 2. Compute inward/outward normals from the road-facing edge
         const edgeDx = (bestEdge.to[1] - bestEdge.from[1]) * mPerLng;
         const edgeDy = (bestEdge.to[0] - bestEdge.from[0]) * mPerLat;
@@ -1425,7 +1425,7 @@ Respond with JSON only:
           }
         }
         // Final fallback: place B 8m outward from A
-        if (!autoPtB || bestProjDist >= 50) {
+        if (!autoPtB || bestProjDist >= 100) {
           autoPtB = { lat: autoPtA.lat + Math.cos(outward) * 8 / mPerLat, lng: autoPtA.lng + Math.sin(outward) * 8 / mPerLng };
           bestProjDist = 8;
           console.log("Point B fallback: placed 8m outward from Point A");
@@ -1441,11 +1441,9 @@ Respond with JSON only:
         console.log(`Auto-drew triangle: road=${crossoverRoad}, x=${xOffset}m, y=${yOffset.toFixed(1)}m, constrained=${constrainedSide}, ptBdist=${bestProjDist.toFixed(1)}m`);
         return;
       }
-      // If road edge found but projection failed, add to missing
-      if (!bestEdge || bestDist >= 25) missing.push("road not near lot");
     }
 
-    // ── FALLBACK: manual mode with missing data info ──
+    // ── FALLBACK: manual mode (only if lot polygon missing) ──
     setSightConfig(c => ({ ...c, missingData: missing.length > 0 ? missing : null, autoDrawn: false }));
     setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: autoY, isCorner: false, cornerR: null, cornerV: null });
     setMapTool("offset");
