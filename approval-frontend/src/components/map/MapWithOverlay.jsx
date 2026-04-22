@@ -809,6 +809,16 @@ Respond with JSON only:
     ];
   }, [app?.lot_polygon, derivedLotFromAddress, coords, app?.property]);
 
+  // Track where the lot polygon came from
+  const lotPolySource = useMemo(() => {
+    const apiPoly = normalizeLotPolygon(app?.lot_polygon);
+    if (apiPoly && apiPoly.length >= 3) return "cadastre";
+    const addrPoly = normalizeLotPolygon(derivedLotFromAddress);
+    if (addrPoly && addrPoly.length >= 3) return "address";
+    if (coords && app?.property?.frontage && app?.property?.depth) return "approx";
+    return null;
+  }, [app?.lot_polygon, derivedLotFromAddress, coords, app?.property]);
+
   // Auto-detect road classification from map data on load
   const roadClassSetRef = useRef(false);
   useEffect(() => {
@@ -1866,6 +1876,11 @@ Respond with JSON only:
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
             <span style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text, letterSpacing: -0.3 }}>Sight Analysis</span>
             {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>🛣️ {sightConfig.crossoverRoad}</span>}
+            <span style={{ fontSize: 7, padding: "2px 5px", borderRadius: 3, fontWeight: 600,
+              background: lotPolySource === "cadastre" ? "#E8F5E9" : lotPolySource === "address" ? "#FFF8E1" : lotPolySource === "approx" ? "#FFF3E0" : "#FFEBEE",
+              color: lotPolySource === "cadastre" ? "#2E7D32" : lotPolySource === "address" ? "#F57F17" : lotPolySource === "approx" ? "#E65100" : "#C62828" }}>
+              {lotPolySource === "cadastre" ? "📐 Cadastre lot" : lotPolySource === "address" ? "📍 Address match" : lotPolySource === "approx" ? "⬜ Approx rect" : "⚠ No lot polygon"}
+            </span>
             {sightConfig.isCorner && <span style={{ fontSize: 8, background: "#e65100", color: "#fff", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold, letterSpacing: 0.5, textTransform: "uppercase" }}>Corner Lot</span>}
             {sightConfig.isCorner && onMeasureCorrection && (
               <button onClick={() => {
