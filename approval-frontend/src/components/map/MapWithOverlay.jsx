@@ -1513,8 +1513,10 @@ Respond with JSON only:
         const nextEdgeIdx = (roadEdgeIdx + 1) % numEdges;
         
         // Determine which adjacent edge is on the "left" and "right" when facing the road
-        const outCos = Math.cos(outward), outSin = Math.sin(outward);
-        const leftAngle = outward - Math.PI / 2;
+        // When facing outward (toward road):
+        //   Left = anticlockwise (+π/2)
+        //   Right = clockwise (-π/2)
+        const leftAngle = outward + Math.PI / 2;
         const leftCos = Math.cos(leftAngle), leftSin = Math.sin(leftAngle);
         
         const fromOnLeft = (bestEdge.from[0] - bestEdge.midLat) * mPerLat * leftCos +
