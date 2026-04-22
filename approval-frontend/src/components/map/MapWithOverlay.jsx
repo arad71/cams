@@ -1218,12 +1218,12 @@ Respond with JSON only:
     const hasRoadData = [speedRoadsData, roadNetworkData].some(s => s?.features?.length > 0);
     
     // If no lot polygon but we have a crossover road name + coords, find road and draw from there
-    if ((!lotPoly || lotPoly.length < 4) && crossoverRoad && coords && hasRoadData) {
-      console.log("No lot polygon — using crossover road name + coords to auto-draw");
+    if ((!lotPoly || lotPoly.length < 4) && coords && hasRoadData) {
+      console.log("No lot polygon — using road data + coords to auto-draw");
       const mPerLat = 111320, mPerLng = 111320 * Math.cos(coords.lat * Math.PI / 180);
       
       // Helper for road name matching
-      const roadNamesMatch = (name1, name2) => {
+      const roadNamesMatch2 = (name1, name2) => {
         if (!name1 || !name2) return false;
         const n1 = name1.toUpperCase().trim(), n2 = name2.toUpperCase().trim();
         if (n1 === n2) return true;
@@ -1233,41 +1233,66 @@ Respond with JSON only:
         return strip(n1).length >= 3 && strip(n1) === strip(n2);
       };
       
-      // Find nearest point on the named road to the app coords
-      let bestProjPt = null, bestProjDist = Infinity, bestRoadAngle = 0;
-      for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
-        for (const feat of src.features) {
-          const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
-          if (!roadNamesMatch(crossoverRoad, rn)) continue;
-          const g = feat.geometry;
-          if (!g || g.type !== "LineString") continue;
-          for (let j = 0; j < g.coordinates.length - 1; j++) {
-            const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
-            const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
-            const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
-            const lenSq = dx * dx + dy * dy;
-            if (lenSq < 1e-10) continue;
-            const t = Math.max(0, Math.min(1, (((coords.lng - aLng) * mPerLng * dx + (coords.lat - aLat) * mPerLat * dy) / lenSq)));
-            const projLat = aLat + t * (bLat - aLat);
-            const projLng = aLng + t * (bLng - aLng);
-            const dist = Math.sqrt(((coords.lat - projLat) * mPerLat) ** 2 + ((coords.lng - projLng) * mPerLng) ** 2);
-            if (dist < bestProjDist) {
-              bestProjDist = dist;
-              bestProjPt = { lat: projLat, lng: projLng };
-              bestRoadAngle = Math.atan2(dx, dy);
+      // Strategy: find nearest road segment to coords
+      // First try the crossover road name, then any road
+      let bestProjPt = null, bestProjDist = Infinity, bestRoadSeg = null;
+      
+      const searchRoad = (nameFilter) => {
+        for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+          for (const feat of src.features) {
+            const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
+            if (nameFilter && !roadNamesMatch2(nameFilter, rn)) continue;
+            const g = feat.geometry;
+            if (!g || g.type !== "LineString") continue;
+            for (let j = 0; j < g.coordinates.length - 1; j++) {
+              const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
+              const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
+              const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
+              const lenSq = dx * dx + dy * dy;
+              if (lenSq < 1e-10) continue;
+              const t = Math.max(0, Math.min(1, (((coords.lng - aLng) * mPerLng * dx + (coords.lat - aLat) * mPerLat * dy) / lenSq)));
+              const projLat = aLat + t * (bLat - aLat);
+              const projLng = aLng + t * (bLng - aLng);
+              const dist = Math.sqrt(((coords.lat - projLat) * mPerLat) ** 2 + ((coords.lng - projLng) * mPerLng) ** 2);
+              if (dist < bestProjDist) {
+                bestProjDist = dist;
+                bestProjPt = { lat: projLat, lng: projLng };
+                bestRoadSeg = { aLat, aLng, bLat, bLng, roadName: rn };
+              }
             }
           }
         }
-      }
+      };
+      
+      // Try named road first
+      if (crossoverRoad) searchRoad(crossoverRoad);
+      // Fallback: any nearest road
+      if (!bestProjPt || bestProjDist >= 50) searchRoad(null);
       
       if (bestProjPt && bestProjDist < 100) {
-        // Point B = on the road (nearest point)
+        // Point B = on the road
         const autoPtB = bestProjPt;
-        // Point A = 2.5m from road toward the app coords
-        const towardLot = Math.atan2((coords.lng - bestProjPt.lng) * mPerLng, (coords.lat - bestProjPt.lat) * mPerLat);
+        
+        // Road perpendicular direction (toward lot)
+        const roadDx = (bestRoadSeg.bLng - bestRoadSeg.aLng) * mPerLng;
+        const roadDy = (bestRoadSeg.bLat - bestRoadSeg.aLat) * mPerLat;
+        const roadAngle = Math.atan2(roadDx, roadDy);
+        const perp1 = roadAngle + Math.PI / 2;
+        const perp2 = roadAngle - Math.PI / 2;
+        
+        // Pick the perpendicular that points toward coords (lot centre)
+        const t1Lat = bestProjPt.lat + Math.cos(perp1) * 5 / mPerLat;
+        const t1Lng = bestProjPt.lng + Math.sin(perp1) * 5 / mPerLng;
+        const t2Lat = bestProjPt.lat + Math.cos(perp2) * 5 / mPerLat;
+        const t2Lng = bestProjPt.lng + Math.sin(perp2) * 5 / mPerLng;
+        const d1 = Math.sqrt(((t1Lat - coords.lat) * mPerLat) ** 2 + ((t1Lng - coords.lng) * mPerLng) ** 2);
+        const d2 = Math.sqrt(((t2Lat - coords.lat) * mPerLat) ** 2 + ((t2Lng - coords.lng) * mPerLng) ** 2);
+        const inward = d1 < d2 ? perp1 : perp2;
+        
+        // Point A = 2.5m inward from road (perpendicular, toward lot)
         const autoPtA = {
-          lat: bestProjPt.lat + Math.cos(towardLot) * 2.5 / mPerLat,
-          lng: bestProjPt.lng + Math.sin(towardLot) * 2.5 / mPerLng,
+          lat: bestProjPt.lat + Math.cos(inward) * 2.5 / mPerLat,
+          lng: bestProjPt.lng + Math.sin(inward) * 2.5 / mPerLng,
         };
         
         setPtA(autoPtA);
@@ -1276,7 +1301,7 @@ Respond with JSON only:
         setDrawMode(null);
         setMapTool(null);
         setSightConfig(c => ({ ...c, autoDrawn: true }));
-        console.log(`Auto-drew from road name: road=${crossoverRoad}, roadDist=${bestProjDist.toFixed(1)}m`);
+        console.log(`Auto-drew from road: ${bestRoadSeg.roadName}, dist=${bestProjDist.toFixed(1)}m, perpendicular inward`);
         return;
       }
     }
