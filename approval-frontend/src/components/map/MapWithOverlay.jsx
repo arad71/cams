@@ -925,8 +925,8 @@ Respond with JSON only:
       if (d < nearestIntDist) { nearestIntDist = d; nearestInt = { ...isc, dist: d.toFixed(1) }; }
     });
 
-    const grade = (Math.random() * 7 + 1).toFixed(1);
-    const elevDiff = (parseFloat(grade) / 100 * depthM).toFixed(2);
+    const grade = "3.5"; // placeholder — actual grade from DEM/survey
+    const elevDiff = (3.5 / 100 * depthM).toFixed(2);
 
     // For corner lots, compute sight line from A to the sight distance point on curve
     let cornerSightLine = null;
@@ -1340,11 +1340,14 @@ Respond with JSON only:
       };
 
       let bestEdge = null, bestDist = Infinity;
+      // Collect ALL edges that are near the crossover road
+      const candidateEdges = [];
       for (let i = 0; i < lotPoly.length - 1; i++) {
         const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
         const midLng = (lotPoly[i][1] + lotPoly[i + 1][1]) / 2;
         const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mPerLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mPerLng) ** 2);
         if (edgeLen < 3) continue;
+        let edgeBestDist = Infinity;
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
           for (const feat of src.features) {
             const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
@@ -1353,10 +1356,26 @@ Respond with JSON only:
             if (!g || g.type !== "LineString") continue;
             for (const pt of g.coordinates) {
               const d = Math.sqrt(((midLat - pt[1]) * mPerLat) ** 2 + ((midLng - pt[0]) * mPerLng) ** 2);
-              if (d < bestDist) { bestDist = d; bestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] }; }
+              if (d < edgeBestDist) edgeBestDist = d;
             }
           }
         }
+        if (edgeBestDist < 30) {
+          candidateEdges.push({ i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1], dist: edgeBestDist });
+        }
+        if (edgeBestDist < bestDist) {
+          bestDist = edgeBestDist;
+          bestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] };
+        }
+      }
+
+      // If multiple edges are near the same road, pick the LONGEST one (likely the frontage)
+      if (candidateEdges.length > 1) {
+        candidateEdges.sort((a, b) => b.edgeLen - a.edgeLen); // longest first
+        const chosen = candidateEdges[0];
+        bestEdge = { i: chosen.i, midLat: chosen.midLat, midLng: chosen.midLng, edgeLen: chosen.edgeLen, from: chosen.from, to: chosen.to };
+        bestDist = chosen.dist;
+        console.log(`Multiple edges near ${crossoverRoad}: chose longest (${chosen.edgeLen.toFixed(1)}m, edge ${chosen.i}) over ${candidateEdges.length - 1} others`);
       }
 
       // Fallback: if named road not found, find the nearest road to ANY lot edge
