@@ -1588,14 +1588,40 @@ def delete_document(app_id: int, doc_id: int, db: Session = Depends(get_db),
         count = db.query(AITrainingSample).filter(AITrainingSample.document_id == doc_id).delete()
         cleaned.append(f"{count} training sample(s)")
 
-    # 2. If this is a site plan, clear site_plan_data on the application
+    # 2. Clear extraction data on the application when corresponding document is deleted
     app = db.query(Application).filter(Application.id == app_id).first()
-    if doc_category and "site" in doc_category.lower():
-        if app:
+    if app and doc_category:
+        cat_lower = doc_category.lower()
+        
+        # Site Plan → clear all site plan analysis data
+        if "site" in cat_lower or "plan" in cat_lower:
             app.site_plan_data = None
             app.org_site_plan_data = None
             app.cor_site_plan_data = None
             cleaned.append("site plan analysis data")
+            
+            # Also reset any assessment results that used site plan data
+            from app.models.assessment import AssessmentItem
+            from sqlalchemy import text
+            try:
+                db.execute(text("""
+                    UPDATE case_assessments 
+                    SET ai_result = NULL, ai_confidence = NULL, ai_reason = NULL
+                    WHERE application_id = :app_id AND ai_result IS NOT NULL
+                """), {"app_id": app_id})
+                cleaned.append("assessment AI results (will need re-assessment)")
+            except Exception:
+                pass
+        
+        # Application Form → clear form extraction data
+        if "application" in cat_lower or "form" in cat_lower:
+            app.form_extraction_data = None
+            cleaned.append("application form extraction data")
+        
+        # Certificate of Title → clear title extraction data
+        if "title" in cat_lower or "certificate" in cat_lower:
+            app.title_extraction_data = None
+            cleaned.append("certificate of title extraction data")
 
     # 3. Delete file from disk
     if doc.file_path:
