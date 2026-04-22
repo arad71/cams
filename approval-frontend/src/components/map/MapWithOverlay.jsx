@@ -1429,51 +1429,84 @@ Respond with JSON only:
       }
 
       if (bestEdge) {
-        // 2. Compute inward/outward normals from the road-facing edge
-        const edgeDx = (bestEdge.to[1] - bestEdge.from[1]) * mPerLng;
-        const edgeDy = (bestEdge.to[0] - bestEdge.from[0]) * mPerLat;
-        const edgeAngle = Math.atan2(edgeDx, edgeDy);
+        // ── NEW APPROACH: Find nearest road segment to the road-facing edge, then compute A and B ──
+        // Step 1: Find the nearest road centreline segment to the bestEdge midpoint
+        let roadProjPt = null, roadProjDist = Infinity, roadSegAngle = 0;
+        
+        const findRoadProj = (nameFilter) => {
+          for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+            for (const feat of src.features) {
+              const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
+              if (nameFilter && !roadNamesMatch(nameFilter, rn)) continue;
+              const g = feat.geometry;
+              if (!g || g.type !== "LineString") continue;
+              for (let j = 0; j < g.coordinates.length - 1; j++) {
+                const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
+                const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
+                const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
+                const lenSq = dx * dx + dy * dy;
+                if (lenSq < 1e-10) continue;
+                const t = Math.max(0, Math.min(1, (((bestEdge.midLng - aLng) * mPerLng * dx + (bestEdge.midLat - aLat) * mPerLat * dy) / lenSq)));
+                const projLat = aLat + t * (bLat - aLat);
+                const projLng = aLng + t * (bLng - aLng);
+                const dist = Math.sqrt(((bestEdge.midLat - projLat) * mPerLat) ** 2 + ((bestEdge.midLng - projLng) * mPerLng) ** 2);
+                if (dist < roadProjDist) {
+                  roadProjDist = dist;
+                  roadProjPt = { lat: projLat, lng: projLng };
+                  roadSegAngle = Math.atan2(dx, dy);
+                }
+              }
+            }
+          }
+        };
+        
+        if (crossoverRoad) findRoadProj(crossoverRoad);
+        if (!roadProjPt || roadProjDist >= 50) findRoadProj(null); // any road
+        
+        // Step 2: Compute road perpendicular direction (toward lot centroid)
         const lotCLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
         const lotCLng = lotPoly.reduce((s, p) => s + p[1], 0) / lotPoly.length;
-        const n1 = edgeAngle + Math.PI / 2, n2 = edgeAngle - Math.PI / 2;
-        const t1Lat = bestEdge.midLat + Math.cos(n1) * 5 / mPerLat;
-        const t1Lng = bestEdge.midLng + Math.sin(n1) * 5 / mPerLng;
-        const t2Lat = bestEdge.midLat + Math.cos(n2) * 5 / mPerLat;
-        const t2Lng = bestEdge.midLng + Math.sin(n2) * 5 / mPerLng;
-        const d1 = Math.sqrt(((t1Lat - lotCLat) * mPerLat) ** 2 + ((t1Lng - lotCLng) * mPerLng) ** 2);
-        const d2 = Math.sqrt(((t2Lat - lotCLat) * mPerLat) ** 2 + ((t2Lng - lotCLng) * mPerLng) ** 2);
-        const inward = d1 < d2 ? n1 : n2;
-        const outward = d1 < d2 ? n2 : n1;
-
-        // 3. Position along edge: y metres from constrained side
-        // Determine which end of the road-facing edge is "left" and "right"
-        // by checking which end a person at the crossover sees on their left
-        // when facing the road (outward from lot).
-        //
-        // Method: find the perpendicular (left/right) direction when facing outward.
-        // The outward direction is known. The "left" direction (when facing outward)
-        // is outward rotated 90° clockwise in map space.
-        //
-        // We check which edge endpoint is more in the "left" direction.
         
+        let inward, outward;
+        if (roadProjPt) {
+          // Use road direction for perpendicular
+          const perp1 = roadSegAngle + Math.PI / 2;
+          const perp2 = roadSegAngle - Math.PI / 2;
+          const t1Lat = roadProjPt.lat + Math.cos(perp1) * 5 / mPerLat;
+          const t1Lng = roadProjPt.lng + Math.sin(perp1) * 5 / mPerLng;
+          const t2Lat = roadProjPt.lat + Math.cos(perp2) * 5 / mPerLat;
+          const t2Lng = roadProjPt.lng + Math.sin(perp2) * 5 / mPerLng;
+          const d1 = Math.sqrt(((t1Lat - lotCLat) * mPerLat) ** 2 + ((t1Lng - lotCLng) * mPerLng) ** 2);
+          const d2 = Math.sqrt(((t2Lat - lotCLat) * mPerLat) ** 2 + ((t2Lng - lotCLng) * mPerLng) ** 2);
+          inward = d1 < d2 ? perp1 : perp2;  // toward lot
+          outward = d1 < d2 ? perp2 : perp1;  // toward road
+        } else {
+          // Fallback: use lot edge normal
+          const edgeDx = (bestEdge.to[1] - bestEdge.from[1]) * mPerLng;
+          const edgeDy = (bestEdge.to[0] - bestEdge.from[0]) * mPerLat;
+          const edgeAngle = Math.atan2(edgeDx, edgeDy);
+          const n1 = edgeAngle + Math.PI / 2, n2 = edgeAngle - Math.PI / 2;
+          const t1Lat = bestEdge.midLat + Math.cos(n1) * 5 / mPerLat;
+          const t1Lng = bestEdge.midLng + Math.sin(n1) * 5 / mPerLng;
+          const t2Lat = bestEdge.midLat + Math.cos(n2) * 5 / mPerLat;
+          const t2Lng = bestEdge.midLng + Math.sin(n2) * 5 / mPerLng;
+          const d1 = Math.sqrt(((t1Lat - lotCLat) * mPerLat) ** 2 + ((t1Lng - lotCLng) * mPerLng) ** 2);
+          const d2 = Math.sqrt(((t2Lat - lotCLat) * mPerLat) ** 2 + ((t2Lng - lotCLng) * mPerLng) ** 2);
+          inward = d1 < d2 ? n1 : n2;
+          outward = d1 < d2 ? n2 : n1;
+        }
+
+        // Step 3: Position along edge — y metres from constrained boundary
         const outCos = Math.cos(outward), outSin = Math.sin(outward);
-        // Left direction when facing outward = rotate outward 90° clockwise
-        // In our coordinate system (angle from atan2(dx_lng, dy_lat)):
-        // rotating clockwise by 90° means subtracting π/2
         const leftAngle = outward - Math.PI / 2;
         const leftCos = Math.cos(leftAngle), leftSin = Math.sin(leftAngle);
         
-        // Project both edge endpoints onto the "left" direction
-        // More positive = more to the left (when facing the road)
         const fromOnLeft = (bestEdge.from[0] - bestEdge.midLat) * mPerLat * leftCos +
                            (bestEdge.from[1] - bestEdge.midLng) * mPerLng * leftSin;
         const toOnLeft = (bestEdge.to[0] - bestEdge.midLat) * mPerLat * leftCos +
                          (bestEdge.to[1] - bestEdge.midLng) * mPerLng * leftSin;
-        
-        // The endpoint with higher projection is on the LEFT side
         const fromIsLeft = fromOnLeft > toOnLeft;
         
-        // Determine which end to measure from based on constrained side
         let measureFromEnd, measureToEnd;
         if (constrainedSide === "left") {
           measureFromEnd = fromIsLeft ? bestEdge.from : bestEdge.to;
@@ -1491,73 +1524,71 @@ Respond with JSON only:
         const ptOnEdgeLat = measureFromEnd[0] + (measureToEnd[0] - measureFromEnd[0]) * edgeFrac;
         const ptOnEdgeLng = measureFromEnd[1] + (measureToEnd[1] - measureFromEnd[1]) * edgeFrac;
         
-        console.log(`Point A positioning: constrainedSide=${constrainedSide}, fromIsLeft=${fromIsLeft}, edgeFrac=${edgeFrac.toFixed(2)}, yOffset=${yOffset.toFixed(1)}m, edgeLen=${bestEdge.edgeLen.toFixed(1)}m`);
+        console.log(`Point A: constrained=${constrainedSide}, edgeFrac=${edgeFrac.toFixed(2)}, y=${yOffset.toFixed(1)}m, edgeLen=${bestEdge.edgeLen.toFixed(1)}m, roadDist=${roadProjDist.toFixed(1)}m`);
 
-        // 4. Point A = 2.5m inward from road edge
+        // Step 4: Point A = 2.5m inward from road edge (perpendicular to road)
         const xOffset = 2.5;
         const autoPtA = {
           lat: ptOnEdgeLat + Math.cos(inward) * xOffset / mPerLat,
           lng: ptOnEdgeLng + Math.sin(inward) * xOffset / mPerLng,
         };
 
-        // 5. Point B = project Point A onto nearest road centreline (perpendicular)
-        let autoPtB = null, bestProjDist = Infinity;
-        for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
-          for (const feat of src.features) {
-            const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
-            if (!roadNamesMatch(crossoverRoad, rn)) continue;
-            const g = feat.geometry;
-            if (!g || g.type !== "LineString") continue;
-            for (let j = 0; j < g.coordinates.length - 1; j++) {
-              const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
-              const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
-              const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
-              const lenSq = dx * dx + dy * dy;
-              if (lenSq < 1e-10) continue;
-              const t = Math.max(0, Math.min(1, (((autoPtA.lng - aLng) * mPerLng * dx + (autoPtA.lat - aLat) * mPerLat * dy) / lenSq)));
-              const projLat = aLat + t * (bLat - aLat);
-              const projLng = aLng + t * (bLng - aLng);
-              const dist = Math.sqrt(((autoPtA.lat - projLat) * mPerLat) ** 2 + ((autoPtA.lng - projLng) * mPerLng) ** 2);
-              if (dist < bestProjDist) { bestProjDist = dist; autoPtB = { lat: projLat, lng: projLng }; }
-            }
-          }
-        }
-        // Fallback: project to ANY nearest road
-        if (!autoPtB || bestProjDist >= 30) {
-          for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
-            for (const feat of src.features) {
-              const g = feat.geometry;
-              if (!g || g.type !== "LineString") continue;
-              for (let j = 0; j < g.coordinates.length - 1; j++) {
-                const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
-                const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
-                const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
-                const lenSq = dx * dx + dy * dy;
-                if (lenSq < 1e-10) continue;
-                const t = Math.max(0, Math.min(1, (((autoPtA.lng - aLng) * mPerLng * dx + (autoPtA.lat - aLat) * mPerLat * dy) / lenSq)));
-                const projLat = aLat + t * (bLat - aLat);
-                const projLng = aLng + t * (bLng - aLng);
-                const dist = Math.sqrt(((autoPtA.lat - projLat) * mPerLat) ** 2 + ((autoPtA.lng - projLng) * mPerLng) ** 2);
-                if (dist < bestProjDist) { bestProjDist = dist; autoPtB = { lat: projLat, lng: projLng }; }
+        // Step 5: Point B = perpendicular projection from A onto road (90° to road)
+        // Use outward direction from A to find B
+        let autoPtB;
+        if (roadProjPt) {
+          // Project Point A onto the road in the outward direction
+          // B is where the perpendicular from A meets the road
+          let bProjPt = null, bProjDist = Infinity;
+          const searchForB = (nameFilter) => {
+            for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
+              for (const feat of src.features) {
+                const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
+                if (nameFilter && !roadNamesMatch(nameFilter, rn)) continue;
+                const g = feat.geometry;
+                if (!g || g.type !== "LineString") continue;
+                for (let j = 0; j < g.coordinates.length - 1; j++) {
+                  const aLat = g.coordinates[j][1], aLng = g.coordinates[j][0];
+                  const bLat = g.coordinates[j+1][1], bLng = g.coordinates[j+1][0];
+                  const dx = (bLng - aLng) * mPerLng, dy = (bLat - aLat) * mPerLat;
+                  const lenSq = dx * dx + dy * dy;
+                  if (lenSq < 1e-10) continue;
+                  const t = Math.max(0, Math.min(1, (((autoPtA.lng - aLng) * mPerLng * dx + (autoPtA.lat - aLat) * mPerLat * dy) / lenSq)));
+                  const projLat = aLat + t * (bLat - aLat);
+                  const projLng = aLng + t * (bLng - aLng);
+                  const dist = Math.sqrt(((autoPtA.lat - projLat) * mPerLat) ** 2 + ((autoPtA.lng - projLng) * mPerLng) ** 2);
+                  if (dist < bProjDist) { bProjDist = dist; bProjPt = { lat: projLat, lng: projLng }; }
+                }
               }
             }
+          };
+          if (crossoverRoad) searchForB(crossoverRoad);
+          if (!bProjPt || bProjDist >= 30) searchForB(null);
+          
+          if (bProjPt && bProjDist < 50) {
+            autoPtB = bProjPt;
+          } else {
+            // Place B along outward direction from A
+            autoPtB = {
+              lat: autoPtA.lat + Math.cos(outward) * 8 / mPerLat,
+              lng: autoPtA.lng + Math.sin(outward) * 8 / mPerLng,
+            };
           }
-        }
-        // Final fallback: place B 8m outward from A
-        if (!autoPtB || bestProjDist >= 100) {
-          autoPtB = { lat: autoPtA.lat + Math.cos(outward) * 8 / mPerLat, lng: autoPtA.lng + Math.sin(outward) * 8 / mPerLng };
-          bestProjDist = 8;
-          console.log("Point B fallback: placed 8m outward from Point A");
+        } else {
+          // No road data — place B 8m outward
+          autoPtB = {
+            lat: autoPtA.lat + Math.cos(outward) * 8 / mPerLat,
+            lng: autoPtA.lng + Math.sin(outward) * 8 / mPerLng,
+          };
         }
 
-        // Auto-draw: set points — triangle useEffect fires automatically
         setPtA(autoPtA);
         setPtB(autoPtB);
         setSightPhase("complete");
         setDrawMode(null);
         setMapTool(null);
         setSightConfig(c => ({ ...c, autoDrawn: true }));
-        console.log(`Auto-drew triangle: road=${crossoverRoad}, x=${xOffset}m, y=${yOffset.toFixed(1)}m, constrained=${constrainedSide}, ptBdist=${bestProjDist.toFixed(1)}m`);
+        console.log(`Auto-drew: A→B perpendicular to road, x=${xOffset}m inward, y=${yOffset.toFixed(1)}m along edge`);
         return;
       }
     }
