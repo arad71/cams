@@ -76,6 +76,8 @@ services:
     build: ./approval-frontend
     ports: ["3001:3001"]
     depends_on: [approval-api]
+    volumes:
+      - approval_geojson:/usr/share/nginx/html/geojson
 
 volumes:
   pgdata_applicant:
