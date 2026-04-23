@@ -56,6 +56,33 @@ function getStepStats(app, assessments = []) {
   };
 }
 
+// ─── Collapsible Section ───────────────────────────────
+function CollapsibleSection({ title, icon, defaultOpen = true, badge, color = "#1a3a4a", children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div onClick={() => setOpen(!open)}
+        style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+          background: open ? `${color}08` : "#f8fafb", borderRadius: open ? "10px 10px 0 0" : 10,
+          border: `1px solid ${open ? color + "20" : "#e8ecef"}`,
+          borderBottom: open ? "none" : undefined,
+          cursor: "pointer", transition: "all 0.2s ease", userSelect: "none",
+        }}>
+        <span style={{ fontSize: 12, transition: "transform 0.2s", transform: open ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        {icon && <span style={{ fontSize: 13 }}>{icon}</span>}
+        <span style={{ fontSize: 12, fontWeight: 600, color: open ? color : "#5a6a74", flex: 1 }}>{title}</span>
+        {badge && <span style={{ fontSize: 9, fontWeight: 600, color: "#7a8a94", background: "#f0f3f5", padding: "2px 8px", borderRadius: 10 }}>{badge}</span>}
+      </div>
+      {open && (
+        <div style={{ border: `1px solid ${color}20`, borderTop: "none", borderRadius: "0 0 10px 10px", padding: 1, background: "#fff" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Workflow Stepper — Professional vertical sidebar ─────────────
 function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
   return (
@@ -904,13 +931,13 @@ export default function WorkflowView({
               onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection}
               onGeorefPoints={handleGeorefPlanPoints} />
           )}
-          {/* Step 2: Review — verify AI extractions + assessment checklist side-by-side */}
+          {/* Step 2: Review — verify AI extractions + collapsible assessment checklist */}
           {currentStep === 2 && (
             <>
               <StepExtract app={localApp} currentUser={currentUser}
                 onReload={onDocUpdated} measureCorrections={measureCorrections}
                 onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
-              <div style={{ marginTop: 12 }}>
+              <CollapsibleSection title="Assessment Checklist" icon="📋" defaultOpen={false} badge={stepStats.review?.badge} color="#185FA5">
                 <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
                   globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
                   globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
@@ -922,22 +949,24 @@ export default function WorkflowView({
                   currentUser={currentUser}
                   onMeasureCorrection={onMeasureCorrection}
                   georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
-              </div>
+              </CollapsibleSection>
             </>
           )}
-          {/* Step 3: Analyse — sight triangle, utilities, measure on map */}
+          {/* Step 3: Analyse — collapsible map + sight triangle, utilities, measure */}
           {currentStep === 3 && (
-            <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
-              globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
-              globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
-              globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
-              globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
-              globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
-              globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
-              categories={categories}
-              currentUser={currentUser}
-              onMeasureCorrection={onMeasureCorrection}
-              georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
+            <CollapsibleSection title="Map Analysis" icon="🗺️" defaultOpen={false} badge="Sight · Measure · Utilities" color="#185FA5">
+              <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
+                globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
+                globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
+                globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
+                globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
+                globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
+                globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
+                categories={categories}
+                currentUser={currentUser}
+                onMeasureCorrection={onMeasureCorrection}
+                georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
+            </CollapsibleSection>
           )}
           {/* Step 4: Decision — approve/reject/request info + report */}
           {currentStep === 4 && (
