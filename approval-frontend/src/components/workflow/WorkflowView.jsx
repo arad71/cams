@@ -49,18 +49,17 @@ function getStepStats(app, assessments = []) {
   const status = app.status || "pending_review";
   const isDecided = ["approved", "rejected", "conditionally_approved"].includes(status);
   return {
-    upload: { badge: `${docs.length} doc${docs.length !== 1 ? "s" : ""}`, alert: !hasSitePlan ? "No site plan" : null, done: docs.length >= 2 && hasSitePlan },
-    extract: { badge: aiExtracted ? "Extracted" : "Not run", alert: !aiExtracted && hasSitePlan ? "Ready" : null, done: aiExtracted },
-    assess: { badge: aTotal > 0 ? `${aPass}/${aTotal}` : "—", alert: aFail > 0 ? `${aFail} failed` : null, done: aTotal > 0 && aFail === 0 && aReview === 0 },
-    review: { badge: oDone > 0 ? `${oDone} done` : "Pending", alert: aFail > 0 ? `${aFail} issues` : null, done: aTotal > 0 && oDone === aTotal },
+    submit:   { badge: `${docs.length} doc${docs.length !== 1 ? "s" : ""}`, alert: !hasSitePlan ? "No site plan" : null, done: docs.length >= 1 && hasSitePlan },
+    review:   { badge: aiExtracted ? `${aPass}✓ ${aFail}✗ ${aReview}?` : "Awaiting", alert: aFail > 0 ? `${aFail} failed` : null, done: aTotal > 0 && oDone > 0 },
+    analyse:  { badge: aiExtracted ? "Ready" : "Needs data", alert: null, done: aTotal > 0 && aFail === 0 && aReview === 0 },
     decision: { badge: isDecided ? status.replace(/_/g, " ") : "Pending", alert: null, done: isDecided },
   };
 }
 
-// ─── Workflow Stepper — Vertical sidebar ─────────────
+// ─── Workflow Stepper — Professional vertical sidebar ─────────────
 function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {STEPS.map((step, i) => {
         const done = step.id < completedUpTo;
         const active = step.id === currentStep;
@@ -70,34 +69,58 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
         return (
           <div key={step.id}>
             <div onClick={() => onStepClick(step.id)}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", cursor: "pointer", opacity: future ? 0.5 : 1, borderRadius: 6, background: active ? `${step.color}10` : "transparent", border: active ? `1.5px solid ${step.color}30` : "1.5px solid transparent", transition: "all 0.15s" }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.background = "#f8fafb"; }}
-              onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
+              style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer",
+                borderRadius: 10,
+                background: active ? step.bg : "transparent",
+                border: active ? `1.5px solid ${step.color}25` : "1.5px solid transparent",
+                transition: "all 0.2s ease",
+                opacity: future ? 0.45 : 1,
+              }}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "#f5f7fa"; e.currentTarget.style.transform = "translateX(2px)"; } }}
+              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "none"; } }}>
+              {/* Step circle */}
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <div style={{
-                  width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, fontWeight: T.w.bold,
-                  background: active ? step.color : done ? "#085041" : "#f0f2f5",
-                  color: active ? "#fff" : done ? "#E1F5EE" : "#b0bec5",
-                  border: active ? `2px solid ${step.color}` : done ? "2px solid #085041" : "1.5px solid #d5dde2",
+                  width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: done ? 12 : 13,
+                  fontWeight: T.w.bold,
+                  background: active ? step.color : done ? "#085041" : "#f0f3f5",
+                  color: active || done ? "#fff" : "#b0bec5",
+                  border: "none",
+                  boxShadow: active ? `0 2px 8px ${step.color}40` : done ? "0 1px 3px rgba(8,80,65,0.2)" : "none",
+                  transition: "all 0.2s ease",
                 }}>
-                  {stats?.done ? "✓" : step.id}
+                  {done ? "✓" : step.icon}
                 </div>
-                {hasAlert && <div style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderRadius: "50%", background: "#e74c3c", border: "1.5px solid #fff" }} />}
+                {hasAlert && <div style={{ position: "absolute", top: -1, right: -1, width: 8, height: 8, borderRadius: "50%", background: "#e74c3c", border: "2px solid #fff" }} />}
               </div>
+              {/* Step text */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: active ? 700 : 500, color: active ? step.color : done ? "#085041" : "#7a8a94", lineHeight: 1.2 }}>
+                <div style={{
+                  fontSize: 12, fontWeight: active ? 700 : done ? 600 : 500,
+                  color: active ? step.color : done ? "#085041" : "#95a5a6",
+                  lineHeight: 1.2, letterSpacing: active ? "0.01em" : 0,
+                }}>
                   {step.label}
                 </div>
                 {stats && (
-                  <div style={{ fontSize: 8, color: hasAlert ? "#e74c3c" : stats.done ? "#27ae60" : "#95a5a6", fontWeight: 600, marginTop: 1 }}>
+                  <div style={{
+                    fontSize: 9, marginTop: 2, fontWeight: 600,
+                    color: hasAlert ? "#e74c3c" : stats.done ? "#27ae60" : active ? step.color + "99" : "#b0bec5",
+                  }}>
                     {hasAlert || stats.badge}
                   </div>
                 )}
               </div>
             </div>
+            {/* Connector line */}
             {i < STEPS.length - 1 && (
-              <div style={{ marginLeft: 21, width: 2, height: 6, background: done || active ? "#08504140" : "#e4e9ec" }} />
+              <div style={{
+                marginLeft: 25, width: 2, height: 12,
+                background: done || active ? `linear-gradient(${step.color}60, ${STEPS[i + 1].color}60)` : "#e8ecef",
+                borderRadius: 1,
+              }} />
             )}
           </div>
         );
@@ -840,26 +863,38 @@ export default function WorkflowView({
               );
             })}
           </div>
-          {/* Step header with next suggestion */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "5px 12px", background: stepDef.bg, borderRadius: T.r.md, border: `1px solid ${stepDef.color}20` }}>
-            <div style={{ width: 22, height: 22, borderRadius: "50%", background: stepDef.color, color: stepDef.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: T.w.bold }}>{stepDef.id}</div>
+          {/* Step header */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10, marginBottom: 14,
+            padding: "10px 16px", background: stepDef.bg, borderRadius: 12,
+            border: `1px solid ${stepDef.color}18`,
+            boxShadow: `0 1px 4px ${stepDef.color}08`,
+          }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: "50%", background: stepDef.color, color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 14, fontWeight: T.w.bold,
+              boxShadow: `0 2px 6px ${stepDef.color}30`,
+            }}>{stepDef.icon}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: T.w.bold, color: stepDef.color }}>{stepDef.label}</div>
-              <div style={{ fontSize: 9, color: stepDef.color, opacity: 0.7 }}>{stepDef.desc}</div>
+              <div style={{ fontSize: 14, fontWeight: T.w.bold, color: stepDef.color, letterSpacing: "-0.01em" }}>
+                Step {stepDef.id}: {stepDef.label}
+              </div>
+              <div style={{ fontSize: 10, color: stepDef.color, opacity: 0.65, marginTop: 1 }}>{stepDef.desc}</div>
             </div>
-            {currentStep === 1 && localApp?.documents?.length > 0 && (
-              <button onClick={() => setCurrentStep(2)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#534AB7", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-                Next: Review →
-              </button>
-            )}
-            {currentStep === 2 && (
-              <button onClick={() => setCurrentStep(3)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#185FA5", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-                Next: Analyse →
-              </button>
-            )}
-            {currentStep === 3 && (
-              <button onClick={() => setCurrentStep(4)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#993C1D", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-                Next: Decision →
+            {currentStep < 4 && (
+              <button onClick={() => setCurrentStep(currentStep + 1)}
+                style={{
+                  padding: "6px 14px", borderRadius: 8, border: "none",
+                  background: STEPS[currentStep]?.color || "#333",
+                  color: "#fff", fontSize: 10, fontWeight: T.w.bold,
+                  cursor: "pointer", fontFamily: "inherit",
+                  boxShadow: `0 2px 6px ${STEPS[currentStep]?.color || "#333"}30`,
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "none"}>
+                {STEPS[currentStep]?.label || "Next"} →
               </button>
             )}
           </div>
