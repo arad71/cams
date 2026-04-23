@@ -931,13 +931,27 @@ export default function WorkflowView({
               onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection}
               onGeorefPoints={handleGeorefPlanPoints} />
           )}
-          {/* Step 2: Review — verify AI extractions + collapsible assessment checklist */}
+          {/* Step 2: Review — extraction expanded, map and checklist as separate collapsibles */}
           {currentStep === 2 && (
             <>
               <StepExtract app={localApp} currentUser={currentUser}
                 onReload={onDocUpdated} measureCorrections={measureCorrections}
                 onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
-              <CollapsibleSection title="Assessment Checklist" icon="📋" defaultOpen={false} badge={stepStats.review?.badge} color="#185FA5">
+              <CollapsibleSection title="Assessment Checklist" icon="📋" defaultOpen={false} badge={stepStats.review?.badge} color="#085041">
+                <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
+                  globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
+                  globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
+                  globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
+                  globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
+                  globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
+                  globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
+                  categories={categories}
+                  currentUser={currentUser}
+                  onMeasureCorrection={onMeasureCorrection}
+                  georefData={georefData} onGeorefDone={() => setGeorefData(null)}
+                  showChecklistOnly={true} />
+              </CollapsibleSection>
+              <CollapsibleSection title="Map View" icon="🗺️" defaultOpen={false} badge="View lot on map" color="#185FA5">
                 <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
                   globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
                   globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
@@ -952,21 +966,37 @@ export default function WorkflowView({
               </CollapsibleSection>
             </>
           )}
-          {/* Step 3: Analyse — collapsible map + sight triangle, utilities, measure */}
+          {/* Step 3: Analyse — separate collapsible sections for map and checklist */}
           {currentStep === 3 && (
-            <CollapsibleSection title="Map Analysis" icon="🗺️" defaultOpen={false} badge="Sight · Measure · Utilities" color="#185FA5">
-              <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
-                globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
-                globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
-                globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
-                globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
-                globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
-                globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
-                categories={categories}
-                currentUser={currentUser}
-                onMeasureCorrection={onMeasureCorrection}
-                georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
-            </CollapsibleSection>
+            <>
+              <CollapsibleSection title="Map Analysis" icon="🗺️" defaultOpen={false} badge="Sight · Measure · Utilities" color="#185FA5">
+                <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
+                  globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
+                  globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
+                  globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
+                  globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
+                  globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
+                  globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
+                  categories={categories}
+                  currentUser={currentUser}
+                  onMeasureCorrection={onMeasureCorrection}
+                  georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
+              </CollapsibleSection>
+              <CollapsibleSection title="Assessment Checklist" icon="📋" defaultOpen={false} badge={stepStats.review?.badge} color="#085041">
+                <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
+                  globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
+                  globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
+                  globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
+                  globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
+                  globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
+                  globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
+                  categories={categories}
+                  currentUser={currentUser}
+                  onMeasureCorrection={onMeasureCorrection}
+                  georefData={georefData} onGeorefDone={() => setGeorefData(null)}
+                  showChecklistOnly={true} />
+              </CollapsibleSection>
+            </>
           )}
           {/* Step 4: Decision — approve/reject/request info + report */}
           {currentStep === 4 && (
