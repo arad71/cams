@@ -129,6 +129,53 @@ async def upload_document(
             except Exception as e:
                 ai_status = f"error: {e}"
                 print(f"  ⚠ Auto site plan AI failed: {e}")
+    
+    # Auto extract for Application Form and Certificate of Title
+    elif "application" in category.lower() or "form" in category.lower():
+        try:
+            from app.services.local_extractor import extract_local
+            local_result = extract_local(str(dest_path), "application_form")
+            if local_result and local_result.get("fields"):
+                app.form_extraction_data = local_result["fields"]
+                db.commit()
+                ai_status = "form_extracted"
+                print(f"  ✅ Auto-extracted application form: {len(local_result['fields'])} fields")
+        except Exception as e:
+            print(f"  ⚠ Auto form extraction failed: {e}")
+    
+    elif "title" in category.lower() or "certificate" in category.lower():
+        try:
+            from app.services.local_extractor import extract_local
+            local_result = extract_local(str(dest_path), "certificate_of_title")
+            if local_result and local_result.get("fields"):
+                app.title_extraction_data = local_result["fields"]
+                db.commit()
+                ai_status = "title_extracted"
+                print(f"  ✅ Auto-extracted certificate of title: {len(local_result['fields'])} fields")
+        except Exception as e:
+            print(f"  ⚠ Auto title extraction failed: {e}")
+    
+    # Auto-assess after any extraction
+    if ai_status and ai_status in ("complete", "form_extracted", "title_extracted"):
+        try:
+            from app.api.assessments import _ensure_case_rows, _auto_assess_item
+            from app.models.assessment import CaseAssessment, AssessmentItem
+            _ensure_case_rows(app_id, db)
+            from sqlalchemy.orm import joinedload as jl
+            cases = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
+            assessed = 0
+            for ca in cases:
+                if ca.item and not ca.officer_result:
+                    ai_result, confidence, reason = _auto_assess_item(ca.item.code, app, db)
+                    if ai_result:
+                        ca.ai_result = ai_result
+                        ca.ai_confidence = confidence
+                        ca.ai_reason = reason
+                        assessed += 1
+            db.commit()
+            print(f"  ✅ Auto-assessed {assessed} items after {category} upload")
+        except Exception as e:
+            print(f"  ⚠ Auto-assess after upload failed: {e}")
 
     from app.services.audit import log_audit
     log_audit(db=db, action="upload", entity_type="document", user=current_user, entity_id=str(doc.id), entity_ref=app.ref_number, description=f"Uploaded {safe_name} ({size_str}) to {app.ref_number}, category={category}")

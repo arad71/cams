@@ -11,22 +11,21 @@ import MobileInspection from '../ui/MobileInspection';
 
 // ─── Workflow Steps ─────────────────────────────────────
 const STEPS = [
-  { id: 1, key: "upload",   label: "Upload",   color: "#085041", bg: "#E1F5EE", desc: "Upload documents and create case" },
-  { id: 2, key: "extract",  label: "Extract",   color: "#534AB7", bg: "#EEEDFE", desc: "AI extraction and officer verification" },
-  { id: 3, key: "assess",   label: "Assess",    color: "#185FA5", bg: "#E6F1FB", desc: "Assessment checklist — AI + officer decisions" },
-  { id: 4, key: "review",   label: "Review",    color: "#854F0B", bg: "#FAEEDA", desc: "Manager review and sign-off" },
-  { id: 5, key: "decision", label: "Decision",  color: "#993C1D", bg: "#FAECE7", desc: "Final decision and notification" },
+  { id: 1, key: "submit",   label: "Submit",   icon: "📋", color: "#085041", bg: "#E1F5EE", desc: "Documents uploaded · AI extraction complete · Auto-assessed" },
+  { id: 2, key: "review",   label: "Review",   icon: "🔍", color: "#534AB7", bg: "#EEEDFE", desc: "Verify AI extractions · Correct errors · Accept/reject items" },
+  { id: 3, key: "analyse",  label: "Analyse",  icon: "📐", color: "#185FA5", bg: "#E6F1FB", desc: "Sight triangle · Utility clearance · Measure on map" },
+  { id: 4, key: "decision", label: "Decision", icon: "✅", color: "#993C1D", bg: "#FAECE7", desc: "Approve · Reject · Request information · Generate report" },
 ];
 
 function statusToStep(status) {
   switch (status) {
     case "pending_review": return 1;
-    case "under_assessment": return 3;
-    case "referral_pending": return 4;
+    case "under_assessment": return 2;
+    case "referral_pending": return 3;
     case "inspection_required": return 3;
-    case "approved": return 5;
-    case "rejected": return 5;
-    case "on_hold": return 4;
+    case "approved": return 4;
+    case "rejected": return 4;
+    case "on_hold": return 2;
     default: return 1;
   }
 }
@@ -675,7 +674,7 @@ export default function WorkflowView({
   const [georefData, setGeorefData] = useState(null); // {planPts, imgUrl, imgW, imgH}
   const [assessments, setAssessments] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
-  const [showMap, setShowMap] = useState(currentStep === 3);
+  const [showMap, setShowMap] = useState(currentStep === 2 || currentStep === 3);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -848,37 +847,50 @@ export default function WorkflowView({
               <div style={{ fontSize: 12, fontWeight: T.w.bold, color: stepDef.color }}>{stepDef.label}</div>
               <div style={{ fontSize: 9, color: stepDef.color, opacity: 0.7 }}>{stepDef.desc}</div>
             </div>
-            {currentStep === 1 && stepStats.upload.done && !stepStats.extract.done && (
+            {currentStep === 1 && localApp?.documents?.length > 0 && (
               <button onClick={() => setCurrentStep(2)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#534AB7", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-                Next: Extract →
-              </button>
-            )}
-            {currentStep === 2 && stepStats.extract.done && (
-              <button onClick={() => setCurrentStep(3)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#185FA5", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
-                Next: Assess →
-              </button>
-            )}
-            {currentStep === 3 && stepStats.assess.done && (
-              <button onClick={() => setCurrentStep(4)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#854F0B", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
                 Next: Review →
               </button>
             )}
-            {currentStep === 4 && stepStats.review.done && (
-              <button onClick={() => setCurrentStep(5)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#993C1D", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+            {currentStep === 2 && (
+              <button onClick={() => setCurrentStep(3)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#185FA5", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                Next: Analyse →
+              </button>
+            )}
+            {currentStep === 3 && (
+              <button onClick={() => setCurrentStep(4)} style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "none", background: "#993C1D", color: "#fff", fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
                 Next: Decision →
               </button>
             )}
           </div>
+          {/* Step 1: Submit — upload docs, auto-extract, auto-assess */}
           {currentStep === 1 && (
             <StepUpload app={localApp} currentUser={currentUser}
               onDocUpdated={onDocUpdated} onMeasureCorrection={onMeasureCorrection}
               onGeorefPoints={handleGeorefPlanPoints} />
           )}
+          {/* Step 2: Review — verify AI extractions + assessment checklist side-by-side */}
           {currentStep === 2 && (
-            <StepExtract app={localApp} currentUser={currentUser}
-              onReload={onDocUpdated} measureCorrections={measureCorrections}
-              onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
+            <>
+              <StepExtract app={localApp} currentUser={currentUser}
+                onReload={onDocUpdated} measureCorrections={measureCorrections}
+                onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
+              <div style={{ marginTop: 12 }}>
+                <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
+                  globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
+                  globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
+                  globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
+                  globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
+                  globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
+                  globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
+                  categories={categories}
+                  currentUser={currentUser}
+                  onMeasureCorrection={onMeasureCorrection}
+                  georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
+              </div>
+            </>
           )}
+          {/* Step 3: Analyse — sight triangle, utilities, measure on map */}
           {currentStep === 3 && (
             <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
               globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
@@ -892,10 +904,8 @@ export default function WorkflowView({
               onMeasureCorrection={onMeasureCorrection}
               georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
           )}
+          {/* Step 4: Decision — approve/reject/request info + report */}
           {currentStep === 4 && (
-            <StepReview app={localApp} categories={categories} currentUser={currentUser} />
-          )}
-          {currentStep === 5 && (
             <StepDecision app={localApp} currentUser={currentUser} categories={categories}
               reloadApp={reloadApp} setLocalApp={setLocalApp} />
           )}
