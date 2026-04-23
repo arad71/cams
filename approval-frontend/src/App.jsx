@@ -368,14 +368,25 @@ export default function CouncilApprovalPortal() {
       {ChangePasswordModal}
       <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} />
       <div style={{ flex: "1 1 0%", padding: "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, padding: "6px 12px", background: `${(ROLE_CONFIG[role]||{color:"#7a8a94"}).color}08`, borderRadius: 8, border: `1px solid ${(ROLE_CONFIG[role]||{color:"#7a8a94"}).color}20` }}>
-          <span style={{ fontSize: 11, color: (ROLE_CONFIG[role]||{color:"#7a8a94"}).color, fontWeight: 600 }}>{(ROLE_CONFIG[role]||{icon:"👤"}).icon} {currentUser.name} — {(ROLE_CONFIG[role]||{label:role}).label}</span>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14,
+          padding: "8px 14px", background: "#fff", borderRadius: 12,
+          border: `1px solid ${T.c.borderLight}`,
+          boxShadow: "0 1px 3px rgba(26,58,74,0.04)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: (ROLE_CONFIG[role]||{color:"#7a8a94"}).color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", fontWeight: 700 }}>{currentUser?.initials || "?"}</div>
+            <div>
+              <span style={{ fontSize: 12, color: T.c.text, fontWeight: 600 }}>{currentUser.name}</span>
+              <span style={{ fontSize: 10, color: T.c.textMuted, marginLeft: 6 }}>{(ROLE_CONFIG[role]||{label:role}).label}</span>
+            </div>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {role === "engineer" && <span style={{ fontSize: 10, color: "#7a8a94" }}>{visibleApps.length} assigned case{visibleApps.length !== 1 ? "s" : ""}</span>}
+            {role === "engineer" && <span style={{ fontSize: 10, color: "#7a8a94", background: "#f5f7fa", padding: "3px 8px", borderRadius: 6 }}>{visibleApps.length} case{visibleApps.length !== 1 ? "s" : ""}</span>}
           </div>
         </div>
         {renderView()}
-        <div style={{ marginTop: 20, padding: "12px 0", borderTop: "1px solid #e4e9ec", textAlign: "center", fontSize: 10, color: "#95a5a6" }}>
+        <div style={{ marginTop: 24, padding: "10px 0", borderTop: "1px solid #eef1f3", textAlign: "center", fontSize: 9, color: "#b8c4cc", letterSpacing: "0.02em" }}>
           {S.copyright} · {S.systemShort} v{S.version}
         </div>
       </div>

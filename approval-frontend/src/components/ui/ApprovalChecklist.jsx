@@ -134,22 +134,23 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
   if (loading) return <div style={{ padding: 20, color: T.c.textSecondary, textAlign: "center" }}>Loading assessments...</div>;
 
   return (
-    <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
+    <div style={{ background: T.c.card, borderRadius: 12, border: `1px solid ${T.c.borderLight}`, overflow: "hidden", boxShadow: "0 1px 3px rgba(26,58,74,0.04)" }}>
       {/* Header */}
-      <div style={{ padding: "8px 16px", borderBottom: `1px solid ${T.c.borderLight}`, background: T.c.bgAlt }}>
+      <div style={{ padding: "10px 16px", borderBottom: `1px solid ${T.c.borderLight}`, background: "#f8fafb" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 14 }}>📋</span>
-            <span style={{ fontWeight: T.w.black, fontSize: 13, color: T.c.text }}>Assessment Checklist</span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: T.c.text, letterSpacing: "-0.01em" }}>Assessment Checklist</span>
+            <span style={{ fontSize: 9, color: T.c.textMuted, fontWeight: 500 }}>{stats.total} items</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <button onClick={runAutoAssess} disabled={saving === "auto"}
-              style={{ padding: "4px 10px", borderRadius: T.r.sm, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: T.c.white, fontWeight: T.w.bold, fontSize: 9, cursor: saving === "auto" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "auto" ? 0.6 : 1 }}>
-              {saving === "auto" ? "⟳ ..." : "🤖 Auto-Assess"}
+              style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff", fontWeight: 600, fontSize: 10, cursor: saving === "auto" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "auto" ? 0.6 : 1, boxShadow: "0 1px 4px rgba(26,188,156,0.25)", transition: "all 0.15s" }}>
+              {saving === "auto" ? "⟳ Running..." : "🤖 Auto-Assess"}
             </button>
             {stats.pass > 0 && stats.oPending > 0 && (
               <button onClick={acceptAllAIPass} disabled={saving === "acceptAll"}
-                style={{ padding: "4px 10px", borderRadius: T.r.sm, border: "none", background: "#27ae60", color: T.c.white, fontWeight: T.w.bold, fontSize: 9, cursor: saving === "acceptAll" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "acceptAll" ? 0.6 : 1 }}>
+                style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#27ae60", color: "#fff", fontWeight: 600, fontSize: 10, cursor: saving === "acceptAll" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "acceptAll" ? 0.6 : 1, boxShadow: "0 1px 4px rgba(39,174,96,0.25)" }}>
                 {saving === "acceptAll" ? "⟳ ..." : `✓ Accept ${stats.pass} AI Pass`}
               </button>
             )}
@@ -158,16 +159,16 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
       </div>
 
       {/* Progress bar + stats */}
-      <div style={{ padding: "6px 16px", borderBottom: `1px solid ${T.c.borderLight}`, background: "#fafcfd" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
-          <div style={{ display: "flex", gap: 8, fontSize: 9, fontWeight: T.w.bold }}>
-            <span style={{ color: "#27ae60" }}>{stats.pass} pass</span>
-            <span style={{ color: "#e67e22" }}>{stats.review} review</span>
-            <span style={{ color: "#c0392b" }}>{stats.fail} fail</span>
+      <div style={{ padding: "8px 16px", borderBottom: `1px solid ${T.c.borderLight}`, background: "#fdfdfe" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <div style={{ display: "flex", gap: 10, fontSize: 10, fontWeight: 600 }}>
+            <span style={{ color: "#27ae60" }}>● {stats.pass} pass</span>
+            <span style={{ color: "#e67e22" }}>● {stats.review} review</span>
+            <span style={{ color: "#c0392b" }}>● {stats.fail} fail</span>
           </div>
-          <span style={{ fontSize: 9, fontWeight: T.w.bold, color: allPassed ? "#27ae60" : "#1a3a4a" }}>Officer: {oDecided}/{stats.total}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: allPassed ? "#27ae60" : T.c.textSecondary }}>Officer: {oDecided}/{stats.total}</span>
         </div>
-        <div style={{ height: 6, background: T.c.borderLight, borderRadius: 3, overflow: "hidden", display: "flex" }}>
+        <div style={{ height: 5, background: "#eef1f3", borderRadius: 5, overflow: "hidden", display: "flex" }}>
           <div style={{ width: `${(stats.oApproved / Math.max(stats.total, 1)) * 100}%`, background: "#27ae60", transition: "width 0.3s" }} />
           <div style={{ width: `${(stats.oNA / Math.max(stats.total, 1)) * 100}%`, background: "#7f8c8d", transition: "width 0.3s" }} />
           <div style={{ width: `${(stats.oReferred / Math.max(stats.total, 1)) * 100}%`, background: "#8e44ad", transition: "width 0.3s" }} />

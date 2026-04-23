@@ -1,11 +1,11 @@
 import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from '../../data/constants';
 import { T } from '../../styles/tokens';
 
-const sidebarBg = "#0c1f2e";
-const sidebarBorder = "rgba(255,255,255,0.06)";
+const sidebarBg = "#0b1a26";
+const sidebarBorder = "rgba(255,255,255,0.05)";
 const activeColor = T.c.accent;
-const textDim = "#8da4b4";
-const textDimmer = "#5d7a8c";
+const textDim = "#8ba3b5";
+const textDimmer = "#506878";
 
 export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {} }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
@@ -59,18 +59,19 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
             <button key={item.id} onClick={() => setActiveView(item.id)} title={item.label}
               style={{
                 width: "100%", display: "flex", alignItems: "center",
-                gap: collapsed ? 0 : T.s.sm,
-                padding: collapsed ? `${T.s.sm + 1}px 0` : `${T.s.sm}px ${T.s.md}px`,
-                borderRadius: T.r.md, border: "none", cursor: "pointer", marginBottom: 2,
-                background: act ? `${activeColor}18` : "transparent",
+                gap: collapsed ? 0 : 10,
+                padding: collapsed ? `${T.s.sm + 1}px 0` : `8px 12px`,
+                borderRadius: 8, border: "none", cursor: "pointer", marginBottom: 2,
+                background: act ? `${activeColor}15` : "transparent",
                 color: act ? activeColor : textDim,
-                fontSize: T.f.md, fontWeight: act ? T.w.bold : T.w.medium,
+                fontSize: 12, fontWeight: act ? 600 : 400,
                 fontFamily: "inherit", textAlign: "left",
                 justifyContent: collapsed ? "center" : "flex-start",
-                transition: T.tr.fast,
+                transition: "all 0.15s ease",
+                letterSpacing: act ? "0.01em" : 0,
               }}
-              onMouseEnter={e => { if (!act) e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-              onMouseLeave={e => { if (!act) e.currentTarget.style.background = "transparent"; }}>
+              onMouseEnter={e => { if (!act) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "#b0c8d8"; } }}
+              onMouseLeave={e => { if (!act) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = textDim; } }}>
               <span style={{ fontSize: 15, width: 22, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
               {!collapsed && <span style={{ flex: 1, whiteSpace: "nowrap" }}>{item.label}</span>}
               {!collapsed && item.badge > 0 && (
