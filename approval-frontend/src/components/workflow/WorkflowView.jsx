@@ -435,21 +435,25 @@ function StepExtract({ app, currentUser, onReload, measureCorrections, onMeasure
   );
 }
 
-function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, globalGasMainsData, categories, currentUser, onMeasureCorrection, georefData, onGeorefDone }) {
+function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, globalGasMainsData, categories, currentUser, onMeasureCorrection, georefData, onGeorefDone, mode = "both" }) {
   return (
     <div>
-      <div style={{ marginBottom: 12 }}>
-        <MapWithOverlay app={app} apps={apps} onSelectApp={onSelectApp}
-          speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork}
-          contoursData={globalContoursData} urbanForestData={globalUrbanForestData}
-          drainagePipesData={globalDrainagePipesData} drainagePitsData={globalDrainagePitsData}
-          waterPipesData={globalWaterPipesData}
-          powerBuriedData={globalPowerBuriedData} powerOverheadData={globalPowerOverheadData}
-          powerStructuresData={globalPowerStructuresData} gasMainsData={globalGasMainsData}
-          onMeasureCorrection={onMeasureCorrection}
-          georefData={georefData} onGeorefDone={onGeorefDone} />
-      </div>
-      <ApprovalChecklist app={app} categories={categories} currentUser={currentUser} />
+      {(mode === "both" || mode === "map") && (
+        <div style={{ marginBottom: mode === "both" ? 12 : 0 }}>
+          <MapWithOverlay app={app} apps={apps} onSelectApp={onSelectApp}
+            speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork}
+            contoursData={globalContoursData} urbanForestData={globalUrbanForestData}
+            drainagePipesData={globalDrainagePipesData} drainagePitsData={globalDrainagePitsData}
+            waterPipesData={globalWaterPipesData}
+            powerBuriedData={globalPowerBuriedData} powerOverheadData={globalPowerOverheadData}
+            powerStructuresData={globalPowerStructuresData} gasMainsData={globalGasMainsData}
+            onMeasureCorrection={onMeasureCorrection}
+            georefData={georefData} onGeorefDone={onGeorefDone} />
+        </div>
+      )}
+      {(mode === "both" || mode === "checklist") && (
+        <ApprovalChecklist app={app} categories={categories} currentUser={currentUser} />
+      )}
     </div>
   );
 }
@@ -949,7 +953,7 @@ export default function WorkflowView({
                   currentUser={currentUser}
                   onMeasureCorrection={onMeasureCorrection}
                   georefData={georefData} onGeorefDone={() => setGeorefData(null)}
-                  showChecklistOnly={true} />
+                  mode="checklist" />
               </CollapsibleSection>
               <CollapsibleSection title="Map View" icon="🗺️" defaultOpen={false} badge="View lot on map" color="#185FA5">
                 <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
@@ -962,7 +966,8 @@ export default function WorkflowView({
                   categories={categories}
                   currentUser={currentUser}
                   onMeasureCorrection={onMeasureCorrection}
-                  georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
+                  georefData={georefData} onGeorefDone={() => setGeorefData(null)}
+                  mode="map" />
               </CollapsibleSection>
             </>
           )}
@@ -980,7 +985,8 @@ export default function WorkflowView({
                   categories={categories}
                   currentUser={currentUser}
                   onMeasureCorrection={onMeasureCorrection}
-                  georefData={georefData} onGeorefDone={() => setGeorefData(null)} />
+                  georefData={georefData} onGeorefDone={() => setGeorefData(null)}
+                  mode="map" />
               </CollapsibleSection>
               <CollapsibleSection title="Assessment Checklist" icon="📋" defaultOpen={false} badge={stepStats.review?.badge} color="#085041">
                 <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
@@ -994,7 +1000,7 @@ export default function WorkflowView({
                   currentUser={currentUser}
                   onMeasureCorrection={onMeasureCorrection}
                   georefData={georefData} onGeorefDone={() => setGeorefData(null)}
-                  showChecklistOnly={true} />
+                  mode="checklist" />
               </CollapsibleSection>
             </>
           )}
