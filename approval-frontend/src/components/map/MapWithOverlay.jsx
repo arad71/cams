@@ -1928,7 +1928,12 @@ Respond with JSON only:
                         <span style={{ flex: 1, fontWeight: showGeorefLayer ? 600 : 400, color: showGeorefLayer ? "#e67e22" : "#5a6a74" }}>Site Plan Overlay</span>
                       </div>
                     )}
-                    {/* Site Plan Features overlay (AI-extracted GeoJSON) */}
+                  </>
+                )}
+                {/* Site Plan Features overlay — always visible if extraction data exists */}
+                {(app?.site_plan_data || app?.cor_site_plan_data) && (
+                  <>
+                    <div style={{ height: 1, background: T.c.borderLight, margin: "4px 0" }} />
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px" }}>
                       <div onClick={() => { if (spFeatures) setShowSpFeatures(!showSpFeatures); else loadSpFeatures(); }}
                         style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11, flex: 1 }}
