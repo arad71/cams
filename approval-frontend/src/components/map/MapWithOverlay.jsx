@@ -841,6 +841,7 @@ Respond with JSON only:
 
   // Auto-detect road classification from map data on load
   const roadClassSetRef = useRef(false);
+  const utilClearanceSavedRef = useRef(false);
   useEffect(() => {
     if (roadClassSetRef.current) return;
     if (!lotPoly || lotPoly.length < 4) return;
@@ -2425,6 +2426,22 @@ Respond with JSON only:
                   { label: "🔥 Gas", key: "gas", aiConflict: aiUtil.gas_conflict, aiField: "utilities.gas_conflict", mapHit: mapResults.gas, minClear: 0.6 },
                   { label: "💧 Drain", key: "drainage", aiConflict: aiUtil.drainage_conflict, aiField: "utilities.drainage_conflict", mapHit: mapResults.drainage, minClear: 0.5 },
                 ];
+
+                // Auto-save map-computed utility clearances to site plan data (once)
+                if (onMeasureCorrection && Object.keys(mapResults).length > 0 && !utilClearanceSavedRef.current) {
+                  utilClearanceSavedRef.current = true;
+                  for (const row of rows) {
+                    if (row.mapHit && row.mapHit.distance != null) {
+                      const isConflict = row.mapHit.distance < row.minClear;
+                      const conflictField = row.aiField;
+                      const distField = row.aiField.replace("_conflict", "_clearance_m");
+                      onMeasureCorrection(distField, String(row.mapHit.distance.toFixed(1)), '');
+                      onMeasureCorrection(conflictField, String(isConflict), '');
+                    }
+                  }
+                  console.log("Auto-saved utility clearances from GIS data:", Object.entries(mapResults).map(([k,v]) => `${k}: ${v.distance?.toFixed(1)}m`).join(", "));
+                }
+
                 const hasAny = rows.some(r => r.aiConflict != null || r.mapHit);
                 if (!hasAny) return <div style={{ fontSize: 9, color: "#7a8a94", fontStyle: "italic" }}>No utility data available. Enable utility layers and ensure crossover data is extracted.</div>;
 

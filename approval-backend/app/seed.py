@@ -483,17 +483,25 @@ def run_seed():
                 ("sp", "utilities.power_conflict", "false"),
                 ("sp", "utilities.power_line_shown", "exists"),
             ], "pass", 0.95, "Power shown on plan with no conflict")
+            R("power_clear",         4, "sp",  "utilities.power_clearance_m", "gte", "0.6", "pass", 0.95, "Power clearance {field_value}m ≥ 0.6m — from GIS data")
             R("power_clear",         5, "sp",  "utilities.power_conflict", "false", None, "pass", 0.9, "No power conflicts")
             R("power_clear",         6, "sp",  "utilities.power_conflict", "true", None, "fail", 0.9, "Power conflict detected")
+            R("power_clear",         7, "sp",  "utilities.power_clearance_m", "lt", "0.6", "fail", 0.9, "Power clearance {field_value}m < 0.6m minimum")
             R("power_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Power clearance to verify")
+            R("water_clear",         4, "sp",  "utilities.water_clearance_m", "gte", "0.5", "pass", 0.95, "Water clearance {field_value}m ≥ 0.5m — from GIS data")
             R("water_clear",         5, "sp",  "utilities.water_conflict", "false", None, "pass", 0.9, "No water conflicts")
             R("water_clear",         6, "sp",  "utilities.water_conflict", "true", None, "fail", 0.9, "Water conflict")
+            R("water_clear",         7, "sp",  "utilities.water_clearance_m", "lt", "0.5", "fail", 0.9, "Water clearance {field_value}m < 0.5m minimum")
             R("water_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Water clearance to verify")
+            R("gas_clear",           4, "sp",  "utilities.gas_clearance_m", "gte", "0.6", "pass", 0.95, "Gas clearance {field_value}m ≥ 0.6m — from GIS data")
             R("gas_clear",           5, "sp",  "utilities.gas_conflict", "false", None, "pass", 0.9, "No gas conflicts")
             R("gas_clear",           6, "sp",  "utilities.gas_conflict", "true", None, "fail", 0.9, "Gas conflict")
+            R("gas_clear",           7, "sp",  "utilities.gas_clearance_m", "lt", "0.6", "fail", 0.9, "Gas clearance {field_value}m < 0.6m minimum")
             R("gas_clear",           9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Gas clearance to verify")
+            R("telco_clear",         4, "sp",  "utilities.telco_clearance_m", "gte", "0.3", "pass", 0.95, "Telco clearance {field_value}m ≥ 0.3m — from GIS data")
             R("telco_clear",         5, "sp",  "utilities.telco_conflict", "false", None, "pass", 0.9, "No telco conflicts")
             R("telco_clear",         6, "sp",  "utilities.telco_conflict", "true", None, "fail", 0.9, "Telco conflict")
+            R("telco_clear",         7, "sp",  "utilities.telco_clearance_m", "lt", "0.3", "fail", 0.9, "Telco clearance {field_value}m < 0.3m minimum")
             R("telco_clear",         9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Telco clearance to verify")
 
             # ── Documentation — check uploaded documents first ──
