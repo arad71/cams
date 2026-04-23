@@ -130,8 +130,8 @@ async def upload_document(
                 ai_status = f"error: {e}"
                 print(f"  ⚠ Auto site plan AI failed: {e}")
     
-    # Auto extract for Application Form and Certificate of Title
-    elif "application" in category.lower() or "form" in category.lower():
+    # Auto extract for Application Form (crossover form only, not Building Application)
+    elif category == "Application Form":
         try:
             from app.services.local_extractor import extract_local
             local_result = extract_local(str(dest_path), "application_form")
@@ -143,7 +143,8 @@ async def upload_document(
         except Exception as e:
             print(f"  ⚠ Auto form extraction failed: {e}")
     
-    elif "title" in category.lower() or "certificate" in category.lower():
+    # Auto extract Certificate of Title
+    elif category == "Certificate of Title":
         try:
             from app.services.local_extractor import extract_local
             local_result = extract_local(str(dest_path), "certificate_of_title")
