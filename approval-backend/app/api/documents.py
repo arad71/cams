@@ -114,18 +114,28 @@ async def upload_document(
     db.refresh(doc)
 
     # Auto AI analysis for site plan uploads (if enabled in settings)
+    ai_status = None
     if "site" in category.lower() or "plan" in category.lower():
         from app.services.ai_config import get_ai_config
         ai_cfg = get_ai_config(db)
         if ai_cfg.auto_analyse:
             try:
-                _run_site_plan_ai(app, doc, file_bytes, db, ai_cfg)
+                result = _run_site_plan_ai(app, doc, file_bytes, db, ai_cfg)
+                if result and result.get("skipped"):
+                    ai_status = result.get("reason", "skipped")
+                    print(f"  ⚠ Site plan AI skipped: {ai_status}")
+                else:
+                    ai_status = "complete"
             except Exception as e:
+                ai_status = f"error: {e}"
                 print(f"  ⚠ Auto site plan AI failed: {e}")
 
     from app.services.audit import log_audit
     log_audit(db=db, action="upload", entity_type="document", user=current_user, entity_id=str(doc.id), entity_ref=app.ref_number, description=f"Uploaded {safe_name} ({size_str}) to {app.ref_number}, category={category}")
-    return _build_doc_out(doc)
+    out = _build_doc_out(doc)
+    if ai_status:
+        out["ai_status"] = ai_status
+    return out
 
 
 @router.post("/{app_id}/documents/{doc_id}/extract-siteplan")
@@ -493,13 +503,18 @@ def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
     # ── AI mode (or fallback) ──
     if findings is None:
         if not settings.ANTHROPIC_API_KEY:
-            return
-        findings = analyse_document(
-            file_bytes=file_bytes,
-            filename=doc.name,
-            api_key=settings.ANTHROPIC_API_KEY,
-            model=ai_cfg.claude_model,
-        )
+            print(f"  ⚠ ANTHROPIC_API_KEY not configured — skipping AI site plan analysis for {doc.name}")
+            return {"skipped": True, "reason": "ANTHROPIC_API_KEY not configured"}
+        try:
+            findings = analyse_document(
+                file_bytes=file_bytes,
+                filename=doc.name,
+                api_key=settings.ANTHROPIC_API_KEY,
+                model=ai_cfg.claude_model,
+            )
+        except Exception as e:
+            print(f"  ⚠ AI analysis error for {doc.name}: {e}")
+            return {"skipped": True, "reason": str(e)}
 
     if findings and "error" not in findings:
         clean = {k: v for k, v in findings.items() if not k.startswith("_")}
