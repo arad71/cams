@@ -11,6 +11,7 @@ export const LEAFLET_JS = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/
 export const TILE_LAYERS = {
   street: { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", attr: '&copy; OpenStreetMap', label: "Street" },
   satellite: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", attr: '&copy; Esri', label: "Satellite" },
+  hybrid: { url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", attr: '&copy; Google', label: "Hybrid" },
   topo: { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", attr: '&copy; OpenTopoMap', label: "Topo" },
   detail: { url: "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}", attr: '&copy; Google', label: "Detail" },
 };

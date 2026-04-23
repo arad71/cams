@@ -145,6 +145,9 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showSpFeatures, setShowSpFeatures] = useState(true);
   const [spFeaturesLoading, setSpFeaturesLoading] = useState(false);
 
+  // Street View panel
+  const [streetViewPt, setStreetViewPt] = useState(null); // {lat, lng, heading}
+
   const loadSpFeatures = useCallback(async () => {
     if (!app?._dbId) return;
     setSpFeaturesLoading(true);
@@ -913,9 +916,21 @@ Respond with JSON only:
   }, [ptA, lotsData]);
 
   const handleMapClick = useCallback((latlng) => {
+    if (mapTool === "streetview") {
+      // Compute heading toward lot centroid if available
+      let heading = 0;
+      if (lotPoly?.length >= 4) {
+        const cLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
+        const cLng = lotPoly.reduce((s, p) => s + p[1], 0) / lotPoly.length;
+        heading = Math.atan2(cLng - latlng.lng, cLat - latlng.lat) * 180 / Math.PI;
+        heading = ((heading % 360) + 360) % 360;
+      }
+      setStreetViewPt({ lat: latlng.lat, lng: latlng.lng, heading });
+      return;
+    }
     if (drawMode === "ptA") { setPtA({ lat: latlng.lat, lng: latlng.lng }); setDrawMode("ptB"); }
     else if (drawMode === "ptB") { setPtB({ lat: latlng.lat, lng: latlng.lng }); setDrawMode(null); }
-  }, [drawMode]);
+  }, [drawMode, mapTool, lotPoly]);
 
   useEffect(() => {
     if (!ptA || !ptB) { setSightTriangle(null); return; }
@@ -1970,6 +1985,7 @@ Respond with JSON only:
           {/* Map tools */}
           {[
             { key: "measure", label: "Measure", color: T.c.info },
+            { key: "streetview", label: "Street View", color: "#e67e22" },
             { key: "draw", label: "Annotate", color: "#6c5ce7" },
           ].map(t => (
             <button key={t.key} onClick={() => setMapTool(mapTool === t.key ? null : t.key)}
@@ -2172,6 +2188,56 @@ Respond with JSON only:
         <div style={{ padding: "6px 14px", borderBottom: "1px solid #e4e9ec", display: "flex", gap: 4, alignItems: "center" }}>
           <button onClick={startSightAnalysis} style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: "#fff", fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 1px 4px rgba(26,58,74,0.25)" }}>Sight Analysis</button>
           <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
+        </div>
+      )}
+      {/* Street View panel */}
+      {mapTool === "streetview" && (
+        <div style={{ background: "#fff8f0", borderBottom: "1px solid #f0d8c0", padding: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 14 }}>📷</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#e67e22" }}>Street View</span>
+              {!streetViewPt && <span style={{ fontSize: 9, color: "#95a5a6" }}>Click on map to view</span>}
+            </div>
+            {streetViewPt && (
+              <button onClick={() => setStreetViewPt(null)} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+            )}
+          </div>
+          {streetViewPt ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <iframe
+                  src={`https://www.google.com/maps/embed/v1/streetview?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&location=${streetViewPt.lat},${streetViewPt.lng}&heading=${streetViewPt.heading || 0}&pitch=0&fov=90`}
+                  style={{ width: "100%", height: 280, border: "1px solid #e8ecef", borderRadius: 8 }}
+                  allowFullScreen loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+              <div style={{ width: 180, fontSize: 9 }}>
+                <div style={{ background: "#f5f7fa", borderRadius: 6, padding: 8, marginBottom: 6 }}>
+                  <div style={{ fontWeight: 600, color: "#1a3a4a", marginBottom: 4 }}>📍 Location</div>
+                  <div style={{ color: "#7a8a94" }}>Lat: {streetViewPt.lat.toFixed(6)}</div>
+                  <div style={{ color: "#7a8a94" }}>Lng: {streetViewPt.lng.toFixed(6)}</div>
+                  {streetViewPt.heading != null && <div style={{ color: "#7a8a94" }}>Heading: {Math.round(streetViewPt.heading)}°</div>}
+                </div>
+                <div style={{ color: "#7a8a94", lineHeight: 1.4 }}>
+                  Use Street View to verify:
+                  <div style={{ marginTop: 4, color: "#5a6a74" }}>
+                    • Sight line obstructions<br/>
+                    • Fence heights near crossover<br/>
+                    • Tree locations on verge<br/>
+                    • Power poles / utility positions<br/>
+                    • Existing crossover condition
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "30px 0", color: "#b0bec5" }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>📷</div>
+              <div style={{ fontSize: 11, fontWeight: 500 }}>Click anywhere on the map to open Street View at that location</div>
+              <div style={{ fontSize: 9, marginTop: 4, color: "#95a5a6" }}>Tip: Click near Point A to see the driver's view</div>
+            </div>
+          )}
         </div>
       )}
       {/* Tool context bar */}
