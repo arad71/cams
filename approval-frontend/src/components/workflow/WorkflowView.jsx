@@ -435,7 +435,7 @@ function StepExtract({ app, currentUser, onReload, measureCorrections, onMeasure
   );
 }
 
-function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, globalGasMainsData, categories, currentUser, onMeasureCorrection, georefData, onGeorefDone, mode = "both" }) {
+function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, globalGasMainsData, globalGasValvesData, globalPowerTransformersData, globalPowerStreetlightsData, categories, currentUser, onMeasureCorrection, georefData, onGeorefDone, mode = "both" }) {
   return (
     <div>
       {(mode === "both" || mode === "map") && (
@@ -447,6 +447,8 @@ function StepAssess({ app, apps, onSelectApp, globalSpeedRoads, globalLotsData, 
             waterPipesData={globalWaterPipesData}
             powerBuriedData={globalPowerBuriedData} powerOverheadData={globalPowerOverheadData}
             powerStructuresData={globalPowerStructuresData} gasMainsData={globalGasMainsData}
+            gasValvesData={globalGasValvesData} powerTransformersData={globalPowerTransformersData}
+            powerStreetlightsData={globalPowerStreetlightsData}
             onMeasureCorrection={onMeasureCorrection}
             georefData={georefData} onGeorefDone={onGeorefDone} />
         </div>
@@ -715,6 +717,7 @@ export default function WorkflowView({
   globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData,
   globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData,
   globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, globalGasMainsData,
+  globalGasValvesData, globalPowerTransformersData, globalPowerStreetlightsData,
   // Shared state from parent
   localApp, setLocalApp, newNote, setNewNote, addNote,
   assignee, setAssignee, newStatus, setNewStatus, saveChanges,

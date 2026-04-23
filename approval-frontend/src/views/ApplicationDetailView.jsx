@@ -15,7 +15,7 @@ import { T, S, cx } from '../styles/tokens';
 //  Application Detail View
 // ═══════════════════════════════════════════════════════
 
-function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, reloadAllApps, users, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, globalGasMainsData }) {
+function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, currentUser, reloadApp, reloadAllApps, users, globalSpeedRoads, globalLotsData, globalRoadNetwork, globalContoursData, globalUrbanForestData, globalDrainagePipesData, globalDrainagePitsData, globalWaterPipesData, globalPowerBuriedData, globalPowerOverheadData, globalPowerStructuresData, globalGasMainsData, globalGasValvesData, globalPowerTransformersData, globalPowerStreetlightsData }) {
   const [localApp, setLocalApp] = useState(JSON.parse(JSON.stringify(app)));
   const [newNote, setNewNote] = useState("");
   const [newStatus, setNewStatus] = useState(app.status);
@@ -98,6 +98,8 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
         globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
         globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
         globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
+        globalGasValvesData={globalGasValvesData} globalPowerTransformersData={globalPowerTransformersData}
+        globalPowerStreetlightsData={globalPowerStreetlightsData}
         localApp={localApp} setLocalApp={setLocalApp}
         newNote={newNote} setNewNote={setNewNote} addNote={addNote}
         assignee={assignee} setAssignee={setAssignee}

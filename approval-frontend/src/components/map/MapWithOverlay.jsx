@@ -95,7 +95,7 @@ function SatelliteMiniMap({ sightTriangle }) {
 // ═══════════════════════════════════════════════════════════
 //  MAP VIEW WITH SIGHT TRIANGLE ANALYSIS
 // ═══════════════════════════════════════════════════════════
-function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null, powerBuriedData = null, powerOverheadData = null, powerStructuresData = null, gasMainsData = null, onMeasureCorrection = null, georefData = null, onGeorefDone = null }) {
+function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsData = null, roadNetworkData = null, contoursData = null, urbanForestData = null, drainagePipesData = null, drainagePitsData = null, waterPipesData = null, powerBuriedData = null, powerOverheadData = null, powerStructuresData = null, gasMainsData = null, gasValvesData = null, powerTransformersData = null, powerStreetlightsData = null, onMeasureCorrection = null, georefData = null, onGeorefDone = null }) {
   const [showLots, setShowLots] = useState(true);
   const [showSpeedRoads, setShowSpeedRoads] = useState(false);
   const [showStreetNames, setShowStreetNames] = useState(false);
@@ -109,6 +109,9 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const [showPowerOverhead, setShowPowerOverhead] = useState(false);
   const [showPowerStructures, setShowPowerStructures] = useState(false);
   const [showGasMains, setShowGasMains] = useState(false);
+  const [showGasValves, setShowGasValves] = useState(false);
+  const [showPowerTransformers, setShowPowerTransformers] = useState(false);
+  const [showPowerStreetlights, setShowPowerStreetlights] = useState(false);
   const [showLayerPanel, setShowLayerPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [waLayers, setWaLayers] = useState({ contour: false, cadastral: false, zoning: false, hazard: false });
@@ -1881,7 +1884,10 @@ Respond with JSON only:
                     { key: "pburied", state: showPowerBuried, set: () => setShowPowerBuried(!showPowerBuried), label: "Power (Buried)", icon: "⚡", color: "#e67e22" },
                     { key: "poverhead", state: showPowerOverhead, set: () => setShowPowerOverhead(!showPowerOverhead), label: "Power (Overhead)", icon: "🔌", color: "#c0392b" },
                     { key: "pstruct", state: showPowerStructures, set: () => setShowPowerStructures(!showPowerStructures), label: "Power Poles", icon: "🔩", color: "#7f8c8d" },
+                    { key: "ptrans", state: showPowerTransformers, set: () => setShowPowerTransformers(!showPowerTransformers), label: "Transformers", icon: "🔋", color: "#8e44ad" },
+                    { key: "plight", state: showPowerStreetlights, set: () => setShowPowerStreetlights(!showPowerStreetlights), label: "Street Lights", icon: "💡", color: "#f1c40f" },
                     { key: "gas", state: showGasMains, set: () => setShowGasMains(!showGasMains), label: "Gas Mains", icon: "🔥", color: "#f39c12" },
+                    { key: "gvalve", state: showGasValves, set: () => setShowGasValves(!showGasValves), label: "Gas Valves", icon: "🔧", color: "#d35400" },
                   ]},
                 ].map(group => (
                   <div key={group.group}>
@@ -2564,6 +2570,9 @@ Respond with JSON only:
         showPowerOverhead={showPowerOverhead} powerOverheadData={powerOverheadData}
         showPowerStructures={showPowerStructures} powerStructuresData={powerStructuresData}
         showGasMains={showGasMains} gasMainsData={gasMainsData}
+        showGasValves={showGasValves} gasValvesData={gasValvesData}
+        showPowerTransformers={showPowerTransformers} powerTransformersData={powerTransformersData}
+        showPowerStreetlights={showPowerStreetlights} powerStreetlightsData={powerStreetlightsData}
         mapTool={mapTool} setMapTool={setMapTool}
         measureDist={measureDist} setMeasureDist={setMeasureDist}
         radiusResult={radiusResult} setRadiusResult={setRadiusResult}

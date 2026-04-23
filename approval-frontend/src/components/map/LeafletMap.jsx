@@ -7,7 +7,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, spFeatures = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, showPowerBuried = false, powerBuriedData = null, showPowerOverhead = false, powerOverheadData = null, showPowerStructures = false, powerStructuresData = null, showGasMains = false, gasMainsData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, spFeatures = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, showPowerBuried = false, powerBuriedData = null, showPowerOverhead = false, powerOverheadData = null, showPowerStructures = false, powerStructuresData = null, showGasMains = false, gasMainsData = null, showGasValves = false, gasValvesData = null, showPowerTransformers = false, powerTransformersData = null, showPowerStreetlights = false, powerStreetlightsData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -438,6 +438,56 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       },
     }).addTo(mapInstanceRef.current);
   }, [showGasMains, gasMainsData, leafletLoaded]);
+
+  // Gas Valves layer
+  const gasValvesLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (gasValvesLayerRef.current) { mapInstanceRef.current.removeLayer(gasValvesLayerRef.current); gasValvesLayerRef.current = null; }
+    if (!showGasValves || !gasValvesData?.features) return;
+    const L = window.L;
+    gasValvesLayerRef.current = L.geoJSON(gasValvesData, {
+      pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4, color: '#d35400', fillColor: '#d35400', fillOpacity: 0.8, weight: 1 }),
+      onEachFeature: (f, layer) => {
+        const p = f.properties || {};
+        layer.bindTooltip(`<b>🔧 Gas Valve</b>${p.SUBTYPE ? '<br/>'+p.SUBTYPE : ''}`, { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showGasValves, gasValvesData, leafletLoaded]);
+
+  // Power Transformers layer
+  const powerTransformersLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (powerTransformersLayerRef.current) { mapInstanceRef.current.removeLayer(powerTransformersLayerRef.current); powerTransformersLayerRef.current = null; }
+    if (!showPowerTransformers || !powerTransformersData?.features) return;
+    const L = window.L;
+    powerTransformersLayerRef.current = L.geoJSON(powerTransformersData, {
+      pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 5, color: '#8e44ad', fillColor: '#8e44ad', fillOpacity: 0.8, weight: 1 }),
+      onEachFeature: (f, layer) => {
+        const p = f.properties || {};
+        layer.bindTooltip(`<b>🔋 Transformer</b>${p.SUBTYPE ? '<br/>'+p.SUBTYPE : ''}${p.CAPACITY ? '<br/>'+p.CAPACITY+'kVA' : ''}`, { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showPowerTransformers, powerTransformersData, leafletLoaded]);
+
+  // Power Streetlights layer
+  const powerStreetlightsLayerRef = useRef(null);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    if (powerStreetlightsLayerRef.current) { mapInstanceRef.current.removeLayer(powerStreetlightsLayerRef.current); powerStreetlightsLayerRef.current = null; }
+    if (!showPowerStreetlights || !powerStreetlightsData?.features) return;
+    const L = window.L;
+    powerStreetlightsLayerRef.current = L.geoJSON(powerStreetlightsData, {
+      pointToLayer: (f, ll) => L.marker(ll, {
+        icon: L.divIcon({ html: '<div style="font-size:14px;text-align:center">💡</div>', iconSize: [18, 18], iconAnchor: [9, 9], className: '' }),
+      }),
+      onEachFeature: (f, layer) => {
+        const p = f.properties || {};
+        layer.bindTooltip(`<b>💡 Street Light</b>${p.SUBTYPE ? '<br/>'+p.SUBTYPE : ''}`, { sticky: true, className: 'lot-tooltip' });
+      },
+    }).addTo(mapInstanceRef.current);
+  }, [showPowerStreetlights, powerStreetlightsData, leafletLoaded]);
 
   // Render sight triangle layers
   const triLayersRef = useRef([]);
