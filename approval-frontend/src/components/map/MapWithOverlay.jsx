@@ -134,8 +134,28 @@ function MapWithOverlay({ app, apps, onSelectApp, speedRoadsData = null, lotsDat
   const radiusClearRef = useRef(null);
 
   // Georeferencing
-  const [georefState, setGeorefState] = useState(null); // {planPts, imgUrl, imgW, imgH, mapPts, overlay}
-  const [showGeorefLayer, setShowGeorefLayer] = useState(true); // toggle saved overlay visibility
+  const [georefState, setGeorefState] = useState(null);
+  const [showGeorefLayer, setShowGeorefLayer] = useState(true);
+
+  // Site plan features overlay
+  const [spFeatures, setSpFeatures] = useState(null); // GeoJSON FeatureCollection
+  const [showSpFeatures, setShowSpFeatures] = useState(true);
+  const [spFeaturesLoading, setSpFeaturesLoading] = useState(false);
+
+  const loadSpFeatures = useCallback(async () => {
+    if (!app?._dbId) return;
+    setSpFeaturesLoading(true);
+    try {
+      const data = await api.getSiteplanGeojson(app._dbId);
+      if (data?.features?.length > 0) {
+        setSpFeatures(data);
+        console.log(`Loaded ${data.features.length} site plan features for map overlay`);
+      }
+    } catch (e) {
+      console.warn("Failed to load site plan features:", e);
+    }
+    setSpFeaturesLoading(false);
+  }, [app?._dbId]);
 
   // Handle radius completion (from LeafletMap callback)
   const handleRadiusComplete = useCallback((R, V, sightPt, turnStart, turnEnd) => {
@@ -1908,6 +1928,27 @@ Respond with JSON only:
                         <span style={{ flex: 1, fontWeight: showGeorefLayer ? 600 : 400, color: showGeorefLayer ? "#e67e22" : "#5a6a74" }}>Site Plan Overlay</span>
                       </div>
                     )}
+                    {/* Site Plan Features overlay (AI-extracted GeoJSON) */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px" }}>
+                      <div onClick={() => { if (spFeatures) setShowSpFeatures(!showSpFeatures); else loadSpFeatures(); }}
+                        style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11, flex: 1 }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <div style={{ width: 16, height: 16, borderRadius: 3, border: showSpFeatures && spFeatures ? "2px solid #2980b9" : "1.5px solid #d5dde2", background: showSpFeatures && spFeatures ? "#2980b920" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {showSpFeatures && spFeatures && <span style={{ fontSize: 10, color: "#2980b9", fontWeight: T.w.bold }}>✓</span>}
+                        </div>
+                        <span style={{ fontSize: 12 }}>📐</span>
+                        <span style={{ flex: 1, fontWeight: showSpFeatures && spFeatures ? 600 : 400, color: showSpFeatures && spFeatures ? "#2980b9" : "#5a6a74" }}>
+                          Site Plan Features {spFeatures ? `(${spFeatures.features.length})` : ""}
+                        </span>
+                      </div>
+                      {!spFeatures && (
+                        <button onClick={loadSpFeatures} disabled={spFeaturesLoading}
+                          style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #2980b9", background: "#ebf5fb", color: "#2980b9", fontSize: 8, fontWeight: 600, cursor: spFeaturesLoading ? "wait" : "pointer", fontFamily: "inherit" }}>
+                          {spFeaturesLoading ? "⟳" : "Load"}
+                        </button>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -2485,6 +2526,7 @@ Respond with JSON only:
         onLotClick={handleLotClick} allLotsData={lotsData} clickedLot={clickedLot} analysisResult={analysisResult}
         forceLayer={null}
         showBoundaries={showBoundaries}
+        spFeatures={showSpFeatures ? spFeatures : null}
         boundaryData={{
           lot: app?.site_lot_boundary_latlon || app?.lot_polygon || null,
           building: app?.site_building_boundary_latlon || null,

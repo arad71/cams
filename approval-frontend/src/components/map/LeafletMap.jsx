@@ -7,7 +7,7 @@ import { getAppCoords } from '../../utils/geoHelpers';
 // ═══════════════════════════════════════════════════════════
 //  LEAFLET MAP COMPONENT
 // ═══════════════════════════════════════════════════════════
-export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, showPowerBuried = false, powerBuriedData = null, showPowerOverhead = false, powerOverheadData = null, showPowerStructures = false, powerStructuresData = null, showGasMains = false, gasMainsData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
+export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 500, drawMode = null, onMapClick = null, sightTriangle = null, showLots = false, lotsData = null, showSpeedRoads = false, speedRoadsData = null, showStreetNames = false, roadNetworkData = null, onLotClick = null, allLotsData = null, clickedLot = null, analysisResult = null, forceLayer = null, onSightPointDrag = null, showBoundaries = false, boundaryData = null, spFeatures = null, waLayers = {}, mapTool = null, setMapTool = null, measureDist = null, setMeasureDist = null, radiusResult = null, setRadiusResult = null, centrelineDist = null, setCentrelineDist = null, offsetState = null, setOffsetState = null, onOffsetComplete = null, onRadiusComplete = null, radiusDoneRef = null, radiusClearRef = null, showContours = false, contoursData = null, showUrbanForest = false, urbanForestData = null, showDrainagePipes = false, drainagePipesData = null, showDrainagePits = false, drainagePitsData = null, showWaterPipes = false, waterPipesData = null, showPowerBuried = false, powerBuriedData = null, showPowerOverhead = false, powerOverheadData = null, showPowerStructures = false, powerStructuresData = null, showGasMains = false, gasMainsData = null, georefOverlay = null, georefMapPts = [], onGeorefMapClick = null }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -580,6 +580,59 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
       boundaryLayerRef.current.push(poly);
     });
   }, [showBoundaries, boundaryData, leafletLoaded]);
+
+  // ── Site Plan Features GeoJSON overlay ──
+  const spFeaturesLayerRef = useRef([]);
+  useEffect(() => {
+    if (!mapInstanceRef.current || !leafletLoaded) return;
+    const L = window.L;
+    const map = mapInstanceRef.current;
+
+    // Clean old features
+    spFeaturesLayerRef.current.forEach(l => map.removeLayer(l));
+    spFeaturesLayerRef.current = [];
+
+    if (!spFeatures?.features?.length) return;
+
+    spFeatures.features.forEach(feat => {
+      const props = feat.properties || {};
+      const color = props.color || "#3498db";
+      const fill = props.fill || color + "20";
+      const label = props.label || props.feature_type || "";
+
+      try {
+        if (feat.geometry.type === "Polygon") {
+          const coords = feat.geometry.coordinates[0].map(c => [c[1], c[0]]);
+          const poly = L.polygon(coords, {
+            color, weight: 2, fillColor: fill, fillOpacity: 0.3,
+            dashArray: props.dashArray || null,
+          }).addTo(map);
+          poly.bindTooltip(label, { permanent: false, direction: "center", className: "lot-tooltip" });
+          spFeaturesLayerRef.current.push(poly);
+        } else if (feat.geometry.type === "LineString") {
+          const coords = feat.geometry.coordinates.map(c => [c[1], c[0]]);
+          const line = L.polyline(coords, {
+            color, weight: 2.5, dashArray: props.dashArray || null, opacity: 0.8,
+          }).addTo(map);
+          line.bindTooltip(label, { permanent: false, className: "lot-tooltip" });
+          spFeaturesLayerRef.current.push(line);
+        } else if (feat.geometry.type === "Point") {
+          const [lng, lat] = feat.geometry.coordinates;
+          const icon = props.icon === "tree" ? "🌳" : (props.icon || "📍");
+          const marker = L.marker([lat, lng], {
+            icon: L.divIcon({
+              html: `<div style="font-size:16px;text-align:center;line-height:1">${icon}</div>`,
+              iconSize: [20, 20], iconAnchor: [10, 10], className: "",
+            }),
+          }).addTo(map);
+          marker.bindTooltip(label, { permanent: false, className: "lot-tooltip" });
+          spFeaturesLayerRef.current.push(marker);
+        }
+      } catch (e) {
+        console.warn("Failed to render feature:", feat, e);
+      }
+    });
+  }, [spFeatures, leafletLoaded]);
 
   // ── Georef image overlay ──
   const georefOverlayRef = useRef(null);

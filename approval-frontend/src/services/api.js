@@ -215,6 +215,7 @@ const api = {
   async reseedRules() { return this._fetch("/assessment/reseed-rules", { method: "POST" }); },
   async exportRules() { return this._fetch("/assessment/rules/export"); },
   async importRules(data, mode = "replace") { return this._fetch(`/assessment/rules/import?mode=${mode}`, { method: "POST", body: data }); },
+  async getSiteplanGeojson(appId) { return this._fetch(`/applications/${appId}/siteplan-geojson`); },
 
   // GeoData — Data WA SLIP integration
   async getGeodataStatus() { return this._fetch("/geodata/status"); },

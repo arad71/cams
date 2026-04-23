@@ -168,6 +168,58 @@ Return ONLY a raw JSON object — no markdown, no commentary, no code fences.
     "retaining_wall_near_crossover": "object or null — {\"exists\": boolean, \"side\": \"left/right/both\", \"height_m\": number or null, \"distance_from_crossover_m\": number or null}",
     "sight_obstruction_notes": "string or null — describe any fences, walls, hedges, structures between 0.65m-1.5m height within 2.5m of crossover that could block driver sight lines",
     "notes": "string or null"
+  },
+  "spatial_features": {
+    "description": "Positions of key features relative to the lot boundary. Use the lot boundary as a coordinate frame: front = road-facing boundary, left/right = side boundaries when facing road from lot, rear = back boundary. Distances in metres from the nearest boundary edge.",
+    "crossover": {
+      "front_boundary_offset_m": "number or null — distance from left side boundary to left edge of crossover, measured along the front (road-facing) boundary",
+      "width_m": "number or null — crossover width at boundary",
+      "depth_m": "number or null — crossover depth from boundary to road edge (verge depth)"
+    },
+    "driveway": {
+      "path_description": "string or null — describe the driveway path from crossover to garage, e.g. 'straight 8m from front boundary to garage', 'curves left then straight'",
+      "length_m": "number or null — total driveway length from boundary to garage"
+    },
+    "building": {
+      "front_setback_m": "number or null — front boundary to nearest building wall",
+      "left_setback_m": "number or null — left boundary to nearest building wall",
+      "right_setback_m": "number or null — right boundary to nearest building wall",
+      "rear_setback_m": "number or null — rear boundary to nearest building wall",
+      "approx_width_m": "number or null — building width (parallel to front boundary)",
+      "approx_depth_m": "number or null — building depth (perpendicular to front boundary)"
+    },
+    "garage": {
+      "front_setback_m": "number or null — front boundary to garage front wall",
+      "side_offset_m": "number or null — distance from nearest side boundary to garage",
+      "side": "string or null — 'left' or 'right' — which side boundary is nearest",
+      "width_m": "number or null",
+      "depth_m": "number or null"
+    },
+    "trees": [
+      {
+        "description": "string — e.g. 'street tree', 'verge tree', 'existing tree'",
+        "side": "string — 'left', 'right', 'front-left', 'front-right', 'verge'",
+        "distance_from_crossover_m": "number or null",
+        "distance_from_boundary_m": "number or null",
+        "on_verge": "boolean"
+      }
+    ],
+    "fences": [
+      {
+        "side": "string — 'left', 'right', 'front-left', 'front-right', 'rear'",
+        "type": "string or null — 'colorbond', 'timber', 'brick', 'retaining wall', 'hedge'",
+        "height_m": "number or null",
+        "length_along_boundary_m": "number or null"
+      }
+    ],
+    "utilities_positions": [
+      {
+        "type": "string — 'power pole', 'water meter', 'gas meter', 'telco pit', 'stormwater pit', 'sewer manhole', 'street light', 'fire hydrant'",
+        "side": "string — 'left', 'right', 'front', 'verge'",
+        "distance_from_crossover_m": "number or null",
+        "distance_from_boundary_m": "number or null"
+      }
+    ]
   }
 }
 

@@ -1706,3 +1706,260 @@ def delete_document(app_id: int, doc_id: int, db: Session = Depends(get_db),
     return {"deleted": doc_name, "cleaned": cleaned}
 
 
+# ─── SITE PLAN FEATURES → GeoJSON ─────────────────────
+@router.get("/{app_id}/siteplan-geojson")
+def get_siteplan_geojson(app_id: int, db: Session = Depends(get_db),
+                         current_user: User = Depends(get_current_user)):
+    """Convert spatial_features from AI extraction into GeoJSON for map overlay."""
+    import math
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+
+    spd = app.cor_site_plan_data or app.site_plan_data or {}
+    ext = spd.get("extraction") or spd
+    spatial = ext.get("spatial_features") or {}
+    cd = ext.get("crossover_dimensions") or {}
+    sm = ext.get("siteplan_measurements") or {}
+
+    # Get lot polygon
+    lot_poly = app.lot_polygon  # [[lat,lng], ...] or GeoJSON
+    if not lot_poly:
+        return {"type": "FeatureCollection", "features": [], "message": "No lot polygon available"}
+
+    # Normalise lot polygon to [[lat,lng], ...]
+    if isinstance(lot_poly, dict) and lot_poly.get("coordinates"):
+        ring = lot_poly["coordinates"][0] if lot_poly.get("type") == "Polygon" else lot_poly["coordinates"][0][0]
+        lot_poly = [[c[1], c[0]] for c in ring]
+    elif isinstance(lot_poly, list) and lot_poly and isinstance(lot_poly[0], (int, float)):
+        lot_poly = [lot_poly]
+
+    if not lot_poly or len(lot_poly) < 4:
+        return {"type": "FeatureCollection", "features": [], "message": "Lot polygon too small"}
+
+    # Compute lot geometry
+    m_per_lat = 111320
+    m_per_lng = 111320 * math.cos(lot_poly[0][0] * math.pi / 180)
+
+    # Find front edge (longest edge near road) and compute coordinate frame
+    edges = []
+    for i in range(len(lot_poly) - 1):
+        dx = (lot_poly[i+1][1] - lot_poly[i][1]) * m_per_lng
+        dy = (lot_poly[i+1][0] - lot_poly[i][0]) * m_per_lat
+        length = math.sqrt(dx*dx + dy*dy)
+        mid_lat = (lot_poly[i][0] + lot_poly[i+1][0]) / 2
+        mid_lng = (lot_poly[i][1] + lot_poly[i+1][1]) / 2
+        edges.append({"i": i, "length": length, "dx": dx, "dy": dy,
+                       "from": lot_poly[i], "to": lot_poly[i+1],
+                       "mid": [mid_lat, mid_lng]})
+
+    # Front edge = longest edge (assume road frontage)
+    front = max(edges, key=lambda e: e["length"])
+    frontage = front["length"]
+
+    # Lot centroid
+    c_lat = sum(p[0] for p in lot_poly) / len(lot_poly)
+    c_lng = sum(p[1] for p in lot_poly) / len(lot_poly)
+
+    # Front direction (along front edge) and inward direction (into lot)
+    front_angle = math.atan2(front["dx"], front["dy"])
+    # Inward = perpendicular to front, toward centroid
+    perp1 = front_angle + math.pi / 2
+    perp2 = front_angle - math.pi / 2
+    t1_lat = front["mid"][0] + math.cos(perp1) * 5 / m_per_lat
+    t1_lng = front["mid"][1] + math.sin(perp1) * 5 / m_per_lng
+    t2_lat = front["mid"][0] + math.cos(perp2) * 5 / m_per_lat
+    t2_lng = front["mid"][1] + math.sin(perp2) * 5 / m_per_lng
+    d1 = math.sqrt(((t1_lat - c_lat) * m_per_lat)**2 + ((t1_lng - c_lng) * m_per_lng)**2)
+    d2 = math.sqrt(((t2_lat - c_lat) * m_per_lat)**2 + ((t2_lng - c_lng) * m_per_lng)**2)
+    inward_angle = perp1 if d1 < d2 else perp2
+    outward_angle = perp2 if d1 < d2 else perp1
+
+    # Left corner of front edge (when facing road from lot)
+    left_angle = outward_angle + math.pi / 2  # anticlockwise = left
+    from_proj = ((front["from"][0] - front["mid"][0]) * m_per_lat * math.cos(left_angle) +
+                 (front["from"][1] - front["mid"][1]) * m_per_lng * math.sin(left_angle))
+    to_proj = ((front["to"][0] - front["mid"][0]) * m_per_lat * math.cos(left_angle) +
+               (front["to"][1] - front["mid"][1]) * m_per_lng * math.sin(left_angle))
+    left_corner = front["from"] if from_proj > to_proj else front["to"]
+    right_corner = front["to"] if from_proj > to_proj else front["from"]
+
+    # Helper: position from front-left corner using (along_front_m, inward_m)
+    def pos(along_m, inward_m):
+        """Return [lat, lng] at along_m from left corner along front edge, inward_m into lot."""
+        frac = min(1.0, max(0.0, along_m / max(frontage, 0.1)))
+        base_lat = left_corner[0] + (right_corner[0] - left_corner[0]) * frac
+        base_lng = left_corner[1] + (right_corner[1] - left_corner[1]) * frac
+        return [
+            base_lat + math.cos(inward_angle) * inward_m / m_per_lat,
+            base_lng + math.sin(inward_angle) * inward_m / m_per_lng,
+        ]
+
+    def rect(along_m, inward_m, width_m, depth_m):
+        """Return polygon coords for a rectangle."""
+        return [
+            pos(along_m, inward_m),
+            pos(along_m + width_m, inward_m),
+            pos(along_m + width_m, inward_m + depth_m),
+            pos(along_m, inward_m + depth_m),
+            pos(along_m, inward_m),  # close
+        ]
+
+    features = []
+
+    # 1. Crossover
+    xo = spatial.get("crossover") or {}
+    xo_offset = xo.get("front_boundary_offset_m") or cd.get("distance_to_left_boundary_m") or 2.0
+    xo_width = xo.get("width_m") or cd.get("width_at_boundary_m") or 3.5
+    xo_depth = xo.get("depth_m") or cd.get("verge_depth_m") or 3.0
+    # Crossover is on the road side (negative inward = outward)
+    xo_coords = rect(float(xo_offset), -float(xo_depth), float(xo_width), float(xo_depth))
+    features.append({
+        "type": "Feature",
+        "properties": {"feature_type": "crossover", "label": f"Crossover {xo_width}m",
+                       "width_m": xo_width, "depth_m": xo_depth, "color": "#3498db", "fill": "#3498db20"},
+        "geometry": {"type": "Polygon", "coordinates": [[[c[1], c[0]] for c in xo_coords]]}
+    })
+
+    # 2. Driveway
+    dw = spatial.get("driveway") or {}
+    dw_length = dw.get("length_m") or sm.get("garage_to_kerb_m")
+    if dw_length:
+        dw_centre = float(xo_offset) + float(xo_width) / 2
+        dw_start = pos(dw_centre, 0)
+        dw_end = pos(dw_centre, float(dw_length))
+        features.append({
+            "type": "Feature",
+            "properties": {"feature_type": "driveway", "label": f"Driveway {dw_length}m",
+                           "length_m": dw_length, "color": "#7f8c8d", "dashArray": "6,4"},
+            "geometry": {"type": "LineString", "coordinates": [[c[1], c[0]] for c in [dw_start, dw_end]]}
+        })
+
+    # 3. Building footprint
+    bldg = spatial.get("building") or {}
+    b_front = bldg.get("front_setback_m") or sm.get("building_setback_front_m")
+    b_left = bldg.get("left_setback_m") or sm.get("building_setback_left_m")
+    b_width = bldg.get("approx_width_m")
+    b_depth = bldg.get("approx_depth_m")
+    if b_front and b_left:
+        b_front = float(b_front)
+        b_left = float(b_left)
+        b_right = float(bldg.get("right_setback_m") or sm.get("building_setback_right_m") or b_left)
+        b_width = float(b_width) if b_width else max(1.0, frontage - b_left - b_right)
+        b_depth = float(b_depth) if b_depth else 10.0
+        b_coords = rect(b_left, b_front, b_width, b_depth)
+        features.append({
+            "type": "Feature",
+            "properties": {"feature_type": "building", "label": "Building",
+                           "width_m": b_width, "depth_m": b_depth, "color": "#95a5a6", "fill": "#95a5a610"},
+            "geometry": {"type": "Polygon", "coordinates": [[[c[1], c[0]] for c in b_coords]]}
+        })
+
+    # 4. Garage
+    gar = spatial.get("garage") or {}
+    g_front = gar.get("front_setback_m") or sm.get("garage_setback_to_crossover_road_m")
+    g_side = gar.get("side_offset_m") or sm.get("garage_nearest_boundary_m")
+    g_which_side = gar.get("side") or sm.get("garage_nearest_boundary_side") or "left"
+    g_width = gar.get("width_m") or 6.0
+    g_depth = gar.get("depth_m") or 6.0
+    if g_front and g_side:
+        g_along = float(g_side) if "left" in str(g_which_side).lower() else max(0, frontage - float(g_side) - float(g_width))
+        g_coords = rect(g_along, float(g_front), float(g_width), float(g_depth))
+        features.append({
+            "type": "Feature",
+            "properties": {"feature_type": "garage", "label": "Garage",
+                           "width_m": g_width, "depth_m": g_depth, "color": "#8e44ad", "fill": "#8e44ad15"},
+            "geometry": {"type": "Polygon", "coordinates": [[[c[1], c[0]] for c in g_coords]]}
+        })
+
+    # 5. Trees
+    trees = spatial.get("trees") or []
+    for i, tree in enumerate(trees):
+        t_side = str(tree.get("side", "front")).lower()
+        t_dist_xo = float(tree.get("distance_from_crossover_m") or 3)
+        t_dist_bdy = float(tree.get("distance_from_boundary_m") or 1)
+        t_on_verge = tree.get("on_verge", False)
+
+        if "left" in t_side:
+            t_along = float(xo_offset) - t_dist_xo
+            t_inward = -t_dist_bdy if t_on_verge else t_dist_bdy
+        elif "right" in t_side:
+            t_along = float(xo_offset) + float(xo_width) + t_dist_xo
+            t_inward = -t_dist_bdy if t_on_verge else t_dist_bdy
+        else:
+            t_along = float(xo_offset) + float(xo_width) / 2
+            t_inward = -t_dist_bdy if t_on_verge else t_dist_bdy
+
+        t_pos = pos(max(0, t_along), t_inward)
+        features.append({
+            "type": "Feature",
+            "properties": {"feature_type": "tree", "label": tree.get("description", "Tree"),
+                           "on_verge": t_on_verge, "color": "#27ae60", "icon": "tree"},
+            "geometry": {"type": "Point", "coordinates": [t_pos[1], t_pos[0]]}
+        })
+
+    # 6. Fences
+    fences = spatial.get("fences") or []
+    for fence in fences:
+        f_side = str(fence.get("side", "left")).lower()
+        f_type = fence.get("type", "fence")
+        f_height = fence.get("height_m")
+        f_len = float(fence.get("length_along_boundary_m") or frontage * 0.5)
+
+        if "left" in f_side:
+            f_start = pos(0, 0)
+            f_end = pos(0, f_len)
+        elif "right" in f_side:
+            f_start = pos(frontage, 0)
+            f_end = pos(frontage, f_len)
+        elif "rear" in f_side:
+            lot_depth = float(sm.get("lot_depth_m") or 30)
+            f_start = pos(0, lot_depth)
+            f_end = pos(frontage, lot_depth)
+        else:
+            continue
+
+        features.append({
+            "type": "Feature",
+            "properties": {"feature_type": "fence", "label": f"{f_type} {f_height}m" if f_height else f_type,
+                           "fence_type": f_type, "height_m": f_height,
+                           "color": "#e67e22", "dashArray": "4,3"},
+            "geometry": {"type": "LineString", "coordinates": [[c[1], c[0]] for c in [f_start, f_end]]}
+        })
+
+    # 7. Utility positions
+    utils = spatial.get("utilities_positions") or []
+    util_icons = {"power pole": "⚡", "water meter": "💧", "gas meter": "🔥", "telco pit": "📡",
+                  "stormwater pit": "🌧", "sewer manhole": "🕳", "street light": "💡", "fire hydrant": "🚒"}
+    for util in utils:
+        u_type = str(util.get("type", "utility")).lower()
+        u_side = str(util.get("side", "front")).lower()
+        u_dist_xo = float(util.get("distance_from_crossover_m") or 3)
+        u_dist_bdy = float(util.get("distance_from_boundary_m") or 1)
+
+        if "left" in u_side:
+            u_along = float(xo_offset) - u_dist_xo
+        elif "right" in u_side:
+            u_along = float(xo_offset) + float(xo_width) + u_dist_xo
+        else:
+            u_along = float(xo_offset) + float(xo_width) / 2
+
+        u_inward = -u_dist_bdy if "verge" in u_side or "front" in u_side else u_dist_bdy
+        u_pos = pos(max(0, u_along), u_inward)
+        features.append({
+            "type": "Feature",
+            "properties": {"feature_type": "utility", "label": util.get("type", "Utility"),
+                           "utility_type": u_type, "icon": util_icons.get(u_type, "⚠"),
+                           "color": "#e74c3c"},
+            "geometry": {"type": "Point", "coordinates": [u_pos[1], u_pos[0]]}
+        })
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+        "metadata": {
+            "lot_frontage_m": round(frontage, 1),
+            "feature_count": len(features),
+            "front_edge_index": front["i"],
+        }
+    }
