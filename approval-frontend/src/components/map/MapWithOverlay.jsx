@@ -1000,18 +1000,37 @@ Respond with JSON only:
 
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null, sightPt: null, turnStart: null, turnEnd: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); setRadiusResult(null); if (radiusClearRef.current) radiusClearRef.current(); reset3DAnalysis(); };
 
-  // Redraw triangle when X/Y offsets change (user edits the input fields)
+  // Redraw triangle when X/Y offsets change (user edits input fields)
   const prevXYRef = useRef({ x: null, y: null });
   useEffect(() => {
     const x = sightConfig.x, y = sightConfig.y;
     if (prevXYRef.current.x === null) { prevXYRef.current = { x, y }; return; }
     if (prevXYRef.current.x === x && prevXYRef.current.y === y) return;
     prevXYRef.current = { x, y };
-    // Only redraw if triangle already exists and was auto-drawn
-    if (!ptA || !ptB || !sightConfig.autoDrawn) return;
-    // Re-run startSightAnalysis to recompute A/B with new offsets
-    console.log(`X/Y offset changed: x=${x}, y=${y} — redrawing triangle`);
-    startSightAnalysis();
+    if (!ptA || !ptB || !sightConfig.autoDrawn || !lotPoly || lotPoly.length < 4) return;
+
+    try {
+      const mPerLat = 111320, mPerLng = 111320 * Math.cos(lotPoly[0][0] * Math.PI / 180);
+      // Compute road direction from A→B line
+      const abDx = (ptB.lng - ptA.lng) * mPerLng;
+      const abDy = (ptB.lat - ptA.lat) * mPerLat;
+      const abAngle = Math.atan2(abDx, abDy); // outward direction
+      const inAngle = abAngle + Math.PI; // inward direction
+      // Road direction = perpendicular to A→B
+      const roadAngle = abAngle + Math.PI / 2;
+
+      // Move Point A: x metres inward from B along A→B line, shifted y along road
+      const xDist = parseFloat(x) || 2.5;
+      // New A position = B + xDist inward
+      const newA = {
+        lat: ptB.lat + Math.cos(inAngle) * xDist / mPerLat,
+        lng: ptB.lng + Math.sin(inAngle) * xDist / mPerLng,
+      };
+      setPtA(newA);
+      console.log(`Repositioned A: x=${xDist}m from road`);
+    } catch (e) {
+      console.warn("Failed to reposition A:", e);
+    }
   }, [sightConfig.x, sightConfig.y]);
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
 
@@ -1393,87 +1412,74 @@ Respond with JSON only:
       };
 
       let bestEdge = null, bestDist = Infinity;
-      // Collect ALL edges that are near the crossover road
-      const candidateEdges = [];
+      
+      // Lot centroid for outward direction checking
+      const lotCLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
+      const lotCLng = lotPoly.reduce((s, p) => s + p[1], 0) / lotPoly.length;
+      
+      // For each lot edge, find the nearest road point and check it's OUTSIDE the lot
+      const scoredEdges = [];
       for (let i = 0; i < lotPoly.length - 1; i++) {
         const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
         const midLng = (lotPoly[i][1] + lotPoly[i + 1][1]) / 2;
         const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mPerLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mPerLng) ** 2);
         if (edgeLen < 3) continue;
+        
+        // Edge outward normal (away from centroid)
+        const edgeDx = (lotPoly[i + 1][1] - lotPoly[i][1]) * mPerLng;
+        const edgeDy = (lotPoly[i + 1][0] - lotPoly[i][0]) * mPerLat;
+        const edgeAngle = Math.atan2(edgeDx, edgeDy);
+        const n1 = edgeAngle + Math.PI / 2, n2 = edgeAngle - Math.PI / 2;
+        const t1d = Math.sqrt(((midLat + Math.cos(n1) * 5 / mPerLat - lotCLat) * mPerLat) ** 2 + ((midLng + Math.sin(n1) * 5 / mPerLng - lotCLng) * mPerLng) ** 2);
+        const t2d = Math.sqrt(((midLat + Math.cos(n2) * 5 / mPerLat - lotCLat) * mPerLat) ** 2 + ((midLng + Math.sin(n2) * 5 / mPerLng - lotCLng) * mPerLng) ** 2);
+        const outwardAngle = t1d > t2d ? n1 : n2;
+        
+        // Find nearest road to this edge's OUTWARD side
         let edgeBestDist = Infinity;
+        let edgeNameMatch = false;
         for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
           for (const feat of src.features) {
             const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
-            if (!roadNamesMatch(crossoverRoad, rn)) continue;
+            const nameMatch = crossoverRoad && roadNamesMatch(crossoverRoad, rn);
             const g = feat.geometry;
             if (!g || g.type !== "LineString") continue;
             for (const pt of g.coordinates) {
+              // Check road point is on the outward side of the edge
+              const roadDir = Math.atan2((pt[0] - midLng) * mPerLng, (pt[1] - midLat) * mPerLat);
+              const angleDiff = Math.abs(((roadDir - outwardAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+              if (angleDiff > Math.PI / 2) continue; // road point is on the INWARD side, skip
+              
               const d = Math.sqrt(((midLat - pt[1]) * mPerLat) ** 2 + ((midLng - pt[0]) * mPerLng) ** 2);
-              if (d < edgeBestDist) edgeBestDist = d;
-            }
-          }
-        }
-        if (edgeBestDist < 30) {
-          candidateEdges.push({ i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1], dist: edgeBestDist });
-        }
-        if (edgeBestDist < bestDist) {
-          bestDist = edgeBestDist;
-          bestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] };
-        }
-      }
-
-      // If multiple edges are near the same road, pick the LONGEST one (likely the frontage)
-      if (candidateEdges.length > 1) {
-        candidateEdges.sort((a, b) => b.edgeLen - a.edgeLen); // longest first
-        const chosen = candidateEdges[0];
-        bestEdge = { i: chosen.i, midLat: chosen.midLat, midLng: chosen.midLng, edgeLen: chosen.edgeLen, from: chosen.from, to: chosen.to };
-        bestDist = chosen.dist;
-        console.log(`Multiple edges near ${crossoverRoad}: chose longest (${chosen.edgeLen.toFixed(1)}m, edge ${chosen.i}) over ${candidateEdges.length - 1} others`);
-      }
-
-      // Fallback: if named road not found, find the nearest road to ANY lot edge
-      // BUT prefer the edge whose outward normal points TOWARD the road (not rear edges)
-      if (!bestEdge || bestDist >= 25) {
-        console.log(`Road name match failed (crossoverRoad="${crossoverRoad}", bestDist=${bestDist.toFixed(1)}m). Trying nearest road fallback...`);
-        const lotCLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
-        const lotCLng = lotPoly.reduce((s, p) => s + p[1], 0) / lotPoly.length;
-        let fbBestEdge = null, fbBestDist = Infinity, fbRoadName = null;
-        for (let i = 0; i < lotPoly.length - 1; i++) {
-          const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
-          const midLng = (lotPoly[i][1] + lotPoly[i + 1][1]) / 2;
-          const edgeLen = Math.sqrt(((lotPoly[i][0] - lotPoly[i + 1][0]) * mPerLat) ** 2 + ((lotPoly[i][1] - lotPoly[i + 1][1]) * mPerLng) ** 2);
-          if (edgeLen < 3) continue;
-          for (const src of [speedRoadsData, roadNetworkData].filter(s => s?.features)) {
-            for (const feat of src.features) {
-              const g = feat.geometry;
-              if (!g || g.type !== "LineString") continue;
-              const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
-              for (const pt of g.coordinates) {
-                const d = Math.sqrt(((midLat - pt[1]) * mPerLat) ** 2 + ((midLng - pt[0]) * mPerLng) ** 2);
-                if (d < fbBestDist) {
-                  // Check if road point is on the OUTWARD side of this edge (away from centroid)
-                  const edgeToCentroid = Math.sqrt(((midLat - lotCLat) * mPerLat) ** 2 + ((midLng - lotCLng) * mPerLng) ** 2);
-                  const roadToCentroid = Math.sqrt(((pt[1] - lotCLat) * mPerLat) ** 2 + ((pt[0] - lotCLng) * mPerLng) ** 2);
-                  // Road point should be FURTHER from centroid than edge midpoint (outward side)
-                  if (roadToCentroid >= edgeToCentroid * 0.8) {
-                    fbBestDist = d;
-                    fbBestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] };
-                    fbRoadName = rn;
-                  }
-                }
+              if (d < edgeBestDist) {
+                edgeBestDist = d;
+                edgeNameMatch = nameMatch;
               }
             }
           }
         }
-        if (fbBestEdge && fbBestDist < 100) {
-          bestEdge = fbBestEdge;
-          bestDist = fbBestDist;
-          console.log(`Nearest road fallback: "${fbRoadName}" at ${fbBestDist.toFixed(1)}m from lot edge`);
+        
+        if (edgeBestDist < 50) {
+          scoredEdges.push({
+            i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1],
+            dist: edgeBestDist, nameMatch: edgeNameMatch,
+          });
         }
+      }
+      
+      // Priority: named road match > nearest outward road
+      // Among same priority: longest edge wins
+      if (scoredEdges.length > 0) {
+        const named = scoredEdges.filter(e => e.nameMatch);
+        const pool = named.length > 0 ? named : scoredEdges;
+        pool.sort((a, b) => b.edgeLen - a.edgeLen); // longest first
+        const chosen = pool[0];
+        bestEdge = { i: chosen.i, midLat: chosen.midLat, midLng: chosen.midLng, edgeLen: chosen.edgeLen, from: chosen.from, to: chosen.to };
+        bestDist = chosen.dist;
+        console.log(`Edge selection: ${chosen.nameMatch ? "named" : "nearest"} road, edge ${chosen.i}, ${chosen.edgeLen.toFixed(1)}m, ${chosen.dist.toFixed(1)}m from road`);
       }
 
       // Final fallback: use the longest lot edge as presumed road frontage
-      if (!bestEdge || bestDist >= 100) {
+      if (!bestEdge) {
         console.log("No road data near lot. Using longest edge as road frontage.");
         let longestLen = 0, longestIdx = 0;
         for (let i = 0; i < lotPoly.length - 1; i++) {

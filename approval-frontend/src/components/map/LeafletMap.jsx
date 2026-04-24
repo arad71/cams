@@ -515,8 +515,8 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
 
     const makeIcon = (label, color) => L.divIcon({
       className: 'sight-drag-icon',
-      html: `<div style="width:20px;height:20px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:sans-serif;cursor:grab">${label}</div>`,
-      iconSize: [20, 20], iconAnchor: [10, 10]
+      html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;font-family:sans-serif;cursor:grab;user-select:none;touch-action:none">${label}</div>`,
+      iconSize: [26, 26], iconAnchor: [13, 13]
     });
 
     // Point A
