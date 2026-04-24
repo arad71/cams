@@ -999,6 +999,20 @@ Respond with JSON only:
   }, [ptA, ptB, coords, lotPoly, ptALotPoly, cornerSpeed, sightConfig.sightPt]);
 
   const resetTriangle = () => { setPtA(null); setPtB(null); setSightTriangle(null); setDrawMode(null); setCornerSpeed(null); setSightPhase(null); setSightConfig({ x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null, sightPt: null, turnStart: null, turnEnd: null }); setOffsetState({ step: 0, road: null, boundary: null, x: 2.5, y: 4.0, isCorner: false, cornerR: null, cornerV: null }); setMapTool(null); setRadiusResult(null); if (radiusClearRef.current) radiusClearRef.current(); reset3DAnalysis(); };
+
+  // Redraw triangle when X/Y offsets change (user edits the input fields)
+  const prevXYRef = useRef({ x: null, y: null });
+  useEffect(() => {
+    const x = sightConfig.x, y = sightConfig.y;
+    if (prevXYRef.current.x === null) { prevXYRef.current = { x, y }; return; }
+    if (prevXYRef.current.x === x && prevXYRef.current.y === y) return;
+    prevXYRef.current = { x, y };
+    // Only redraw if triangle already exists and was auto-drawn
+    if (!ptA || !ptB || !sightConfig.autoDrawn) return;
+    // Re-run startSightAnalysis to recompute A/B with new offsets
+    console.log(`X/Y offset changed: x=${x}, y=${y} — redrawing triangle`);
+    startSightAnalysis();
+  }, [sightConfig.x, sightConfig.y]);
   const startDraw = () => { resetTriangle(); setDrawMode("ptA"); };
 
   // Transition: offset road clicked → update phase
@@ -1418,8 +1432,11 @@ Respond with JSON only:
       }
 
       // Fallback: if named road not found, find the nearest road to ANY lot edge
+      // BUT prefer the edge whose outward normal points TOWARD the road (not rear edges)
       if (!bestEdge || bestDist >= 25) {
         console.log(`Road name match failed (crossoverRoad="${crossoverRoad}", bestDist=${bestDist.toFixed(1)}m). Trying nearest road fallback...`);
+        const lotCLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
+        const lotCLng = lotPoly.reduce((s, p) => s + p[1], 0) / lotPoly.length;
         let fbBestEdge = null, fbBestDist = Infinity, fbRoadName = null;
         for (let i = 0; i < lotPoly.length - 1; i++) {
           const midLat = (lotPoly[i][0] + lotPoly[i + 1][0]) / 2;
@@ -1433,7 +1450,17 @@ Respond with JSON only:
               const rn = feat.properties?.rd || feat.properties?.road_name || feat.properties?.ROAD_NAME || "";
               for (const pt of g.coordinates) {
                 const d = Math.sqrt(((midLat - pt[1]) * mPerLat) ** 2 + ((midLng - pt[0]) * mPerLng) ** 2);
-                if (d < fbBestDist) { fbBestDist = d; fbBestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] }; fbRoadName = rn; }
+                if (d < fbBestDist) {
+                  // Check if road point is on the OUTWARD side of this edge (away from centroid)
+                  const edgeToCentroid = Math.sqrt(((midLat - lotCLat) * mPerLat) ** 2 + ((midLng - lotCLng) * mPerLng) ** 2);
+                  const roadToCentroid = Math.sqrt(((pt[1] - lotCLat) * mPerLat) ** 2 + ((pt[0] - lotCLng) * mPerLng) ** 2);
+                  // Road point should be FURTHER from centroid than edge midpoint (outward side)
+                  if (roadToCentroid >= edgeToCentroid * 0.8) {
+                    fbBestDist = d;
+                    fbBestEdge = { i, midLat, midLng, edgeLen, from: lotPoly[i], to: lotPoly[i + 1] };
+                    fbRoadName = rn;
+                  }
+                }
               }
             }
           }
