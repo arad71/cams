@@ -1584,23 +1584,31 @@ Respond with JSON only:
         const prevEdgeIdx = (roadEdgeIdx - 1 + numEdges) % numEdges;
         const nextEdgeIdx = (roadEdgeIdx + 1) % numEdges;
         
-        // Determine left/right using polygon winding order (Shoelace formula)
-        // Shoelace sum: positive = CCW, negative = CW
-        let shoelaceSum = 0;
+        // Determine left/right using polygon winding order
+        // In geographic coords [lat,lng], we use the signed area formula.
+        // Note: lat=Y, lng=X. Standard Shoelace uses (x,y) so we use (lng,lat).
+        let signedArea = 0;
         for (let k = 0; k < lotPoly.length - 1; k++) {
-          shoelaceSum += (lotPoly[k][1] * lotPoly[k + 1][0]) - (lotPoly[k + 1][1] * lotPoly[k][0]);
+          // x=lng (index 1), y=lat (index 0)
+          signedArea += (lotPoly[k][1] - lotPoly[k + 1][1]) * (lotPoly[k][0] + lotPoly[k + 1][0]);
         }
-        const isCCW = shoelaceSum > 0;
-        // In a CCW polygon, traversing from→to means LEFT is toward the interior.
-        // The outward normal points RIGHT of the traversal direction.
-        // So when facing outward from edge midpoint:
-        //   CCW polygon: "from" endpoint is on the LEFT (in traversal order, left side faces outward)
-        //   CW polygon:  "from" endpoint is on the RIGHT
+        // signedArea > 0 means clockwise in screen/geographic coords
+        const isCW = signedArea > 0;
+        
+        // When traversing a CW polygon edge from→to and the outward normal
+        // points to the LEFT of the traversal direction:
+        //   CW:  standing at midpoint facing outward → from is on your LEFT
+        //   CCW: standing at midpoint facing outward → from is on your RIGHT
         //
-        // When you stand at the edge midpoint facing outward (toward road):
-        //   CCW: from=LEFT,  to=RIGHT
-        //   CW:  from=RIGHT, to=LEFT
-        const fromIsLeft = isCCW;
+        // But we also need to verify: the "outward" side of THIS specific edge
+        // is where the road is. The edge selection already ensured the road is
+        // on the outward side. For a CW polygon, the outward normal of edge i→i+1
+        // points to the left of the traversal. So:
+        //   CW:  from = LEFT when facing outward
+        //   CCW: from = RIGHT when facing outward
+        const fromIsLeft = isCW;
+        
+        console.log(`Winding: signedArea=${signedArea.toFixed(6)}, ${isCW?"CW":"CCW"}, fromIsLeft=${fromIsLeft}, constrained=${constrainedSide}`);
 
         let constrainedCorner, oppositeCorner;
         if (constrainedSide === "left") {
@@ -1613,9 +1621,6 @@ Respond with JSON only:
           constrainedCorner = bestEdge.from;
           oppositeCorner = bestEdge.to;
         }
-        
-        const bDistFromConstrained = autoDrawBoundaryDist + (crossoverWidth ? crossoverWidth / 2 : 1.75);
-        console.log(`Constrained: ${constrainedSide}, winding=${isCCW?"CCW":"CW"}, fromIsLeft=${fromIsLeft}, bDist=${bDistFromConstrained.toFixed(1)}m, edgeLen=${bestEdge.edgeLen.toFixed(1)}m`);
         
         // Point A position: boundaryDist from constrained corner, along the road-facing edge
         const bDist = autoDrawBoundaryDist + (crossoverWidth ? crossoverWidth / 2 : 1.75);
