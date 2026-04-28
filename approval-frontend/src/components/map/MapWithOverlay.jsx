@@ -1584,56 +1584,62 @@ Respond with JSON only:
         const prevEdgeIdx = (roadEdgeIdx - 1 + numEdges) % numEdges;
         const nextEdgeIdx = (roadEdgeIdx + 1) % numEdges;
         
-        // Determine left/right using polygon winding order
-        // In geographic coords [lat,lng], we use the signed area formula.
-        // Note: lat=Y, lng=X. Standard Shoelace uses (x,y) so we use (lng,lat).
-        let signedArea = 0;
-        for (let k = 0; k < lotPoly.length - 1; k++) {
-          // x=lng (index 1), y=lat (index 0)
-          signedArea += (lotPoly[k][1] - lotPoly[k + 1][1]) * (lotPoly[k][0] + lotPoly[k + 1][0]);
-        }
-        // signedArea > 0 means clockwise in standard math coords.
-        // BUT in Southern Hemisphere (negative latitudes), the Y-axis
-        // is inverted relative to the signed area convention, so:
-        //   Southern Hemisphere: signedArea > 0 = actually CCW on map
-        //   Northern Hemisphere: signedArea > 0 = CW on map
-        const avgLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
-        const isCW = avgLat >= 0 ? signedArea > 0 : signedArea < 0;
+        // Place Point A at the crossover position on the road-facing edge
+        // Use boundary distances to position: the crossover centre is at
+        // leftBoundaryDist + halfWidth from the left boundary.
+        // Since we can't reliably determine which endpoint is "left" from
+        // polygon winding alone, we use BOTH boundary distances:
+        // - Place at leftDist + halfWidth from "from" endpoint
+        // - Place at rightDist + halfWidth from "to" endpoint  
+        // - Pick the one closer to the edge centre (more likely correct)
         
-        // When traversing a CW polygon edge from→to and the outward normal
-        // points to the LEFT of the traversal direction:
-        //   CW:  standing at midpoint facing outward → from is on your LEFT
-        //   CCW: standing at midpoint facing outward → from is on your RIGHT
-        //
-        // But we also need to verify: the "outward" side of THIS specific edge
-        // is where the road is. The edge selection already ensured the road is
-        // on the outward side. For a CW polygon, the outward normal of edge i→i+1
-        // points to the left of the traversal. So:
-        //   CW:  from = LEFT when facing outward
-        //   CCW: from = RIGHT when facing outward
-        const fromIsLeft = isCW;
+        const leftDist = sightConfig.leftBoundaryDist || autoDrawBoundaryDist || 1.5;
+        const rightDist = sightConfig.rightBoundaryDist || autoDrawBoundaryDist || 1.5;
+        const halfW = (crossoverWidth ? crossoverWidth / 2 : 1.75);
         
-        console.log(`Winding: signedArea=${signedArea.toFixed(6)}, ${isCW?"CW":"CCW"}, fromIsLeft=${fromIsLeft}, constrained=${constrainedSide}`);
-
-        let constrainedCorner, oppositeCorner;
-        if (constrainedSide === "left") {
-          constrainedCorner = fromIsLeft ? bestEdge.from : bestEdge.to;
-          oppositeCorner = fromIsLeft ? bestEdge.to : bestEdge.from;
-        } else if (constrainedSide === "right") {
-          constrainedCorner = fromIsLeft ? bestEdge.to : bestEdge.from;
-          oppositeCorner = fromIsLeft ? bestEdge.from : bestEdge.to;
+        // Try from "from" endpoint
+        const fracFromFrom = (leftDist + halfW) / bestEdge.edgeLen;
+        // Try from "to" endpoint  
+        const fracFromTo = (leftDist + halfW) / bestEdge.edgeLen;
+        
+        // Use the shorter boundary distance (constrained side) to position
+        const constrainedDist = Math.min(leftDist, rightDist);
+        const bDist = constrainedDist + halfW;
+        let edgeFrac = Math.min(0.9, Math.max(0.05, bDist / bestEdge.edgeLen));
+        
+        // We need to figure out from which end to measure
+        // Strategy: try both endpoints, see which gives a position that makes sense
+        // The correct one should place Point A closer to the road (outward from centroid)
+        
+        const ptFromStart = {
+          lat: bestEdge.from[0] + (bestEdge.to[0] - bestEdge.from[0]) * edgeFrac,
+          lng: bestEdge.from[1] + (bestEdge.to[1] - bestEdge.from[1]) * edgeFrac,
+        };
+        const ptFromEnd = {
+          lat: bestEdge.to[0] + (bestEdge.from[0] - bestEdge.to[0]) * edgeFrac,
+          lng: bestEdge.to[1] + (bestEdge.from[1] - bestEdge.to[1]) * edgeFrac,
+        };
+        
+        // Pick the one closer to the road projection point (if available)
+        let ptOnEdgeLat, ptOnEdgeLng;
+        if (roadProjPt) {
+          const d1 = Math.sqrt(((ptFromStart.lat - roadProjPt.lat) * mPerLat) ** 2 + ((ptFromStart.lng - roadProjPt.lng) * mPerLng) ** 2);
+          const d2 = Math.sqrt(((ptFromEnd.lat - roadProjPt.lat) * mPerLat) ** 2 + ((ptFromEnd.lng - roadProjPt.lng) * mPerLng) ** 2);
+          if (d1 <= d2) {
+            ptOnEdgeLat = ptFromStart.lat;
+            ptOnEdgeLng = ptFromStart.lng;
+            console.log(`Point A: from "from" endpoint (closer to road proj), dist=${d1.toFixed(1)}m vs ${d2.toFixed(1)}m`);
+          } else {
+            ptOnEdgeLat = ptFromEnd.lat;
+            ptOnEdgeLng = ptFromEnd.lng;
+            console.log(`Point A: from "to" endpoint (closer to road proj), dist=${d2.toFixed(1)}m vs ${d1.toFixed(1)}m`);
+          }
         } else {
-          constrainedCorner = bestEdge.from;
-          oppositeCorner = bestEdge.to;
+          ptOnEdgeLat = ptFromStart.lat;
+          ptOnEdgeLng = ptFromStart.lng;
         }
         
-        // Point A position: boundaryDist from constrained corner, along the road-facing edge
-        const bDist = autoDrawBoundaryDist + (crossoverWidth ? crossoverWidth / 2 : 1.75);
-        const edgeFrac = Math.min(0.9, Math.max(0.05, bDist / bestEdge.edgeLen));
-        const ptOnEdgeLat = constrainedCorner[0] + (oppositeCorner[0] - constrainedCorner[0]) * edgeFrac;
-        const ptOnEdgeLng = constrainedCorner[1] + (oppositeCorner[1] - constrainedCorner[1]) * edgeFrac;
-        
-        console.log(`Point A: constrained=${constrainedSide}, boundaryDist=${autoDrawBoundaryDist.toFixed(1)}m, halfWidth=${(crossoverWidth/2).toFixed(1)}m, edgeFrac=${edgeFrac.toFixed(2)}, edgeLen=${bestEdge.edgeLen.toFixed(1)}m`);
+        console.log(`Point A: bDist=${bDist.toFixed(1)}m (constrained=${constrainedDist.toFixed(1)}m + halfW=${halfW.toFixed(1)}m), edgeFrac=${edgeFrac.toFixed(2)}, edgeLen=${bestEdge.edgeLen.toFixed(1)}m`);
 
         // Step 4: Point A = 2.5m inward from road edge (perpendicular to road)
         const xOffset = 2.5;
