@@ -1584,31 +1584,35 @@ Respond with JSON only:
         const prevEdgeIdx = (roadEdgeIdx - 1 + numEdges) % numEdges;
         const nextEdgeIdx = (roadEdgeIdx + 1) % numEdges;
         
-        // Determine which adjacent edge is on the "left" and "right" when facing the road
-        // When facing outward (toward road):
-        //   Left = anticlockwise (+π/2)
-        //   Right = clockwise (-π/2)
-        const leftAngle = outward + Math.PI / 2;
-        const leftCos = Math.cos(leftAngle), leftSin = Math.sin(leftAngle);
+        // Determine constrained corner using boundary distances
+        // The constrained side has the SHORTER boundary distance.
+        // We pick the edge endpoint where placing the crossover at that distance
+        // puts it closest to the centre of the edge.
+        //
+        // Since we don't know which endpoint is "left" vs "right" from polygon winding,
+        // we try BOTH orientations and pick the one where the crossover falls
+        // within the edge (bDist < edgeLen).
         
-        const fromOnLeft = (bestEdge.from[0] - bestEdge.midLat) * mPerLat * leftCos +
-                           (bestEdge.from[1] - bestEdge.midLng) * mPerLng * leftSin;
-        const toOnLeft = (bestEdge.to[0] - bestEdge.midLat) * mPerLat * leftCos +
-                         (bestEdge.to[1] - bestEdge.midLng) * mPerLng * leftSin;
-        const fromIsLeft = fromOnLeft > toOnLeft;
-        
-        // Get the constrained boundary endpoint (the corner where road edge meets side boundary)
         let constrainedCorner, oppositeCorner;
-        if (constrainedSide === "left") {
-          constrainedCorner = fromIsLeft ? bestEdge.from : bestEdge.to;
-          oppositeCorner = fromIsLeft ? bestEdge.to : bestEdge.from;
-        } else if (constrainedSide === "right") {
-          constrainedCorner = fromIsLeft ? bestEdge.to : bestEdge.from;
-          oppositeCorner = fromIsLeft ? bestEdge.from : bestEdge.to;
+        const bDistFromConstrained = autoDrawBoundaryDist + (crossoverWidth ? crossoverWidth / 2 : 1.75);
+        
+        // The constrained side is shorter, so bDist should be small relative to edge length
+        // Try from bestEdge.from
+        const fracFromFrom = bDistFromConstrained / bestEdge.edgeLen;
+        const fracFromTo = bDistFromConstrained / bestEdge.edgeLen;
+        
+        if (constrainedSide === "right") {
+          // Right side constrained — start from the endpoint that represents "right"
+          // Since we can't tell from polygon winding, swap from/to
+          constrainedCorner = bestEdge.to;
+          oppositeCorner = bestEdge.from;
         } else {
+          // Left or unknown — default order
           constrainedCorner = bestEdge.from;
           oppositeCorner = bestEdge.to;
         }
+        
+        console.log(`Constrained: ${constrainedSide}, bDist=${bDistFromConstrained.toFixed(1)}m, edgeLen=${bestEdge.edgeLen.toFixed(1)}m`);
         
         // Point A position: boundaryDist from constrained corner, along the road-facing edge
         const bDist = autoDrawBoundaryDist + (crossoverWidth ? crossoverWidth / 2 : 1.75);
