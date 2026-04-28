@@ -559,9 +559,22 @@ def run_seed():
                 ("doc", "Building Application", "not_exists"),
             ], "review", 0.7, "DA number entered but no Building Application uploaded (R-014)")
             R("da_pathway",          9, "app", "da_number",          "exists", None,  "review", 0.5,  "DA number present — verify DA documents (R-014)")
-            R("standalone_required", 0, "app", "da_number",        "not_exists", None, "pass", 0.9, "Standalone crossover — application form + site plan required (R-001 to R-003)")
-            R("standalone_required", 1, "app", "da_number",        "exists", None,  "pass",   0.8,  "DA-linked — standalone may not be required if DA covers crossover design (R-014)")
-            R("standalone_required", 9, "app", "owner_name",       "exists", None,  "review", 0.5,  "Application pathway to be confirmed")
+            RC("standalone_required", 0, "and", [
+                ("app", "da_number", "not_exists"),
+                ("doc", "Application Form", "exists"),
+                ("doc", "Site Plan", "exists"),
+            ], "pass", 0.95, "Standalone crossover application confirmed — no DA, Application Form and Site Plan present (R-015)")
+            RC("standalone_required", 1, "and", [
+                ("app", "da_number", "not_exists"),
+                ("doc", "Application Form", "exists"),
+                ("doc", "Site Plan", "not_exists"),
+            ], "review", 0.8, "Application Form present but no Site Plan — site plan required (R-015)")
+            RC("standalone_required", 2, "and", [
+                ("app", "da_number", "not_exists"),
+                ("doc", "Application Form", "not_exists"),
+            ], "fail", 0.85, "No DA number and no Application Form — standalone application form required (R-015)")
+            R("standalone_required", 3, "app", "da_number",          "exists", None,  "pass",   0.9,  "DA-linked application — standalone form not required (R-015)")
+            R("standalone_required", 9, "app", "owner_name",         "exists", None,  "review", 0.5,  "Application pathway to be confirmed (R-015)")
             R("bonding_eligibility", 0, "app", "application_type", "eq", "da",      "pass",   0.9,  "DA crossover — outstanding works CAN be bonded (R-032)")
             R("bonding_eligibility", 1, "app", "application_type", "eq", "subdivision", "fail", 0.95, "Subdivision — bonding NOT permitted, must complete before clearance (R-031)")
             R("bonding_eligibility", 2, "app", "application_type", "eq", "standalone", "fail", 0.9, "Standalone — bonding not applicable")
