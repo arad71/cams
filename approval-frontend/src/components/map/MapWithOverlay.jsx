@@ -1592,8 +1592,13 @@ Respond with JSON only:
           // x=lng (index 1), y=lat (index 0)
           signedArea += (lotPoly[k][1] - lotPoly[k + 1][1]) * (lotPoly[k][0] + lotPoly[k + 1][0]);
         }
-        // signedArea > 0 means clockwise in screen/geographic coords
-        const isCW = signedArea > 0;
+        // signedArea > 0 means clockwise in standard math coords.
+        // BUT in Southern Hemisphere (negative latitudes), the Y-axis
+        // is inverted relative to the signed area convention, so:
+        //   Southern Hemisphere: signedArea > 0 = actually CCW on map
+        //   Northern Hemisphere: signedArea > 0 = CW on map
+        const avgLat = lotPoly.reduce((s, p) => s + p[0], 0) / lotPoly.length;
+        const isCW = avgLat >= 0 ? signedArea > 0 : signedArea < 0;
         
         // When traversing a CW polygon edge from→to and the outward normal
         // points to the LEFT of the traversal direction:
