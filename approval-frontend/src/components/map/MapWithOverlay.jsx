@@ -5,6 +5,23 @@ import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCross
 import LeafletMap from './LeafletMap';
 import { T, S, cx } from '../../styles/tokens';
 
+// Simple collapsible section for map panels
+function MapCollapsible({ title, icon, defaultOpen = true, badge, color = "#1a3a4a", children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div>
+      <div onClick={() => setOpen(!open)}
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: open ? `${color}08` : "#f8fafb", borderBottom: open ? "none" : `1px solid #e8ecef`, cursor: "pointer", userSelect: "none" }}>
+        <span style={{ fontSize: 11, transition: "transform 0.2s", transform: open ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        {icon && <span style={{ fontSize: 13 }}>{icon}</span>}
+        <span style={{ fontSize: 12, fontWeight: 600, color: open ? color : "#5a6a74", flex: 1 }}>{title}</span>
+        {badge && <span style={{ fontSize: 9, fontWeight: 600, color: "#7a8a94", background: "#f0f3f5", padding: "2px 8px", borderRadius: 10 }}>{badge}</span>}
+      </div>
+      {open && children}
+    </div>
+  );
+}
+
 // ─── Satellite Mini-Map with triangle + measurements ─────
 function SatelliteMiniMap({ sightTriangle }) {
   const ref = useRef(null);
@@ -1011,23 +1028,44 @@ Respond with JSON only:
 
     try {
       const mPerLat = 111320, mPerLng = 111320 * Math.cos(lotPoly[0][0] * Math.PI / 180);
-      // Compute road direction from A→B line
+      // A→B direction = outward (toward road)
       const abDx = (ptB.lng - ptA.lng) * mPerLng;
       const abDy = (ptB.lat - ptA.lat) * mPerLat;
-      const abAngle = Math.atan2(abDx, abDy); // outward direction
-      const inAngle = abAngle + Math.PI; // inward direction
-      // Road direction = perpendicular to A→B
-      const roadAngle = abAngle + Math.PI / 2;
+      const outAngle = Math.atan2(abDx, abDy);
+      const inAngle = outAngle + Math.PI;
+      // Road direction = perpendicular to A→B (along the road)
+      const roadAngle = outAngle + Math.PI / 2;
 
-      // Move Point A: x metres inward from B along A→B line, shifted y along road
       const xDist = parseFloat(x) || 2.5;
-      // New A position = B + xDist inward
-      const newA = {
-        lat: ptB.lat + Math.cos(inAngle) * xDist / mPerLat,
-        lng: ptB.lng + Math.sin(inAngle) * xDist / mPerLng,
-      };
-      setPtA(newA);
-      console.log(`Repositioned A: x=${xDist}m from road`);
+      const yDist = parseFloat(y) || 4.0;
+      const prevY = prevXYRef.current.y || yDist;
+      const yDelta = yDist - prevY; // how much Y changed
+
+      if (prevXYRef.current.x !== x) {
+        // X changed — reposition A at xDist from B, same road position
+        const newA = {
+          lat: ptB.lat + Math.cos(inAngle) * xDist / mPerLat,
+          lng: ptB.lng + Math.sin(inAngle) * xDist / mPerLng,
+        };
+        setPtA(newA);
+        console.log(`X changed: repositioned A ${xDist}m from road`);
+      }
+      
+      if (prevXYRef.current.y !== y) {
+        // Y changed — shift A along the road direction by the delta
+        const newA = {
+          lat: ptA.lat + Math.cos(roadAngle) * yDelta / mPerLat,
+          lng: ptA.lng + Math.sin(roadAngle) * yDelta / mPerLng,
+        };
+        // Also move B to keep perpendicular relationship
+        const newB = {
+          lat: ptB.lat + Math.cos(roadAngle) * yDelta / mPerLat,
+          lng: ptB.lng + Math.sin(roadAngle) * yDelta / mPerLng,
+        };
+        setPtA(newA);
+        setPtB(newB);
+        console.log(`Y changed: shifted A+B along road by ${yDelta.toFixed(1)}m (total y=${yDist}m)`);
+      }
     } catch (e) {
       console.warn("Failed to reposition A:", e);
     }
@@ -2065,11 +2103,9 @@ Respond with JSON only:
       </div>
       {/* ═══ Sight Analysis ═══ */}
       {(sightPhase || sightTriangle || drawMode) ? (
-        <div style={{ background: "linear-gradient(180deg, #f0f2f5 0%, #f8f9fb 100%)", borderBottom: "2px solid #1a3a4a20" }}>
-          {/* Header — always visible, click to toggle */}
-          <div onClick={() => setSightConfig(c => ({ ...c, collapsed: !c.collapsed }))}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", cursor: "pointer", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, transition: "transform 0.2s", transform: sightConfig.collapsed ? "rotate(0deg)" : "rotate(90deg)", display: "inline-block" }}>▶</span>
+        <div style={{ background: "linear-gradient(180deg, #f0f2f5 0%, #f8f9fb 100%)", borderBottom: "2px solid #1a3a4a20", padding: "8px 14px" }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
             <span style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text, letterSpacing: -0.3 }}>Sight Analysis</span>
             {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>🛣️ {sightConfig.crossoverRoad}</span>}
@@ -2112,9 +2148,6 @@ Respond with JSON only:
             {analysisRunning && <span style={{ fontSize: 9, fontWeight: T.w.bold, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
             <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Reset</button>
           </div>
-          {/* Body — collapsible */}
-          {!sightConfig.collapsed && (
-          <div style={{ padding: "0 14px 8px" }}>
           {/* Step cards */}
           <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
             {sightConfig.isCorner && (
@@ -2244,8 +2277,6 @@ Respond with JSON only:
             {drawMode === "ptA" && <span>Manual — click the <b>driveway location</b> (Point A)</span>}
             {drawMode === "ptB" && <span>Manual — click the <b>road centreline</b> (Point B)</span>}
           </div>
-          </div>
-          )}
         </div>
       ) : (
         <div style={{ padding: "6px 14px", borderBottom: "1px solid #e4e9ec", display: "flex", gap: 4, alignItems: "center" }}>
@@ -2253,19 +2284,10 @@ Respond with JSON only:
           <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
         </div>
       )}
-      {/* Street View panel */}
+      {/* Street View panel — collapsible */}
       {mapTool === "streetview" && (
-        <div style={{ background: "#fff8f0", borderBottom: "1px solid #f0d8c0", padding: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 14 }}>📷</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "#e67e22" }}>Street View</span>
-              {!streetViewPt && <span style={{ fontSize: 9, color: "#95a5a6" }}>Click on map to view</span>}
-            </div>
-            {streetViewPt && (
-              <button onClick={() => setStreetViewPt(null)} style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: "#7a8a94", fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
-            )}
-          </div>
+        <MapCollapsible title="Street View" icon="📷" defaultOpen={true} badge={streetViewPt ? `${streetViewPt.lat.toFixed(4)}, ${streetViewPt.lng.toFixed(4)}` : "Click map to view"} color="#e67e22">
+          <div style={{ padding: 12 }}>
           {streetViewPt ? (
             <div style={{ display: "flex", gap: 8 }}>
               <div style={{ flex: 1 }}>
@@ -2301,7 +2323,8 @@ Respond with JSON only:
               <div style={{ fontSize: 9, marginTop: 4, color: "#95a5a6" }}>Tip: Click near Point A to see the driver's view</div>
             </div>
           )}
-        </div>
+          </div>
+        </MapCollapsible>
       )}
       {/* Tool context bar */}
       {mapTool === "measure" && (
