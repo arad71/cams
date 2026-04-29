@@ -1023,49 +1023,53 @@ Respond with JSON only:
     const x = sightConfig.x, y = sightConfig.y;
     if (prevXYRef.current.x === null) { prevXYRef.current = { x, y }; return; }
     if (prevXYRef.current.x === x && prevXYRef.current.y === y) return;
+    
+    // Save previous values BEFORE updating ref
+    const prevX = prevXYRef.current.x;
+    const prevY = prevXYRef.current.y;
     prevXYRef.current = { x, y };
+    
     if (!ptA || !ptB || !sightConfig.autoDrawn || !lotPoly || lotPoly.length < 4) return;
 
     try {
       const mPerLat = 111320, mPerLng = 111320 * Math.cos(lotPoly[0][0] * Math.PI / 180);
-      // A→B direction = outward (toward road)
       const abDx = (ptB.lng - ptA.lng) * mPerLng;
       const abDy = (ptB.lat - ptA.lat) * mPerLat;
       const outAngle = Math.atan2(abDx, abDy);
       const inAngle = outAngle + Math.PI;
-      // Road direction = perpendicular to A→B (along the road)
       const roadAngle = outAngle + Math.PI / 2;
 
       const xDist = parseFloat(x) || 2.5;
       const yDist = parseFloat(y) || 4.0;
-      const prevY = prevXYRef.current.y || yDist;
-      const yDelta = yDist - prevY; // how much Y changed
 
-      if (prevXYRef.current.x !== x) {
-        // X changed — reposition A at xDist from B, same road position
-        const newA = {
+      let newA = { ...ptA };
+      let newB = { ...ptB };
+
+      if (prevX !== x) {
+        // X changed — reposition A at xDist from B along A→B direction
+        newA = {
           lat: ptB.lat + Math.cos(inAngle) * xDist / mPerLat,
           lng: ptB.lng + Math.sin(inAngle) * xDist / mPerLng,
         };
-        setPtA(newA);
-        console.log(`X changed: repositioned A ${xDist}m from road`);
+        console.log(`X changed: ${prevX} → ${x}, repositioned A ${xDist}m from road`);
       }
       
-      if (prevXYRef.current.y !== y) {
-        // Y changed — shift A along the road direction by the delta
-        const newA = {
-          lat: ptA.lat + Math.cos(roadAngle) * yDelta / mPerLat,
-          lng: ptA.lng + Math.sin(roadAngle) * yDelta / mPerLng,
+      if (prevY !== y) {
+        // Y changed — shift both A and B along the road direction
+        const yDelta = yDist - (parseFloat(prevY) || 4.0);
+        newA = {
+          lat: newA.lat + Math.cos(roadAngle) * yDelta / mPerLat,
+          lng: newA.lng + Math.sin(roadAngle) * yDelta / mPerLng,
         };
-        // Also move B to keep perpendicular relationship
-        const newB = {
-          lat: ptB.lat + Math.cos(roadAngle) * yDelta / mPerLat,
-          lng: ptB.lng + Math.sin(roadAngle) * yDelta / mPerLng,
+        newB = {
+          lat: newB.lat + Math.cos(roadAngle) * yDelta / mPerLat,
+          lng: newB.lng + Math.sin(roadAngle) * yDelta / mPerLng,
         };
-        setPtA(newA);
-        setPtB(newB);
-        console.log(`Y changed: shifted A+B along road by ${yDelta.toFixed(1)}m (total y=${yDist}m)`);
+        console.log(`Y changed: ${prevY} → ${y}, shifted A+B along road by ${yDelta.toFixed(1)}m`);
       }
+
+      setPtA(newA);
+      if (prevY !== y) setPtB(newB);
     } catch (e) {
       console.warn("Failed to reposition A:", e);
     }
