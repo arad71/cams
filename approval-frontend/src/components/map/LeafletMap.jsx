@@ -522,26 +522,28 @@ export default function LeafletMap({ apps, selectedApp, onSelectApp, height = 50
     // Point A
     if (ptA) {
       if (!sightMarkerA.current) {
-        sightMarkerA.current = L.marker([ptA.lat, ptA.lng], { icon: makeIcon('A', '#e74c3c'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
+        sightMarkerA.current = L.marker([ptA.lat, ptA.lng], { icon: makeIcon('A', '#e74c3c'), draggable: true, zIndexOffset: 5000, autoPan: true }).addTo(mapInstanceRef.current);
         sightMarkerA.current.on('dragend', () => {
           const ll = sightMarkerA.current.getLatLng();
           if (onDragRef.current) onDragRef.current('A', { lat: ll.lat, lng: ll.lng });
         });
       } else {
         sightMarkerA.current.setLatLng([ptA.lat, ptA.lng]);
+        if (!sightMarkerA.current.dragging._enabled) sightMarkerA.current.dragging.enable();
       }
     }
 
     // Point B
     if (ptB) {
       if (!sightMarkerB.current) {
-        sightMarkerB.current = L.marker([ptB.lat, ptB.lng], { icon: makeIcon('B', '#2980b9'), draggable: true, zIndexOffset: 2000, autoPan: true }).addTo(mapInstanceRef.current);
+        sightMarkerB.current = L.marker([ptB.lat, ptB.lng], { icon: makeIcon('B', '#2980b9'), draggable: true, zIndexOffset: 5000, autoPan: true }).addTo(mapInstanceRef.current);
         sightMarkerB.current.on('dragend', () => {
           const ll = sightMarkerB.current.getLatLng();
           if (onDragRef.current) onDragRef.current('B', { lat: ll.lat, lng: ll.lng });
         });
       } else {
         sightMarkerB.current.setLatLng([ptB.lat, ptB.lng]);
+        if (!sightMarkerB.current.dragging._enabled) sightMarkerB.current.dragging.enable();
       }
     }
 

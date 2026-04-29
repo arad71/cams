@@ -2065,9 +2065,11 @@ Respond with JSON only:
       </div>
       {/* ═══ Sight Analysis ═══ */}
       {(sightPhase || sightTriangle || drawMode) ? (
-        <div style={{ background: "linear-gradient(180deg, #f0f2f5 0%, #f8f9fb 100%)", borderBottom: "2px solid #1a3a4a20", padding: "8px 14px" }}>
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+        <div style={{ background: "linear-gradient(180deg, #f0f2f5 0%, #f8f9fb 100%)", borderBottom: "2px solid #1a3a4a20" }}>
+          {/* Header — always visible, click to toggle */}
+          <div onClick={() => setSightConfig(c => ({ ...c, collapsed: !c.collapsed }))}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", cursor: "pointer", flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, transition: "transform 0.2s", transform: sightConfig.collapsed ? "rotate(0deg)" : "rotate(90deg)", display: "inline-block" }}>▶</span>
             <div style={{ width: 3, height: 22, borderRadius: 2, background: sightTriangle ? "#27ae60" : "#1a3a4a" }} />
             <span style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.text, letterSpacing: -0.3 }}>Sight Analysis</span>
             {sightConfig.crossoverRoad && <span style={{ fontSize: 9, background: "#E3F2FD", color: "#1565C0", padding: "2px 6px", borderRadius: 3, fontWeight: T.w.bold }}>🛣️ {sightConfig.crossoverRoad}</span>}
@@ -2110,6 +2112,9 @@ Respond with JSON only:
             {analysisRunning && <span style={{ fontSize: 9, fontWeight: T.w.bold, color: "#8e44ad", background: "#f4ecf7", padding: "3px 8px", borderRadius: 4 }}>Analysing...</span>}
             <button onClick={resetTriangle} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontSize: 9, fontWeight: T.w.semi, cursor: "pointer" }}>Reset</button>
           </div>
+          {/* Body — collapsible */}
+          {!sightConfig.collapsed && (
+          <div style={{ padding: "0 14px 8px" }}>
           {/* Step cards */}
           <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
             {sightConfig.isCorner && (
@@ -2239,6 +2244,8 @@ Respond with JSON only:
             {drawMode === "ptA" && <span>Manual — click the <b>driveway location</b> (Point A)</span>}
             {drawMode === "ptB" && <span>Manual — click the <b>road centreline</b> (Point B)</span>}
           </div>
+          </div>
+          )}
         </div>
       ) : (
         <div style={{ padding: "6px 14px", borderBottom: "1px solid #e4e9ec", display: "flex", gap: 4, alignItems: "center" }}>

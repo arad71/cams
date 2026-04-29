@@ -944,20 +944,6 @@ export default function WorkflowView({
               <StepExtract app={localApp} currentUser={currentUser}
                 onReload={onDocUpdated} measureCorrections={measureCorrections}
                 onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
-              <CollapsibleSection title="Assessment Checklist" icon="📋" defaultOpen={false} badge={stepStats.review?.badge} color="#085041">
-                <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
-                  globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
-                  globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
-                  globalUrbanForestData={globalUrbanForestData} globalDrainagePipesData={globalDrainagePipesData}
-                  globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
-                  globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
-                  globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
-                  categories={categories}
-                  currentUser={currentUser}
-                  onMeasureCorrection={onMeasureCorrection}
-                  georefData={georefData} onGeorefDone={() => setGeorefData(null)}
-                  mode="checklist" />
-              </CollapsibleSection>
               <CollapsibleSection title="Map View" icon="🗺️" defaultOpen={false} badge="View lot on map" color="#185FA5">
                 <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
                   globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
@@ -966,6 +952,8 @@ export default function WorkflowView({
                   globalDrainagePitsData={globalDrainagePitsData} globalWaterPipesData={globalWaterPipesData}
                   globalPowerBuriedData={globalPowerBuriedData} globalPowerOverheadData={globalPowerOverheadData}
                   globalPowerStructuresData={globalPowerStructuresData} globalGasMainsData={globalGasMainsData}
+                  globalGasValvesData={globalGasValvesData} globalPowerTransformersData={globalPowerTransformersData}
+                  globalPowerStreetlightsData={globalPowerStreetlightsData}
                   categories={categories}
                   currentUser={currentUser}
                   onMeasureCorrection={onMeasureCorrection}
