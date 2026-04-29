@@ -2288,9 +2288,9 @@ Respond with JSON only:
           <button onClick={startDraw} style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #dce1e6", background: "#fff", color: T.c.grey600, fontWeight: T.w.semi, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>Manual sight location</button>
         </div>
       )}
-      {/* Street View panel — collapsible */}
-      {mapTool === "streetview" && (
-        <MapCollapsible title="Street View" icon="📷" defaultOpen={true} badge={streetViewPt ? `${streetViewPt.lat.toFixed(4)}, ${streetViewPt.lng.toFixed(4)}` : "Click map to view"} color="#e67e22">
+      {/* Street View panel — collapsible, persists when tool deselected */}
+      {(mapTool === "streetview" || streetViewPt) && (
+        <MapCollapsible title="Street View" icon="📷" defaultOpen={false} badge={streetViewPt ? `${streetViewPt.lat.toFixed(4)}, ${streetViewPt.lng.toFixed(4)}` : "Click map to view"} color="#e67e22">
           <div style={{ padding: 12 }}>
           {streetViewPt ? (
             <div style={{ display: "flex", gap: 8 }}>
