@@ -7,7 +7,7 @@ const activeColor = T.c.accent;
 const textDim = "#8ba3b5";
 const textDimmer = "#506878";
 
-export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {} }) {
+export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {}, mobile = false, open = false, onClose = () => {} }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
   const orgName = B.orgName || "Council";
   const portalTitle = B.portalTitle || "Approval Portal";
@@ -29,10 +29,18 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
     { id: "admin", icon: "\u{2699}\u{fe0f}", label: "Administration", roles: ["admin"] },
   ];
   const nav = baseNav.filter(n => n.roles.includes(role));
-  const w = collapsed ? 56 : 224;
+  const w = collapsed ? 56 : (mobile ? 260 : 224);
+  // On phones the sidebar is an off-canvas drawer opened from the top bar.
+  const mobileStyle = mobile ? {
+    position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 1200,
+    transform: open ? "translateX(0)" : "translateX(-105%)",
+    transition: "transform 0.25s ease", boxShadow: open ? "0 0 40px rgba(0,0,0,0.35)" : "none",
+  } : {};
 
   return (
-    <div style={{ width: w, minWidth: w, maxWidth: w, background: sidebarBg, minHeight: "100vh", display: "flex", flexDirection: "column", flexShrink: 0, transition: T.tr.base, overflow: "hidden", borderRight: `1px solid ${sidebarBorder}` }}>
+    <>
+    {mobile && open && <div onClick={onClose} aria-hidden="true" style={{ position: "fixed", inset: 0, background: "rgba(12,31,46,0.45)", zIndex: 1100 }} />}
+    <div aria-hidden={mobile && !open ? "true" : undefined} style={{ width: w, minWidth: w, maxWidth: w, background: sidebarBg, minHeight: "100vh", display: "flex", flexDirection: "column", flexShrink: 0, transition: T.tr.base, overflow: "hidden", borderRight: `1px solid ${sidebarBorder}`, ...mobileStyle }}>
       {/* Logo / Brand */}
       <div style={{ padding: collapsed ? `${T.s.md}px ${T.s.sm}px` : `${T.s.lg}px`, borderBottom: `1px solid ${sidebarBorder}`, display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "space-between" }}>
         {collapsed ? (
@@ -46,7 +54,7 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
                 <div style={{ color: textDimmer, fontSize: T.f.xxs }}>{portalTitle} v{version}</div>
               </div>
             </div>
-            <button onClick={() => setCollapsed(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: textDimmer, padding: 2 }} title="Collapse">{"\u2715"}</button>
+            <button onClick={() => mobile ? onClose() : setCollapsed(true)} aria-label={mobile ? "Close menu" : "Collapse menu"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: textDimmer, padding: 2 }} title="Collapse">{"\u2715"}</button>
           </>
         )}
       </div>
@@ -56,7 +64,7 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
         {nav.map(item => {
           const act = activeView === item.id;
           return (
-            <button key={item.id} onClick={() => setActiveView(item.id)} title={item.label}
+            <button key={item.id} onClick={() => { setActiveView(item.id); if (mobile) onClose(); }} title={item.label}
               style={{
                 width: "100%", display: "flex", alignItems: "center",
                 gap: collapsed ? 0 : 10,
@@ -64,7 +72,7 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
                 borderRadius: 8, border: "none", cursor: "pointer", marginBottom: 2,
                 background: act ? `${activeColor}15` : "transparent",
                 color: act ? activeColor : textDim,
-                fontSize: 12, fontWeight: act ? 600 : 400,
+                fontSize: 13, fontWeight: act ? 600 : 400,
                 fontFamily: "inherit", textAlign: "left",
                 justifyContent: collapsed ? "center" : "flex-start",
                 transition: "all 0.15s ease",
@@ -100,5 +108,6 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
         </div>
       )}
     </div>
+    </>
   );
 }

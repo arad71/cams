@@ -161,7 +161,7 @@ async def upload_document(
         try:
             from app.api.assessments import _ensure_case_rows, _auto_assess_item
             from app.models.assessment import CaseAssessment, AssessmentItem
-            _ensure_case_rows(app_id, db)
+            _ensure_case_rows(db, app_id)
             from sqlalchemy.orm import joinedload as jl
             cases = db.query(CaseAssessment).filter(CaseAssessment.application_id == app_id).options(jl(CaseAssessment.item)).all()
             assessed = 0
@@ -182,6 +182,7 @@ async def upload_document(
     log_audit(db=db, action="upload", entity_type="document", user=current_user, entity_id=str(doc.id), entity_ref=app.ref_number, description=f"Uploaded {safe_name} ({size_str}) to {app.ref_number}, category={category}")
     out = _build_doc_out(doc)
     if ai_status:
+        out = out.model_dump()
         out["ai_status"] = ai_status
     return out
 

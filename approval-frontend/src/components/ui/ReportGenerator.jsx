@@ -48,24 +48,24 @@ export default function ReportGenerator({ app }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: T.w.black, color: T.c.text }}>Assessment Reports</div>
-          <div style={{ fontSize: 11, color: T.c.textMuted, marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: T.c.textMuted, marginTop: 2 }}>
             {reports.length} version{reports.length !== 1 ? "s" : ""} generated
           </div>
         </div>
         <button onClick={generateReport} disabled={generating}
-          style={{ padding: "8px 16px", borderRadius: T.r.md, border: "none", background: generating ? "#bdc3c7" : "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: generating ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+          style={{ padding: "8px 16px", borderRadius: T.r.md, border: "none", background: generating ? "#bdc3c7" : "linear-gradient(135deg, #1a3a4a, #2c3e50)", color: T.c.white, fontWeight: T.w.bold, fontSize: 13, cursor: generating ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
           {generating ? "Generating..." : "Generate Report"}
         </button>
       </div>
 
       {error && (
-        <div style={{ padding: "8px 12px", background: T.c.dangerLight, border: "1px solid #f5c6cb", borderRadius: T.r.md, color: T.c.danger, fontSize: 11, marginBottom: 10 }}>
+        <div style={{ padding: "8px 12px", background: T.c.dangerLight, border: "1px solid #f5c6cb", borderRadius: T.r.md, color: T.c.danger, fontSize: 12, marginBottom: 10 }}>
           {error}
         </div>
       )}
 
       {reports.length === 0 ? (
-        <div style={{ padding: 20, textAlign: "center", color: T.c.grey400, fontSize: 12 }}>
+        <div style={{ padding: 20, textAlign: "center", color: T.c.grey400, fontSize: 13 }}>
           No reports generated yet. Click "Generate Report" to create a snapshot of the current assessment.
         </div>
       ) : (
@@ -77,22 +77,22 @@ export default function ReportGenerator({ app }) {
 
             return (
               <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: T.c.bgAlt, borderRadius: T.r.md, border: `1px solid ${T.c.borderLight}` }}>
-                <div style={{ width: 36, height: 36, borderRadius: T.r.md, background: "#1a3a4a", color: T.c.white, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: T.w.black, fontSize: 13, flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: T.r.md, background: "#1a3a4a", color: T.c.white, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: T.w.black, fontSize: 14, flexShrink: 0 }}>
                   V{r.version}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.text }}>
+                  <div style={{ fontSize: 13, fontWeight: T.w.bold, color: T.c.text }}>
                     Version {r.version}
-                    <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: T.r.sm, fontSize: 10, fontWeight: T.w.black, color: recColor(rec), background: recColor(rec) + "15" }}>
+                    <span style={{ marginLeft: 8, padding: "2px 8px", borderRadius: T.r.sm, fontSize: 12, fontWeight: T.w.black, color: recColor(rec), background: recColor(rec) + "15" }}>
                       {rec}
                     </span>
                   </div>
-                  <div style={{ fontSize: 10, color: T.c.textMuted, marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: T.c.textMuted, marginTop: 2 }}>
                     {date} — {r.generated_by_name || "System"} — {sum.ai_pass || 0} pass, {sum.ai_fail || 0} fail, {sum.ai_review || 0} review
                   </div>
                 </div>
                 <button onClick={() => downloadPdf(r.version)} disabled={downloading === r.version}
-                  style={{ padding: "6px 12px", borderRadius: T.r.md, border: "1.5px solid #e74c3c", background: downloading === r.version ? "#fce4ec" : "#fff", color: T.c.danger, fontWeight: T.w.bold, fontSize: 10, cursor: downloading === r.version ? "not-allowed" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                  style={{ padding: "6px 12px", borderRadius: T.r.md, border: "1.5px solid #e74c3c", background: downloading === r.version ? "#fce4ec" : "#fff", color: T.c.danger, fontWeight: T.w.bold, fontSize: 12, cursor: downloading === r.version ? "not-allowed" : "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                   {downloading === r.version ? "Downloading..." : "PDF"}
                 </button>
               </div>

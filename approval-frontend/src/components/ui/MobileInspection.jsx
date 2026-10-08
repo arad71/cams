@@ -150,12 +150,12 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: T.w.black }}>Field Inspection</div>
-            <div style={{ fontSize: 11, opacity: 0.8, marginTop: 2 }}>{app?.ref_number || ""} — {app?.property_address || ""}</div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>{app?.ref_number || ""} — {app?.property_address || ""}</div>
           </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, padding: "6px 14px", borderRadius: T.r.md, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer" }}>Close</button>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, padding: "6px 14px", borderRadius: T.r.md, fontWeight: T.w.bold, fontSize: 13, cursor: "pointer" }}>Close</button>
         </div>
         {/* Quick info bar */}
-        <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 10, opacity: 0.8 }}>
+        <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 12, opacity: 0.8 }}>
           {crossoverRoad && <span>Road: {crossoverRoad}</span>}
           <span>{inspection?.inspection_type || "Inspection"}</span>
           <span style={{ marginLeft: "auto", color: gpsStatus === "locked" ? "#1abc9c" : "#f39c12" }}>
@@ -167,7 +167,7 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
         <div style={{ marginTop: 8, height: 4, background: "rgba(255,255,255,0.15)", borderRadius: 2, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${(completed / allItems.length * 100)}%`, background: failed > 0 ? "#e74c3c" : "#1abc9c", transition: "width 0.3s" }} />
         </div>
-        <div style={{ fontSize: 10, marginTop: 3, opacity: 0.7 }}>
+        <div style={{ fontSize: 12, marginTop: 3, opacity: 0.7 }}>
           {completed}/{allItems.length} checked — {passed} pass, {failed} fail, {photos.length} photos
         </div>
       </div>
@@ -176,7 +176,7 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
       <div style={{ flex: 1, overflowY: "auto", padding: "8px 12px" }}>
         {FIELD_ITEMS.map(cat => (
           <div key={cat.cat} style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: T.w.black, color: T.c.textSecondary, textTransform: "uppercase", padding: "6px 0", borderBottom: `1px solid ${T.c.border}`, marginBottom: 6 }}>{cat.cat}</div>
+            <div style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.textSecondary, textTransform: "uppercase", padding: "6px 0", borderBottom: `1px solid ${T.c.border}`, marginBottom: 6 }}>{cat.cat}</div>
             {cat.items.map(item => {
               const result = checklist[item.code]?.result;
               const note = checklist[item.code]?.note || "";
@@ -185,12 +185,12 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
                 <div key={item.code} style={{ background: T.c.card, borderRadius: T.r.md, border: `1px solid ${result === "fail" ? "#f5c6cb" : result === "pass" ? "#d4efdf" : "#e4e9ec"}`, padding: "10px 12px", marginBottom: 6 }}>
                   {/* Item label + result buttons */}
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, fontSize: 13, fontWeight: T.w.semi, color: T.c.text }}>{item.label}</div>
+                    <div style={{ flex: 1, fontSize: 14, fontWeight: T.w.semi, color: T.c.text }}>{item.label}</div>
                     {/* Pass / Fail / N/A buttons */}
                     {["pass", "fail", "na"].map(r => (
                       <button key={r} onClick={() => setResult(item.code, result === r ? null : r)}
                         style={{
-                          width: 44, height: 36, borderRadius: T.r.md, border: "none", fontWeight: T.w.black, fontSize: 11, cursor: "pointer",
+                          width: 44, height: 36, borderRadius: T.r.md, border: "none", fontWeight: T.w.black, fontSize: 12, cursor: "pointer",
                           background: result === r ? (r === "pass" ? "#27ae60" : r === "fail" ? "#e74c3c" : "#95a5a6") : "#f0f2f5",
                           color: result === r ? "#fff" : "#7a8a94",
                         }}>
@@ -201,12 +201,12 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
                   {/* Photo + note row */}
                   <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
                     <button onClick={() => takePhoto(item.code)}
-                      style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #3498db", background: hasPhoto ? "#ebf5fb" : "#fff", color: T.c.info, fontSize: 10, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                      style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid #3498db", background: hasPhoto ? "#ebf5fb" : "#fff", color: T.c.info, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
                       📷 {hasPhoto ? "Add Photo" : "Photo"}
                     </button>
                     <input value={note} onChange={e => setItemNote(item.code, e.target.value)}
                       placeholder="Note..."
-                      style={{ flex: 1, padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, fontSize: 11, fontFamily: "inherit", outline: "none" }} />
+                      style={{ flex: 1, padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, fontSize: 12, fontFamily: "inherit", outline: "none" }} />
                   </div>
                 </div>
               );
@@ -216,16 +216,16 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
 
         {/* General notes */}
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: T.w.black, color: T.c.textSecondary, textTransform: "uppercase", padding: "6px 0", borderBottom: `1px solid ${T.c.border}`, marginBottom: 6 }}>General Notes</div>
+          <div style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.textSecondary, textTransform: "uppercase", padding: "6px 0", borderBottom: `1px solid ${T.c.border}`, marginBottom: 6 }}>General Notes</div>
           <textarea value={notes} onChange={e => setNotes(e.target.value)}
             placeholder="Overall inspection notes..."
-            style={{ width: "100%", minHeight: 80, padding: "10px 12px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, fontSize: 13, fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }} />
+            style={{ width: "100%", minHeight: 80, padding: "10px 12px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, fontSize: 14, fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }} />
         </div>
 
         {/* Photo gallery */}
         {photos.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: T.w.black, color: T.c.textSecondary, textTransform: "uppercase", padding: "6px 0", borderBottom: `1px solid ${T.c.border}`, marginBottom: 6 }}>Photos ({photos.length})</div>
+            <div style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.textSecondary, textTransform: "uppercase", padding: "6px 0", borderBottom: `1px solid ${T.c.border}`, marginBottom: 6 }}>Photos ({photos.length})</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {photos.map((p, i) => (
                 <a key={i} href={`/api/applications/${app._dbId}/inspections/${inspection.id}/photos/${p.filename}`} target="_blank" rel="noreferrer"
@@ -234,7 +234,7 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     alt={p.checklist_item || "inspection"} />
                   {p.checklist_item && (
-                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.6)", color: T.c.white, fontSize: 8, padding: "2px 4px", textAlign: "center" }}>
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.6)", color: T.c.white, fontSize: 12, padding: "2px 4px", textAlign: "center" }}>
                       {p.checklist_item.replace(/_/g, " ")}
                     </div>
                   )}
@@ -248,15 +248,15 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
       {/* Bottom action bar */}
       <div style={{ flexShrink: 0, padding: "10px 12px", background: T.c.card, borderTop: `2px solid ${T.c.border}`, display: "flex", gap: 8 }}>
         <button onClick={save}
-          style={{ flex: 1, padding: "12px 0", borderRadius: T.r.md, border: "1px solid #3498db", background: T.c.card, color: T.c.info, fontWeight: T.w.bold, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          style={{ flex: 1, padding: "12px 0", borderRadius: T.r.md, border: "1px solid #3498db", background: T.c.card, color: T.c.info, fontWeight: T.w.bold, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
           Save Progress
         </button>
         <button onClick={() => completeInspection("passed")} disabled={saving}
-          style={{ flex: 1, padding: "12px 0", borderRadius: T.r.md, border: "none", background: "#27ae60", color: T.c.white, fontWeight: T.w.bold, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          style={{ flex: 1, padding: "12px 0", borderRadius: T.r.md, border: "none", background: "#27ae60", color: T.c.white, fontWeight: T.w.bold, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
           Pass ✓
         </button>
         <button onClick={() => completeInspection("failed")} disabled={saving}
-          style={{ flex: 1, padding: "12px 0", borderRadius: T.r.md, border: "none", background: "#e74c3c", color: T.c.white, fontWeight: T.w.bold, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          style={{ flex: 1, padding: "12px 0", borderRadius: T.r.md, border: "none", background: "#e74c3c", color: T.c.white, fontWeight: T.w.bold, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>
           Fail ✕
         </button>
       </div>

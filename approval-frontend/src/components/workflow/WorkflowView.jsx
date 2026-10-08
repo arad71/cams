@@ -69,10 +69,10 @@ function CollapsibleSection({ title, icon, defaultOpen = true, badge, color = "#
           borderBottom: open ? "none" : undefined,
           cursor: "pointer", transition: "all 0.2s ease", userSelect: "none",
         }}>
-        <span style={{ fontSize: 12, transition: "transform 0.2s", transform: open ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
-        {icon && <span style={{ fontSize: 13 }}>{icon}</span>}
-        <span style={{ fontSize: 12, fontWeight: 600, color: open ? color : "#5a6a74", flex: 1 }}>{title}</span>
-        {badge && <span style={{ fontSize: 9, fontWeight: 600, color: "#7a8a94", background: "#f0f3f5", padding: "2px 8px", borderRadius: 10 }}>{badge}</span>}
+        <span style={{ fontSize: 13, transition: "transform 0.2s", transform: open ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
+        {icon && <span style={{ fontSize: 14 }}>{icon}</span>}
+        <span style={{ fontSize: 13, fontWeight: 600, color: open ? color : "#5a6a74", flex: 1 }}>{title}</span>
+        {badge && <span style={{ fontSize: 12, fontWeight: 600, color: "#5a6a74", background: "#f0f3f5", padding: "2px 8px", borderRadius: 10 }}>{badge}</span>}
       </div>
       {open && (
         <div style={{ border: `1px solid ${color}20`, borderTop: "none", borderRadius: "0 0 10px 10px", padding: 1, background: "#fff" }}>
@@ -125,7 +125,7 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
               {/* Step text */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontSize: 12, fontWeight: active ? 700 : done ? 600 : 500,
+                  fontSize: 13, fontWeight: active ? 700 : done ? 600 : 500,
                   color: active ? step.color : done ? "#085041" : "#95a5a6",
                   lineHeight: 1.2, letterSpacing: active ? "0.01em" : 0,
                 }}>
@@ -133,7 +133,7 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
                 </div>
                 {stats && (
                   <div style={{
-                    fontSize: 9, marginTop: 2, fontWeight: 600,
+                    fontSize: 12, marginTop: 2, fontWeight: 600,
                     color: hasAlert ? "#e74c3c" : stats.done ? "#27ae60" : active ? step.color + "99" : "#b0bec5",
                   }}>
                     {hasAlert || stats.badge}
@@ -176,7 +176,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
             { l: "L Boundary", v: dims.distance_to_left_boundary_m != null ? `${dims.distance_to_left_boundary_m}m` : "—", ok: dims.distance_to_left_boundary_m >= 0.5 },
             { l: "R Boundary", v: dims.distance_to_right_boundary_m != null ? `${dims.distance_to_right_boundary_m}m` : "—", ok: dims.distance_to_right_boundary_m >= 0.5 },
           ].map(m => (
-            <div key={m.l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 10 }}>
+            <div key={m.l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
               <span style={{ color: T.c.textSecondary }}>{m.l}</span>
               <span style={{ fontWeight: T.w.bold, color: m.v === "—" ? T.c.grey400 : m.ok ? "#27ae60" : "#e74c3c" }}>{m.v}</span>
             </div>
@@ -188,16 +188,16 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
       <div style={card}>
         <div style={{ padding: "10px 12px", display: "flex", gap: 8 }}>
           <button onClick={() => onInspect && onInspect("Pre-construction")}
-            style={{ flex: 1, padding: "8px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #e67e22, #f39c12)", color: T.c.white, fontWeight: T.w.bold, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ flex: 1, padding: "8px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #e67e22, #f39c12)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
             🔍 Pre-Inspect
           </button>
           <button onClick={() => onInspect && onInspect("Post-construction")}
-            style={{ flex: 1, padding: "8px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #27ae60, #2ecc71)", color: T.c.white, fontWeight: T.w.bold, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ flex: 1, padding: "8px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #27ae60, #2ecc71)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
             🔍 Post-Inspect
           </button>
         </div>
         {(app.inspections || []).length > 0 && (
-          <div style={{ padding: "0 12px 8px", fontSize: 10, color: T.c.textSecondary }}>
+          <div style={{ padding: "0 12px 8px", fontSize: 12, color: T.c.textSecondary }}>
             {(app.inspections || []).map((insp, i) => {
               const fc = insp.field_checklist || {};
               const photos = insp.photos || [];
@@ -235,7 +235,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
                       </div>
                     )}
                     {insp.gps_lat && (
-                      <div style={{ marginTop: 4, fontSize: 9, color: T.c.textMuted }}>
+                      <div style={{ marginTop: 4, fontSize: 12, color: T.c.textMuted }}>
                         GPS: {insp.gps_lat.toFixed(5)}, {insp.gps_lng?.toFixed(5)} ({insp.gps_accuracy_m?.toFixed(0)}m)
                       </div>
                     )}
@@ -251,16 +251,16 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
       <div style={card}>
         <div style={cardHdr}><span>📎 Documents ({docs.length})</span></div>
         <div style={{ maxHeight: 140, overflowY: "auto" }}>
-          {docs.length === 0 && <div style={{ padding: 10, fontSize: 11, color: T.c.textMuted }}>No documents</div>}
+          {docs.length === 0 && <div style={{ padding: 10, fontSize: 12, color: T.c.textMuted }}>No documents</div>}
           {docs.map(d => {
             const icons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", dwg: "📐" };
             const sc = { verified: { c: "#27ae60", l: "✓" }, rejected: { c: "#e74c3c", l: "✕" }, received: { c: "#3498db", l: "●" } };
             const st = sc[d.status] || sc.received;
             return (
-              <div key={d.id} style={{ padding: "5px 12px", borderBottom: "1px solid #f8f9fb", display: "flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-                <span style={{ fontSize: 13 }}>{icons[d.type] || "📄"}</span>
+              <div key={d.id} style={{ padding: "5px 12px", borderBottom: "1px solid #f8f9fb", display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                <span style={{ fontSize: 14 }}>{icons[d.type] || "📄"}</span>
                 <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500, color: T.c.text }}>{d.name}</span>
-                <span style={{ color: st.c, fontSize: 10, fontWeight: T.w.bold }}>{st.l}</span>
+                <span style={{ color: st.c, fontSize: 12, fontWeight: T.w.bold }}>{st.l}</span>
               </div>
             );
           })}
@@ -291,7 +291,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
         <div style={cardHdr}><span>👤 Assignment</span></div>
         <div style={cardBody}>
           {canAssign ? (
-            <select value={assignee} onChange={e => setAssignee(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 11, fontFamily: "inherit", marginBottom: 6 }}>
+            <select value={assignee} onChange={e => setAssignee(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", marginBottom: 6 }}>
               <option value="">— Unassigned —</option>
               {(users || []).filter(u => u.active && (u.role === "engineer" || u.role === "manager")).map(u => {
                 const rc = ROLE_CONFIG[u.role];
@@ -299,14 +299,14 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
               })}
             </select>
           ) : (
-            <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text, marginBottom: 6 }}>{assignee || "Unassigned"}</div>
+            <div style={{ fontSize: 13, fontWeight: T.w.semi, color: T.c.text, marginBottom: 6 }}>{assignee || "Unassigned"}</div>
           )}
           {canDecide && (
             <>
-              <select value={newStatus} onChange={e => setNewStatus(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 11, fontFamily: "inherit", marginBottom: 6 }}>
+              <select value={newStatus} onChange={e => setNewStatus(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", marginBottom: 6 }}>
                 {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
               </select>
-              <button onClick={saveChanges} style={{ width: "100%", padding: "6px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg,#2980b9,#3498db)", color: T.c.white, fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
+              <button onClick={saveChanges} style={{ width: "100%", padding: "6px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg,#2980b9,#3498db)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
             </>
           )}
         </div>
@@ -316,20 +316,20 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
       <div style={card}>
         <div style={cardHdr}><span>💬 Notes ({app.assessment?.notes?.length || 0})</span></div>
         <div style={{ maxHeight: 120, overflowY: "auto", padding: "6px 12px" }}>
-          {(app.assessment?.notes || []).length === 0 && <div style={{ fontSize: 11, color: T.c.textMuted }}>No notes</div>}
+          {(app.assessment?.notes || []).length === 0 && <div style={{ fontSize: 12, color: T.c.textMuted }}>No notes</div>}
           {(app.assessment?.notes || []).map((n, i) => (
-            <div key={i} style={{ padding: "4px 0", borderBottom: "1px solid #f5f7f8", fontSize: 10 }}>
+            <div key={i} style={{ padding: "4px 0", borderBottom: "1px solid #f5f7f8", fontSize: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontWeight: T.w.bold, color: T.c.info }}>{n.author}</span>
-                <span style={{ color: T.c.textMuted, fontSize: 9 }}>{n.date}</span>
+                <span style={{ color: T.c.textMuted, fontSize: 12 }}>{n.date}</span>
               </div>
               <div style={{ color: "#3a4a5a", lineHeight: 1.3 }}>{n.text}</div>
             </div>
           ))}
         </div>
         <div style={{ padding: "6px 10px", borderTop: "1px solid #f0f3f5", display: "flex", gap: 4 }}>
-          <input value={newNote} onChange={e => setNewNote(e.target.value)} onKeyDown={e => e.key === "Enter" && addNote()} placeholder="Add note..." style={{ flex: 1, padding: "5px 8px", borderRadius: 5, border: "1.5px solid #d5dde2", fontSize: 10, fontFamily: "inherit", outline: "none" }} />
-          <button onClick={addNote} style={{ padding: "5px 10px", borderRadius: 5, border: "none", background: "#1a3a4a", color: T.c.white, fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>+</button>
+          <input value={newNote} onChange={e => setNewNote(e.target.value)} onKeyDown={e => e.key === "Enter" && addNote()} placeholder="Add note..." style={{ flex: 1, padding: "5px 8px", borderRadius: 5, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", outline: "none" }} />
+          <button onClick={addNote} style={{ padding: "5px 10px", borderRadius: 5, border: "none", background: "#1a3a4a", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>+</button>
         </div>
       </div>
 
@@ -351,7 +351,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
                   onReload();
                 } catch (e) { console.error(e); }
               }}
-                style={{ width: "100%", padding: "6px 10px", borderRadius: T.r.md, border: "none", background: b.bg, color: T.c.white, fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                style={{ width: "100%", padding: "6px 10px", borderRadius: T.r.md, border: "none", background: b.bg, color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
                 {b.l}
               </button>
             ))}
@@ -376,14 +376,14 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
                   {/* Timeline line */}
                   {!isLast && <div style={{ position: "absolute", left: 9, top: 18, bottom: 0, width: 1.5, background: "#e4e9ec" }} />}
                   {/* Dot */}
-                  <div style={{ width: 19, height: 19, borderRadius: "50%", background: `${actionColor}15`, border: `2px solid ${actionColor}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, flexShrink: 0, zIndex: 1 }}>
+                  <div style={{ width: 19, height: 19, borderRadius: "50%", background: `${actionColor}15`, border: `2px solid ${actionColor}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0, zIndex: 1 }}>
                     {icons[log.action] || "●"}
                   </div>
                   <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
-                    <div style={{ color: T.c.text, fontWeight: 500, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                    <div style={{ color: T.c.text, fontWeight: 500, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>
                       {log.description || log.action}
                     </div>
-                    <div style={{ color: T.c.textMuted, fontSize: 8, marginTop: 1 }}>
+                    <div style={{ color: T.c.textMuted, fontSize: 12, marginTop: 1 }}>
                       {log.user_email?.split("@")[0] || "system"} · {timeStr}
                     </div>
                   </div>
@@ -401,7 +401,7 @@ function StepUpload({ app, currentUser, onDocUpdated, onMeasureCorrection, onGeo
   return (
     <div>
       {/* Info Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         <div style={card}>
           <div style={cardHdr}>Owner & Property</div>
           <div style={cardBody}>
@@ -488,15 +488,15 @@ function StepReview({ app, categories, currentUser }) {
   const pending = docs.length - verified - rejected;
   const borderColors = { rejected: "#e74c3c", referred: "#8e44ad", investigation: "#2980b9" };
 
-  if (loading) return <div style={{ padding: 20, color: T.c.textSecondary, fontSize: 12 }}>Loading assessment data...</div>;
+  if (loading) return <div style={{ padding: 20, color: T.c.textSecondary, fontSize: 13 }}>Loading assessment data...</div>;
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         {/* Summary metrics */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Assessment summary</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Assessment summary</div>
+          <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
             {[
               { n: stats.oApproved, l: "Approved", c: "#27ae60" },
               { n: stats.oRejected, l: "Rejected", c: "#c0392b" },
@@ -505,12 +505,12 @@ function StepReview({ app, categories, currentUser }) {
             ].map(m => (
               <div key={m.l} style={{ background: T.c.bgAlt, borderRadius: T.r.md, padding: "10px 12px", textAlign: "center" }}>
                 <div style={{ fontSize: 22, fontWeight: T.w.black, color: m.c }}>{m.n}</div>
-                <div style={{ fontSize: 10, color: m.c }}>{m.l}</div>
+                <div style={{ fontSize: 12, color: m.c }}>{m.l}</div>
               </div>
             ))}
           </div>
           {stats.oPending > 0 && (
-            <div style={{ padding: "8px 12px", background: "#fef5e7", borderRadius: T.r.md, fontSize: 11, color: "#854F0B", fontWeight: T.w.semi }}>
+            <div style={{ padding: "8px 12px", background: "#fef5e7", borderRadius: T.r.md, fontSize: 12, color: "#854F0B", fontWeight: T.w.semi }}>
               ⏳ {stats.oPending} items still awaiting officer review
             </div>
           )}
@@ -518,20 +518,20 @@ function StepReview({ app, categories, currentUser }) {
 
         {/* Flagged items + doc status */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Flagged items</div>
+          <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Flagged items</div>
           <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 12 }}>
-            {flagged.length === 0 && <div style={{ fontSize: 11, color: T.c.success, fontWeight: T.w.semi }}>No flagged items</div>}
+            {flagged.length === 0 && <div style={{ fontSize: 12, color: T.c.success, fontWeight: T.w.semi }}>No flagged items</div>}
             {flagged.map((f, i) => (
               <div key={i} style={{ padding: "6px 10px", marginBottom: 4, borderLeft: `3px solid ${borderColors[f.type] || "#7f8c8d"}`, background: T.c.bgAlt, borderRadius: "0 6px 6px 0" }}>
-                <div style={{ fontSize: 11, fontWeight: T.w.semi, color: T.c.text }}>{f.item.label}</div>
-                <div style={{ fontSize: 10, color: T.c.textSecondary }}>{f.a.ai_reason || f.item.reference}</div>
-                {f.a.note && <div style={{ fontSize: 10, color: "#854F0B", marginTop: 2 }}>💬 {f.a.note}</div>}
+                <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text }}>{f.item.label}</div>
+                <div style={{ fontSize: 12, color: T.c.textSecondary }}>{f.a.ai_reason || f.item.reference}</div>
+                {f.a.note && <div style={{ fontSize: 12, color: "#854F0B", marginTop: 2 }}>💬 {f.a.note}</div>}
               </div>
             ))}
           </div>
 
-          <div style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 6 }}>Document status</div>
-          <div style={{ display: "flex", gap: 8, fontSize: 11 }}>
+          <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 6 }}>Document status</div>
+          <div style={{ display: "flex", gap: 8, fontSize: 12 }}>
             <span style={{ color: T.c.success, fontWeight: T.w.bold }}>✅ {verified}</span>
             <span style={{ color: T.c.danger, fontWeight: T.w.bold }}>❌ {rejected}</span>
             <span style={{ color: T.c.info, fontWeight: T.w.bold }}>📥 {pending}</span>
@@ -575,12 +575,13 @@ const CONDITION_TEMPLATES = [
   ]},
 ];
 
-function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) {
+function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, canDecide = false }) {
   const [conditions, setConditions] = useState(app.conditions || []);
   const [decisionNote, setDecisionNote] = useState(app.decision_note || "");
   const [customCondition, setCustomCondition] = useState("");
   const [saving, setSaving] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [decisionError, setDecisionError] = useState(null);
 
   const addCondition = (text) => {
     if (!conditions.includes(text)) setConditions(prev => [...prev, text]);
@@ -588,45 +589,59 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
   const removeCondition = (idx) => setConditions(prev => prev.filter((_, i) => i !== idx));
 
   const saveDecision = async (newStatus) => {
+    if (!canDecide) return;
     setSaving(true);
+    setDecisionError(null);
     try {
       await api.updateApp(app._dbId, { status: newStatus, conditions, decision_note: decisionNote });
       const fresh = await reloadApp(app._dbId);
       if (fresh) setLocalApp(fresh);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setDecisionError(e.message || "The decision could not be saved.");
+    }
     setSaving(false);
   };
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         {/* Left: Decision + Conditions */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Decision</div>
+          <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Decision</div>
+          {!canDecide && (
+            <div style={{ fontSize: 12, color: T.c.textSecondary, background: "#f4f7f9", border: "1px solid #e4e9ec", borderRadius: T.r.md, padding: "8px 10px", marginBottom: 8 }}>
+              Only a manager can record the decision. You can still add conditions and save them for the manager to review.
+            </div>
+          )}
+          {decisionError && (
+            <div role="alert" style={{ fontSize: 12, color: "#c0392b", background: "#fdedec", borderRadius: T.r.md, padding: "8px 10px", marginBottom: 8 }}>{decisionError}</div>
+          )}
           {[
             { s: "approved", l: "Approve", desc: "All requirements met", c: "#27ae60" },
             { s: "conditionally_approved", l: "Approve with Conditions", desc: "Approved subject to conditions below", c: "#2980b9" },
             { s: "rejected", l: "Reject", desc: "Does not meet requirements", c: "#c0392b" },
           ].map(opt => (
-            <div key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: T.r.md, marginBottom: 6, cursor: saving ? "not-allowed" : "pointer", background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
-              onClick={() => { if (!saving) saveDecision(opt.s); }}>
+            <div key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: T.r.md, marginBottom: 6, cursor: saving || !canDecide ? "not-allowed" : "pointer", opacity: canDecide ? 1 : 0.55, background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
+              aria-disabled={!canDecide}
+              onClick={() => { if (!saving && canDecide) saveDecision(opt.s); }}>
               <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${app.status === opt.s ? opt.c : T.c.grey400}`, marginTop: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {app.status === opt.s && <div style={{ width: 6, height: 6, borderRadius: "50%", background: opt.c }} />}
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: T.w.bold, color: opt.c }}>{opt.l}</div>
-                <div style={{ fontSize: 10, color: T.c.textSecondary }}>{opt.desc}</div>
+                <div style={{ fontSize: 13, fontWeight: T.w.bold, color: opt.c }}>{opt.l}</div>
+                <div style={{ fontSize: 12, color: T.c.textSecondary }}>{opt.desc}</div>
               </div>
             </div>
           ))}
 
           {/* Decision note */}
           <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 10, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 4 }}>Decision Note</div>
+            <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 4 }}>Decision Note</div>
             <textarea value={decisionNote} onChange={e => setDecisionNote(e.target.value)}
               onBlur={async () => { try { await api.updateApp(app._dbId, { decision_note: decisionNote }); } catch {} }}
               placeholder="Optional — reason for decision..."
-              style={{ width: "100%", minHeight: 50, padding: "8px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, fontSize: 11, fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }} />
+              style={{ width: "100%", minHeight: 50, padding: "8px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, fontSize: 12, fontFamily: "inherit", resize: "vertical", outline: "none", boxSizing: "border-box" }} />
           </div>
 
           <div style={{ marginTop: 12 }}>
@@ -637,9 +652,9 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
         {/* Right: Conditions */}
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase" }}>Conditions ({conditions.length})</div>
+            <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase" }}>Conditions ({conditions.length})</div>
             <button onClick={() => setShowTemplates(!showTemplates)}
-              style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "1px solid #2980b9", background: showTemplates ? "#ebf5fb" : "#fff", color: T.c.info, fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "1px solid #2980b9", background: showTemplates ? "#ebf5fb" : "#fff", color: T.c.info, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
               {showTemplates ? "Hide Templates" : "Add from Templates"}
             </button>
           </div>
@@ -649,14 +664,14 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
               {conditions.map((c, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 6, padding: "6px 10px", background: T.c.bg, borderRadius: T.r.md, border: `1px solid ${T.c.borderLight}` }}>
-                  <span style={{ fontSize: 10, fontWeight: T.w.black, color: T.c.info, marginTop: 1, flexShrink: 0 }}>{i + 1}.</span>
-                  <span style={{ fontSize: 10, color: T.c.text, flex: 1, lineHeight: 1.4 }}>{c}</span>
-                  <button onClick={() => removeCondition(i)} style={{ background: "none", border: "none", color: T.c.grey400, cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>x</button>
+                  <span style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.info, marginTop: 1, flexShrink: 0 }}>{i + 1}.</span>
+                  <span style={{ fontSize: 12, color: T.c.text, flex: 1, lineHeight: 1.4 }}>{c}</span>
+                  <button onClick={() => removeCondition(i)} style={{ background: "none", border: "none", color: T.c.grey400, cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}>x</button>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ padding: 12, textAlign: "center", color: T.c.grey400, fontSize: 11, background: "#fafbfc", borderRadius: T.r.md, marginBottom: 10 }}>
+            <div style={{ padding: 12, textAlign: "center", color: T.c.grey400, fontSize: 12, background: "#fafbfc", borderRadius: T.r.md, marginBottom: 10 }}>
               No conditions added. Use templates or type custom.
             </div>
           )}
@@ -666,16 +681,16 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
             <input value={customCondition} onChange={e => setCustomCondition(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && customCondition.trim()) { addCondition(customCondition.trim()); setCustomCondition(""); } }}
               placeholder="Type custom condition..."
-              style={{ flex: 1, padding: "6px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, fontSize: 10, fontFamily: "inherit", outline: "none" }} />
+              style={{ flex: 1, padding: "6px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, fontSize: 12, fontFamily: "inherit", outline: "none" }} />
             <button onClick={() => { if (customCondition.trim()) { addCondition(customCondition.trim()); setCustomCondition(""); } }}
               disabled={!customCondition.trim()}
-              style={{ padding: "6px 10px", borderRadius: T.r.md, border: "none", background: customCondition.trim() ? "#2980b9" : "#bdc3c7", color: T.c.white, fontSize: 10, fontWeight: T.w.bold, cursor: customCondition.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>Add</button>
+              style={{ padding: "6px 10px", borderRadius: T.r.md, border: "none", background: customCondition.trim() ? "#2980b9" : "#bdc3c7", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: customCondition.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>Add</button>
           </div>
 
           {/* Save conditions */}
           {conditions.length > 0 && (
             <button onClick={async () => { try { await api.updateApp(app._dbId, { conditions }); const fresh = await reloadApp(app._dbId); if (fresh) setLocalApp(fresh); } catch {} }}
-              style={{ width: "100%", padding: "7px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #2980b9, #3498db)", color: T.c.white, fontSize: 11, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit", marginBottom: 10 }}>
+              style={{ width: "100%", padding: "7px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #2980b9, #3498db)", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit", marginBottom: 10 }}>
               Save {conditions.length} Condition{conditions.length !== 1 ? "s" : ""}
             </button>
           )}
@@ -685,12 +700,12 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
             <div style={{ border: `1px solid ${T.c.border}`, borderRadius: T.r.md, overflow: "hidden", maxHeight: 300, overflowY: "auto" }}>
               {CONDITION_TEMPLATES.map(cat => (
                 <div key={cat.cat}>
-                  <div style={{ padding: "6px 12px", background: T.c.bg, fontSize: 10, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", borderBottom: `1px solid ${T.c.borderLight}` }}>{cat.cat}</div>
+                  <div style={{ padding: "6px 12px", background: T.c.bg, fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", borderBottom: `1px solid ${T.c.borderLight}` }}>{cat.cat}</div>
                   {cat.items.map((item, i) => {
                     const added = conditions.includes(item);
                     return (
                       <div key={i} onClick={() => { if (!added) addCondition(item); }}
-                        style={{ padding: "6px 12px", fontSize: 10, color: added ? "#27ae60" : "#1a3a4a", cursor: added ? "default" : "pointer", borderBottom: "1px solid #f5f7f8", background: added ? "#eafaf115" : "transparent", lineHeight: 1.4 }}
+                        style={{ padding: "6px 12px", fontSize: 12, color: added ? "#27ae60" : "#1a3a4a", cursor: added ? "default" : "pointer", borderBottom: "1px solid #f5f7f8", background: added ? "#eafaf115" : "transparent", lineHeight: 1.4 }}
                         onMouseEnter={e => { if (!added) e.currentTarget.style.background = "#f0f8ff"; }}
                         onMouseLeave={e => { if (!added) e.currentTarget.style.background = "transparent"; }}>
                         {added ? "✅ " : "＋ "}{item}
@@ -832,27 +847,27 @@ export default function WorkflowView({
           onClick={() => setShowDeleteModal(false)}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: T.r.lg, padding: 24, width: 420, maxWidth: "90vw", boxShadow: "0 8px 40px rgba(0,0,0,0.2)" }}>
             <div style={{ fontSize: 16, fontWeight: T.w.black, color: "#c0392b", marginBottom: 4 }}>🗑️ Delete Application</div>
-            <div style={{ fontSize: 13, color: T.c.textSecondary, marginBottom: 16 }}>
+            <div style={{ fontSize: 14, color: T.c.textSecondary, marginBottom: 16 }}>
               This will soft-delete <strong>{localApp.ref_number}</strong> ({localApp.property_address}). It can be restored from System Administration.
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.grey800, display: "block", marginBottom: 4 }}>Reason for deletion *</label>
+              <label style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.grey800, display: "block", marginBottom: 4 }}>Reason for deletion *</label>
               <textarea
                 value={deleteReason}
                 onChange={e => setDeleteReason(e.target.value)}
                 placeholder="e.g. Duplicate application, Submitted in error, Owner withdrew…"
                 rows={3}
-                style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", resize: "vertical" }}
+                style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", resize: "vertical" }}
                 autoFocus
               />
             </div>
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button onClick={() => { setShowDeleteModal(false); setDeleteReason(""); }}
-                style={{ padding: "8px 20px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: "#fff", color: T.c.textSecondary, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+                style={{ padding: "8px 20px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: "#fff", color: T.c.textSecondary, fontSize: 13, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
                 Cancel
               </button>
               <button onClick={handleDeleteApp} disabled={!deleteReason.trim() || deleting}
-                style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none", background: !deleteReason.trim() || deleting ? "#ccc" : "#c0392b", color: "#fff", fontSize: 12, fontWeight: T.w.bold, cursor: !deleteReason.trim() || deleting ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+                style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none", background: !deleteReason.trim() || deleting ? "#ccc" : "#c0392b", color: "#fff", fontSize: 13, fontWeight: T.w.bold, cursor: !deleteReason.trim() || deleting ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
                 {deleting ? "Deleting…" : "Delete Application"}
               </button>
             </div>
@@ -869,13 +884,13 @@ export default function WorkflowView({
           <div style={{ borderTop: `1px solid ${T.c.borderLight}`, marginTop: 8, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
             {currentStep !== 3 && (
               <button onClick={() => setShowMap(m => !m)}
-                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#7a8a94", fontSize: 9, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
+                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#7a8a94", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
                 🗺️ {showMap ? "Hide Map" : "Show Map"}
               </button>
             )}
             {currentUser?.role === "admin" && (
               <button onClick={() => setShowDeleteModal(true)}
-                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e74c3c40", background: "#fdf0ef", color: "#c0392b", fontSize: 9, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
+                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e74c3c40", background: "#fdf0ef", color: "#c0392b", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
                 🗑️ Delete
               </button>
             )}
@@ -891,7 +906,7 @@ export default function WorkflowView({
               const done = step.id < completedUpTo;
               return (
                 <button key={step.id} onClick={() => setCurrentStep(step.id)}
-                  style={{ padding: "4px 10px", borderRadius: 12, border: active ? `2px solid ${step.color}` : "1px solid #d5dde2", background: active ? `${step.color}10` : done ? "#08504110" : "#fff", color: active ? step.color : done ? "#085041" : "#7a8a94", fontSize: 10, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  style={{ padding: "4px 10px", borderRadius: 12, border: active ? `2px solid ${step.color}` : "1px solid #d5dde2", background: active ? `${step.color}10` : done ? "#08504110" : "#fff", color: active ? step.color : done ? "#085041" : "#7a8a94", fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
                   {stepStats?.[step.key]?.done ? "✓ " : ""}{step.label}
                 </button>
               );
@@ -914,14 +929,14 @@ export default function WorkflowView({
               <div style={{ fontSize: 14, fontWeight: T.w.bold, color: stepDef.color, letterSpacing: "-0.01em" }}>
                 Step {stepDef.id}: {stepDef.label}
               </div>
-              <div style={{ fontSize: 10, color: stepDef.color, opacity: 0.65, marginTop: 1 }}>{stepDef.desc}</div>
+              <div style={{ fontSize: 12, color: stepDef.color, opacity: 0.65, marginTop: 1 }}>{stepDef.desc}</div>
             </div>
             {currentStep < 4 && (
               <button onClick={() => setCurrentStep(currentStep + 1)}
                 style={{
                   padding: "6px 14px", borderRadius: 8, border: "none",
                   background: STEPS[currentStep]?.color || "#333",
-                  color: "#fff", fontSize: 10, fontWeight: T.w.bold,
+                  color: "#fff", fontSize: 12, fontWeight: T.w.bold,
                   cursor: "pointer", fontFamily: "inherit",
                   boxShadow: `0 2px 6px ${STEPS[currentStep]?.color || "#333"}30`,
                   transition: "all 0.15s ease",
@@ -998,7 +1013,7 @@ export default function WorkflowView({
           {/* Step 4: Decision — approve/reject/request info + report */}
           {currentStep === 4 && (
             <StepDecision app={localApp} currentUser={currentUser} categories={categories}
-              reloadApp={reloadApp} setLocalApp={setLocalApp} />
+              reloadApp={reloadApp} setLocalApp={setLocalApp} canDecide={canDecide} />
           )}
         </div>
 

@@ -22,6 +22,7 @@ export const STATUS_CONFIG = {
   referral_pending: { label: "Referral Pending", color: "#8e44ad", bg: "#f4ecf7", icon: "↗️", mapColor: "#8e44ad" },
   inspection_required: { label: "Inspection Required", color: "#16a085", bg: "#e8f8f5", icon: "🔍", mapColor: "#16a085" },
   approved: { label: "Approved", color: "#27ae60", bg: "#eafaf1", icon: "✅", mapColor: "#27ae60" },
+  conditionally_approved: { label: "Approved with Conditions", color: "#2980b9", bg: "#ebf5fb", icon: "☑️", mapColor: "#2980b9" },
   rejected: { label: "Rejected", color: "#c0392b", bg: "#fdedec", icon: "❌", mapColor: "#c0392b" },
   on_hold: { label: "On Hold", color: "#7f8c8d", bg: "#f2f3f4", icon: "⏸", mapColor: "#7f8c8d" },
 };

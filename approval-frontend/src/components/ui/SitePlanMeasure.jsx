@@ -471,19 +471,19 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       <div onMouseDown={onHeaderMouseDown} onDoubleClick={toggleMaximize}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 40, background: '#fff', borderBottom: '1px solid #e4e9ec', flexShrink: 0, cursor: maximized ? 'default' : 'move', userSelect: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 26, height: 26, background: 'linear-gradient(135deg, #1abc9c, #16a085)', borderRadius: 6, display: 'grid', placeItems: 'center', fontWeight: T.w.bold, fontSize: 10, color: '#fff' }}>SP</div>
-          <span style={{ fontSize: 13, fontWeight: T.w.semi, color: '#1a3a4a' }}>Site Plan Tools</span>
-          {appRef && <span style={{ fontSize: 10, color: '#95a5a6' }}>{appRef}</span>}
+          <div style={{ width: 26, height: 26, background: 'linear-gradient(135deg, #1abc9c, #16a085)', borderRadius: 6, display: 'grid', placeItems: 'center', fontWeight: T.w.bold, fontSize: 12, color: '#fff' }}>SP</div>
+          <span style={{ fontSize: 14, fontWeight: T.w.semi, color: '#1a3a4a' }}>Site Plan Tools</span>
+          {appRef && <span style={{ fontSize: 12, color: '#95a5a6' }}>{appRef}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button onClick={() => setLeftPanel(p => !p)} title={leftPanel ? "Hide panel" : "Show panel"}
-            style={{ height: 28, padding: '0 8px', border: '1px solid #e4e9ec', background: leftPanel ? '#f0f8ff' : '#fff', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10, fontWeight: 500 }}>
+            style={{ height: 28, padding: '0 8px', border: '1px solid #e4e9ec', background: leftPanel ? '#f0f8ff' : '#fff', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500 }}>
             {leftPanel ? '◀ Panel' : '▶ Panel'}
           </button>
-          <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }}>↩</button>
-          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11 }}>🗑</button>
-          <button onClick={toggleMaximize} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontSize: 13 }}>{maximized ? '❐' : '□'}</button>
-          <button onClick={onClose} style={{ height: 28, padding: '0 12px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: T.w.semi }}>✕</button>
+          <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>↩</button>
+          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>🗑</button>
+          <button onClick={toggleMaximize} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontSize: 14 }}>{maximized ? '❐' : '□'}</button>
+          <button onClick={onClose} style={{ height: 28, padding: '0 12px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: T.w.semi }}>✕</button>
         </div>
       </div>
 
@@ -496,7 +496,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
 
               {/* ── Drawing Tools ── */}
-              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Drawing</div>
+              <div style={{ padding: '4px 12px 2px', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Drawing</div>
               {[
                 { id: 'measure', icon: '📏', label: 'Measure', desc: 'Click 2 points to measure distance' },
                 { id: 'area', icon: '⬜', label: 'Area', desc: 'Click points, double-click to close' },
@@ -507,15 +507,15 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                   style={{ padding: '6px 12px', cursor: 'pointer', background: tool === t.id ? 'rgba(26,188,156,0.08)' : 'transparent', borderLeft: tool === t.id ? '3px solid #1abc9c' : '3px solid transparent' }}
                   onMouseEnter={e => { if (tool !== t.id) e.currentTarget.style.background = '#f0f2f5'; }}
                   onMouseLeave={e => { if (tool !== t.id) e.currentTarget.style.background = 'transparent'; }}>
-                  <div style={{ fontSize: 12, fontWeight: tool === t.id ? 600 : 500, color: tool === t.id ? '#16a085' : '#1a3a4a' }}>{t.icon} {t.label}</div>
-                  {tool === t.id && <div style={{ fontSize: 9, color: '#7a8a94', marginTop: 2 }}>{t.desc}</div>}
+                  <div style={{ fontSize: 13, fontWeight: tool === t.id ? 600 : 500, color: tool === t.id ? '#16a085' : '#1a3a4a' }}>{t.icon} {t.label}</div>
+                  {tool === t.id && <div style={{ fontSize: 12, color: '#7a8a94', marginTop: 2 }}>{t.desc}</div>}
                 </div>
               ))}
 
               <div style={{ height: 1, background: '#e4e9ec', margin: '6px 12px' }} />
 
               {/* ── Setup Tools ── */}
-              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Setup</div>
+              <div style={{ padding: '4px 12px 2px', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Setup</div>
               {[
                 { id: 'calibrate', icon: '📐', label: 'Scale Calibration', desc: '① Set distance in sidebar ② Click 2 endpoints of that known dimension' },
                 { id: 'north', icon: '🧭', label: 'Document Alignment', desc: northPt ? '② Now click the TIP of the north arrow' : '① Click the BASE of the north arrow on the plan' },
@@ -525,16 +525,16 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                   style={{ padding: '6px 12px', cursor: 'pointer', background: tool === t.id ? 'rgba(26,188,156,0.08)' : 'transparent', borderLeft: tool === t.id ? '3px solid #1abc9c' : '3px solid transparent' }}
                   onMouseEnter={e => { if (tool !== t.id) e.currentTarget.style.background = '#f0f2f5'; }}
                   onMouseLeave={e => { if (tool !== t.id) e.currentTarget.style.background = 'transparent'; }}>
-                  <div style={{ fontSize: 12, fontWeight: tool === t.id ? 600 : 500, color: tool === t.id ? '#16a085' : '#1a3a4a' }}>{t.icon} {t.label}</div>
-                  {tool === t.id && <div style={{ fontSize: 9, color: '#7a8a94', marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>}
+                  <div style={{ fontSize: 13, fontWeight: tool === t.id ? 600 : 500, color: tool === t.id ? '#16a085' : '#1a3a4a' }}>{t.icon} {t.label}</div>
+                  {tool === t.id && <div style={{ fontSize: 12, color: '#7a8a94', marginTop: 2, lineHeight: 1.4 }}>{t.desc}</div>}
                 </div>
               ))}
 
               <div style={{ height: 1, background: '#e4e9ec', margin: '6px 12px' }} />
 
               {/* ── Keyboard shortcuts ── */}
-              <div style={{ padding: '4px 12px 2px', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Shortcuts</div>
-              <div style={{ padding: '4px 12px', fontSize: 9, color: '#95a5a6', lineHeight: 1.8 }}>
+              <div style={{ padding: '4px 12px 2px', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: '#95a5a6', fontWeight: 700 }}>Shortcuts</div>
+              <div style={{ padding: '4px 12px', fontSize: 12, color: '#95a5a6', lineHeight: 1.8 }}>
                 M=Measure A=Area P=Marker<br/>
                 C=Calibrate T=Text N=Align<br/>
                 Space=Pan<br/>
@@ -559,29 +559,29 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
 
         {/* Sidebar */}
         <div style={{ width: 280, background: '#fff', borderLeft: '1px solid #e4e9ec', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', borderBottom: '1px solid #e4e9ec', display: 'flex', justifyContent: 'space-between', fontWeight: T.w.semi, fontSize: 13, color: '#1a3a4a' }}>
+          <div style={{ padding: '12px 14px', borderBottom: '1px solid #e4e9ec', display: 'flex', justifyContent: 'space-between', fontWeight: T.w.semi, fontSize: 14, color: '#1a3a4a' }}>
             <span>Measurements</span>
-            <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#95a5a6' }}>{items.length} item{items.length !== 1 ? 's' : ''}</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#95a5a6' }}>{items.length} item{items.length !== 1 ? 's' : ''}</span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: 10 }}>
             {/* Calibration */}
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: T.w.semi, marginBottom: 8 }}>Scale Calibration</div>
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: T.w.semi, marginBottom: 8 }}>Scale Calibration</div>
             <div style={{ background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: T.r.lg, padding: 12, marginBottom: 12 }}>
               <div style={{ display: 'flex', gap: 6 }}>
                 <input type="number" value={calVal} onChange={e => { setCalVal(parseFloat(e.target.value) || 1); if (calPx) { const ci = items.find(i => i.type === 'cal'); if (ci) setCalPx(ci.pxDist / (parseFloat(e.target.value) || 1)); } }}
-                  style={{ flex: 1, background: '#fff', border: '1px solid #d5dde2', borderRadius: T.r.md, padding: '6px 8px', color: '#1a3a4a', fontFamily: 'monospace', fontSize: 12, outline: 'none' }} />
+                  style={{ flex: 1, background: '#fff', border: '1px solid #d5dde2', borderRadius: T.r.md, padding: '6px 8px', color: '#1a3a4a', fontFamily: 'monospace', fontSize: 13, outline: 'none' }} />
                 <select value={calUnit} onChange={e => setCalUnit(e.target.value)}
-                  style={{ background: '#fff', border: '1px solid #d5dde2', borderRadius: T.r.md, padding: '6px 8px', color: '#1a3a4a', fontSize: 12, outline: 'none' }}>
+                  style={{ background: '#fff', border: '1px solid #d5dde2', borderRadius: T.r.md, padding: '6px 8px', color: '#1a3a4a', fontSize: 13, outline: 'none' }}>
                   <option value="m">m</option><option value="mm">mm</option><option value="ft">ft</option>
                 </select>
               </div>
-              <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 11, color: calPx ? '#1abc9c' : '#95a5a6' }}>
+              <div style={{ marginTop: 8, fontFamily: 'monospace', fontSize: 12, color: calPx ? '#1abc9c' : '#95a5a6' }}>
                 {calPx ? `Scale: ${calPx.toFixed(1)} px/${calUnit}` : 'Draw a calibration line to set scale'}
               </div>
             </div>
 
             {/* Colors */}
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: T.w.semi, marginBottom: 8 }}>Color</div>
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: T.w.semi, marginBottom: 8 }}>Color</div>
             <div style={{ display: 'flex', gap: 5, marginBottom: 12 }}>
               {COLORS.map(c => (
                 <div key={c} onClick={() => setColor(c)}
@@ -590,9 +590,9 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             </div>
 
             {/* Items */}
-            <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: T.w.semi, marginBottom: 8 }}>Items</div>
+            <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: T.w.semi, marginBottom: 8 }}>Items</div>
             {items.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '24px 14px', color: '#95a5a6', fontSize: 12, lineHeight: 1.7 }}>
+              <div style={{ textAlign: 'center', padding: '24px 14px', color: '#95a5a6', fontSize: 13, lineHeight: 1.7 }}>
                 Click on the plan to measure distances or place markers.
               </div>
             )}
@@ -600,22 +600,22 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
               <div key={it.id} style={{ background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: 9, padding: '10px 11px', marginBottom: 5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                   <div style={{ width: 9, height: 9, borderRadius: '50%', background: it.color, flexShrink: 0 }} />
-                  <div style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1a3a4a' }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#1a3a4a' }}>
                     {it.type === 'cal' ? 'Calibration' : it.label || it.type}
                   </div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: T.w.semi, color: it.type === 'cal' ? '#e67e22' : '#2980b9', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: T.w.semi, color: it.type === 'cal' ? '#e67e22' : '#2980b9', whiteSpace: 'nowrap' }}>
                     {it.type === 'measure' ? fmtDist(it.pxDist) : it.type === 'area' ? fmtArea(it.pxArea) : it.type === 'cal' ? `${it.calVal || calVal} ${calUnit} (cal)` : 'Marker'}
                   </div>
                   {/* Save to AI field button — always visible */}
                   {(it.type === 'measure' || it.type === 'area') && onSaveField && (
                     <button onClick={() => setSaveModal({ itemId: it.id, value: calPx ? getRealValue(it) : (it.type === 'measure' ? it.pxDist.toFixed(1) : it.pxArea.toFixed(1)) })}
-                      style={{ background: '#e8f8f5', border: '1px solid #1abc9c', color: '#1abc9c', cursor: 'pointer', fontSize: 9, padding: '1px 5px', borderRadius: T.r.sm, fontWeight: T.w.bold, fontFamily: 'inherit' }}
+                      style={{ background: '#e8f8f5', border: '1px solid #1abc9c', color: '#1abc9c', cursor: 'pointer', fontSize: 12, padding: '1px 5px', borderRadius: T.r.sm, fontWeight: T.w.bold, fontFamily: 'inherit' }}
                       title="Save to AI field">💾 Save</button>
                   )}
                   <button onClick={() => deleteItem(it.id)}
                     style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>×</button>
                 </div>
-                <div style={{ fontSize: 10, color: '#95a5a6', marginTop: 3, paddingLeft: 16, fontFamily: 'monospace' }}>
+                <div style={{ fontSize: 12, color: '#95a5a6', marginTop: 3, paddingLeft: 16, fontFamily: 'monospace' }}>
                   {it.type === 'measure' || it.type === 'cal' ? Math.round(it.pxDist) + ' px' : it.type === 'area' ? it.pts.length + ' vertices' : `${Math.round(it.pt.x)}, ${Math.round(it.pt.y)}`}
                 </div>
               </div>
@@ -625,7 +625,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
       </div>
 
       {/* Status bar */}
-      <div style={{ height: 26, padding: '0 16px', background: '#fff', borderTop: '1px solid #e4e9ec', display: 'flex', alignItems: 'center', gap: 20, fontSize: 10, color: '#95a5a6', fontFamily: 'monospace', flexShrink: 0 }}>
+      <div style={{ height: 26, padding: '0 16px', background: '#fff', borderTop: '1px solid #e4e9ec', display: 'flex', alignItems: 'center', gap: 20, fontSize: 12, color: '#95a5a6', fontFamily: 'monospace', flexShrink: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1abc9c' }} />
           {tool.charAt(0).toUpperCase() + tool.slice(1)}
@@ -633,17 +633,17 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         {mouse && <span>X:{Math.round(mouse.x)} Y:{Math.round(mouse.y)}</span>}
         {onSaveField && (
           <button onClick={() => setSaveModal({ itemId: null, value: '', isManual: true })}
-            style={{ background: '#E3F2FD', border: '1px solid #1565C0', color: '#1565C0', cursor: 'pointer', fontSize: 9, padding: '1px 8px', borderRadius: T.r.sm, fontWeight: T.w.bold, fontFamily: 'inherit' }}
+            style={{ background: '#E3F2FD', border: '1px solid #1565C0', color: '#1565C0', cursor: 'pointer', fontSize: 12, padding: '1px 8px', borderRadius: T.r.sm, fontWeight: T.w.bold, fontFamily: 'inherit' }}
             title="Manually set an AI field value">✏️ Set Field</button>
         )}
         <span>{Math.round(zoom * 100)}%</span>
         <button onClick={() => setRotation(r => (r - 90 + 360) % 360)} title="Preview rotate left (visual only)"
-          style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>↺</button>
+          style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↺</button>
         <button onClick={() => setRotation(r => (r + 90) % 360)} title="Preview rotate right (visual only)"
-          style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
+          style={{ padding: '2px 6px', borderRadius: T.r.sm, border: '1px solid #d5dde2', background: '#fff', color: '#7a8a94', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>↻</button>
         {rotation !== 0 && (
           <>
-            <span style={{ fontSize: 9, color: '#8e44ad', fontWeight: T.w.bold }}>{Math.round(rotation * 10) / 10}°</span>
+            <span style={{ fontSize: 12, color: '#8e44ad', fontWeight: T.w.bold }}>{Math.round(rotation * 10) / 10}°</span>
             <button onClick={async () => {
               const docId = appData?.documents?.find(d => (d.type || '').toLowerCase() === 'pdf' && (d.category || '').includes('Site'))?.id;
               const appDbId = appData?._dbId;
@@ -663,13 +663,13 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                 }
               } catch (err) { alert('Rotate failed: ' + err.message); }
             }} title="Save rotation permanently to the PDF file"
-              style={{ padding: '2px 8px', borderRadius: T.r.sm, border: 'none', background: '#e67e22', color: '#fff', fontSize: 9, fontWeight: T.w.bold, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '2px 8px', borderRadius: T.r.sm, border: 'none', background: '#e67e22', color: '#fff', fontSize: 12, fontWeight: T.w.bold, cursor: 'pointer', fontFamily: 'inherit' }}>
               Save Rotation
             </button>
           </>
         )}
         {ocrLoading && <span style={{ color: '#8e44ad', fontWeight: T.w.bold }}>🔍 Reading text...</span>}
-        <span style={{ marginLeft: 'auto', fontSize: 9, color: '#b0bec5' }}>{tool}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: '#b0bec5' }}>{tool}</span>
       </div>
 
       {/* OCR Result — show detected text with save option */}
@@ -677,7 +677,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         <div style={{ position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 10003,
           background: '#fff', border: '2px solid #8e44ad', borderRadius: 12, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', minWidth: 280, maxWidth: 420 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: T.w.bold, color: '#8e44ad' }}>📝 Detected Text</span>
+            <span style={{ fontSize: 13, fontWeight: T.w.bold, color: '#8e44ad' }}>📝 Detected Text</span>
             <button onClick={() => setOcrResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#95a5a6', fontSize: 14 }}>✕</button>
           </div>
           <div style={{ fontSize: 16, fontWeight: T.w.black, color: T.c.text, fontFamily: 'monospace', background: '#f5f0ff', padding: '8px 12px', borderRadius: T.r.md, marginBottom: 8, wordBreak: 'break-all' }}>
@@ -685,11 +685,11 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={() => { setSaveModal({ itemId: null, value: ocrResult.text, isManual: true }); setOcrResult(null); }}
-              style={{ flex: 1, padding: '7px 12px', borderRadius: T.r.md, border: 'none', background: 'linear-gradient(135deg, #8e44ad, #9b59b6)', color: '#fff', fontWeight: T.w.bold, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ flex: 1, padding: '7px 12px', borderRadius: T.r.md, border: 'none', background: 'linear-gradient(135deg, #8e44ad, #9b59b6)', color: '#fff', fontWeight: T.w.bold, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
               Save to Field
             </button>
             <button onClick={() => { navigator.clipboard?.writeText(ocrResult.text); }}
-              style={{ padding: '7px 12px', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: T.c.textSecondary, fontWeight: T.w.semi, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+              style={{ padding: '7px 12px', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: T.c.textSecondary, fontWeight: T.w.semi, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
               Copy
             </button>
           </div>
@@ -713,14 +713,14 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 10003, display: 'grid', placeItems: 'center' }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 340, boxShadow: '0 12px 48px rgba(0,0,0,0.2)' }}>
             <div style={{ fontSize: 14, fontWeight: T.w.bold, color: '#1a3a4a', marginBottom: 8 }}>⚠️ Unsaved Work</div>
-            <div style={{ fontSize: 12, color: '#5a6a74', marginBottom: 16, lineHeight: 1.5 }}>{pendingToolSwitch.warning}</div>
+            <div style={{ fontSize: 13, color: '#5a6a74', marginBottom: 16, lineHeight: 1.5 }}>{pendingToolSwitch.warning}</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => doSwitchTool(pendingToolSwitch.tool)}
-                style={{ flex: 1, padding: '8px 0', borderRadius: T.r.md, border: 'none', background: '#e74c3c', color: '#fff', fontWeight: T.w.bold, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: '8px 0', borderRadius: T.r.md, border: 'none', background: '#e74c3c', color: '#fff', fontWeight: T.w.bold, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Discard & Switch
               </button>
               <button onClick={() => setPendingToolSwitch(null)}
-                style={{ flex: 1, padding: '8px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: '#5a6a74', fontWeight: T.w.semi, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ flex: 1, padding: '8px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: '#5a6a74', fontWeight: T.w.semi, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Continue Working
               </button>
             </div>
@@ -734,18 +734,18 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           onClick={(e) => { if (e.target === e.currentTarget) setSaveModal(null); }}>
           <div style={{ background: '#fff', border: '1px solid #e4e9ec', borderRadius: 14, padding: 24, width: 420, maxHeight: '70vh', overflow: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,0.15)' }}>
             <div style={{ fontSize: 15, fontWeight: T.w.bold, color: '#1a3a4a', marginBottom: 4 }}>💾 {saveModal.isManual ? 'Set AI Field Value' : 'Save Measurement as Correction'}</div>
-            <div style={{ fontSize: 12, color: '#7a8a94', marginBottom: 8 }}>
+            <div style={{ fontSize: 13, color: '#7a8a94', marginBottom: 8 }}>
               {saveModal.isManual ? 'Enter a value and select the field to save it to.' : <>Measured: <span style={{ color: '#1abc9c', fontFamily: 'monospace', fontWeight: T.w.semi }}>{saveModal.value} {calUnit}</span></>}
               {!saveModal.isManual && ' — This will override the AI-extracted value and re-run assessment.'}
             </div>
             {/* Editable value input */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-              <span style={{ fontSize: 11, fontWeight: T.w.semi, color: '#5a6a74' }}>Value:</span>
+              <span style={{ fontSize: 12, fontWeight: T.w.semi, color: '#5a6a74' }}>Value:</span>
               <input type="text" value={saveModal.value} onChange={e => setSaveModal(m => ({...m, value: e.target.value}))}
-                style={{ flex: 1, padding: '6px 10px', borderRadius: T.r.md, border: '1.5px solid #1abc9c', fontSize: 13, fontFamily: 'monospace', fontWeight: T.w.bold, color: '#1a3a4a', outline: 'none' }}
+                style={{ flex: 1, padding: '6px 10px', borderRadius: T.r.md, border: '1.5px solid #1abc9c', fontSize: 14, fontFamily: 'monospace', fontWeight: T.w.bold, color: '#1a3a4a', outline: 'none' }}
                 autoFocus placeholder="Enter value..." />
             </div>
-            <div style={{ fontSize: 10, color: '#7a8a94', marginBottom: 8, fontWeight: T.w.semi }}>Select field to save to:</div>
+            <div style={{ fontSize: 12, color: '#7a8a94', marginBottom: 8, fontWeight: T.w.semi }}>Select field to save to:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {AI_FIELDS.map(f => {
                 const spd = appData?.cor_site_plan_data || appData?.site_plan_data;
@@ -758,17 +758,17 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                 return (
                   <button key={f.key} onClick={() => { if (onSaveField) { const v = isNaN(newVal) ? newVal : parseFloat(newVal); onSaveField(f.key, v, f.unit || calUnit); } setSaveModal(null); }}
                     disabled={!newVal && newVal !== 0}
-                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: T.r.md, color: '#1a3a4a', cursor: newVal ? 'pointer' : 'not-allowed', fontFamily: 'inherit', fontSize: 12, transition: 'border-color 0.15s', gap: 8, opacity: newVal ? 1 : 0.5 }}
+                    style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', background: '#f5f8fa', border: '1px solid #e4e9ec', borderRadius: T.r.md, color: '#1a3a4a', cursor: newVal ? 'pointer' : 'not-allowed', fontFamily: 'inherit', fontSize: 13, transition: 'border-color 0.15s', gap: 8, opacity: newVal ? 1 : 0.5 }}
                     onMouseEnter={e => { if (newVal) e.currentTarget.style.borderColor = '#1abc9c'; }} onMouseLeave={e => e.currentTarget.style.borderColor = '#e4e9ec'}>
                     <span style={{ flex: 1, textAlign: 'left' }}>{f.label}</span>
-                    <span style={{ fontSize: 10, color: '#e74c3c', fontFamily: 'monospace', minWidth: 60, textAlign: 'right' }}>{currentStr}</span>
-                    <span style={{ fontSize: 10, color: '#95a5a6' }}>→</span>
-                    <span style={{ fontSize: 10, color: '#1abc9c', fontFamily: 'monospace', fontWeight: T.w.semi, minWidth: 60, textAlign: 'right' }}>{newVal || '...'}</span>
+                    <span style={{ fontSize: 12, color: '#e74c3c', fontFamily: 'monospace', minWidth: 60, textAlign: 'right' }}>{currentStr}</span>
+                    <span style={{ fontSize: 12, color: '#95a5a6' }}>→</span>
+                    <span style={{ fontSize: 12, color: '#1abc9c', fontFamily: 'monospace', fontWeight: T.w.semi, minWidth: 60, textAlign: 'right' }}>{newVal || '...'}</span>
                   </button>
                 );
               })}
             </div>
-            <button onClick={() => setSaveModal(null)} style={{ marginTop: 12, width: '100%', padding: '8px', background: '#fff', border: '1px solid #e4e9ec', borderRadius: T.r.md, color: '#7a8a94', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>Cancel</button>
+            <button onClick={() => setSaveModal(null)} style={{ marginTop: 12, width: '100%', padding: '8px', background: '#fff', border: '1px solid #e4e9ec', borderRadius: T.r.md, color: '#7a8a94', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>Cancel</button>
           </div>
         </div>
       )}

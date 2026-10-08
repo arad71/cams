@@ -4,6 +4,7 @@ import { apiAppToFrontend, apiUserToFrontend, frontendAppToApiUpdate } from './u
 import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from './data/constants';
 import LoginScreen from './views/LoginScreen';
 import { T } from './styles/tokens';
+import useIsMobile from './hooks/useIsMobile';
 import ApplicationListView from './views/ApplicationListView';
 import ApplicationDetailView from './views/ApplicationDetailView';
 import InspectionsView from './views/InspectionsView';
@@ -23,6 +24,8 @@ export default function CouncilApprovalPortal() {
   const [activeView, setActiveView] = useState("dashboard");
   const [selectedApp, setSelectedApp] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const isMobile = useIsMobile(900);
+  const [navOpen, setNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [globalLotsData, setGlobalLotsData] = useState(null);
   const [globalSpeedRoads, setGlobalSpeedRoads] = useState(null);
@@ -300,7 +303,7 @@ export default function CouncilApprovalPortal() {
     } catch (e) { console.error("Failed to reload apps:", e); }
   };
 
-  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',sans-serif", color: "#7a8a94" }}>Loading...</div>;
+  if (loading) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',sans-serif", color: "#5a6a74" }}>Loading...</div>;
   if (!currentUser) return <LoginScreen onLogin={handleLogin} branding={S} />;
 
   // Password change modal (shown on first login with temp password)
@@ -308,7 +311,7 @@ export default function CouncilApprovalPortal() {
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(12,31,46,0.6)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ background: "#fff", borderRadius: 16, padding: "28px 32px", width: "min(400px, 90vw)", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
         <h3 style={{ fontSize: 16, fontWeight: 800, color: "#1a3a4a", margin: "0 0 4px" }}>🔐 Change Password</h3>
-        <p style={{ fontSize: 12, color: "#7a8a94", margin: "0 0 16px" }}>
+        <p style={{ fontSize: 13, color: "#5a6a74", margin: "0 0 16px" }}>
           {currentUser.must_change_password ? "You must change your temporary password before continuing." : "Update your password"}
         </p>
         {changePwSuccess ? (
@@ -319,25 +322,25 @@ export default function CouncilApprovalPortal() {
         ) : (
           <>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Current Password</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Current Password</label>
               <input type="password" value={changePwForm.current} onChange={e => setChangePwForm({...changePwForm, current: e.target.value})}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Enter current / temporary password" />
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Enter current / temporary password" />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>New Password</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>New Password</label>
               <input type="password" value={changePwForm.new1} onChange={e => setChangePwForm({...changePwForm, new1: e.target.value})}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Min 6 characters" />
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Min 6 characters" />
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Confirm New Password</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "#5a6a74", textTransform: "uppercase", display: "block", marginBottom: 3 }}>Confirm New Password</label>
               <input type="password" value={changePwForm.new2} onChange={e => setChangePwForm({...changePwForm, new2: e.target.value})}
                 onKeyDown={e => e.key === "Enter" && handleChangePassword()}
-                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Repeat new password" />
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} placeholder="Repeat new password" />
             </div>
-            {changePwError && <div style={{ marginBottom: 10, padding: "8px 10px", background: T.c.dangerLight, borderRadius: 6, fontSize: 11, color: "#c0392b" }}>⚠️ {changePwError}</div>}
+            {changePwError && <div style={{ marginBottom: 10, padding: "8px 10px", background: T.c.dangerLight, borderRadius: 6, fontSize: 12, color: "#c0392b" }}>⚠️ {changePwError}</div>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              {!currentUser.must_change_password && <button onClick={() => setShowChangePassword(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>}
-              <button onClick={handleChangePassword} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Change Password</button>
+              {!currentUser.must_change_password && <button onClick={() => setShowChangePassword(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #d5dde2", background: "#fff", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>}
+              <button onClick={handleChangePassword} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Change Password</button>
             </div>
           </>
         )}
@@ -383,8 +386,8 @@ export default function CouncilApprovalPortal() {
     <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: T.c.borderLight, position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(26,188,156,0.1)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
       {ChangePasswordModal}
-      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} />
-      <div style={{ flex: "1 1 0%", padding: "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
+      <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={isMobile ? false : sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} mobile={isMobile} open={navOpen} onClose={() => setNavOpen(false)} />
+      <div style={{ flex: "1 1 0%", padding: isMobile ? "10px 10px" : "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14,
           padding: "8px 14px", background: "#fff", borderRadius: 12,
@@ -392,18 +395,22 @@ export default function CouncilApprovalPortal() {
           boxShadow: "0 1px 3px rgba(26,58,74,0.04)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: (ROLE_CONFIG[role]||{color:"#7a8a94"}).color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", fontWeight: 700 }}>{currentUser?.initials || "?"}</div>
+            {isMobile && (
+              <button onClick={() => setNavOpen(true)} aria-label="Open menu"
+                style={{ width: 40, height: 40, marginRight: 2, border: "none", background: "transparent", fontSize: 22, lineHeight: 1, color: T.c.text, cursor: "pointer", borderRadius: 8 }}>{"\u2630"}</button>
+            )}
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: (ROLE_CONFIG[role]||{color:"#5a6a74"}).color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", fontWeight: 700 }}>{currentUser?.initials || "?"}</div>
             <div>
-              <span style={{ fontSize: 12, color: T.c.text, fontWeight: 600 }}>{currentUser.name}</span>
-              <span style={{ fontSize: 10, color: T.c.textMuted, marginLeft: 6 }}>{(ROLE_CONFIG[role]||{label:role}).label}</span>
+              <span style={{ fontSize: 13, color: T.c.text, fontWeight: 600 }}>{currentUser.name}</span>
+              <span style={{ fontSize: 12, color: T.c.textMuted, marginLeft: 6 }}>{(ROLE_CONFIG[role]||{label:role}).label}</span>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {role === "engineer" && <span style={{ fontSize: 10, color: "#7a8a94", background: "#f5f7fa", padding: "3px 8px", borderRadius: 6 }}>{visibleApps.length} case{visibleApps.length !== 1 ? "s" : ""}</span>}
+            {role === "engineer" && <span style={{ fontSize: 12, color: "#5a6a74", background: "#f5f7fa", padding: "3px 8px", borderRadius: 6 }}>{visibleApps.length} case{visibleApps.length !== 1 ? "s" : ""}</span>}
           </div>
         </div>
         {renderView()}
-        <div style={{ marginTop: 24, padding: "10px 0", borderTop: "1px solid #eef1f3", textAlign: "center", fontSize: 9, color: "#b8c4cc", letterSpacing: "0.02em" }}>
+        <div style={{ marginTop: 24, padding: "10px 0", borderTop: "1px solid #eef1f3", textAlign: "center", fontSize: 12, color: "#6b7b85", letterSpacing: "0.02em" }}>
           {S.copyright} · {S.systemShort} v{S.version}
         </div>
       </div>

@@ -140,17 +140,17 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 14 }}>📋</span>
-            <span style={{ fontWeight: 700, fontSize: 13, color: T.c.text, letterSpacing: "-0.01em" }}>Assessment Checklist</span>
-            <span style={{ fontSize: 9, color: T.c.textMuted, fontWeight: 500 }}>{stats.total} items</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: T.c.text, letterSpacing: "-0.01em" }}>Assessment Checklist</span>
+            <span style={{ fontSize: 12, color: T.c.textMuted, fontWeight: 500 }}>{stats.total} items</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <button onClick={runAutoAssess} disabled={saving === "auto"}
-              style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff", fontWeight: 600, fontSize: 10, cursor: saving === "auto" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "auto" ? 0.6 : 1, boxShadow: "0 1px 4px rgba(26,188,156,0.25)", transition: "all 0.15s" }}>
+              style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#1abc9c,#16a085)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: saving === "auto" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "auto" ? 0.6 : 1, boxShadow: "0 1px 4px rgba(26,188,156,0.25)", transition: "all 0.15s" }}>
               {saving === "auto" ? "⟳ Running..." : "🤖 Auto-Assess"}
             </button>
             {stats.pass > 0 && stats.oPending > 0 && (
               <button onClick={acceptAllAIPass} disabled={saving === "acceptAll"}
-                style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#27ae60", color: "#fff", fontWeight: 600, fontSize: 10, cursor: saving === "acceptAll" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "acceptAll" ? 0.6 : 1, boxShadow: "0 1px 4px rgba(39,174,96,0.25)" }}>
+                style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#27ae60", color: "#fff", fontWeight: 600, fontSize: 12, cursor: saving === "acceptAll" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "acceptAll" ? 0.6 : 1, boxShadow: "0 1px 4px rgba(39,174,96,0.25)" }}>
                 {saving === "acceptAll" ? "⟳ ..." : `✓ Accept ${stats.pass} AI Pass`}
               </button>
             )}
@@ -161,12 +161,12 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
       {/* Progress bar + stats */}
       <div style={{ padding: "8px 16px", borderBottom: `1px solid ${T.c.borderLight}`, background: "#fdfdfe" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <div style={{ display: "flex", gap: 10, fontSize: 10, fontWeight: 600 }}>
+          <div style={{ display: "flex", gap: 10, fontSize: 12, fontWeight: 600 }}>
             <span style={{ color: "#27ae60" }}>● {stats.pass} pass</span>
             <span style={{ color: "#e67e22" }}>● {stats.review} review</span>
             <span style={{ color: "#c0392b" }}>● {stats.fail} fail</span>
           </div>
-          <span style={{ fontSize: 10, fontWeight: 600, color: allPassed ? "#27ae60" : T.c.textSecondary }}>Officer: {oDecided}/{stats.total}</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: allPassed ? "#27ae60" : T.c.textSecondary }}>Officer: {oDecided}/{stats.total}</span>
         </div>
         <div style={{ height: 5, background: "#eef1f3", borderRadius: 5, overflow: "hidden", display: "flex" }}>
           <div style={{ width: `${(stats.oApproved / Math.max(stats.total, 1)) * 100}%`, background: "#27ae60", transition: "width 0.3s" }} />
@@ -183,11 +183,11 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
           { id: "all", label: "All", count: stats.total },
           { id: "ai_fail", label: "AI Fail", count: stats.fail, color: "#c0392b" },
           { id: "ai_review", label: "AI Review", count: stats.review, color: "#e67e22" },
-          { id: "pending", label: "Pending", count: stats.oPending, color: "#7a8a94" },
+          { id: "pending", label: "Pending", count: stats.oPending, color: "#5a6a74" },
           { id: "rejected", label: "Rejected", count: stats.oRejected, color: "#c0392b" },
         ].map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)}
-            style={{ padding: "2px 8px", borderRadius: 10, border: filter === f.id ? `1.5px solid ${f.color || "#1a3a4a"}` : "1px solid #e4e9ec", background: filter === f.id ? `${f.color || "#1a3a4a"}10` : "#fff", color: filter === f.id ? (f.color || "#1a3a4a") : "#7a8a94", fontSize: 9, fontWeight: filter === f.id ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "2px 8px", borderRadius: 10, border: filter === f.id ? `1.5px solid ${f.color || "#1a3a4a"}` : "1px solid #e4e9ec", background: filter === f.id ? `${f.color || "#1a3a4a"}10` : "#fff", color: filter === f.id ? (f.color || "#1a3a4a") : "#7a8a94", fontSize: 12, fontWeight: filter === f.id ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
             {f.label} {f.count > 0 && <span style={{ fontWeight: 700 }}>({f.count})</span>}
           </button>
         ))}
@@ -207,14 +207,14 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
               style={{ padding: "8px 16px", borderBottom: `1px solid ${T.c.borderLight}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", background: exp ? "#f5f8fa" : "transparent" }}
               onMouseEnter={e => { if (!exp) e.currentTarget.style.background = "#fafcfd"; }} onMouseLeave={e => { if (!exp) e.currentTarget.style.background = "transparent"; }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 13 }}>{cat.icon}</span>
-                <span style={{ fontWeight: T.w.bold, fontSize: 11, color: T.c.text }}>{cat.label}</span>
-                <span style={{ fontSize: 9, color: "#b0bdb2" }}>({filter !== "all" ? `${catItems.length}/` : ""}{allCatItems.length})</span>
+                <span style={{ fontSize: 14 }}>{cat.icon}</span>
+                <span style={{ fontWeight: T.w.bold, fontSize: 12, color: T.c.text }}>{cat.label}</span>
+                <span style={{ fontSize: 12, color: "#6b7b85" }}>({filter !== "all" ? `${catItems.length}/` : ""}{allCatItems.length})</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {cf > 0 && <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 8, fontWeight: T.w.bold, background: T.c.dangerLight, color: "#c0392b" }}>{cf}!</span>}
-                <span style={{ fontSize: 9, fontWeight: T.w.semi, color: co === allCatItems.length ? "#27ae60" : "#95a5a6" }}>{co}/{allCatItems.length}</span>
-                <span style={{ fontSize: 10, color: "#b0bdb2", transform: exp ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>▶</span>
+                {cf > 0 && <span style={{ padding: "1px 5px", borderRadius: 3, fontSize: 12, fontWeight: T.w.bold, background: T.c.dangerLight, color: "#c0392b" }}>{cf}!</span>}
+                <span style={{ fontSize: 12, fontWeight: T.w.semi, color: co === allCatItems.length ? "#27ae60" : "#95a5a6" }}>{co}/{allCatItems.length}</span>
+                <span style={{ fontSize: 12, color: "#6b7b85", transform: exp ? "rotate(90deg)" : "none", transition: "transform 0.15s", display: "inline-block" }}>▶</span>
               </div>
             </div>
             {exp && catItems.map(item => {
@@ -225,7 +225,7 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                     {/* Auto badge */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, minWidth: 36 }}>
-                      <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: T.w.black,
+                      <div style={{ width: 22, height: 22, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: T.w.black,
                         background: a.ai_result ? `${ac[a.ai_result]}12` : T.c.borderLight, color: a.ai_result ? ac[a.ai_result] : "#ccc", border: `1.5px solid ${a.ai_result ? ac[a.ai_result] + "60" : "#dde3de"}` }}>
                         {a.ai_result ? ai2[a.ai_result] : "—"}
                       </div>
@@ -233,27 +233,27 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
                     </div>
                     {/* Details */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text, lineHeight: 1.3 }}>{item.label}</div>
-                      <div style={{ fontSize: 9, color: "#b0bdb2" }}>{item.reference}</div>
-                      {a.ai_reason && <div style={{ marginTop: 2, fontSize: 9, color: T.c.grey800, lineHeight: 1.3 }}>🤖 {a.ai_reason}</div>}
-                      {a.ai_confidence != null && <div style={{ marginTop: 1, fontSize: 8, color: T.c.textMuted }}>Confidence: {(a.ai_confidence * 100).toFixed(0)}%</div>}
+                      <div style={{ fontSize: 13, fontWeight: T.w.semi, color: T.c.text, lineHeight: 1.3 }}>{item.label}</div>
+                      <div style={{ fontSize: 12, color: "#6b7b85" }}>{item.reference}</div>
+                      {a.ai_reason && <div style={{ marginTop: 2, fontSize: 12, color: T.c.grey800, lineHeight: 1.3 }}>🤖 {a.ai_reason}</div>}
+                      {a.ai_confidence != null && <div style={{ marginTop: 1, fontSize: 12, color: T.c.textMuted }}>Confidence: {(a.ai_confidence * 100).toFixed(0)}%</div>}
                       {a.note && (
-                        <div style={{ marginTop: 3, padding: "3px 7px", background: T.c.warningLight, borderRadius: 3, fontSize: 10, color: "#7d6608", lineHeight: 1.3 }}>
+                        <div style={{ marginTop: 3, padding: "3px 7px", background: T.c.warningLight, borderRadius: 3, fontSize: 12, color: "#7d6608", lineHeight: 1.3 }}>
                           💬 {a.note} {a.note_by_name && <span style={{ color: "#c4a44a" }}>— {a.note_by_name}{a.note_at ? ", " + a.note_at.split("T")[0] : ""}</span>}
                         </div>
                       )}
                       {editNoteId === item.code && (
                         <div style={{ display: "flex", gap: 3, marginTop: 3 }}>
-                          <input value={noteText} onChange={e => setNoteText(e.target.value)} onKeyDown={e => e.key === "Enter" && saveNote(a.item_id)} placeholder="Add a note..." style={{ flex: 1, padding: "3px 7px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 10, fontFamily: "inherit", outline: "none" }} autoFocus />
-                          <button onClick={() => saveNote(a.item_id)} style={{ padding: "3px 7px", borderRadius: 3, border: "none", background: "#1a3a4a", color: T.c.white, fontSize: 9, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
-                          <button onClick={() => setEditNoteId(null)} style={{ padding: "3px 5px", borderRadius: 3, border: "1px solid #d5dde2", background: T.c.card, fontSize: 9, color: T.c.textMuted, cursor: "pointer" }}>✕</button>
+                          <input value={noteText} onChange={e => setNoteText(e.target.value)} onKeyDown={e => e.key === "Enter" && saveNote(a.item_id)} placeholder="Add a note..." style={{ flex: 1, padding: "3px 7px", borderRadius: 3, border: "1px solid #d5dde2", fontSize: 12, fontFamily: "inherit", outline: "none" }} autoFocus />
+                          <button onClick={() => saveNote(a.item_id)} style={{ padding: "3px 7px", borderRadius: 3, border: "none", background: "#1a3a4a", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
+                          <button onClick={() => setEditNoteId(null)} style={{ padding: "3px 5px", borderRadius: 3, border: "1px solid #d5dde2", background: T.c.card, fontSize: 12, color: T.c.textMuted, cursor: "pointer" }}>✕</button>
                         </div>
                       )}
                     </div>
                     {/* Officer buttons */}
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, minWidth: 160, flexShrink: 0 }}>
                       {!a.item_id ? (
-                        <span style={{ fontSize: 9, color: T.c.textMuted, fontStyle: "italic" }}>Run Auto-Assess first</span>
+                        <span style={{ fontSize: 12, color: T.c.textMuted, fontStyle: "italic" }}>Run Auto-Assess first</span>
                       ) : (
                       <div style={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "flex-end" }}>
                         {[
@@ -264,7 +264,7 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
                           ["investigation", "🔍 Investigate", "#2980b9"],
                         ].map(([val, lbl, clr]) => (
                           <button key={val} onClick={() => setOfficer(a.item_id, val)} disabled={isSaving}
-                            style={{ padding: "3px 7px", borderRadius: T.r.sm, fontSize: 9, fontWeight: T.w.bold, cursor: isSaving ? "wait" : "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                            style={{ padding: "3px 7px", borderRadius: T.r.sm, fontSize: 12, fontWeight: T.w.bold, cursor: isSaving ? "wait" : "pointer", fontFamily: "inherit", transition: "all 0.15s",
                               border: a.officer_result === val ? `2px solid ${clr}` : "1px solid #d5dde2",
                               background: a.officer_result === val ? `${clr}10` : "#fff",
                               color: a.officer_result === val ? clr : "#95a5a6" }}>
@@ -272,10 +272,10 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
                           </button>
                         ))}
                         <button onClick={() => { setEditNoteId(editNoteId === item.code ? null : item.code); setNoteText(a.note || ""); }}
-                          style={{ padding: "3px 5px", borderRadius: T.r.sm, border: "1px solid #d5dde2", background: a.note ? "#fef9e7" : "#fff", color: T.c.textMuted, fontSize: 10, cursor: "pointer" }}>💬</button>
+                          style={{ padding: "3px 5px", borderRadius: T.r.sm, border: "1px solid #d5dde2", background: a.note ? "#fef9e7" : "#fff", color: T.c.textMuted, fontSize: 12, cursor: "pointer" }}>💬</button>
                       </div>
                       )}
-                      {a.officer_result && a.officer_name && <span style={{ fontSize: 8, color: "#b0bdb2" }}>{a.officer_name} {a.officer_assessed_at ? a.officer_assessed_at.split("T")[0] : ""}</span>}
+                      {a.officer_result && a.officer_name && <span style={{ fontSize: 12, color: "#6b7b85" }}>{a.officer_name} {a.officer_assessed_at ? a.officer_assessed_at.split("T")[0] : ""}</span>}
                     </div>
                   </div>
                 </div>
@@ -288,18 +288,18 @@ export default function ApprovalChecklist({ app, categories = [], currentUser })
       {/* Final sign-off bar */}
       <div style={{ padding: "12px 16px", borderTop: "2px solid #eef2f4", background: allPassed ? "#eafaf1" : allDone ? "#fdedec" : "#f8fafb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontWeight: T.w.black, fontSize: 12, color: allPassed ? "#1e8449" : allDone ? "#c0392b" : "#5a6a74" }}>
+          <div style={{ fontWeight: T.w.black, fontSize: 13, color: allPassed ? "#1e8449" : allDone ? "#c0392b" : "#5a6a74" }}>
             {allPassed ? "✅ ALL ITEMS CLEARED — Ready for final decision"
               : allDone && stats.oReferred > 0 ? `↗️ ${stats.oReferred} item${stats.oReferred > 1 ? "s" : ""} referred — awaiting external response`
               : allDone && stats.oInvestigation > 0 ? `🔍 ${stats.oInvestigation} item${stats.oInvestigation > 1 ? "s" : ""} under investigation`
               : allDone ? "❌ ITEMS REJECTED — Cannot approve without resolution"
               : `⏳ ${stats.oPending} items awaiting officer review`}
           </div>
-          {allDone && <div style={{ fontSize: 10, color: T.c.textSecondary, marginTop: 1 }}>{stats.oApproved} approved, {stats.oRejected} rejected, {stats.oNA} N/A, {stats.oReferred} referred, {stats.oInvestigation} investigating — of {stats.total}</div>}
+          {allDone && <div style={{ fontSize: 12, color: T.c.textSecondary, marginTop: 1 }}>{stats.oApproved} approved, {stats.oRejected} rejected, {stats.oNA} N/A, {stats.oReferred} referred, {stats.oInvestigation} investigating — of {stats.total}</div>}
         </div>
         {!allDone && (
           <button onClick={bulkDecide} disabled={saving === "bulk"}
-            style={{ padding: "5px 12px", borderRadius: T.r.md, border: "none", background: "#7f8c8d", color: T.c.white, fontWeight: T.w.bold, fontSize: 10, cursor: saving === "bulk" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "bulk" ? 0.6 : 1 }}>
+            style={{ padding: "5px 12px", borderRadius: T.r.md, border: "none", background: "#7f8c8d", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: saving === "bulk" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "bulk" ? 0.6 : 1 }}>
             {saving === "bulk" ? "⟳ Processing..." : "Auto-decide remaining"}
           </button>
         )}

@@ -2,7 +2,7 @@
 
 ## Repository
 - GitHub: github.com/arad71/cams
-- Token: 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
+- Token: (removed - store tokens in a secret manager, never in the repo)
 
 ## Tech Stack
 - Backend: FastAPI + SQLAlchemy + PostgreSQL
