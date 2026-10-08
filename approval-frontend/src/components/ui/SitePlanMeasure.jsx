@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { T, S, cx } from '../../styles/tokens';
 import { AI_OVERRIDE_FIELDS as AI_FIELDS } from '../../data/constants';
 
+import { onActivate } from "../../utils/a11y";
+import { notify } from "./Toast";
 const COLORS = ['#00e4c8','#ff5c72','#ffcf40','#5cacff','#4dff91','#a77dff','#ff8f4d','#ff6eb4'];
 
 export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMeasures, appRef, savedItems: initialItems, appData }) {
@@ -238,7 +240,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
         if (tool === 'calibrate') {
           const realVal = calVal;
           if (!realVal || realVal <= 0) {
-            alert('Enter the known distance in the Scale Calibration box first (bottom-left), then draw the line.');
+            notify('Enter the known distance in the Scale Calibration box first (bottom-left), then draw the line.');
             setTempPt(null);
             return;
           }
@@ -481,9 +483,9 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             {leftPanel ? '◀ Panel' : '▶ Panel'}
           </button>
           <button onClick={() => setItems(prev => prev.slice(0, -1))} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>↩</button>
-          <button onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>🗑</button>
+          <button aria-label="Delete" onClick={() => { setItems([]); setCalPx(null); setTempPt(null); setAreaPts([]); }} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12 }}>🗑</button>
           <button onClick={toggleMaximize} style={{ height: 28, padding: '0 8px', border: 'none', background: 'transparent', color: '#7a8a94', borderRadius: 5, cursor: 'pointer', fontSize: 14 }}>{maximized ? '❐' : '□'}</button>
-          <button onClick={onClose} style={{ height: 28, padding: '0 12px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: T.w.semi }}>✕</button>
+          <button aria-label="Close" onClick={onClose} style={{ height: 28, padding: '0 12px', border: '1px solid #e4e9ec', background: '#fff', color: '#1a3a4a', borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: T.w.semi }}>✕</button>
         </div>
       </div>
 
@@ -503,7 +505,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                 { id: 'marker', icon: '📍', label: 'Marker', desc: 'Drop a labelled pin' },
                 { id: 'pan', icon: '✋', label: 'Pan', desc: 'Drag to move around (hold Space)' },
               ].map(t => (
-                <div key={t.id} onClick={() => switchTool(t.id)}
+                <div role="button" tabIndex={0} onKeyDown={onActivate(() => switchTool(t.id))} key={t.id} onClick={() => switchTool(t.id)}
                   style={{ padding: '6px 12px', cursor: 'pointer', background: tool === t.id ? 'rgba(26,188,156,0.08)' : 'transparent', borderLeft: tool === t.id ? '3px solid #1abc9c' : '3px solid transparent' }}
                   onMouseEnter={e => { if (tool !== t.id) e.currentTarget.style.background = '#f0f2f5'; }}
                   onMouseLeave={e => { if (tool !== t.id) e.currentTarget.style.background = 'transparent'; }}>
@@ -521,7 +523,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                 { id: 'north', icon: '🧭', label: 'Document Alignment', desc: northPt ? '② Now click the TIP of the north arrow' : '① Click the BASE of the north arrow on the plan' },
                 { id: 'grabtext', icon: '📝', label: 'Read Text (OCR)', desc: 'Drag a rectangle around text on the plan' },
               ].map(t => (
-                <div key={t.id} onClick={() => switchTool(t.id)}
+                <div role="button" tabIndex={0} onKeyDown={onActivate(() => switchTool(t.id))} key={t.id} onClick={() => switchTool(t.id)}
                   style={{ padding: '6px 12px', cursor: 'pointer', background: tool === t.id ? 'rgba(26,188,156,0.08)' : 'transparent', borderLeft: tool === t.id ? '3px solid #1abc9c' : '3px solid transparent' }}
                   onMouseEnter={e => { if (tool !== t.id) e.currentTarget.style.background = '#f0f2f5'; }}
                   onMouseLeave={e => { if (tool !== t.id) e.currentTarget.style.background = 'transparent'; }}>
@@ -584,7 +586,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             <div style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.2, color: '#95a5a6', fontWeight: T.w.semi, marginBottom: 8 }}>Color</div>
             <div style={{ display: 'flex', gap: 5, marginBottom: 12 }}>
               {COLORS.map(c => (
-                <div key={c} onClick={() => setColor(c)}
+                <div role="button" tabIndex={0} onKeyDown={onActivate(() => setColor(c))} key={c} onClick={() => setColor(c)}
                   style={{ width: 22, height: 22, borderRadius: '50%', background: c, cursor: 'pointer', border: color === c ? '2.5px solid #1a3a4a' : '2.5px solid transparent', transform: color === c ? 'scale(1.15)' : 'none', transition: 'all 0.12s' }} />
               ))}
             </div>
@@ -612,7 +614,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                       style={{ background: '#e8f8f5', border: '1px solid #1abc9c', color: '#1abc9c', cursor: 'pointer', fontSize: 12, padding: '1px 5px', borderRadius: T.r.sm, fontWeight: T.w.bold, fontFamily: 'inherit' }}
                       title="Save to AI field">💾 Save</button>
                   )}
-                  <button onClick={() => deleteItem(it.id)}
+                  <button aria-label="Remove" onClick={() => deleteItem(it.id)}
                     style={{ background: 'none', border: 'none', color: '#bdc3c7', cursor: 'pointer', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>×</button>
                 </div>
                 <div style={{ fontSize: 12, color: '#95a5a6', marginTop: 3, paddingLeft: 16, fontFamily: 'monospace' }}>
@@ -647,7 +649,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
             <button onClick={async () => {
               const docId = appData?.documents?.find(d => (d.type || '').toLowerCase() === 'pdf' && (d.category || '').includes('Site'))?.id;
               const appDbId = appData?._dbId;
-              if (!docId || !appDbId) { alert('No PDF document found'); return; }
+              if (!docId || !appDbId) { notify('No PDF document found'); return; }
               try {
                 const api = (await import('../../services/api')).default;
                 await api.rotatePdf(appDbId, docId, rotation);
@@ -661,7 +663,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
                     setImgSize({ w: e.target.naturalWidth, h: e.target.naturalHeight });
                   };
                 }
-              } catch (err) { alert('Rotate failed: ' + err.message); }
+              } catch (err) { notify('Rotate failed: ' + err.message); }
             }} title="Save rotation permanently to the PDF file"
               style={{ padding: '2px 8px', borderRadius: T.r.sm, border: 'none', background: '#e67e22', color: '#fff', fontSize: 12, fontWeight: T.w.bold, cursor: 'pointer', fontFamily: 'inherit' }}>
               Save Rotation
@@ -678,7 +680,7 @@ export default function SitePlanMeasure({ imgUrl, onClose, onSaveField, onSaveMe
           background: '#fff', border: '2px solid #8e44ad', borderRadius: 12, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)', minWidth: 280, maxWidth: 420 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <span style={{ fontSize: 13, fontWeight: T.w.bold, color: '#8e44ad' }}>📝 Detected Text</span>
-            <button onClick={() => setOcrResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#95a5a6', fontSize: 14 }}>✕</button>
+            <button aria-label="Close" onClick={() => setOcrResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#95a5a6', fontSize: 14 }}>✕</button>
           </div>
           <div style={{ fontSize: 16, fontWeight: T.w.black, color: T.c.text, fontFamily: 'monospace', background: '#f5f0ff', padding: '8px 12px', borderRadius: T.r.md, marginBottom: 8, wordBreak: 'break-all' }}>
             {ocrResult.text}

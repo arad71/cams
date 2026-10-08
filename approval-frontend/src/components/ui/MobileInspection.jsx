@@ -158,10 +158,10 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
         <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 12, opacity: 0.8 }}>
           {crossoverRoad && <span>Road: {crossoverRoad}</span>}
           <span>{inspection?.inspection_type || "Inspection"}</span>
-          <span style={{ marginLeft: "auto", color: gpsStatus === "locked" ? "#1abc9c" : "#f39c12" }}>
+          <span style={{ marginLeft: "auto", color: gpsStatus === "locked" ? "#0b7a64" : "#946200" }}>
             {gpsStatus === "locked" ? `GPS: ${gps.acc?.toFixed(0)}m` : gpsStatus === "acquiring" ? "GPS..." : "No GPS"}
           </span>
-          {saving && <span style={{ color: "#1abc9c" }}>Saving...</span>}
+          {saving && <span style={{ color: "#0b7a64" }}>Saving...</span>}
         </div>
         {/* Progress bar */}
         <div style={{ marginTop: 8, height: 4, background: "rgba(255,255,255,0.15)", borderRadius: 2, overflow: "hidden" }}>
@@ -192,7 +192,7 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
                         style={{
                           width: 44, height: 36, borderRadius: T.r.md, border: "none", fontWeight: T.w.black, fontSize: 12, cursor: "pointer",
                           background: result === r ? (r === "pass" ? "#27ae60" : r === "fail" ? "#e74c3c" : "#95a5a6") : "#f0f2f5",
-                          color: result === r ? "#fff" : "#7a8a94",
+                          color: result === r ? "#fff" : "#5a6a74",
                         }}>
                         {r === "pass" ? "✓" : r === "fail" ? "✕" : "N/A"}
                       </button>

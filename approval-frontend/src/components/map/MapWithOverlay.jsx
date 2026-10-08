@@ -5,12 +5,13 @@ import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCross
 import LeafletMap from './LeafletMap';
 import { T, S, cx } from '../../styles/tokens';
 
+import { onActivate } from "../../utils/a11y";
 // Simple collapsible section for map panels
 function MapCollapsible({ title, icon, defaultOpen = true, badge, color = "#1a3a4a", children }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div>
-      <div onClick={() => setOpen(!open)}
+      <div role="button" tabIndex={0} onKeyDown={onActivate(() => setOpen(!open))} onClick={() => setOpen(!open)}
         style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: open ? `${color}08` : "#f8fafb", borderBottom: open ? "none" : `1px solid #e8ecef`, cursor: "pointer", userSelect: "none" }}>
         <span style={{ fontSize: 11, transition: "transform 0.2s", transform: open ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block" }}>▶</span>
         {icon && <span style={{ fontSize: 13 }}>{icon}</span>}
@@ -2009,7 +2010,7 @@ Respond with JSON only:
                       {group.layers.some(l => l.state) && <span style={{ marginLeft: 4, fontSize: 7, color: "#27ae60" }}>({group.layers.filter(l => l.state).length})</span>}
                     </div>
                     {group.layers.map(l => (
-                      <div key={l.key} onClick={l.set}
+                      <div role="button" tabIndex={0} onKeyDown={onActivate(l.set)} key={l.key} onClick={l.set}
                         style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 12px", cursor: "pointer", fontSize: 10, transition: "background 0.1s" }}
                         onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -2025,7 +2026,7 @@ Respond with JSON only:
                 {(app?.site_lot_boundary_latlon || app?.site_building_boundary_latlon || app?.site_crossover_latlon || app?.site_lot_boundary) && (
                   <>
                     <div style={{ height: 1, background: T.c.borderLight, margin: "4px 0" }} />
-                    <div onClick={() => setShowBoundaries(!showBoundaries)}
+                    <div role="button" tabIndex={0} onKeyDown={onActivate(() => setShowBoundaries(!showBoundaries))} onClick={() => setShowBoundaries(!showBoundaries)}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11 }}
                       onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -2037,7 +2038,7 @@ Respond with JSON only:
                     </div>
                     {/* Georef overlay layer toggle */}
                     {(georefOverlayUrl || app?.georef_overlay) && (
-                      <div onClick={() => setShowGeorefLayer(!showGeorefLayer)}
+                      <div role="button" tabIndex={0} onKeyDown={onActivate(() => setShowGeorefLayer(!showGeorefLayer))} onClick={() => setShowGeorefLayer(!showGeorefLayer)}
                         style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 11 }}
                         onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -2055,7 +2056,7 @@ Respond with JSON only:
                   <>
                     <div style={{ height: 1, background: T.c.borderLight, margin: "4px 0" }} />
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px" }}>
-                      <div onClick={() => { if (spFeatures) setShowSpFeatures(!showSpFeatures); else loadSpFeatures(); }}
+                      <div role="button" tabIndex={0} onKeyDown={onActivate(() => { if (spFeatures) setShowSpFeatures(!showSpFeatures); else loadSpFeatures(); })} onClick={() => { if (spFeatures) setShowSpFeatures(!showSpFeatures); else loadSpFeatures(); }}
                         style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 11, flex: 1 }}
                         onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -2918,7 +2919,7 @@ Respond with JSON only:
               <span style={{ padding: "5px 12px", borderRadius: 16, fontSize: 11, fontWeight: T.w.black, background: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).bg, color: (ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color, border: `1px solid ${(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).color}40` }}>
                 {(ratingMap3D[analysisResult.ai?.overall_rating] || ratingMap3D.BLOCKED).label}
               </span>
-              <button onClick={reset3DAnalysis} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", color: T.c.textMuted }}>✕</button>
+              <button aria-label="Close" onClick={reset3DAnalysis} style={{ background: "none", border: "none", fontSize: 14, cursor: "pointer", color: T.c.textMuted }}>✕</button>
             </div>
           </div>
 

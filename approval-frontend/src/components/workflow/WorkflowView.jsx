@@ -11,10 +11,10 @@ import MobileInspection from '../ui/MobileInspection';
 
 // ─── Workflow Steps ─────────────────────────────────────
 const STEPS = [
-  { id: 1, key: "submit",   label: "Submit",   icon: "📋", color: "#085041", bg: "#E1F5EE", desc: "Documents uploaded · AI extraction complete · Auto-assessed" },
-  { id: 2, key: "review",   label: "Review",   icon: "🔍", color: "#534AB7", bg: "#EEEDFE", desc: "Verify AI extractions · Correct errors · Accept/reject items" },
-  { id: 3, key: "analyse",  label: "Analyse",  icon: "📐", color: "#185FA5", bg: "#E6F1FB", desc: "Sight triangle · Utility clearance · Measure on map" },
-  { id: 4, key: "decision", label: "Decision", icon: "✅", color: "#993C1D", bg: "#FAECE7", desc: "Approve · Reject · Request information · Generate report" },
+  { id: 1, key: "submit",   label: "Submit",   icon: "📋", Icon: FileUp, color: "#085041", bg: "#E1F5EE", desc: "Documents uploaded · AI extraction complete · Auto-assessed" },
+  { id: 2, key: "review",   label: "Review",   icon: "🔍", Icon: ScanSearch, color: "#534AB7", bg: "#EEEDFE", desc: "Verify AI extractions · Correct errors · Accept/reject items" },
+  { id: 3, key: "analyse",  label: "Analyse",  icon: "📐", Icon: Ruler, color: "#185FA5", bg: "#E6F1FB", desc: "Sight triangle · Utility clearance · Measure on map" },
+  { id: 4, key: "decision", label: "Decision", icon: "✅", Icon: Gavel, color: "#993C1D", bg: "#FAECE7", desc: "Approve · Reject · Request information · Generate report" },
 ];
 
 function statusToStep(status) {
@@ -32,6 +32,9 @@ function statusToStep(status) {
 
 // ─── Compact card style helpers ─────────────────────────
 import { T, S, cx } from '../../styles/tokens';
+import { onActivate } from "../../utils/a11y";
+import { FileUp, ScanSearch, Ruler, Gavel, Check } from "lucide-react";
+import { notify } from "../ui/Toast";
 const card = S.cardFlat;
 const cardHdr = S.cardHeader;
 const cardBody = S.cardBody;
@@ -61,7 +64,7 @@ function CollapsibleSection({ title, icon, defaultOpen = true, badge, color = "#
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ marginTop: 12 }}>
-      <div onClick={() => setOpen(!open)}
+      <div role="button" tabIndex={0} aria-expanded={open} onKeyDown={onActivate(() => setOpen(!open))} onClick={() => setOpen(!open)}
         style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
           background: open ? `${color}08` : "#f8fafb", borderRadius: open ? "10px 10px 0 0" : 10,
@@ -95,14 +98,14 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
         const hasAlert = stats?.alert;
         return (
           <div key={step.id}>
-            <div onClick={() => onStepClick(step.id)}
+            <div role="button" tabIndex={0} aria-current={active ? "step" : undefined} aria-label={`Step ${step.id}: ${step.label}${done ? " (complete)" : ""}`} onKeyDown={onActivate(() => onStepClick(step.id))} onClick={() => onStepClick(step.id)}
               style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer",
                 borderRadius: 10,
                 background: active ? step.bg : "transparent",
                 border: active ? `1.5px solid ${step.color}25` : "1.5px solid transparent",
                 transition: "all 0.2s ease",
-                opacity: future ? 0.45 : 1,
+                opacity: 1,
               }}
               onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "#f5f7fa"; e.currentTarget.style.transform = "translateX(2px)"; } }}
               onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "none"; } }}>
@@ -113,12 +116,12 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
                   fontSize: done ? 12 : 13,
                   fontWeight: T.w.bold,
                   background: active ? step.color : done ? "#085041" : "#f0f3f5",
-                  color: active || done ? "#fff" : "#b0bec5",
+                  color: active || done ? "#fff" : "#6b7b85",
                   border: "none",
                   boxShadow: active ? `0 2px 8px ${step.color}40` : done ? "0 1px 3px rgba(8,80,65,0.2)" : "none",
                   transition: "all 0.2s ease",
                 }}>
-                  {done ? "✓" : step.icon}
+                  {done ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : <step.Icon size={15} aria-hidden="true" />}
                 </div>
                 {hasAlert && <div style={{ position: "absolute", top: -1, right: -1, width: 8, height: 8, borderRadius: "50%", background: "#e74c3c", border: "2px solid #fff" }} />}
               </div>
@@ -126,7 +129,7 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
                   fontSize: 13, fontWeight: active ? 700 : done ? 600 : 500,
-                  color: active ? step.color : done ? "#085041" : "#95a5a6",
+                  color: active ? step.color : done ? "#085041" : "#66767f",
                   lineHeight: 1.2, letterSpacing: active ? "0.01em" : 0,
                 }}>
                   {step.label}
@@ -134,7 +137,7 @@ function Stepper({ currentStep, completedUpTo, onStepClick, stepStats }) {
                 {stats && (
                   <div style={{
                     fontSize: 12, marginTop: 2, fontWeight: 600,
-                    color: hasAlert ? "#e74c3c" : stats.done ? "#27ae60" : active ? step.color + "99" : "#b0bec5",
+                    color: hasAlert ? "#c0392b" : stats.done ? "#1b7a43" : active ? step.color + "99" : "#6b7b85",
                   }}>
                     {hasAlert || stats.badge}
                   </div>
@@ -178,22 +181,32 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
           ].map(m => (
             <div key={m.l} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
               <span style={{ color: T.c.textSecondary }}>{m.l}</span>
-              <span style={{ fontWeight: T.w.bold, color: m.v === "—" ? T.c.grey400 : m.ok ? "#27ae60" : "#e74c3c" }}>{m.v}</span>
+              <span style={{ fontWeight: T.w.bold, color: m.v === "—" ? T.c.grey400 : m.ok ? "#1b7a43" : "#c0392b" }}>{m.v}</span>
             </div>
           ))}
         </div>
+        {!dims.width_at_boundary_m && dims.distance_to_left_boundary_m == null && (
+          <div style={{ padding: "0 12px 10px", fontSize: 12, color: T.c.textMuted, lineHeight: 1.4 }}>
+            These fill in automatically once the site plan has been analysed.
+          </div>
+        )}
       </div>
 
-      {/* Field Inspection button */}
+      {/* Field Inspection buttons — the one that applies at this stage is emphasised */}
+      {(() => {
+        const postStage = ["approved", "conditionally_approved"].includes(app.status);
+        const preStage = !postStage && app.status !== "rejected";
+        const btn = (on, color) => on
+          ? { flex: 1, padding: "8px 0", borderRadius: T.r.md, border: `1.5px solid ${color}`, background: color, color: T.c.white, fontWeight: T.w.bold, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }
+          : { flex: 1, padding: "8px 0", borderRadius: T.r.md, border: `1.5px solid ${T.c.border}`, background: T.c.white, color: T.c.textSecondary, fontWeight: T.w.semi, fontSize: 13, cursor: "pointer", fontFamily: "inherit" };
+        return (
       <div style={card}>
         <div style={{ padding: "10px 12px", display: "flex", gap: 8 }}>
-          <button onClick={() => onInspect && onInspect("Pre-construction")}
-            style={{ flex: 1, padding: "8px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #e67e22, #f39c12)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-            🔍 Pre-Inspect
+          <button onClick={() => onInspect && onInspect("Pre-construction")} style={btn(preStage, "#a8530a")}>
+            Pre-inspection
           </button>
-          <button onClick={() => onInspect && onInspect("Post-construction")}
-            style={{ flex: 1, padding: "8px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #27ae60, #2ecc71)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-            🔍 Post-Inspect
+          <button onClick={() => onInspect && onInspect("Post-construction")} style={btn(postStage, "#1b7a43")}>
+            Post-inspection
           </button>
         </div>
         {(app.inspections || []).length > 0 && (
@@ -203,7 +216,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
               const photos = insp.photos || [];
               const passCount = Object.values(fc).filter(v => v.result === "pass").length;
               const failCount = Object.values(fc).filter(v => v.result === "fail").length;
-              const statusColor = insp.status === "passed" ? "#27ae60" : insp.status === "failed" ? "#e74c3c" : "#3498db";
+              const statusColor = insp.status === "passed" ? "#1b7a43" : insp.status === "failed" ? "#e74c3c" : "#1f6aa5";
               return (
                 <details key={i} style={{ marginBottom: 4 }}>
                   <summary style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", padding: "3px 0", listStyle: "none" }}>
@@ -214,7 +227,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
                     {/* Checklist summary */}
                     {Object.entries(fc).map(([code, data]) => (
                       <div key={code} style={{ display: "flex", gap: 4, alignItems: "center", padding: "1px 0" }}>
-                        <span style={{ color: data.result === "pass" ? "#27ae60" : data.result === "fail" ? "#e74c3c" : "#95a5a6", fontWeight: T.w.bold }}>
+                        <span style={{ color: data.result === "pass" ? "#1b7a43" : data.result === "fail" ? "#c0392b" : "#66767f", fontWeight: T.w.bold }}>
                           {data.result === "pass" ? "✓" : data.result === "fail" ? "✕" : "—"}
                         </span>
                         <span style={{ flex: 1 }}>{code.replace(/_/g, " ")}</span>
@@ -246,6 +259,8 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
           </div>
         )}
       </div>
+        );
+      })()}
 
       {/* Documents quick access */}
       <div style={card}>
@@ -254,7 +269,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
           {docs.length === 0 && <div style={{ padding: 10, fontSize: 12, color: T.c.textMuted }}>No documents</div>}
           {docs.map(d => {
             const icons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", dwg: "📐" };
-            const sc = { verified: { c: "#27ae60", l: "✓" }, rejected: { c: "#e74c3c", l: "✕" }, received: { c: "#3498db", l: "●" } };
+            const sc = { verified: { c: "#1b7a43", l: "✓" }, rejected: { c: "#e74c3c", l: "✕" }, received: { c: "#1f6aa5", l: "●" } };
             const st = sc[d.status] || sc.received;
             return (
               <div key={d.id} style={{ padding: "5px 12px", borderBottom: "1px solid #f8f9fb", display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
@@ -291,7 +306,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
         <div style={cardHdr}><span>👤 Assignment</span></div>
         <div style={cardBody}>
           {canAssign ? (
-            <select value={assignee} onChange={e => setAssignee(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", marginBottom: 6 }}>
+            <select aria-label="Assigned officer" value={assignee} onChange={e => setAssignee(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", marginBottom: 6 }}>
               <option value="">— Unassigned —</option>
               {(users || []).filter(u => u.active && (u.role === "engineer" || u.role === "manager")).map(u => {
                 const rc = ROLE_CONFIG[u.role];
@@ -303,10 +318,10 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
           )}
           {canDecide && (
             <>
-              <select value={newStatus} onChange={e => setNewStatus(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", marginBottom: 6 }}>
+              <select aria-label="Application status" value={newStatus} onChange={e => setNewStatus(e.target.value)} style={{ width: "100%", padding: "6px 8px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", marginBottom: 6 }}>
                 {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.icon} {v.label}</option>)}
               </select>
-              <button onClick={saveChanges} style={{ width: "100%", padding: "6px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg,#2980b9,#3498db)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
+              <button onClick={saveChanges} style={{ width: "100%", padding: "6px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg,#1f6aa5,#1f6aa5)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
             </>
           )}
         </div>
@@ -329,7 +344,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
         </div>
         <div style={{ padding: "6px 10px", borderTop: "1px solid #f0f3f5", display: "flex", gap: 4 }}>
           <input value={newNote} onChange={e => setNewNote(e.target.value)} onKeyDown={e => e.key === "Enter" && addNote()} placeholder="Add note..." style={{ flex: 1, padding: "5px 8px", borderRadius: 5, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", outline: "none" }} />
-          <button onClick={addNote} style={{ padding: "5px 10px", borderRadius: 5, border: "none", background: "#1a3a4a", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>+</button>
+          <button aria-label="Add note" onClick={addNote} style={{ padding: "5px 10px", borderRadius: 5, border: "none", background: "#1a3a4a", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>+</button>
         </div>
       </div>
 
@@ -339,10 +354,10 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
           <div style={cardHdr}><span>⚡ Quick Decision</span></div>
           <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
             {[
-              { s: "approved", l: "✅ Approve", bg: "#27ae60" },
-              { s: "inspection_required", l: "🔍 Inspect", bg: "#16a085" },
+              { s: "approved", l: "✅ Approve", bg: "#1b7a43" },
+              { s: "inspection_required", l: "🔍 Inspect", bg: "#0b7a64" },
               { s: "referral_pending", l: "↗️ Refer", bg: "#8e44ad" },
-              { s: "on_hold", l: "⏸ Hold", bg: "#7f8c8d" },
+              { s: "on_hold", l: "⏸ Hold", bg: "#5f6b6c" },
               { s: "rejected", l: "❌ Reject", bg: "#c0392b" },
             ].map(b => (
               <button key={b.s} onClick={async () => {
@@ -366,7 +381,7 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
           <div style={{ maxHeight: 260, overflowY: "auto", padding: "8px 12px" }}>
             {auditLog.slice(0, 20).map((log, i) => {
               const icons = { create: "🆕", update: "✏️", upload: "📤", extract: "🤖", view: "👁", download: "📥", rotate: "🔄", delete: "🗑", assess: "📋", correct: "📐", approve: "✅", reject: "❌" };
-              const colors = { create: "#27ae60", upload: "#3498db", extract: "#8e44ad", delete: "#c0392b", assess: "#e67e22", correct: "#16a085", approve: "#27ae60", reject: "#c0392b", update: "#7a8a94" };
+              const colors = { create: "#1b7a43", upload: "#1f6aa5", extract: "#8e44ad", delete: "#c0392b", assess: "#a8530a", correct: "#0b7a64", approve: "#1b7a43", reject: "#c0392b", update: "#7a8a94" };
               const time = log.created_at ? new Date(log.created_at) : null;
               const timeStr = time ? `${time.toLocaleDateString("en-AU", { day: "numeric", month: "short" })} ${time.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}` : "";
               const actionColor = colors[log.action] || "#7a8a94";
@@ -486,7 +501,7 @@ function StepReview({ app, categories, currentUser }) {
   const verified = docs.filter(d => d.status === "verified").length;
   const rejected = docs.filter(d => d.status === "rejected").length;
   const pending = docs.length - verified - rejected;
-  const borderColors = { rejected: "#e74c3c", referred: "#8e44ad", investigation: "#2980b9" };
+  const borderColors = { rejected: "#e74c3c", referred: "#8e44ad", investigation: "#1f6aa5" };
 
   if (loading) return <div style={{ padding: 20, color: T.c.textSecondary, fontSize: 13 }}>Loading assessment data...</div>;
 
@@ -498,10 +513,10 @@ function StepReview({ app, categories, currentUser }) {
           <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Assessment summary</div>
           <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
             {[
-              { n: stats.oApproved, l: "Approved", c: "#27ae60" },
+              { n: stats.oApproved, l: "Approved", c: "#1b7a43" },
               { n: stats.oRejected, l: "Rejected", c: "#c0392b" },
               { n: stats.oReferred, l: "Referred", c: "#8e44ad" },
-              { n: stats.oInvestigation, l: "Investigating", c: "#2980b9" },
+              { n: stats.oInvestigation, l: "Investigating", c: "#1f6aa5" },
             ].map(m => (
               <div key={m.l} style={{ background: T.c.bgAlt, borderRadius: T.r.md, padding: "10px 12px", textAlign: "center" }}>
                 <div style={{ fontSize: 22, fontWeight: T.w.black, color: m.c }}>{m.n}</div>
@@ -522,7 +537,7 @@ function StepReview({ app, categories, currentUser }) {
           <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 12 }}>
             {flagged.length === 0 && <div style={{ fontSize: 12, color: T.c.success, fontWeight: T.w.semi }}>No flagged items</div>}
             {flagged.map((f, i) => (
-              <div key={i} style={{ padding: "6px 10px", marginBottom: 4, borderLeft: `3px solid ${borderColors[f.type] || "#7f8c8d"}`, background: T.c.bgAlt, borderRadius: "0 6px 6px 0" }}>
+              <div key={i} style={{ padding: "6px 10px", marginBottom: 4, borderLeft: `3px solid ${borderColors[f.type] || "#5f6b6c"}`, background: T.c.bgAlt, borderRadius: "0 6px 6px 0" }}>
                 <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text }}>{f.item.label}</div>
                 <div style={{ fontSize: 12, color: T.c.textSecondary }}>{f.a.ai_reason || f.item.reference}</div>
                 {f.a.note && <div style={{ fontSize: 12, color: "#854F0B", marginTop: 2 }}>💬 {f.a.note}</div>}
@@ -582,6 +597,7 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, ca
   const [saving, setSaving] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [decisionError, setDecisionError] = useState(null);
+  const [pendingDecision, setPendingDecision] = useState(null);
 
   const addCondition = (text) => {
     if (!conditions.includes(text)) setConditions(prev => [...prev, text]);
@@ -618,13 +634,13 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, ca
             <div role="alert" style={{ fontSize: 12, color: "#c0392b", background: "#fdedec", borderRadius: T.r.md, padding: "8px 10px", marginBottom: 8 }}>{decisionError}</div>
           )}
           {[
-            { s: "approved", l: "Approve", desc: "All requirements met", c: "#27ae60" },
-            { s: "conditionally_approved", l: "Approve with Conditions", desc: "Approved subject to conditions below", c: "#2980b9" },
+            { s: "approved", l: "Approve", desc: "All requirements met", c: "#1b7a43" },
+            { s: "conditionally_approved", l: "Approve with Conditions", desc: "Approved subject to conditions below", c: "#1f6aa5" },
             { s: "rejected", l: "Reject", desc: "Does not meet requirements", c: "#c0392b" },
           ].map(opt => (
-            <div key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: T.r.md, marginBottom: 6, cursor: saving || !canDecide ? "not-allowed" : "pointer", opacity: canDecide ? 1 : 0.55, background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
+            <div role="button" tabIndex={0} onKeyDown={onActivate(() => { if (!saving && canDecide) saveDecision(opt.s); })} key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: T.r.md, marginBottom: 6, cursor: saving || !canDecide ? "not-allowed" : "pointer", opacity: canDecide ? 1 : 0.55, background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
               aria-disabled={!canDecide}
-              onClick={() => { if (!saving && canDecide) saveDecision(opt.s); }}>
+              onClick={() => { if (!saving && canDecide && app.status !== opt.s) setPendingDecision(opt); }}>
               <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${app.status === opt.s ? opt.c : T.c.grey400}`, marginTop: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {app.status === opt.s && <div style={{ width: 6, height: 6, borderRadius: "50%", background: opt.c }} />}
               </div>
@@ -634,6 +650,23 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, ca
               </div>
             </div>
           ))}
+          {pendingDecision && (
+            <div role="dialog" aria-label="Confirm decision" style={{ border: `2px solid ${pendingDecision.c}`, borderRadius: T.r.md, padding: "10px 12px", background: "#fff", marginBottom: 6 }}>
+              <div style={{ fontSize: 13, color: T.c.text, marginBottom: 8 }}>
+                Record <b style={{ color: pendingDecision.c }}>{pendingDecision.l}</b> for this application{conditions.length ? ` with ${conditions.length} condition${conditions.length > 1 ? "s" : ""}` : ""}? The status changes and the decision is recorded in the audit log.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button disabled={saving} onClick={async () => { await saveDecision(pendingDecision.s); setPendingDecision(null); }}
+                  style={{ padding: "7px 14px", borderRadius: T.r.md, border: "none", background: pendingDecision.c, color: "#fff", fontWeight: T.w.bold, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                  {saving ? "Saving…" : `Confirm: ${pendingDecision.l}`}
+                </button>
+                <button onClick={() => setPendingDecision(null)}
+                  style={{ padding: "7px 14px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, background: "#fff", color: T.c.text, fontWeight: T.w.semi, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Decision note */}
           <div style={{ marginTop: 10 }}>
@@ -654,7 +687,7 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, ca
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase" }}>Conditions ({conditions.length})</div>
             <button onClick={() => setShowTemplates(!showTemplates)}
-              style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "1px solid #2980b9", background: showTemplates ? "#ebf5fb" : "#fff", color: T.c.info, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "3px 10px", borderRadius: T.r.sm, border: "1px solid #1f6aa5", background: showTemplates ? "#ebf5fb" : "#fff", color: T.c.info, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>
               {showTemplates ? "Hide Templates" : "Add from Templates"}
             </button>
           </div>
@@ -684,13 +717,13 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, ca
               style={{ flex: 1, padding: "6px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, fontSize: 12, fontFamily: "inherit", outline: "none" }} />
             <button onClick={() => { if (customCondition.trim()) { addCondition(customCondition.trim()); setCustomCondition(""); } }}
               disabled={!customCondition.trim()}
-              style={{ padding: "6px 10px", borderRadius: T.r.md, border: "none", background: customCondition.trim() ? "#2980b9" : "#bdc3c7", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: customCondition.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>Add</button>
+              style={{ padding: "6px 10px", borderRadius: T.r.md, border: "none", background: customCondition.trim() ? "#1f6aa5" : "#bdc3c7", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: customCondition.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>Add</button>
           </div>
 
           {/* Save conditions */}
           {conditions.length > 0 && (
             <button onClick={async () => { try { await api.updateApp(app._dbId, { conditions }); const fresh = await reloadApp(app._dbId); if (fresh) setLocalApp(fresh); } catch {} }}
-              style={{ width: "100%", padding: "7px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #2980b9, #3498db)", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit", marginBottom: 10 }}>
+              style={{ width: "100%", padding: "7px 0", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1f6aa5, #1f6aa5)", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit", marginBottom: 10 }}>
               Save {conditions.length} Condition{conditions.length !== 1 ? "s" : ""}
             </button>
           )}
@@ -704,8 +737,8 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, ca
                   {cat.items.map((item, i) => {
                     const added = conditions.includes(item);
                     return (
-                      <div key={i} onClick={() => { if (!added) addCondition(item); }}
-                        style={{ padding: "6px 12px", fontSize: 12, color: added ? "#27ae60" : "#1a3a4a", cursor: added ? "default" : "pointer", borderBottom: "1px solid #f5f7f8", background: added ? "#eafaf115" : "transparent", lineHeight: 1.4 }}
+                      <div role="button" tabIndex={0} onKeyDown={onActivate(() => { if (!added) addCondition(item); })} key={i} onClick={() => { if (!added) addCondition(item); }}
+                        style={{ padding: "6px 12px", fontSize: 12, color: added ? "#1b7a43" : "#1a3a4a", cursor: added ? "default" : "pointer", borderBottom: "1px solid #f5f7f8", background: added ? "#eafaf115" : "transparent", lineHeight: 1.4 }}
                         onMouseEnter={e => { if (!added) e.currentTarget.style.background = "#f0f8ff"; }}
                         onMouseLeave={e => { if (!added) e.currentTarget.style.background = "transparent"; }}>
                         {added ? "✅ " : "＋ "}{item}
@@ -835,7 +868,7 @@ export default function WorkflowView({
       if (reloadAllApps) await reloadAllApps();
       if (onBack) onBack();
       else if (onSelectApp) onSelectApp(null);
-    } catch (e) { alert("Delete failed: " + (e.message || e)); }
+    } catch (e) { notify("Delete failed: " + (e.message || e)); }
     setDeleting(false);
   };
 
@@ -883,9 +916,9 @@ export default function WorkflowView({
           {/* Quick actions under stepper */}
           <div style={{ borderTop: `1px solid ${T.c.borderLight}`, marginTop: 8, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
             {currentStep !== 3 && (
-              <button onClick={() => setShowMap(m => !m)}
-                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#7a8a94", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
-                🗺️ {showMap ? "Hide Map" : "Show Map"}
+              <button aria-expanded={showMap} onClick={() => { const next = !showMap; setShowMap(next); if (next) setTimeout(() => document.getElementById("case-map")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }}
+                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#5a6a74", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
+                🗺️ {showMap ? "Hide map" : "Show map below"}
               </button>
             )}
             {currentUser?.role === "admin" && (
@@ -905,8 +938,8 @@ export default function WorkflowView({
               const active = step.id === currentStep;
               const done = step.id < completedUpTo;
               return (
-                <button key={step.id} onClick={() => setCurrentStep(step.id)}
-                  style={{ padding: "4px 10px", borderRadius: 12, border: active ? `2px solid ${step.color}` : "1px solid #d5dde2", background: active ? `${step.color}10` : done ? "#08504110" : "#fff", color: active ? step.color : done ? "#085041" : "#7a8a94", fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
+                <button key={step.id} aria-current={active ? "step" : undefined} onClick={() => setCurrentStep(step.id)}
+                  style={{ padding: "4px 10px", borderRadius: 12, border: active ? `2px solid ${step.color}` : "1px solid #d5dde2", background: active ? `${step.color}10` : done ? "#08504110" : "#fff", color: active ? step.color : done ? "#085041" : "#5a6a74", fontSize: 12, fontWeight: active ? 700 : 500, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
                   {stepStats?.[step.key]?.done ? "✓ " : ""}{step.label}
                 </button>
               );
@@ -929,7 +962,7 @@ export default function WorkflowView({
               <div style={{ fontSize: 14, fontWeight: T.w.bold, color: stepDef.color, letterSpacing: "-0.01em" }}>
                 Step {stepDef.id}: {stepDef.label}
               </div>
-              <div style={{ fontSize: 12, color: stepDef.color, opacity: 0.65, marginTop: 1 }}>{stepDef.desc}</div>
+              <div style={{ fontSize: 12, color: stepDef.color, opacity: 0.9, marginTop: 1 }}>{stepDef.desc}</div>
             </div>
             {currentStep < 4 && (
               <button onClick={() => setCurrentStep(currentStep + 1)}
@@ -1031,7 +1064,7 @@ export default function WorkflowView({
 
       {/* Collapsible map for non-Assess steps */}
       {currentStep !== 3 && showMap && (
-        <div style={{ marginTop: 12 }}>
+        <div id="case-map" style={{ marginTop: 12, scrollMarginTop: 12 }}>
           <MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp}
             speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork}
             contoursData={globalContoursData} urbanForestData={globalUrbanForestData}

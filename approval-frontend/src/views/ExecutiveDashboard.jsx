@@ -27,7 +27,7 @@ function Donut({ segments, size = 150, label }) {
         })}
       </g>
       <text x={size/2} y={size/2 - 6} textAnchor="middle" style={{ fontSize: 28, fontWeight: T.w.black, fill: "#1a3a4a" }}>{total}</text>
-      {label && <text x={size/2} y={size/2 + 14} textAnchor="middle" style={{ fontSize: 12, fill: "#95a5a6", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: T.w.semi }}>{label}</text>}
+      {label && <text x={size/2} y={size/2 + 14} textAnchor="middle" style={{ fontSize: 12, fill: "#66767f", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: T.w.semi }}>{label}</text>}
     </svg>
   );
 }
@@ -46,7 +46,7 @@ function GaugeArc({ value, max, target, size = 110, color, label }) {
         <path d={`M ${size/2 - r},${size/2} A ${r},${r} 0 0,1 ${size/2 + r},${size/2}`} fill="none" stroke={T.c.borderLight} strokeWidth={12} strokeLinecap="round" />
         {angle > 0 && <path d={`M ${size/2 - r},${size/2} A ${r},${r} 0 ${angle > 90 ? 1 : 0},1 ${arc(angle)}`} fill="none" stroke={color} strokeWidth={12} strokeLinecap="round" style={{ transition: "d 0.5s ease" }} />}
         <text x={size/2} y={size/2 - 4} textAnchor="middle" style={{ fontSize: 20, fontWeight: T.w.black, fill: "#1a3a4a" }}>{value}{typeof max === "number" && max <= 100 ? "%" : ""}</text>
-        <text x={size/2} y={size/2 + 12} textAnchor="middle" style={{ fontSize: 12, fill: "#95a5a6", fontWeight: T.w.semi, textTransform: "uppercase" }}>{label}</text>
+        <text x={size/2} y={size/2 + 12} textAnchor="middle" style={{ fontSize: 12, fill: "#66767f", fontWeight: T.w.semi, textTransform: "uppercase" }}>{label}</text>
       </svg>
     </div>
   );
@@ -101,7 +101,7 @@ const BigKPI = ({ label, value, sub, color, icon, trend }) => (
     <div style={{ fontSize: 12, color: T.c.textSecondary, fontWeight: T.w.bold, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{label}</div>
     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
       <span style={{ fontSize: 32, fontWeight: T.w.black, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</span>
-      {trend && <span style={{ fontSize: 12, fontWeight: T.w.bold, color: trend.startsWith("+") || trend.startsWith("↑") ? "#27ae60" : trend.startsWith("-") || trend.startsWith("↓") ? "#e74c3c" : "#95a5a6" }}>{trend}</span>}
+      {trend && <span style={{ fontSize: 12, fontWeight: T.w.bold, color: trend.startsWith("+") || trend.startsWith("↑") ? "#1b7a43" : trend.startsWith("-") || trend.startsWith("↓") ? "#c0392b" : "#66767f" }}>{trend}</span>}
     </div>
     {sub && <div style={{ fontSize: 12, color: T.c.textMuted, marginTop: 4 }}>{sub}</div>}
   </div>
@@ -182,7 +182,7 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
   const pageData = tableData.slice(page * PAGE_SIZE, (page+1) * PAGE_SIZE);
   const toggleSort = (c) => { if (sortCol===c) setSortDir(d=>d==="asc"?"desc":"asc"); else { setSortCol(c); setSortDir("asc"); } };
   const sortArrow = (c) => sortCol===c ? (sortDir==="asc"?" ▲":" ▼") : "";
-  const SlaBadge = ({ sla }) => { const c = { on_track:{l:"On Track",c:"#27ae60",b:"#eafaf1"}, monitor:{l:"Monitor",c:"#3498db",b:"#ebf5fb"}, at_risk:{l:"At Risk",c:"#e67e22",b:"#fef5e7"}, overdue:{l:"Overdue",c:"#e74c3c",b:"#fdedec"} }[sla]||{l:sla,c:"#95a5a6",b:T.c.borderLight}; return <span style={{padding:"2px 8px",borderRadius:4,fontSize:12,fontWeight:700,background:c.b,color:c.c}}>{c.l}</span>; };
+  const SlaBadge = ({ sla }) => { const c = { on_track:{l:"On Track",c:"#1b7a43",b:"#eafaf1"}, monitor:{l:"Monitor",c:"#1f6aa5",b:"#ebf5fb"}, at_risk:{l:"At Risk",c:"#a8530a",b:"#fef5e7"}, overdue:{l:"Overdue",c:"#e74c3c",b:"#fdedec"} }[sla]||{l:sla,c:"#66767f",b:T.c.borderLight}; return <span style={{padding:"2px 8px",borderRadius:4,fontSize:12,fontWeight:700,background:c.b,color:c.c}}>{c.l}</span>; };
 
   const exportCSV = () => {
     const h = ["ID","Applicant","Address","Status","Assigned To","Days Open","SLA","Submitted"];
@@ -199,7 +199,7 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
       <div style={{ marginBottom: 24, borderBottom: "2px solid #e4e9ec", paddingBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: T.w.black, color: "#1abc9c", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{orgName}</div>
+            <div style={{ fontSize: 12, fontWeight: T.w.black, color: "#0b7a64", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{orgName}</div>
             <h1 style={{ fontSize: 26, fontWeight: T.w.black, color: T.c.text, margin: 0, letterSpacing: "-0.02em" }}>Crossover Management</h1>
             <h2 style={{ fontSize: 16, fontWeight: 400, color: T.c.textSecondary, margin: "2px 0 0" }}>Executive Performance Dashboard</h2>
           </div>
@@ -213,9 +213,9 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
       {/* ═══ KPI ROW ═══ */}
       <div style={{ display: "flex", gap: 14, marginBottom: 20, flexWrap: "wrap" }}>
         <BigKPI icon="📋" label="Total Applications" value={fmtNum(stats.total)} color="#1a3a4a" sub={`${stats.completed} completed · ${stats.active} active`} />
-        <BigKPI icon="⏱" label="Avg Processing Time" value={`${stats.avgDays}d`} color={stats.avgDays > 21 ? "#e74c3c" : stats.avgDays > 14 ? "#e67e22" : "#27ae60"} sub="Target: 21 days" trend={stats.avgDays <= 21 ? "✓ On target" : "⚠ Above target"} />
-        <BigKPI icon="📊" label="SLA Compliance" value={`${stats.slaRate}%`} color={stats.slaRate >= 80 ? "#27ae60" : stats.slaRate >= 60 ? "#e67e22" : "#e74c3c"} sub={`${stats.within21} of ${stats.completed} within 21 days`} />
-        <BigKPI icon="✅" label="Approval Rate" value={`${stats.approvalRate}%`} color="#2980b9" sub={`${stats.approved} approved · ${stats.rejected} rejected`} />
+        <BigKPI icon="⏱" label="Avg Processing Time" value={`${stats.avgDays}d`} color={stats.avgDays > 21 ? "#e74c3c" : stats.avgDays > 14 ? "#a8530a" : "#1b7a43"} sub="Target: 21 days" trend={stats.avgDays <= 21 ? "✓ On target" : "⚠ Above target"} />
+        <BigKPI icon="📊" label="SLA Compliance" value={`${stats.slaRate}%`} color={stats.slaRate >= 80 ? "#1b7a43" : stats.slaRate >= 60 ? "#a8530a" : "#e74c3c"} sub={`${stats.within21} of ${stats.completed} within 21 days`} />
+        <BigKPI icon="✅" label="Approval Rate" value={`${stats.approvalRate}%`} color="#1f6aa5" sub={`${stats.approved} approved · ${stats.rejected} rejected`} />
         <BigKPI icon="🆕" label="This Month" value={fmtNum(stats.thisMo)} color="#8e44ad" trend={moTrend} />
       </div>
 
@@ -239,8 +239,8 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
 
         <Card title="Performance Gauges" icon="🎯" sub="Key targets">
           <div style={{ display: "flex", justifyContent: "space-around" }}>
-            <GaugeArc value={stats.slaRate} max={100} target={80} size={100} color={stats.slaRate >= 80 ? "#27ae60" : "#e67e22"} label="SLA %" />
-            <GaugeArc value={stats.approvalRate} max={100} target={90} size={100} color="#2980b9" label="Approval %" />
+            <GaugeArc value={stats.slaRate} max={100} target={80} size={100} color={stats.slaRate >= 80 ? "#1b7a43" : "#a8530a"} label="SLA %" />
+            <GaugeArc value={stats.approvalRate} max={100} target={90} size={100} color="#1f6aa5" label="Approval %" />
           </div>
           <div style={{ textAlign: "center", fontSize: 12, color: T.c.textMuted, marginTop: 8 }}>SLA target: 80% within 21 days · Approval benchmark: 90%</div>
         </Card>
@@ -249,11 +249,11 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: stats.unassigned > 3 ? "#fdedec" : "#f8fafb", borderRadius: T.r.md, border: `1px solid ${stats.unassigned > 3 ? "#e74c3c20" : T.c.borderLight}` }}>
               <span style={{ fontSize: 12, color: T.c.grey800, fontWeight: T.w.semi }}>Unassigned</span>
-              <span style={{ fontSize: 14, fontWeight: T.w.black, color: stats.unassigned > 3 ? "#e74c3c" : "#1a3a4a" }}>{stats.unassigned}</span>
+              <span style={{ fontSize: 14, fontWeight: T.w.black, color: stats.unassigned > 3 ? "#c0392b" : "#1a3a4a" }}>{stats.unassigned}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: T.c.bgAlt, borderRadius: T.r.md, border: "1px solid #eef2f4" }}>
               <span style={{ fontSize: 12, color: T.c.grey800, fontWeight: T.w.semi }}>Pending Review</span>
-              <span style={{ fontSize: 14, fontWeight: T.w.black, color: stats.pending > 5 ? "#e67e22" : "#1a3a4a" }}>{stats.pending}</span>
+              <span style={{ fontSize: 14, fontWeight: T.w.black, color: stats.pending > 5 ? "#a8530a" : "#1a3a4a" }}>{stats.pending}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: T.c.bgAlt, borderRadius: T.r.md, border: "1px solid #eef2f4" }}>
               <span style={{ fontSize: 12, color: T.c.grey800, fontWeight: T.w.semi }}>Active Officers</span>
@@ -278,8 +278,8 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
               return (
                 <div key={k} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, gap: 1 }}>
                   <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 130 }}>
-                    <div title={`Submitted: ${sub}`} style={{ width: 12, height: `${(sub/max)*120}px`, background: "linear-gradient(180deg,#2980b9,#3498db)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
-                    <div title={`Completed: ${comp}`} style={{ width: 12, height: `${(comp/max)*120}px`, background: "linear-gradient(180deg,#27ae60,#2ecc71)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
+                    <div title={`Submitted: ${sub}`} style={{ width: 12, height: `${(sub/max)*120}px`, background: "linear-gradient(180deg,#1f6aa5,#1f6aa5)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
+                    <div title={`Completed: ${comp}`} style={{ width: 12, height: `${(comp/max)*120}px`, background: "linear-gradient(180deg,#1b7a43,#2ecc71)", borderRadius: "3px 3px 0 0", minHeight: 2 }} />
                   </div>
                   <span style={{ fontSize: 7, color: T.c.textMuted, whiteSpace: "nowrap" }}>{monthLabels[i]}</span>
                 </div>
@@ -294,9 +294,9 @@ export default function ExecutiveDashboard({ apps, branding = {} }) {
 
         <Card title="Aging Report" icon="⏳" sub="Active applications by age">
           {[
-            { l: "0–7 days", v: stats.aging[0], c: "#27ae60" },
+            { l: "0–7 days", v: stats.aging[0], c: "#1b7a43" },
             { l: "8–14 days", v: stats.aging[1], c: "#f1c40f" },
-            { l: "15–21 days", v: stats.aging[2], c: "#e67e22" },
+            { l: "15–21 days", v: stats.aging[2], c: "#a8530a" },
             { l: "22–30 days", v: stats.aging[3], c: "#e74c3c" },
             { l: "30+ days", v: stats.aging[4], c: "#c0392b" },
           ].map(({ l, v, c }) => (

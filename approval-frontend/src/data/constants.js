@@ -17,22 +17,22 @@ export const TILE_LAYERS = {
 };
 
 export const STATUS_CONFIG = {
-  pending_review: { label: "Pending Review", color: "#e67e22", bg: "#fef5e7", icon: "⏳", mapColor: "#e67e22" },
-  under_assessment: { label: "Under Assessment", color: "#2980b9", bg: "#ebf5fb", icon: "📋", mapColor: "#2980b9" },
+  pending_review: { label: "Pending Review", color: "#a8530a", bg: "#fef5e7", icon: "⏳", mapColor: "#a8530a" },
+  under_assessment: { label: "Under Assessment", color: "#1f6aa5", bg: "#ebf5fb", icon: "📋", mapColor: "#1f6aa5" },
   referral_pending: { label: "Referral Pending", color: "#8e44ad", bg: "#f4ecf7", icon: "↗️", mapColor: "#8e44ad" },
-  inspection_required: { label: "Inspection Required", color: "#16a085", bg: "#e8f8f5", icon: "🔍", mapColor: "#16a085" },
-  approved: { label: "Approved", color: "#27ae60", bg: "#eafaf1", icon: "✅", mapColor: "#27ae60" },
-  conditionally_approved: { label: "Approved with Conditions", color: "#2980b9", bg: "#ebf5fb", icon: "☑️", mapColor: "#2980b9" },
+  inspection_required: { label: "Inspection Required", color: "#0b7a64", bg: "#e8f8f5", icon: "🔍", mapColor: "#0b7a64" },
+  approved: { label: "Approved", color: "#1b7a43", bg: "#eafaf1", icon: "✅", mapColor: "#1b7a43" },
+  conditionally_approved: { label: "Approved with Conditions", color: "#1f6aa5", bg: "#ebf5fb", icon: "☑️", mapColor: "#1f6aa5" },
   rejected: { label: "Rejected", color: "#c0392b", bg: "#fdedec", icon: "❌", mapColor: "#c0392b" },
-  on_hold: { label: "On Hold", color: "#7f8c8d", bg: "#f2f3f4", icon: "⏸", mapColor: "#7f8c8d" },
+  on_hold: { label: "On Hold", color: "#5f6b6c", bg: "#f2f3f4", icon: "⏸", mapColor: "#5f6b6c" },
 };
 
 export const ROLE_CONFIG = {
   superadmin: { label: "Super Admin", icon: "⚡", color: "#8e44ad", permissions: ["all"], hidden: true },
-  admin: { label: "Administrator", icon: "🛡️", color: "#e74c3c", permissions: ["all"] },
-  manager: { label: "Manager", icon: "👔", color: "#2980b9", permissions: ["view_all", "assign", "approve", "refer", "reject"] },
-  engineer: { label: "Engineer", icon: "🔧", color: "#27ae60", permissions: ["view_assigned", "assess", "note", "inspect"] },
-  viewer: { label: "Viewer", icon: "👁", color: "#7f8c8d", permissions: ["view_all"] },
+  admin: { label: "Administrator", icon: "🛡️", color: "#c0392b", permissions: ["all"] },
+  manager: { label: "Manager", icon: "👔", color: "#1f6aa5", permissions: ["view_all", "assign", "approve", "refer", "reject"] },
+  engineer: { label: "Engineer", icon: "🔧", color: "#1b7a43", permissions: ["view_assigned", "assess", "note", "inspect"] },
+  viewer: { label: "Viewer", icon: "👁", color: "#5f6b6c", permissions: ["view_all"] },
 };
 
 // ─── Sight Distance Table (AS 2890.1 / Austroads) ──────

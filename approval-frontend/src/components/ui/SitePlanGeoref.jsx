@@ -239,7 +239,7 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
           <div style={{ fontSize: 12, opacity: 0.85 }}>{appRef || 'Align the plan to the map'}</div>
         </div>
         <button onClick={toggleMax} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>{maximized ? '❐' : '□'}</button>
-        <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>×</button>
+        <button aria-label="Close" onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>×</button>
       </div>
 
       {/* Instructions bar */}
