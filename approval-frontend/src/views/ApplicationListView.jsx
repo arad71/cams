@@ -8,12 +8,12 @@ import { T, S, cx } from '../styles/tokens';
 // ─── Styles ────────────────────────────────────────────
 const overlay = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(12,31,46,0.55)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
 const modalBox = { background: T.c.card, borderRadius: 16, width: "min(720px, 94vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(12,31,46,0.28)", overflow: "hidden" };
-const inputBase = { width: "100%", padding: "9px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: "#fafbfc", color: T.c.text, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" };
+const inputBase = { width: "100%", padding: "9px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", background: "#fafbfc", color: T.c.text, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" };
 const selectBase = { ...inputBase, appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b8090' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 };
-const labelStyle = { display: "block", fontSize: 10, fontWeight: T.w.bold, color: T.c.grey800, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" };
-const sectionTitle = { fontSize: 12, fontWeight: T.w.black, color: T.c.text, margin: "18px 0 10px", paddingBottom: 6, borderBottom: "1px solid #edf1f4", display: "flex", alignItems: "center", gap: 6 };
-const btnPrimary = { padding: "10px 28px", borderRadius: T.r.lg, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontWeight: T.w.bold, fontSize: 13, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(26,188,156,0.25)", transition: "opacity 0.15s" };
-const btnSecondary = { padding: "10px 24px", borderRadius: T.r.lg, border: "1.5px solid #d5dde2", background: T.c.card, color: T.c.grey800, fontWeight: T.w.semi, fontSize: 13, cursor: "pointer", fontFamily: "inherit" };
+const labelStyle = { display: "block", fontSize: 12, fontWeight: T.w.bold, color: T.c.grey800, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" };
+const sectionTitle = { fontSize: 13, fontWeight: T.w.black, color: T.c.text, margin: "18px 0 10px", paddingBottom: 6, borderBottom: "1px solid #edf1f4", display: "flex", alignItems: "center", gap: 6 };
+const btnPrimary = { padding: "10px 28px", borderRadius: T.r.lg, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontWeight: T.w.bold, fontSize: 14, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(26,188,156,0.25)", transition: "opacity 0.15s" };
+const btnSecondary = { padding: "10px 24px", borderRadius: T.r.lg, border: "1.5px solid #d5dde2", background: T.c.card, color: T.c.grey800, fontWeight: T.w.semi, fontSize: 14, cursor: "pointer", fontFamily: "inherit" };
 
 function Field({ label, required, span, children }) {
   return (
@@ -211,30 +211,30 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <span style={{ fontSize: 18 }}>{cat.icon}</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 12, fontWeight: T.w.bold, color: T.c.text }}>{cat.label}</div>
-          <div style={{ fontSize: 12, color: T.c.textSecondary, marginTop: 1 }}>{cat.hint}</div>
+          <div style={{ fontSize: 13, fontWeight: T.w.bold, color: T.c.text }}>{cat.label}</div>
+          <div style={{ fontSize: 13, color: T.c.textSecondary, marginTop: 1 }}>{cat.hint}</div>
         </div>
         {hasFile && <span style={{ fontSize: 14, color: T.c.success }}>✓</span>}
-        {skipped && !hasFile && <span style={{ fontSize: 12, color: T.c.textMuted, fontWeight: T.w.bold }}>Later</span>}
+        {skipped && !hasFile && <span style={{ fontSize: 13, color: T.c.textMuted, fontWeight: T.w.bold }}>Later</span>}
       </div>
       {hasFile ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: T.r.md }}>
-          <span style={{ fontSize: 11, color: "#2c6e49", fontWeight: T.w.semi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
-          <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 12, fontWeight: T.w.bold, padding: "2px 6px" }}>✕</button>
+          <span style={{ fontSize: 12, color: "#2c6e49", fontWeight: T.w.semi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+          <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 13, fontWeight: T.w.bold, padding: "2px 6px" }}>✕</button>
         </div>
       ) : skipped ? (
         <button onClick={() => onSkip(false)}
-          style={{ width: "100%", padding: "7px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, cursor: "pointer", fontSize: 10, fontWeight: T.w.semi, color: T.c.info, fontFamily: "inherit" }}>
+          style={{ width: "100%", padding: "7px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, cursor: "pointer", fontSize: 12, fontWeight: T.w.semi, color: T.c.info, fontFamily: "inherit" }}>
           ↩ Upload now instead
         </button>
       ) : (
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => inputRef.current?.click()} disabled={processing}
-            style={{ flex: 1, padding: "8px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, cursor: "pointer", fontSize: 11, fontWeight: T.w.semi, color: T.c.grey800, fontFamily: "inherit" }}>
+            style={{ flex: 1, padding: "8px", borderRadius: T.r.md, border: "1px solid #d5dde2", background: T.c.card, cursor: "pointer", fontSize: 12, fontWeight: T.w.semi, color: T.c.grey800, fontFamily: "inherit" }}>
             {processing ? "⏳ Analysing…" : "Choose File"}
           </button>
           <button onClick={() => onSkip(true)}
-            style={{ padding: "8px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, background: "#f8f9fa", cursor: "pointer", fontSize: 10, fontWeight: T.w.semi, color: T.c.textMuted, fontFamily: "inherit" }}>
+            style={{ padding: "8px 10px", borderRadius: T.r.md, border: `1px solid ${T.c.border}`, background: "#f8f9fa", cursor: "pointer", fontSize: 12, fontWeight: T.w.semi, color: T.c.textMuted, fontFamily: "inherit" }}>
             Add later
           </button>
         </div>
@@ -242,13 +242,13 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
       <input ref={inputRef} type="file" accept={cat.accept} style={{ display: "none" }}
         onChange={e => { const f = e.target.files?.[0]; if (f) { onSkip(false); onFileChange(f); } e.target.value = ""; }} />
       {processResult && (
-        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: T.r.md, fontSize: 11, lineHeight: 1.5,
+        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: T.r.md, fontSize: 12, lineHeight: 1.5,
           background: processResult.success ? "#eafaf1" : "#fef9e7",
           border: processResult.success ? "1px solid #d4efdf" : "1px solid #f9e79f",
           color: processResult.success ? "#2c6e49" : "#7d6608" }}>
           {processResult.success ? (
             <><strong style={{ color: T.c.success }}>✅ {processResult.title}</strong> — {processResult.message}
-              {processResult.details && <div style={{ marginTop: 4, fontSize: 12, color: "#5a7a64" }}>{processResult.details}</div>}
+              {processResult.details && <div style={{ marginTop: 4, fontSize: 13, color: "#5a7a64" }}>{processResult.details}</div>}
             </>
           ) : (<><strong>⚠️ {processResult.title || "Issue"}</strong> — {processResult.message}</>)}
         </div>
@@ -706,9 +706,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   // ── Lot match banner ──────────────────────────────────
   const renderLotBanner = () => {
     if (!lotMatch) return null;
-    if (lotMatch === "found") { const fp = matchedFeatureProps || {}; return (<div style={{ marginTop: 10, padding: "10px 14px", background: T.c.successLight, borderRadius: T.r.md, border: "1px solid #d4efdf", fontSize: 12, lineHeight: 1.6 }}><div style={{ fontWeight: T.w.black, color: T.c.success, marginBottom: 4 }}>✅ Lot Boundary Found</div><div style={{ color: "#2c6e49", fontSize: 11 }}>Matched: <strong>{fp.road_number_1} {fp.road_name} {fp.road_type}</strong>, {fp.locality}{fp.lot_number && <> — Lot {fp.lot_number}</>} — {lotPolygon?.length || 0} boundary points.</div></div>); }
-    if (lotMatch === "not_found") return (<div style={{ marginTop: 10, padding: "10px 14px", background: T.c.warningLight, borderRadius: T.r.md, border: "1px solid #f9e79f", fontSize: 12 }}><strong style={{ color: "#b7950b" }}>⚠️ No Exact Lot Match</strong> <span style={{ color: "#7d6608", fontSize: 11 }}>— Boundary not found. You can still proceed — the lot boundary can be added later. Try format: <strong>54 Stirling Cr, High Wycombe</strong></span></div>);
-    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: T.r.md, border: "1px solid #e6d5d5", fontSize: 12 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse Address</strong> <span style={{ color: "#784040", fontSize: 11 }}>— You can still proceed. Try: <strong>12 Railway Rd, Council Area</strong> or <strong>5 Mead St Council Area</strong></span></div>);
+    if (lotMatch === "found") { const fp = matchedFeatureProps || {}; return (<div style={{ marginTop: 10, padding: "10px 14px", background: T.c.successLight, borderRadius: T.r.md, border: "1px solid #d4efdf", fontSize: 13, lineHeight: 1.6 }}><div style={{ fontWeight: T.w.black, color: T.c.success, marginBottom: 4 }}>✅ Lot Boundary Found</div><div style={{ color: "#2c6e49", fontSize: 12 }}>Matched: <strong>{fp.road_number_1} {fp.road_name} {fp.road_type}</strong>, {fp.locality}{fp.lot_number && <> — Lot {fp.lot_number}</>} — {lotPolygon?.length || 0} boundary points.</div></div>); }
+    if (lotMatch === "not_found") return (<div style={{ marginTop: 10, padding: "10px 14px", background: T.c.warningLight, borderRadius: T.r.md, border: "1px solid #f9e79f", fontSize: 13 }}><strong style={{ color: "#b7950b" }}>⚠️ No Exact Lot Match</strong> <span style={{ color: "#7d6608", fontSize: 12 }}>— Boundary not found. You can still proceed — the lot boundary can be added later. Try format: <strong>54 Stirling Cr, High Wycombe</strong></span></div>);
+    if (lotMatch === "parsing_error") return (<div style={{ marginTop: 10, padding: "10px 14px", background: "#f9f0f0", borderRadius: T.r.md, border: "1px solid #e6d5d5", fontSize: 13 }}><strong style={{ color: "#a04040" }}>ℹ️ Could Not Parse Address</strong> <span style={{ color: "#784040", fontSize: 12 }}>— You can still proceed. Try: <strong>12 Railway Rd, Council Area</strong> or <strong>5 Mead St Council Area</strong></span></div>);
     return null;
   };
 
@@ -725,7 +725,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     return (
     <>
       <div style={sectionTitle}><span>📎</span> Upload Documents</div>
-      <div style={{ fontSize: 11, color: T.c.textSecondary, marginBottom: 10, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 12, color: T.c.textSecondary, marginBottom: 10, lineHeight: 1.5 }}>
         Select a document category and upload. Application Form and Site Plan will be automatically analysed by AI.
       </div>
 
@@ -739,7 +739,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
           ))}
         </select>
-        <label style={{ padding: "8px 18px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: anyProcessing ? "default" : "pointer", fontFamily: "inherit", opacity: anyProcessing ? 0.6 : 1, whiteSpace: "nowrap" }}>
+        <label style={{ padding: "8px 18px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontSize: 13, fontWeight: T.w.bold, cursor: anyProcessing ? "default" : "pointer", fontFamily: "inherit", opacity: anyProcessing ? 0.6 : 1, whiteSpace: "nowrap" }}>
           {anyProcessing ? "⏳ Processing…" : "📤 Choose File"}
           <input type="file" accept="*" style={{ display: "none" }}
             disabled={anyProcessing}
@@ -754,14 +754,14 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       </div>
 
       {/* Hint for selected category */}
-      <div style={{ fontSize: 10, color: T.c.grey800, marginBottom: 14, lineHeight: 1.4, padding: "0 4px" }}>
+      <div style={{ fontSize: 12, color: T.c.grey800, marginBottom: 14, lineHeight: 1.4, padding: "0 4px" }}>
         {DOC_CATEGORIES.find(c => c.id === (typeof document !== "undefined" && document.getElementById?.("newapp-doc-cat")?.value) || DOC_CATEGORIES[0].id)?.hint || ""}
       </div>
 
       {/* Uploaded files list */}
       {uploadedList.length > 0 && (
         <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden", marginBottom: 14 }}>
-          <div style={{ padding: "8px 14px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 10, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
+          <div style={{ padding: "8px 14px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", display: "flex", justifyContent: "space-between" }}>
             <span>Uploaded ({uploadedList.length})</span>
           </div>
           {uploadedList.map(([catId, file]) => {
@@ -773,18 +773,18 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
                 <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 16 }}>{cat?.icon || "📄"}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
-                    <div style={{ fontSize: 10, color: T.c.textMuted }}>{cat?.label || catId} · {(file.size / 1024).toFixed(0)} KB</div>
+                    <div style={{ fontSize: 13, fontWeight: T.w.semi, color: T.c.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</div>
+                    <div style={{ fontSize: 12, color: T.c.textMuted }}>{cat?.label || catId} · {(file.size / 1024).toFixed(0)} KB</div>
                   </div>
-                  {isProcessing && <span style={{ fontSize: 10, color: "#8e44ad", fontWeight: T.w.bold }}>⏳ Analysing…</span>}
-                  {!isProcessing && pr?.success && <span style={{ fontSize: 10, color: T.c.success, fontWeight: T.w.bold }}>✅ {pr.title || "Done"}</span>}
-                  {!isProcessing && pr && !pr.success && <span style={{ fontSize: 10, color: T.c.amber400, fontWeight: T.w.bold }}>⚠ {pr.title || "Issue"}</span>}
-                  {!isProcessing && !pr && <span style={{ fontSize: 10, color: T.c.success, fontWeight: T.w.bold }}>✓</span>}
+                  {isProcessing && <span style={{ fontSize: 12, color: "#8e44ad", fontWeight: T.w.bold }}>⏳ Analysing…</span>}
+                  {!isProcessing && pr?.success && <span style={{ fontSize: 12, color: T.c.success, fontWeight: T.w.bold }}>✅ {pr.title || "Done"}</span>}
+                  {!isProcessing && pr && !pr.success && <span style={{ fontSize: 12, color: T.c.amber400, fontWeight: T.w.bold }}>⚠ {pr.title || "Issue"}</span>}
+                  {!isProcessing && !pr && <span style={{ fontSize: 12, color: T.c.success, fontWeight: T.w.bold }}>✓</span>}
                   <button onClick={() => handleDocChange(catId, null)}
-                    style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, background: T.c.card, color: "#c0392b", fontSize: 11, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
+                    style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, background: T.c.card, color: "#c0392b", fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
                 </div>
                 {pr && (
-                  <div style={{ padding: "6px 14px 8px", fontSize: 10, lineHeight: 1.4,
+                  <div style={{ padding: "6px 14px 8px", fontSize: 12, lineHeight: 1.4,
                     background: pr.success ? "#eafaf1" : "#fef9e7",
                     color: pr.success ? "#2c6e49" : "#7d6608" }}>
                     {pr.message}{pr.details && <div style={{ marginTop: 2, color: "#5a7a64" }}>{pr.details}</div>}
@@ -797,13 +797,13 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       )}
 
       {uploadedList.length === 0 && (
-        <div style={{ padding: "16px", textAlign: "center", color: T.c.textMuted, fontSize: 11, border: "1.5px dashed #d5dde2", borderRadius: T.r.lg, marginBottom: 14 }}>
+        <div style={{ padding: "16px", textAlign: "center", color: T.c.textMuted, fontSize: 12, border: "1.5px dashed #d5dde2", borderRadius: T.r.lg, marginBottom: 14 }}>
           No documents uploaded yet — select a category above and choose a file
         </div>
       )}
 
       <div style={sectionTitle}><span>👤</span> Owner / Applicant Information</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
         <Field label="Full Name" required span={2}><input style={inputBase} value={form.owner_name} onChange={set("owner_name")} placeholder="e.g. John Smith" /></Field>
         <Field label="Phone"><input style={inputBase} value={form.owner_phone} onChange={set("owner_phone")} placeholder="04xx xxx xxx" /></Field>
         <Field label="Email"><input style={inputBase} type="email" value={form.owner_email} onChange={set("owner_email")} placeholder="john@example.com" /></Field>
@@ -821,7 +821,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
               onMouseDown={e => e.preventDefault()}>
               {suggestions.map((s, i) => (
                 <div key={i} onClick={(e) => { e.stopPropagation(); selectSuggestion(s); }}
-                  style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f5f7f8", fontSize: 12, color: T.c.text }}
+                  style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f5f7f8", fontSize: 13, color: T.c.text }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f0f8ff"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <div style={{ fontWeight: T.w.semi }}>{s.display}</div>
@@ -839,7 +839,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const renderStep1 = () => (
     <>
       <div style={sectionTitle}><span>📍</span> Lot / Property Details</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
         <Field label="Lot Number"><input style={inputBase} value={form.lot_number} onChange={set("lot_number")} placeholder="e.g. 145" /></Field>
         <Field label="Plan / Diagram Number"><input style={inputBase} value={form.plan_number} onChange={set("plan_number")} placeholder="e.g. P012345" /></Field>
         <Field label="Lot Type *"><select style={{ ...selectBase, borderColor: !form.lot_type ? "#e74c3c" : undefined }} value={form.lot_type} onChange={set("lot_type")}><option value="">— Select lot type —</option><option value="green_title">Green Title</option><option value="strata">Strata</option><option value="survey_strata">Survey Strata</option><option value="battleaxe">Battleaxe</option><option value="commercial">Commercial</option></select></Field>
@@ -847,9 +847,9 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
         <Field label="Depth (m)"><input style={inputBase} type="number" step="0.1" value={form.depth} onChange={set("depth")} placeholder="0.0" /></Field>
         <Field label="DA / Approval Number"><input style={inputBase} value={form.da_number} onChange={set("da_number")} placeholder="Optional" /></Field>
       </div>
-      {lotMatch === "found" && lotPolygon && (<div style={{ marginTop: 14, padding: "10px 14px", background: T.c.successLight, borderRadius: T.r.md, border: "1px solid #d4efdf", fontSize: 11, color: "#2c6e49" }}><strong style={{ color: T.c.success }}>✅ Lot Boundary:</strong> {lotPolygon.length} points captured.</div>)}
+      {lotMatch === "found" && lotPolygon && (<div style={{ marginTop: 14, padding: "10px 14px", background: T.c.successLight, borderRadius: T.r.md, border: "1px solid #d4efdf", fontSize: 12, color: "#2c6e49" }}><strong style={{ color: T.c.success }}>✅ Lot Boundary:</strong> {lotPolygon.length} points captured.</div>)}
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>🛣️</span> Road Information</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px 14px" }}>
+      <div className="cams-stack-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "12px 14px" }}>
         <Field label="Road Name" span={2}><input style={inputBase} value={form.road_name} onChange={set("road_name")} placeholder="e.g. Railway Road" /></Field>
         <Field label="Road Classification"><select style={selectBase} value={form.road_type} onChange={set("road_type")}><option value="local">Local</option><option value="red">Red (District Distributor)</option><option value="blue">Blue (Local Distributor)</option><option value="green">Green (Access)</option></select></Field>
         <Field label="Road Width (m)"><input style={inputBase} type="number" step="0.1" value={form.road_width} onChange={set("road_width")} placeholder="0.0" /></Field>
@@ -861,30 +861,30 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
   const renderStep2 = () => (
     <>
       <div style={sectionTitle}><span>📐</span> Crossover Design</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 14px" }}>
         <Field label="Crossover Width (m)"><input style={inputBase} type="number" step="0.1" value={form.crossover_width} onChange={set("crossover_width")} placeholder="e.g. 4.5" /></Field>
         <Field label="Number of Crossovers *"><select style={{ ...selectBase, borderColor: !form.crossover_count ? "#e74c3c" : undefined }} value={form.crossover_count} onChange={set("crossover_count")}><option value="">— Select —</option><option value="1">1 — Single</option><option value="2">2 — Dual</option></select></Field>
         <Field label="Surface Material"><select style={selectBase} value={form.crossover_surface} onChange={set("crossover_surface")}><option value="concrete">Concrete</option><option value="asphalt">Asphalt</option><option value="brick_paver">Brick Paver</option><option value="gravel">Gravel</option><option value="other">Other</option></select></Field>
         <Field label="Offset from Left Boundary (m)"><input style={inputBase} type="number" step="0.1" value={form.offset_from_left} onChange={set("offset_from_left")} placeholder="0.0" /></Field>
         <Field label="Est. Construction Date" span={2}><input style={inputBase} type="text" value={form.crossover_est_date} onChange={set("crossover_est_date")} placeholder="e.g. 15/03/2026" /></Field>
       </div>
-      {sitePlanData && (<div style={{ marginTop: 14, padding: "10px 14px", background: T.c.infoLight, borderRadius: T.r.md, border: "1px solid #d4e6f1", fontSize: 11, color: "#2471a3", lineHeight: 1.6 }}><strong>📐 AI Site Plan Data:</strong> Full extraction with {(sitePlanData.compliance?.checks || []).length} compliance checks stored. Recommendation: <strong>{(sitePlanData.compliance?.recommendation || "N/A").replace(/_/g, " ")}</strong></div>)}
-      <div style={{ marginTop: 14, padding: "10px 14px", background: T.c.bg, borderRadius: T.r.md, fontSize: 11, color: T.c.grey800, lineHeight: 1.6 }}><strong style={{ color: T.c.text }}>ℹ️ Width Guidelines:</strong> Minimum 3.0m at property boundary. Maximum depends on lot frontage. Second crossover permitted only if frontage exceeds 20m.</div>
+      {sitePlanData && (<div style={{ marginTop: 14, padding: "10px 14px", background: T.c.infoLight, borderRadius: T.r.md, border: "1px solid #d4e6f1", fontSize: 12, color: "#2471a3", lineHeight: 1.6 }}><strong>📐 AI Site Plan Data:</strong> Full extraction with {(sitePlanData.compliance?.checks || []).length} compliance checks stored. Recommendation: <strong>{(sitePlanData.compliance?.recommendation || "N/A").replace(/_/g, " ")}</strong></div>)}
+      <div style={{ marginTop: 14, padding: "10px 14px", background: T.c.bg, borderRadius: T.r.md, fontSize: 12, color: T.c.grey800, lineHeight: 1.6 }}><strong style={{ color: T.c.text }}>ℹ️ Width Guidelines:</strong> Minimum 3.0m at property boundary. Maximum depends on lot frontage. Second crossover permitted only if frontage exceeds 20m.</div>
     </>
   );
 
   const renderStep3 = () => (
     <>
       <div style={sectionTitle}><span>🌳</span> Vegetation</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
-        <Field label="Trees within 3m of crossover?" span={2}><label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#2c3e2f", cursor: "pointer" }}><input type="checkbox" checked={form.trees_nearby} onChange={set("trees_nearby")} style={{ width: 16, height: 16, accentColor: "#1abc9c" }} />Yes — trees or significant vegetation are present nearby</label></Field>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
+        <Field label="Trees within 3m of crossover?" span={2}><label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#2c3e2f", cursor: "pointer" }}><input type="checkbox" checked={form.trees_nearby} onChange={set("trees_nearby")} style={{ width: 16, height: 16, accentColor: "#1abc9c" }} />Yes — trees or significant vegetation are present nearby</label></Field>
         {form.trees_nearby && <Field label="Tree Protection Measures" span={2}><input style={inputBase} value={form.tree_protection} onChange={set("tree_protection")} placeholder="Describe proposed tree protection plan" /></Field>}
-        <Field label="Vegetation Clearing Required?" span={2}><label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#2c3e2f", cursor: "pointer" }}><input type="checkbox" checked={form.clearing} onChange={set("clearing")} style={{ width: 16, height: 16, accentColor: "#1abc9c" }} />Yes — clearing of vegetation will be required</label></Field>
+        <Field label="Vegetation Clearing Required?" span={2}><label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#2c3e2f", cursor: "pointer" }}><input type="checkbox" checked={form.clearing} onChange={set("clearing")} style={{ width: 16, height: 16, accentColor: "#1abc9c" }} />Yes — clearing of vegetation will be required</label></Field>
       </div>
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>💧</span> Drainage & Stormwater</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
+      <div className="cams-stack" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 14px" }}>
         <Field label="Drainage Type"><select style={selectBase} value={form.drainage_type} onChange={set("drainage_type")}><option value="none">None Required</option><option value="dish_drain">Dish Drain</option><option value="pipe_culvert">Pipe Culvert</option><option value="swale">Swale</option><option value="kerb_inlet">Kerb Inlet</option><option value="other">Other</option></select></Field>
-        <Field label="Culvert Required?"><label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#2c3e2f", cursor: "pointer", marginTop: 4 }}><input type="checkbox" checked={form.culvert} onChange={set("culvert")} style={{ width: 16, height: 16, accentColor: "#1abc9c" }} />Yes — culvert or pipe crossing needed</label></Field>
+        <Field label="Culvert Required?"><label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#2c3e2f", cursor: "pointer", marginTop: 4 }}><input type="checkbox" checked={form.culvert} onChange={set("culvert")} style={{ width: 16, height: 16, accentColor: "#1abc9c" }} />Yes — culvert or pipe crossing needed</label></Field>
       </div>
     </>
   );
@@ -897,24 +897,24 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
     <div style={overlay} onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div style={modalBox}>
         <div style={{ padding: "18px 24px 14px", borderBottom: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div><h2 style={{ fontSize: 18, fontWeight: T.w.black, color: T.c.text, margin: 0 }}>New Application</h2><div style={{ fontSize: 11, color: T.c.textSecondary, marginTop: 2 }}>Crossover permit application — Council</div></div>
+          <div><h2 style={{ fontSize: 18, fontWeight: T.w.black, color: T.c.text, margin: 0 }}>New Application</h2><div style={{ fontSize: 12, color: T.c.textSecondary, marginTop: 2 }}>Crossover permit application — Council</div></div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 20, color: T.c.textSecondary, cursor: "pointer", padding: "2px 6px", borderRadius: T.r.sm }} title="Close">&times;</button>
         </div>
         <div style={{ display: "flex", gap: 0, padding: "0 24px", background: T.c.bgAlt, borderBottom: "1px solid #edf1f4" }}>
           {steps.map((s, i) => (
             <button key={i} onClick={() => { if (i <= step || canGoNext()) setStep(i); }}
               style={{ flex: 1, padding: "10px 6px", background: "none", border: "none", borderBottom: step === i ? "2.5px solid #1abc9c" : "2.5px solid transparent", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
-              <div style={{ fontSize: 13, marginBottom: 2 }}>{s.icon}</div>
-              <div style={{ fontSize: 10, fontWeight: step === i ? 800 : 500, color: step === i ? "#1abc9c" : i < step ? "#1a3a4a" : "#9aabb5", textTransform: "uppercase", letterSpacing: "0.03em" }}>{s.label}</div>
+              <div style={{ fontSize: 14, marginBottom: 2 }}>{s.icon}</div>
+              <div style={{ fontSize: 12, fontWeight: step === i ? 800 : 500, color: step === i ? "#1abc9c" : i < step ? "#1a3a4a" : "#9aabb5", textTransform: "uppercase", letterSpacing: "0.03em" }}>{s.label}</div>
             </button>
           ))}
         </div>
         <div style={{ padding: "16px 24px 20px", overflowY: "auto", flex: 1 }}>
           {stepRenderers[step]()}
-          {error && <div style={{ marginTop: 14, padding: "10px 14px", background: T.c.dangerLight, borderRadius: T.r.md, fontSize: 12, color: "#c0392b", fontWeight: T.w.semi }}>⚠️ {error}</div>}
+          {error && <div style={{ marginTop: 14, padding: "10px 14px", background: T.c.dangerLight, borderRadius: T.r.md, fontSize: 13, color: "#c0392b", fontWeight: T.w.semi }}>⚠️ {error}</div>}
         </div>
         <div style={{ padding: "14px 24px", borderTop: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: T.c.bgAlt }}>
-          <div style={{ fontSize: 11, color: "#9aabb5" }}>
+          <div style={{ fontSize: 12, color: "#9aabb5" }}>
             Step {step + 1} of {steps.length}
             {docCount > 0 && <span style={{ color: T.c.info, marginLeft: 10 }}>📎 {docCount} doc{docCount > 1 ? "s" : ""}</span>}
             {sitePlanData && <span style={{ color: "#8e44ad", marginLeft: 10 }}>🤖 AI</span>}
@@ -972,12 +972,12 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h2 style={{ fontSize: 20, fontWeight: T.w.black, color: T.c.text, margin: 0 }}>{filter === "pending_review" ? "Pending Review" : filter === "referral_pending" ? "Referrals" : "Applications"}</h2>
-        <button onClick={() => setShowNewModal(true)} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 12 }}><span style={{ fontSize: 14, lineHeight: 1 }}>＋</span> New Application</button>
+        <button onClick={() => setShowNewModal(true)} style={{ ...btnPrimary, display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13 }}><span style={{ fontSize: 14, lineHeight: 1 }}>＋</span> New Application</button>
       </div>
 
       {/* Search + quick filter chips */}
       <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ref, applicant, address…" style={{ flex: 1, minWidth: 180, padding: "7px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", background: T.c.card, outline: "none" }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ref, applicant, address…" style={{ flex: 1, minWidth: 180, padding: "7px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 13, fontFamily: "inherit", background: T.c.card, outline: "none" }} />
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
         {[
@@ -989,15 +989,15 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
           { key: "referred", label: "Referred", color: "#8e44ad" },
         ].filter(f => f.key === "all" || statusCounts[f.key]).map(f => (
           <button key={f.key} onClick={() => setSf(f.key)}
-            style={{ padding: "3px 10px", borderRadius: 12, border: sf === f.key ? `1.5px solid ${f.color}` : "1px solid #e4e9ec", background: sf === f.key ? `${f.color}10` : "#fff", color: sf === f.key ? f.color : "#7a8a94", fontSize: 10, fontWeight: sf === f.key ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "3px 10px", borderRadius: 12, border: sf === f.key ? `1.5px solid ${f.color}` : "1px solid #e4e9ec", background: sf === f.key ? `${f.color}10` : "#fff", color: sf === f.key ? f.color : "#7a8a94", fontSize: 12, fontWeight: sf === f.key ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
             {f.label} {statusCounts[f.key] != null && <span style={{ fontWeight: 700 }}>({statusCounts[f.key] || 0})</span>}
           </button>
         ))}
       </div>
 
       {/* Table with sortable columns */}
-      <div style={{ background: T.c.card, borderRadius: 12, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+      <div style={{ background: T.c.card, borderRadius: 12, border: `1px solid ${T.c.border}`, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead><tr style={{ background: T.c.bg }}>
             {[
               { key: "ref", label: "Ref" },
@@ -1007,23 +1007,23 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
               { key: "width", label: "Width" },
               { key: "status", label: "Status" },
             ].map(h => (
-              <th key={h.key} onClick={() => handleSort(h.key)}
-                style={{ padding: "8px 12px", textAlign: "left", fontWeight: T.w.bold, color: sortCol === h.key ? "#1a3a4a" : T.c.grey800, fontSize: 10, textTransform: "uppercase", borderBottom: `1px solid ${T.c.border}`, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+              <th key={h.key} onClick={() => handleSort(h.key)} className={["name", "date", "width"].includes(h.key) ? "app-list-hide-mobile" : undefined}
+                style={{ padding: "8px 12px", textAlign: "left", fontWeight: T.w.bold, color: sortCol === h.key ? "#1a3a4a" : T.c.grey800, fontSize: 12, textTransform: "uppercase", borderBottom: `1px solid ${T.c.border}`, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
                 {h.label}{sortIcon(h.key)}
               </th>
             ))}
           </tr></thead>
-          <tbody>{filtered.length === 0 ? (<tr><td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: "#9aabb5", fontSize: 12 }}>{search ? "No applications match your search." : "No applications found."}</td></tr>) : filtered.map(app => {
+          <tbody>{filtered.length === 0 ? (<tr><td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: T.c.textMuted, fontSize: 13 }}>{search ? "No applications match your search." : "No applications found."}</td></tr>) : filtered.map(app => {
             const sc = STATUS_CONFIG[app.status] || {};
             return (
             <tr key={app.id} onClick={() => onSelectApp(app)} style={{ cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <td style={{ padding: "8px 12px", fontWeight: T.w.bold, color: T.c.info, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.id}</td>
-              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.owner?.name || "—"}</td>
-              <td style={{ padding: "8px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>{app.property?.address || "—"}</td>
-              <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 10, color: T.c.textMuted }}>{app.submittedDate ? new Date(app.submittedDate).toLocaleDateString("en-AU") : "—"}</td>
-              <td style={{ padding: "8px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 11 }}>{app.crossover?.width || "—"}m</td>
+              <td style={{ padding: "8px 12px", fontWeight: T.w.bold, color: T.c.info, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12 }}>{app.id}</td>
+              <td className="app-list-hide-mobile" style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12 }}>{app.owner?.name || "—"}</td>
+              <td style={{ padding: "8px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{app.property?.address || "—"}</td>
+              <td className="app-list-hide-mobile" style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12, color: T.c.textMuted }}>{app.submittedDate ? new Date(app.submittedDate).toLocaleDateString("en-AU") : "—"}</td>
+              <td className="app-list-hide-mobile" style={{ padding: "8px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12 }}>{app.crossover?.width || "—"}m</td>
               <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 10, fontSize: 10, fontWeight: 600, background: `${sc.color || "#7a8a94"}12`, color: sc.color || "#7a8a94" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600, background: `${sc.color || "#7a8a94"}12`, color: sc.color || "#7a8a94" }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: sc.color || "#7a8a94" }} />
                   {sc.label || app.status}
                 </span>
@@ -1031,7 +1031,7 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
             </tr>);
           })}</tbody>
         </table>
-        <div style={{ padding: "6px 12px", borderTop: `1px solid ${T.c.borderLight}`, fontSize: 10, color: T.c.textMuted, textAlign: "right" }}>
+        <div style={{ padding: "6px 12px", borderTop: `1px solid ${T.c.borderLight}`, fontSize: 12, color: T.c.textMuted, textAlign: "right" }}>
           {filtered.length} of {apps.length} applications
         </div>
       </div>

@@ -235,31 +235,31 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
       <div onMouseDown={onHeaderMouseDown} style={{ padding: '8px 14px', background: 'linear-gradient(135deg,#8e44ad,#6c3a83)', color: '#fff', display: 'flex', alignItems: 'center', gap: 10, cursor: maximized ? 'default' : 'move', userSelect: 'none' }}>
         <div style={{ fontSize: 16 }}>🗺️</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Site Plan Georeferencing</div>
-          <div style={{ fontSize: 10, opacity: 0.85 }}>{appRef || 'Align the plan to the map'}</div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Site Plan Georeferencing</div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>{appRef || 'Align the plan to the map'}</div>
         </div>
-        <button onClick={toggleMax} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: 4, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>{maximized ? '❐' : '□'}</button>
+        <button onClick={toggleMax} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>{maximized ? '❐' : '□'}</button>
         <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: 4, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>×</button>
       </div>
 
       {/* Instructions bar */}
-      <div style={{ padding: '10px 16px', background: '#f7f0fa', borderBottom: '1px solid #e4d3ee', fontSize: 12, color: '#5e3075', lineHeight: 1.5 }}>
+      <div style={{ padding: '10px 16px', background: '#f7f0fa', borderBottom: '1px solid #e4d3ee', fontSize: 13, color: '#5e3075', lineHeight: 1.5 }}>
         <strong>How to use:</strong> Click <strong>at least 3 lot corners</strong> on the plan below (typically the 4 corners of the property boundary).
         {hasLot
           ? <> The system will <strong>auto-match</strong> your clicks to the cadastre lot boundary and compute the map alignment.</>
           : <> No lot boundary found — map alignment will use your clicked points only (manual pairing needed on the map).</>
         }
-        <div style={{ fontSize: 10, color: '#7f5090', marginTop: 3 }}>Shift+drag or right-drag to pan · scroll to zoom · click corners in order (clockwise or anticlockwise)</div>
+        <div style={{ fontSize: 12, color: '#7f5090', marginTop: 3 }}>Shift+drag or right-drag to pan · scroll to zoom · click corners in order (clockwise or anticlockwise)</div>
       </div>
 
       {/* Body */}
       <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
         {/* Left sidebar */}
         <div style={{ width: 210, borderRight: '1px solid #e4e9ec', background: '#fafbfc', display: 'flex', flexDirection: 'column', padding: 12, gap: 10 }}>
-          <div style={{ fontSize: 11, color: '#7a8a94', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Control Points</div>
+          <div style={{ fontSize: 12, color: '#7a8a94', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Control Points</div>
 
           {/* Lot boundary status */}
-          <div style={{ background: hasLot ? '#eafaf1' : '#fef9e7', borderRadius: T.r.sm, padding: '6px 8px', fontSize: 10, lineHeight: 1.4, border: `1px solid ${hasLot ? '#d4efdf' : '#fce8b2'}` }}>
+          <div style={{ background: hasLot ? '#eafaf1' : '#fef9e7', borderRadius: T.r.sm, padding: '6px 8px', fontSize: 12, lineHeight: 1.4, border: `1px solid ${hasLot ? '#d4efdf' : '#fce8b2'}` }}>
             {hasLot
               ? <><span style={{ color: '#27ae60', fontWeight: 700 }}>✓ Lot boundary available</span><br/><span style={{ color: '#7a8a94' }}>{lotCorners.length} cadastre vertices · will auto-match {points.length >= 3 ? points.length : '3+'} corners</span></>
               : <><span style={{ color: '#b7950b', fontWeight: 700 }}>⚠ No lot boundary</span><br/><span style={{ color: '#7a8a94' }}>Manual map pairing needed after save</span></>
@@ -268,34 +268,34 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
 
           <div style={{ background: '#fff', borderRadius: T.r.md, border: '1px solid #e4e9ec', padding: 10, textAlign: 'center' }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: points.length >= 3 ? '#27ae60' : '#8e44ad' }}>{points.length}</div>
-            <div style={{ fontSize: 10, color: '#7a8a94' }}>placed</div>
-            {points.length < 3 && <div style={{ fontSize: 10, color: '#c0392b', marginTop: 4 }}>Need {3 - points.length} more</div>}
-            {points.length >= 3 && <div style={{ fontSize: 10, color: '#27ae60', marginTop: 4 }}>✓ Ready to apply</div>}
+            <div style={{ fontSize: 12, color: '#7a8a94' }}>placed</div>
+            {points.length < 3 && <div style={{ fontSize: 12, color: '#c0392b', marginTop: 4 }}>Need {3 - points.length} more</div>}
+            {points.length >= 3 && <div style={{ fontSize: 12, color: '#27ae60', marginTop: 4 }}>✓ Ready to apply</div>}
           </div>
 
           <button onClick={apply} disabled={points.length < 3 || saving}
-            style={{ padding: '10px 0', borderRadius: T.r.md, border: 'none', background: saving ? '#aaa' : points.length >= 3 ? '#8e44ad' : '#cbd4d8', color: '#fff', fontWeight: 700, fontSize: 12, cursor: (points.length >= 3 && !saving) ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+            style={{ padding: '10px 0', borderRadius: T.r.md, border: 'none', background: saving ? '#aaa' : points.length >= 3 ? '#8e44ad' : '#cbd4d8', color: '#fff', fontWeight: 700, fontSize: 13, cursor: (points.length >= 3 && !saving) ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
             {saving ? 'Saving…' : 'Apply & Save →'}
           </button>
           {saveError && (
-            <div style={{ fontSize: 10, color: '#c0392b', textAlign: 'center', padding: 4 }}>{saveError}</div>
+            <div style={{ fontSize: 12, color: '#c0392b', textAlign: 'center', padding: 4 }}>{saveError}</div>
           )}
           {existingOverlay?.planPts?.length >= 3 && (
-            <div style={{ fontSize: 10, color: '#7a8a94', textAlign: 'center', fontStyle: 'italic' }}>
+            <div style={{ fontSize: 12, color: '#7a8a94', textAlign: 'center', fontStyle: 'italic' }}>
               ✓ Previously saved — editing will replace
             </div>
           )}
 
           <button onClick={removeLastPoint} disabled={points.length === 0}
-            style={{ padding: '7px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: points.length ? '#1a3a4a' : '#b8c1c5', fontSize: 11, cursor: points.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+            style={{ padding: '7px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: points.length ? '#1a3a4a' : '#b8c1c5', fontSize: 12, cursor: points.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
             ↶ Undo Last
           </button>
           <button onClick={clearPoints} disabled={points.length === 0}
-            style={{ padding: '7px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: points.length ? '#c0392b' : '#b8c1c5', fontSize: 11, cursor: points.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
+            style={{ padding: '7px 0', borderRadius: T.r.md, border: '1px solid #e4e9ec', background: '#fff', color: points.length ? '#c0392b' : '#b8c1c5', fontSize: 12, cursor: points.length ? 'pointer' : 'not-allowed', fontFamily: 'inherit' }}>
             Clear All
           </button>
 
-          <div style={{ marginTop: 'auto', fontSize: 10, color: '#95a5a6', lineHeight: 1.5, padding: 8, background: '#fff', borderRadius: T.r.sm }}>
+          <div style={{ marginTop: 'auto', fontSize: 12, color: '#95a5a6', lineHeight: 1.5, padding: 8, background: '#fff', borderRadius: T.r.sm }}>
             <strong>Tip:</strong> Click the exact lot corners shown on the plan — not the house or fence. The more accurate your clicks, the better the map alignment.
           </div>
         </div>
@@ -343,7 +343,7 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
             </svg>
           </div>
           {!imgLoaded && (
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#7a8a94', fontSize: 13 }}>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#7a8a94', fontSize: 14 }}>
               Loading site plan…
             </div>
           )}

@@ -46,8 +46,9 @@ export const T = {
     border: palette.grey300,
     borderLight: palette.grey200,
     text: palette.navy500,
-    textSecondary: palette.grey700,
-    textMuted: palette.grey600,
+    // Both meet WCAG AA (4.5:1) on white and on the page background
+    textSecondary: palette.grey800,
+    textMuted: "#66767f",
     textPlaceholder: palette.grey500,
     white: palette.white,
     ...palette,
@@ -60,7 +61,7 @@ export const T = {
   r: { xs: 3, sm: 4, md: 8, lg: 12, xl: 16, pill: 999 },
 
   // Font sizes
-  f: { xxs: 8, xs: 9, sm: 10, md: 11, base: 13, lg: 15, xl: 18, xxl: 22, xxxl: 28 },
+  f: { xxs: 12, xs: 12, sm: 12, md: 13, base: 14, lg: 16, xl: 18, xxl: 22, xxxl: 28 },
 
   // Font weights
   w: { normal: 400, medium: 500, semi: 600, bold: 700, black: 800 },

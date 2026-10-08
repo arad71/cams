@@ -82,13 +82,13 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
     <div>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: T.c.info, fontWeight: T.w.semi, fontSize: 13, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>← Back</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: T.c.info, fontWeight: T.w.semi, fontSize: 14, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>← Back</button>
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: T.w.black, color: T.c.text, margin: "0 0 4px" }}>{localApp.id}</h2>
-          <p style={{ color: T.c.textSecondary, fontSize: 13, margin: 0 }}>{localApp.owner.name} — {new Date(localApp.submittedDate).toLocaleDateString("en-AU")}</p>
+          <p style={{ color: T.c.textSecondary, fontSize: 14, margin: 0 }}>{localApp.owner.name} — {new Date(localApp.submittedDate).toLocaleDateString("en-AU")}</p>
         </div>
         <StatusBadge status={localApp.status} />
       </div>

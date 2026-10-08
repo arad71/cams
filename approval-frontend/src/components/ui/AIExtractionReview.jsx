@@ -181,8 +181,8 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
       <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, padding: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: T.w.black, color: T.c.text }}>🤖 AI Site Plan Analysis</div>
-            <div style={{ fontSize: 11, color: T.c.textMuted, marginTop: 2 }}>No AI analysis data available. Upload a site plan document to trigger automatic analysis.</div>
+            <div style={{ fontSize: 14, fontWeight: T.w.black, color: T.c.text }}>🤖 AI Site Plan Analysis</div>
+            <div style={{ fontSize: 12, color: T.c.textMuted, marginTop: 2 }}>No AI analysis data available. Upload a site plan document to trigger automatic analysis.</div>
           </div>
           {app?.documents?.some(d => d.category?.toLowerCase().includes("site")) && (
             <button onClick={async () => {
@@ -195,7 +195,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
               } catch (e) { console.error("Analysis failed:", e); }
               setAnalysing(false);
             }} disabled={analysing}
-              style={{ padding: "7px 14px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg,#8e44ad,#6c3483)", color: T.c.white, fontWeight: T.w.bold, fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "7px 14px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg,#8e44ad,#6c3483)", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
               {analysing ? "⟳ Analysing..." : "🤖 Run AI Analysis"}
             </button>
           )}
@@ -282,12 +282,12 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
         style={{ padding: "12px 16px", borderBottom: collapsed ? "none" : "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: T.c.bgAlt, cursor: "pointer", userSelect: "none" }}
         onMouseEnter={e => e.currentTarget.style.background = T.c.borderLight} onMouseLeave={e => e.currentTarget.style.background = "#f8fafb"}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 12, color: T.c.textMuted, transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)" }}>▶</span>
+          <span style={{ fontSize: 13, color: T.c.textMuted, transition: "transform 0.2s", transform: collapsed ? "rotate(0deg)" : "rotate(90deg)" }}>▶</span>
           <div>
-            <div style={{ fontSize: 13, fontWeight: T.w.black, color: T.c.text }}>🤖 AI Site Plan Analysis</div>
-            <div style={{ fontSize: 12, color: T.c.textSecondary, marginTop: 2 }}>
+            <div style={{ fontSize: 14, fontWeight: T.w.black, color: T.c.text }}>🤖 AI Site Plan Analysis</div>
+            <div style={{ fontSize: 13, color: T.c.textSecondary, marginTop: 2 }}>
               {"AI"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
-              {hasCorrected && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 3, background: "#fef5e7", color: "#e67e22", fontWeight: T.w.bold, fontSize: 9 }}>✎ Officer Corrected</span>}
+              {hasCorrected && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 3, background: "#fef5e7", color: "#e67e22", fontWeight: T.w.bold, fontSize: 12 }}>✎ Officer Corrected</span>}
             </div>
           </div>
         </div>
@@ -296,22 +296,22 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
           {!locked && (
             <button onClick={rerunAnalysis} disabled={rerunning}
               title="Re-run AI site plan analysis"
-              style={{ padding: "4px 8px", borderRadius: 5, border: "none", background: rerunning ? "#E8EAF6" : "linear-gradient(135deg,#8e44ad,#6c3483)", color: rerunning ? "#5C6BC0" : "#fff", fontWeight: T.w.bold, fontSize: 9, cursor: rerunning ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "4px 8px", borderRadius: 5, border: "none", background: rerunning ? "#E8EAF6" : "linear-gradient(135deg,#8e44ad,#6c3483)", color: rerunning ? "#5C6BC0" : "#fff", fontWeight: T.w.bold, fontSize: 12, cursor: rerunning ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
               {rerunning ? "⟳ Running..." : "🔄 Re-run"}
             </button>
           )}
           {/* Lock/unlock button */}
           <button onClick={toggleLock}
             title={locked ? "Unlock — allow re-running analysis" : "Lock — prevent re-running analysis"}
-            style={{ padding: "4px 8px", borderRadius: 5, border: locked ? "1.5px solid #e74c3c" : "1px solid #dce1e6", background: locked ? "#fdedec" : "#fff", color: locked ? "#e74c3c" : "#95a5a6", fontWeight: T.w.bold, fontSize: 9, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "4px 8px", borderRadius: 5, border: locked ? "1.5px solid #e74c3c" : "1px solid #dce1e6", background: locked ? "#fdedec" : "#fff", color: locked ? "#e74c3c" : "#95a5a6", fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
             {locked ? "🔒 Locked" : "🔓 Lock"}
           </button>
-          <span style={{ padding: "4px 10px", borderRadius: T.r.md, fontSize: 12, fontWeight: T.w.black,
+          <span style={{ padding: "4px 10px", borderRadius: T.r.md, fontSize: 13, fontWeight: T.w.black,
             background: `${recColors[recommendation] || "#7f8c8d"}15`,
             color: recColors[recommendation] || "#7f8c8d" }}>
             {recommendation.replace(/_/g, " ")}
           </span>
-          <span style={{ fontSize: 12, color: T.c.textMuted }}>
+          <span style={{ fontSize: 13, color: T.c.textMuted }}>
             {summary.passed || 0}✓ {summary.failed || 0}✕ {summary.requires_verification || 0}?
           </span>
         </div>
@@ -326,7 +326,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
 
         return (
           <div key={group.key} style={{ borderBottom: `1px solid ${T.c.borderLight}` }}>
-            <div style={{ padding: "8px 16px", background: "#fafcfd", fontSize: 12, fontWeight: T.w.black, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ padding: "8px 16px", background: "#fafcfd", fontSize: 13, fontWeight: T.w.black, color: T.c.grey800, textTransform: "uppercase", letterSpacing: "0.04em" }}>
               {group.icon} {group.label}
             </div>
             {group.fields.map(field => {
@@ -339,25 +339,25 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
               return (
                 <div key={field.path} style={{ padding: "6px 16px 6px 32px", display: "flex", alignItems: "center", gap: 8, borderBottom: "1px solid #f8fafb",
                   background: corrected !== null ? "#fef9e7" : "transparent" }}>
-                  <div style={{ flex: 1, fontSize: 11, color: T.c.grey800 }}>{field.label}</div>
+                  <div style={{ flex: 1, fontSize: 12, color: T.c.grey800 }}>{field.label}</div>
                   {isEditing ? (
                     <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                       <input value={editValue} onChange={e => setEditValue(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") saveEdit(group.key, field.path, val); if (e.key === "Escape") cancelEdit(); }}
-                        style={{ padding: "3px 6px", borderRadius: T.r.sm, border: "1.5px solid #f39c12", fontSize: 11, width: 100, fontFamily: "inherit", outline: "none" }} autoFocus />
-                      <button onClick={() => saveEdit(group.key, field.path, val)} style={{ padding: "2px 6px", borderRadius: 3, border: "none", background: "#27ae60", color: T.c.white, fontSize: 11, fontWeight: T.w.semi, cursor: "pointer" }}>✓</button>
-                      <button onClick={cancelEdit} style={{ padding: "2px 6px", borderRadius: 3, border: "1px solid #d5dde2", background: T.c.card, fontSize: 9, cursor: "pointer" }}>✕</button>
+                        style={{ padding: "3px 6px", borderRadius: T.r.sm, border: "1.5px solid #f39c12", fontSize: 12, width: 100, fontFamily: "inherit", outline: "none" }} autoFocus />
+                      <button onClick={() => saveEdit(group.key, field.path, val)} style={{ padding: "2px 6px", borderRadius: 3, border: "none", background: "#27ae60", color: T.c.white, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer" }}>✓</button>
+                      <button onClick={cancelEdit} style={{ padding: "2px 6px", borderRadius: 3, border: "1px solid #d5dde2", background: T.c.card, fontSize: 12, cursor: "pointer" }}>✕</button>
                     </div>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: T.w.bold, color: corrected !== null ? "#b7950b" : "#1a3a4a" }}>
+                      <span style={{ fontSize: 13, fontWeight: T.w.bold, color: corrected !== null ? "#b7950b" : "#1a3a4a" }}>
                         {corrected !== null ? (
                           <><s style={{ color: "#ccc", fontWeight: 400 }}>{formatValue(val, field.type)}</s> → {corrected}</>
                         ) : formatValue(val, field.type)}
-                        {field.unit && val !== null && val !== undefined && <span style={{ fontSize: 9, color: T.c.textMuted, marginLeft: 2 }}>{field.unit}</span>}
+                        {field.unit && val !== null && val !== undefined && <span style={{ fontSize: 12, color: T.c.textMuted, marginLeft: 2 }}>{field.unit}</span>}
                       </span>
                       <button onClick={() => startEdit(group.key, field.path, val)} title="Correct this value"
-                        style={{ padding: "1px 4px", borderRadius: 3, border: `1px solid ${T.c.border}`, background: T.c.card, fontSize: 9, cursor: "pointer", color: T.c.textMuted, opacity: 0.6 }}>✎</button>
+                        style={{ padding: "1px 4px", borderRadius: 3, border: `1px solid ${T.c.border}`, background: T.c.card, fontSize: 12, cursor: "pointer", color: T.c.textMuted, opacity: 0.6 }}>✎</button>
                     </div>
                   )}
                 </div>
@@ -369,19 +369,19 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
 
       {/* Actions bar */}
       <div style={{ padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: T.c.bgAlt }}>
-        <div style={{ fontSize: 12, color: T.c.textSecondary }}>
+        <div style={{ fontSize: 13, color: T.c.textSecondary }}>
           {corrections.length > 0 && <span style={{ color: "#e67e22", fontWeight: T.w.bold }}>⚠ {corrections.length} correction{corrections.length > 1 ? "s" : ""} pending</span>}
           {saved && <span style={{ color: T.c.success, fontWeight: T.w.bold, marginLeft: 8 }}>✅ Saved to training data</span>}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           {corrections.length > 0 ? (
             <button onClick={submitCorrections} disabled={saving}
-              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#e67e22", color: T.c.white, fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#e67e22", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
               {saving ? "⟳ Saving..." : `💾 Save ${corrections.length} Correction${corrections.length > 1 ? "s" : ""}`}
             </button>
           ) : (
             <button onClick={verifyAll} disabled={saving}
-              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#27ae60", color: T.c.white, fontWeight: T.w.bold, fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#27ae60", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
               {saving ? "⟳ Verifying..." : "✓ Verify AI Correct"}
             </button>
           )}

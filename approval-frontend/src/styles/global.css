@@ -13,8 +13,8 @@
   --c-card: #ffffff;
   --c-border: #e8ecef;
   --c-text: #1a3a4a;
-  --c-text-secondary: #6b7d8a;
-  --c-text-muted: #a4b0b9;
+  --c-text-secondary: #5a6a74;
+  --c-text-muted: #66767f;
   --font-main: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
   --shadow-sm: 0 1px 3px rgba(26,58,74,0.06);
@@ -120,7 +120,7 @@ a, button, input, select, textarea { transition: border-color 0.15s ease, box-sh
 @media (max-width: 768px) {
   /* Workflow → single column, no sidebar */
   .workflow-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: minmax(0, 1fr) !important;
   }
   .workflow-sidebar {
     display: none !important;
@@ -163,4 +163,11 @@ a, button, input, select, textarea { transition: border-color 0.15s ease, box-sh
   .filter-chips > * {
     flex: 1 1 auto !important;
   }
+}
+
+/* Phone: stack multi-column card grids */
+@media (max-width: 768px) {
+  .cams-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  .cams-stack-2 { grid-template-columns: 1fr 1fr !important; }
+  .dashboard-metrics > * { flex: 1 1 30% !important; min-width: 90px !important; }
 }
