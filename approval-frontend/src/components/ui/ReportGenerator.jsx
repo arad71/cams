@@ -40,7 +40,7 @@ export default function ReportGenerator({ app }) {
   const recColor = (rec) => {
     if (!rec) return "#7a8a94";
     const r = rec.toUpperCase();
-    return r === "APPROVE" ? "#27ae60" : r === "REJECT" ? "#e74c3c" : "#e67e22";
+    return r === "APPROVE" ? "#1b7a43" : r === "REJECT" ? "#e74c3c" : "#a8530a";
   };
 
   return (
