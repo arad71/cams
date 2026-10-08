@@ -575,12 +575,13 @@ const CONDITION_TEMPLATES = [
   ]},
 ];
 
-function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) {
+function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp, canDecide = false }) {
   const [conditions, setConditions] = useState(app.conditions || []);
   const [decisionNote, setDecisionNote] = useState(app.decision_note || "");
   const [customCondition, setCustomCondition] = useState("");
   const [saving, setSaving] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [decisionError, setDecisionError] = useState(null);
 
   const addCondition = (text) => {
     if (!conditions.includes(text)) setConditions(prev => [...prev, text]);
@@ -588,12 +589,17 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
   const removeCondition = (idx) => setConditions(prev => prev.filter((_, i) => i !== idx));
 
   const saveDecision = async (newStatus) => {
+    if (!canDecide) return;
     setSaving(true);
+    setDecisionError(null);
     try {
       await api.updateApp(app._dbId, { status: newStatus, conditions, decision_note: decisionNote });
       const fresh = await reloadApp(app._dbId);
       if (fresh) setLocalApp(fresh);
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setDecisionError(e.message || "The decision could not be saved.");
+    }
     setSaving(false);
   };
 
@@ -603,13 +609,22 @@ function StepDecision({ app, currentUser, categories, reloadApp, setLocalApp }) 
         {/* Left: Decision + Conditions */}
         <div>
           <div style={{ fontSize: 11, fontWeight: T.w.bold, color: T.c.textSecondary, textTransform: "uppercase", marginBottom: 8 }}>Decision</div>
+          {!canDecide && (
+            <div style={{ fontSize: 11, color: T.c.textSecondary, background: "#f4f7f9", border: "1px solid #e4e9ec", borderRadius: T.r.md, padding: "8px 10px", marginBottom: 8 }}>
+              Only a manager can record the decision. You can still add conditions and save them for the manager to review.
+            </div>
+          )}
+          {decisionError && (
+            <div role="alert" style={{ fontSize: 11, color: "#c0392b", background: "#fdedec", borderRadius: T.r.md, padding: "8px 10px", marginBottom: 8 }}>{decisionError}</div>
+          )}
           {[
             { s: "approved", l: "Approve", desc: "All requirements met", c: "#27ae60" },
             { s: "conditionally_approved", l: "Approve with Conditions", desc: "Approved subject to conditions below", c: "#2980b9" },
             { s: "rejected", l: "Reject", desc: "Does not meet requirements", c: "#c0392b" },
           ].map(opt => (
-            <div key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: T.r.md, marginBottom: 6, cursor: saving ? "not-allowed" : "pointer", background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
-              onClick={() => { if (!saving) saveDecision(opt.s); }}>
+            <div key={opt.s} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: app.status === opt.s ? `2px solid ${opt.c}` : "1px solid #e4e9ec", borderRadius: T.r.md, marginBottom: 6, cursor: saving || !canDecide ? "not-allowed" : "pointer", opacity: canDecide ? 1 : 0.55, background: app.status === opt.s ? `${opt.c}08` : "#fff" }}
+              aria-disabled={!canDecide}
+              onClick={() => { if (!saving && canDecide) saveDecision(opt.s); }}>
               <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${app.status === opt.s ? opt.c : T.c.grey400}`, marginTop: 2, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {app.status === opt.s && <div style={{ width: 6, height: 6, borderRadius: "50%", background: opt.c }} />}
               </div>
@@ -998,7 +1013,7 @@ export default function WorkflowView({
           {/* Step 4: Decision — approve/reject/request info + report */}
           {currentStep === 4 && (
             <StepDecision app={localApp} currentUser={currentUser} categories={categories}
-              reloadApp={reloadApp} setLocalApp={setLocalApp} />
+              reloadApp={reloadApp} setLocalApp={setLocalApp} canDecide={canDecide} />
           )}
         </div>
 

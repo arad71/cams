@@ -40,6 +40,10 @@ function ApplicationDetailView({ app, apps, onBack, onUpdateApp, onSelectApp, cu
     }
   }, [app, localApp?._dbId, localApp?.georef_overlay]);
 
+  // Keep the sidebar status dropdown in step with the saved status, so pressing
+  // Save after a decision doesn't send the old status back to the server.
+  useEffect(() => { if (localApp?.status) setNewStatus(localApp.status); }, [localApp?.status]);
+
   const role = currentUser?.role || "engineer";
   const canAssign = role === "admin" || role === "manager";
   const canDecide = role === "admin" || role === "manager";
