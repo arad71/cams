@@ -8,6 +8,7 @@ When a Building Application PDF is uploaded:
 4. Save as a "Site Plan" document on the application
 5. Run AI site plan analysis on the extracted pages only
 """
+from app.services.ai_analyser import model_or_current, response_text
 import io
 import base64
 from pathlib import Path
@@ -66,13 +67,13 @@ If NO pages are site plans, return: {"site_plan_pages": [], "reasoning": "No sit
         })
 
         resp = client.messages.create(
-            model=model,
-            max_tokens=500,
+            model=model_or_current(model),
+            max_tokens=1500,
             messages=[{"role": "user", "content": content}]
         )
 
         import json
-        text = resp.content[0].text.strip()
+        text = response_text(resp)
         # Strip markdown fences
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]

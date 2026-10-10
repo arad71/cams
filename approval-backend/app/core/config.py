@@ -23,10 +23,10 @@ class Settings(BaseSettings):
     # IMPORTANT: do not cast with int(os.getenv(...)) here; let Pydantic parse and
     # ignore empty env values so defaults apply.
     ANTHROPIC_API_KEY: str | None = Field(default=None)
-    AI_MODEL_DEFAULT: str = Field(default="claude-sonnet-4-20250514")
+    AI_MODEL_DEFAULT: str = Field(default="claude-sonnet-5-5")
     PDF_RENDER_DPI: int = Field(default=200)
     MAX_IMAGE_DIM: int = Field(default=2048)
-    AI_MAX_TOKENS: int = Field(default=4096)
+    AI_MAX_TOKENS: int = Field(default=16000)  # full site-plan JSON needs more than 4096
 
     # Document storage
     DOCUMENT_DIR: str = Field(default="./uploads/documents")
