@@ -4,6 +4,8 @@ import { apiUserToFrontend } from '../utils/transforms';
 import { T, S, cx } from '../styles/tokens';
 import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT, SIGHT_DISTANCE_TABLE } from '../data/constants';
 
+import { onActivate } from "../utils/a11y";
+import { notify } from "../components/ui/Toast";
 // ─── Shared styles ─────────────────────────────────────
 const inputS = { padding: "8px 12px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 14, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box", lineHeight: 1.4 };
 const thS = { padding: "10px 14px", textAlign: "left", fontWeight: T.w.bold, color: T.c.grey800, fontSize: 12, textTransform: "uppercase", borderBottom: "2px solid #e4e9ec", letterSpacing: "0.03em" };
@@ -219,7 +221,7 @@ function UsersTab({ users, setUsers, currentUser, ROLE_CONFIG, departments }) {
               <td style={tdS}>{ed ? <input value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={{ ...inputS, width: 200 }} /> : <span style={{ color: T.c.grey800 }}>{u.email}</span>}</td>
               <td style={tdS}>{ed ? <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} style={{ ...inputS, width: 120 }}>{Object.entries(ROLE_CONFIG).filter(([, c]) => !c.hidden).map(([r, c]) => <option key={r} value={r}>{c.icon} {c.label}</option>)}</select> : <span style={{ padding: "3px 8px", borderRadius: T.r.sm, fontSize: 13, fontWeight: T.w.semi, background: `${rc.color}15`, color: rc.color }}>{rc.icon} {rc.label}</span>}</td>
               <td style={tdS}>{ed ? <select value={form.department} onChange={e => setForm({...form, department: e.target.value})} style={{ ...inputS, width: 140 }}>{departments.length > 0 ? departments.filter(d => d.is_active).map(d => <option key={d.code} value={d.label}>{d.label}</option>) : <option value={form.department}>{form.department}</option>}</select> : <span style={{ color: T.c.grey800 }}>{u.department}</span>}</td>
-              <td style={tdS}><button onClick={() => toggleActive(u)} disabled={u.id === currentUser.id} style={{ padding: "3px 10px", borderRadius: T.r.lg, border: "none", fontSize: 12, fontWeight: T.w.bold, cursor: u.id === currentUser.id ? "default" : "pointer", fontFamily: "inherit", background: u.active ? "#eafaf1" : "#fdedec", color: u.active ? "#27ae60" : "#e74c3c" }}>{u.active ? "Active" : "Inactive"}</button></td>
+              <td style={tdS}><button onClick={() => toggleActive(u)} disabled={u.id === currentUser.id} style={{ padding: "3px 10px", borderRadius: T.r.lg, border: "none", fontSize: 12, fontWeight: T.w.bold, cursor: u.id === currentUser.id ? "default" : "pointer", fontFamily: "inherit", background: u.active ? "#eafaf1" : "#fdedec", color: u.active ? "#1b7a43" : "#c0392b" }}>{u.active ? "Active" : "Inactive"}</button></td>
               <td style={tdS}>{ed ? <div style={{ display: "flex", gap: 4 }}><button onClick={saveEdit} style={btnSave}>Save</button><button onClick={() => setEditId(null)} style={btnCancel}>Cancel</button></div> : <button onClick={() => startEdit(u)} style={btnEdit}>Edit</button>}</td>
             </tr>);
           })}</tbody>
@@ -265,7 +267,7 @@ function AssessmentTab() {
         const isCatEdit = editCatId === cat.id;
         return (
           <div key={cat.id} style={{ marginBottom: 8, background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
-            <div style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, background: isExp ? "#f5f8fa" : "transparent", cursor: "pointer", borderBottom: isExp ? "1px solid #e4e9ec" : "none" }}
+            <div role="button" tabIndex={0} onKeyDown={onActivate(() => { if (!isCatEdit) setExpandedCat(isExp ? null : cat.id); })} style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, background: isExp ? "#f5f8fa" : "transparent", cursor: "pointer", borderBottom: isExp ? "1px solid #e4e9ec" : "none" }}
               onClick={() => { if (!isCatEdit) setExpandedCat(isExp ? null : cat.id); }}>
               <span style={{ fontSize: 18 }}>{cat.icon}</span>
               {isCatEdit ? (
@@ -301,12 +303,12 @@ function AssessmentTab() {
                           <td style={{ ...tdS, width: 140 }}><code style={{ fontSize: 13, background: T.c.bg, padding: "2px 5px", borderRadius: 3, color: T.c.grey800 }}>{item.code}</code></td>
                           <td style={tdS}>{isItemEdit ? <input value={itemForm.label} onChange={e => setItemForm({ ...itemForm, label: e.target.value })} style={inputS} /> : <span style={{ fontSize: 13, color: T.c.text }}>{item.label}</span>}</td>
                           <td style={{ ...tdS, width: 90 }}>{isItemEdit ? <input value={itemForm.reference} onChange={e => setItemForm({ ...itemForm, reference: e.target.value })} style={{ ...inputS, width: 70 }} /> : <span style={{ fontSize: 13, color: "#8e44ad", fontWeight: T.w.semi, background: "#f4ecf7", padding: "2px 6px", borderRadius: 3 }}>{item.reference}</span>}</td>
-                          <td style={{ ...tdS, width: 60 }}><span style={{ fontSize: 13, fontWeight: T.w.semi, color: item.is_active ? "#27ae60" : "#e74c3c" }}>{item.is_active ? "Yes" : "No"}</span></td>
+                          <td style={{ ...tdS, width: 60 }}><span style={{ fontSize: 13, fontWeight: T.w.semi, color: item.is_active ? "#1b7a43" : "#c0392b" }}>{item.is_active ? "Yes" : "No"}</span></td>
                           <td style={{ ...tdS, width: 100 }}>
                             {isItemEdit ? (
                               <div style={{ display: "flex", gap: 3 }}>
                                 <button onClick={async () => { try { await api.updateItem(cat.id, item.id, itemForm); await load(); } catch(e){console.error(e);} setEditItemId(null); }} style={btnSave}>Save</button>
-                                <button onClick={() => setEditItemId(null)} style={btnCancel}>✕</button>
+                                <button aria-label="Close" onClick={() => setEditItemId(null)} style={btnCancel}>✕</button>
                               </div>
                             ) : (
                               <button onClick={() => { setEditItemId(item.id); setItemForm({ label: item.label, reference: item.reference }); }} style={btnEdit}>Edit</button>
@@ -386,7 +388,7 @@ function RulesTab() {
             source: c.source, field: c.field, operator: c.operator, value: c.value || null
           }))
         };
-        if (conditions.checks.length < 2) { alert("Compound rules need at least 2 conditions"); return; }
+        if (conditions.checks.length < 2) { notify("Compound rules need at least 2 conditions"); return; }
         await api.createRule({
           item_id: parseInt(addForm.item_id), priority: addForm.priority,
           source: "compound", field: "compound", operator: "compound", value: null,
@@ -400,7 +402,7 @@ function RulesTab() {
       setShowAdd(false);
       setAddForm({ item_id: "", priority: 0, source: "app", field: "", operator: "exists", value: "", result: "review", confidence: 0.8, reason_template: "", mode: "simple" });
       setCompoundChecks([{ source: "app", field: "", operator: "gte", value: "" }]);
-    } catch (e) { console.error(e); alert("Failed: " + e.message); }
+    } catch (e) { console.error(e); notify("Failed: " + e.message); }
   };
 
   const handleSwap = async (groupRules, ruleIndex, direction) => {
@@ -429,23 +431,23 @@ function RulesTab() {
       a.download = `cams-rules-backup-${new Date().toISOString().split("T")[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (e) { alert("Export failed: " + (e.message || e)); }
+    } catch (e) { notify("Export failed: " + (e.message || e)); }
   };
 
   const handleImport = async (file, mode) => {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      if (!data.rules?.length) { alert("No rules found in file"); return; }
+      if (!data.rules?.length) { notify("No rules found in file"); return; }
       const confirmMsg = mode === "replace"
         ? `Replace ALL current rules with ${data.rules.length} rules from backup?\n\nExported by: ${data.exported_by || "unknown"}\nDate: ${data.exported_at || "unknown"}`
         : `Merge ${data.rules.length} rules from backup into existing rules?`;
       if (!window.confirm(confirmMsg)) return;
       setSaving("import");
       const res = await api.importRules(data, mode);
-      alert(res.message || "Import complete");
+      notify(res.message || "Import complete");
       await load();
-    } catch (e) { alert("Import failed: " + (e.message || e)); }
+    } catch (e) { notify("Import failed: " + (e.message || e)); }
     setSaving(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -470,12 +472,12 @@ function RulesTab() {
             setSaving("reset");
             try {
               const res = await api.resetRules();
-              alert(res.message || "Rules reset successfully");
+              notify(res.message || "Rules reset successfully");
               await load();
-            } catch (e) { alert("Reset failed: " + (e.message || e)); }
+            } catch (e) { notify("Reset failed: " + (e.message || e)); }
             setSaving(null);
           }} disabled={saving === "reset"}
-            style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #e67e22", background: "#fef5e7", color: "#e67e22", fontWeight: T.w.bold, fontSize: 12, cursor: saving === "reset" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "reset" ? 0.5 : 1 }}>
+            style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #e67e22", background: "#fef5e7", color: "#a8530a", fontWeight: T.w.bold, fontSize: 12, cursor: saving === "reset" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "reset" ? 0.5 : 1 }}>
             {saving === "reset" ? "⟳ Resetting..." : "🔄 Reset Rules"}
           </button>
           <button onClick={async () => {
@@ -484,21 +486,21 @@ function RulesTab() {
             setSaving("reseed");
             try {
               const res = await api.reseedRules();
-              alert(res.message || "Full reseed complete");
+              notify(res.message || "Full reseed complete");
               await load();
-            } catch (e) { alert("Reseed failed: " + (e.message || e)); }
+            } catch (e) { notify("Reseed failed: " + (e.message || e)); }
             setSaving(null);
           }} disabled={saving === "reseed"}
             style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #c0392b", background: "#fdedec", color: "#c0392b", fontWeight: T.w.bold, fontSize: 12, cursor: saving === "reseed" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "reseed" ? 0.5 : 1 }}>
             {saving === "reseed" ? "⟳ Reseeding..." : "⚠️ Full Reseed"}
           </button>
           <button onClick={handleExport}
-            style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #27ae60", background: "#eafaf1", color: "#27ae60", fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #27ae60", background: "#eafaf1", color: "#1b7a43", fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
             📥 Backup
           </button>
           <div style={{ position: "relative", display: "inline-block" }}>
             <button onClick={() => fileInputRef.current?.click()} disabled={saving === "import"}
-              style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #3498db", background: "#ebf5fb", color: "#3498db", fontWeight: T.w.bold, fontSize: 12, cursor: saving === "import" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "import" ? 0.5 : 1 }}>
+              style={{ padding: "5px 12px", borderRadius: T.r.sm, border: "1px solid #3498db", background: "#ebf5fb", color: "#1f6aa5", fontWeight: T.w.bold, fontSize: 12, cursor: saving === "import" ? "wait" : "pointer", fontFamily: "inherit", opacity: saving === "import" ? 0.5 : 1 }}>
               {saving === "import" ? "⟳ Importing..." : "📤 Restore"}
             </button>
             <input ref={fileInputRef} type="file" accept=".json" style={{ display: "none" }}
@@ -514,9 +516,9 @@ function RulesTab() {
             <div style={{ fontSize: 13, fontWeight: T.w.black, color: T.c.text }}>New Assessment Rule</div>
             <div style={{ display: "flex", gap: 4 }}>
               <button onClick={() => setAddForm(f => ({...f, mode: "simple"}))}
-                style={{ padding: "3px 10px", borderRadius: 12, border: addForm.mode === "simple" ? "2px solid #3498db" : "1px solid #d5dde2", background: addForm.mode === "simple" ? "#ebf5fb" : "#fff", color: addForm.mode === "simple" ? "#3498db" : "#7a8a94", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Simple</button>
+                style={{ padding: "3px 10px", borderRadius: 12, border: addForm.mode === "simple" ? "2px solid #3498db" : "1px solid #d5dde2", background: addForm.mode === "simple" ? "#ebf5fb" : "#fff", color: addForm.mode === "simple" ? "#1f6aa5" : "#5a6a74", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Simple</button>
               <button onClick={() => setAddForm(f => ({...f, mode: "compound"}))}
-                style={{ padding: "3px 10px", borderRadius: 12, border: addForm.mode === "compound" ? "2px solid #8e44ad" : "1px solid #d5dde2", background: addForm.mode === "compound" ? "#f4ecf7" : "#fff", color: addForm.mode === "compound" ? "#8e44ad" : "#7a8a94", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>AND / OR</button>
+                style={{ padding: "3px 10px", borderRadius: 12, border: addForm.mode === "compound" ? "2px solid #8e44ad" : "1px solid #d5dde2", background: addForm.mode === "compound" ? "#f4ecf7" : "#fff", color: addForm.mode === "compound" ? "#8e44ad" : "#5a6a74", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>AND / OR</button>
             </div>
           </div>
           <div className="cams-stack-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px 12px" }}>
@@ -584,7 +586,7 @@ function RulesTab() {
                   </select>
                   <input value={check.value} onChange={e => { const nc = [...compoundChecks]; nc[ci] = {...nc[ci], value: e.target.value}; setCompoundChecks(nc); }} style={{ ...inputS, width: 60 }} placeholder="value" />
                   {compoundChecks.length > 1 && (
-                    <button onClick={() => setCompoundChecks(compoundChecks.filter((_, i) => i !== ci))} style={{ border: "none", background: "transparent", color: "#c0392b", cursor: "pointer", fontSize: 13, padding: 0 }}>✕</button>
+                    <button aria-label="Remove" onClick={() => setCompoundChecks(compoundChecks.filter((_, i) => i !== ci))} style={{ border: "none", background: "transparent", color: "#c0392b", cursor: "pointer", fontSize: 13, padding: 0 }}>✕</button>
                   )}
                 </div>
               ))}
@@ -628,10 +630,10 @@ function RulesTab() {
                     const checks = rule.conditions.checks || [];
                     return (
                       <div style={{ fontSize: 12 }}>
-                        <span style={{ background: logic === "OR" ? "#e74c3c18" : "#2980b918", color: logic === "OR" ? "#c0392b" : "#2980b9", padding: "1px 5px", borderRadius: 3, fontWeight: 700, fontSize: 12, marginRight: 4 }}>{logic}</span>
+                        <span style={{ background: logic === "OR" ? "#e74c3c18" : "#2980b918", color: logic === "OR" ? "#c0392b" : "#1f6aa5", padding: "1px 5px", borderRadius: 3, fontWeight: 700, fontSize: 12, marginRight: 4 }}>{logic}</span>
                         {checks.map((c, ci) => (
                           <div key={ci} style={{ marginTop: 2, paddingLeft: 8, borderLeft: `2px solid ${logic === "OR" ? "#e74c3c40" : "#2980b940"}` }}>
-                            <span style={{ background: c.source === "sp" ? "#f4ecf7" : c.source === "doc" ? "#fef5e7" : "#ebf5fb", color: c.source === "sp" ? "#8e44ad" : c.source === "doc" ? "#e67e22" : "#2980b9", padding: "0 3px", borderRadius: 2, fontSize: 12, fontWeight: 600 }}>{c.source}</span>
+                            <span style={{ background: c.source === "sp" ? "#f4ecf7" : c.source === "doc" ? "#fef5e7" : "#ebf5fb", color: c.source === "sp" ? "#8e44ad" : c.source === "doc" ? "#a8530a" : "#1f6aa5", padding: "0 3px", borderRadius: 2, fontSize: 12, fontWeight: 600 }}>{c.source}</span>
                             <code style={{ fontSize: 12, color: T.c.grey800, marginLeft: 3 }}>{c.field}</code>
                             <span style={{ fontWeight: 700, margin: "0 3px", fontSize: 12 }}>{OPERATOR_LABELS[c.operator] || c.operator}</span>
                             {c.value && <span style={{ color: T.c.info, fontWeight: 600, fontSize: 12 }}>{c.value}</span>}
@@ -641,7 +643,7 @@ function RulesTab() {
                     );
                   })() : (
                     <div style={{ fontSize: 12 }}>
-                      <span style={{ background: rule.source === "sp" ? "#f4ecf7" : rule.source === "doc" ? "#fef5e7" : "#ebf5fb", color: rule.source === "sp" ? "#8e44ad" : rule.source === "doc" ? "#e67e22" : "#2980b9", padding: "1px 5px", borderRadius: 3, fontWeight: 700, fontSize: 12 }}>{rule.source}</span>
+                      <span style={{ background: rule.source === "sp" ? "#f4ecf7" : rule.source === "doc" ? "#fef5e7" : "#ebf5fb", color: rule.source === "sp" ? "#8e44ad" : rule.source === "doc" ? "#a8530a" : "#1f6aa5", padding: "1px 5px", borderRadius: 3, fontWeight: 700, fontSize: 12 }}>{rule.source}</span>
                       <code style={{ fontSize: 12, color: T.c.grey800, marginLeft: 4 }}>{rule.field}</code>
                       <span style={{ fontWeight: 700, margin: "0 3px", fontSize: 12 }}>{OPERATOR_LABELS[rule.operator] || rule.operator}</span>
                       {rule.value && <span style={{ color: T.c.info, fontWeight: 600, fontSize: 12 }}>{rule.value}</span>}
@@ -670,16 +672,16 @@ function RulesTab() {
                         {ed ? (
                           <div style={{ display: "flex", gap: 3 }}>
                             <button onClick={() => handleSave(rule)} style={btnSave}>Save</button>
-                            <button onClick={() => setEditId(null)} style={btnCancel}>✕</button>
+                            <button aria-label="Close" onClick={() => setEditId(null)} style={btnCancel}>✕</button>
                           </div>
                         ) : (
                           <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-                            <button onClick={() => handleSwap(sortedArr, ruleIdx, -1)} disabled={isFirst}
+                            <button aria-label="Move up (higher priority)" onClick={() => handleSwap(sortedArr, ruleIdx, -1)} disabled={isFirst}
                               style={{ ...btnEdit, padding: "3px 5px", opacity: isFirst ? 0.3 : 1 }} title="Move up (higher priority)">▲</button>
-                            <button onClick={() => handleSwap(sortedArr, ruleIdx, 1)} disabled={isLast}
+                            <button aria-label="Move down (lower priority)" onClick={() => handleSwap(sortedArr, ruleIdx, 1)} disabled={isLast}
                               style={{ ...btnEdit, padding: "3px 5px", opacity: isLast ? 0.3 : 1 }} title="Move down (lower priority)">▼</button>
                             <button onClick={() => { setEditId(rule.id); setForm({ priority: rule.priority, source: rule.source, field: rule.field, operator: rule.operator, value: rule.value, result: rule.result, confidence: rule.confidence, reason_template: rule.reason_template }); }} style={btnEdit}>Edit</button>
-                            <button onClick={() => handleDelete(rule.id)} style={btnDel}>✕</button>
+                            <button aria-label="Remove" onClick={() => handleDelete(rule.id)} style={btnDel}>✕</button>
                           </div>
                         )}
                       </td>
@@ -799,7 +801,7 @@ function GeoDataTab() {
       {msg && (
         <div style={{ padding: "10px 14px", borderRadius: T.r.md, marginBottom: 12, fontSize: 13,
           background: msg.type === 'ok' ? "#e8f8f5" : "#fdf0ef",
-          color: msg.type === 'ok' ? "#1abc9c" : "#e74c3c",
+          color: msg.type === 'ok' ? "#0b7a64" : "#c0392b",
           border: `1px solid ${msg.type === 'ok' ? "#b8f0e0" : "#f5c6c2"}` }}>
           {msg.text}
         </div>
@@ -887,7 +889,7 @@ function DeletedAppsTab() {
     try {
       await api.restoreApplication(id);
       setDeleted(prev => prev.filter(a => a.id !== id));
-    } catch (e) { alert("Restore failed: " + (e.message || e)); }
+    } catch (e) { notify("Restore failed: " + (e.message || e)); }
     setRestoring(null);
   };
 
@@ -928,7 +930,7 @@ function DeletedAppsTab() {
                 <button
                   onClick={() => handleRestore(a.id, a.ref_number)}
                   disabled={restoring === a.id}
-                  style={{ padding: "5px 14px", borderRadius: T.r.md, border: "1px solid #27ae60", background: restoring === a.id ? "#ccc" : "#e8f8f0", color: "#27ae60", fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}
+                  style={{ padding: "5px 14px", borderRadius: T.r.md, border: "1px solid #27ae60", background: restoring === a.id ? "#ccc" : "#e8f8f0", color: "#1b7a43", fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}
                 >
                   {restoring === a.id ? "Restoring…" : "Restore"}
                 </button>
@@ -962,7 +964,7 @@ function SystemAdmin({ users, setUsers, currentUser, ROLE_CONFIG: ROLE_CONFIG_PR
       <div style={{ display: "flex", gap: 3, marginBottom: 16, flexWrap: "wrap" }}>
         {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            style={{ padding: "8px 16px", borderRadius: T.r.md, border: activeTab === tab.id ? "2px solid #1abc9c" : "1px solid #d5dde2", background: activeTab === tab.id ? "#e8f8f5" : "#fff", color: activeTab === tab.id ? "#1abc9c" : "#7a8a94", fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+            style={{ padding: "8px 16px", borderRadius: T.r.md, border: activeTab === tab.id ? "2px solid #1abc9c" : "1px solid #d5dde2", background: activeTab === tab.id ? "#e8f8f5" : "#fff", color: activeTab === tab.id ? "#0b7a64" : "#5a6a74", fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
             <span>{tab.icon}</span>{tab.label}
           </button>
         ))}

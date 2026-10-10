@@ -171,3 +171,14 @@ a, button, input, select, textarea { transition: border-color 0.15s ease, box-sh
   .cams-stack-2 { grid-template-columns: 1fr 1fr !important; }
   .dashboard-metrics > * { flex: 1 1 30% !important; min-width: 90px !important; }
 }
+
+/* Keyboard focus: always visible, even where inline styles remove outlines */
+:focus-visible {
+  outline: 3px solid #0b7a64 !important;
+  outline-offset: 2px !important;
+}
+.skip-link {
+  position: fixed; left: 12px; top: -60px; z-index: 30000;
+  background: #1a3a4a; color: #fff; padding: 10px 14px; border-radius: 8px; font-weight: 700; text-decoration: none;
+}
+.skip-link:focus { top: 12px; }

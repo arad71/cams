@@ -20,7 +20,7 @@ const palette = {
   blue300: "#3498db", blue400: "#2980b9", blue500: "#1a6da2",
   grey50: "#fafbfc", grey100: "#f5f8fa", grey200: "#eef2f5",
   grey300: "#e4e9ec", grey400: "#d5dde2", grey500: "#b0bec5",
-  grey600: "#95a5a6", grey700: "#7a8a94", grey800: "#5a6a74", grey900: "#3a4a54",
+  grey600: "#6b7b85", grey700: "#7a8a94", grey800: "#5a6a74", grey900: "#3a4a54",
   white: "#ffffff", black: "#000000",
 };
 
@@ -32,13 +32,14 @@ export const T = {
     primaryLight: palette.navy50,
     accent: palette.teal400,
     accentLight: palette.teal50,
-    success: palette.green400,
+    // Semantic colours are used for text and for buttons with white text, so all meet 4.5:1
+    success: "#1b7a43",
     successLight: palette.green50,
-    danger: palette.red400,
+    danger: palette.red500,
     dangerLight: palette.red50,
-    warning: palette.amber300,
+    warning: "#a8530a",
     warningLight: palette.amber50,
-    info: palette.blue300,
+    info: "#1f6aa5",
     infoLight: palette.blue50,
     bg: palette.grey100,
     bgAlt: palette.grey50,

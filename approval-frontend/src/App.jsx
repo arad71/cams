@@ -5,6 +5,7 @@ import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from './data/constants';
 import LoginScreen from './views/LoginScreen';
 import { T } from './styles/tokens';
 import useIsMobile from './hooks/useIsMobile';
+import ToastHost from './components/ui/Toast';
 import ApplicationListView from './views/ApplicationListView';
 import ApplicationDetailView from './views/ApplicationDetailView';
 import InspectionsView from './views/InspectionsView';
@@ -317,7 +318,7 @@ export default function CouncilApprovalPortal() {
         {changePwSuccess ? (
           <div style={{ padding: "16px", background: T.c.successLight, borderRadius: 8, textAlign: "center" }}>
             <div style={{ fontSize: 24, marginBottom: 4 }}>✅</div>
-            <div style={{ fontWeight: 700, color: "#27ae60" }}>Password changed successfully!</div>
+            <div style={{ fontWeight: 700, color: "#1b7a43" }}>Password changed successfully!</div>
           </div>
         ) : (
           <>
@@ -384,10 +385,12 @@ export default function CouncilApprovalPortal() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", width: "100vw", maxWidth: "100vw", fontFamily: "'DM Sans','Segoe UI',sans-serif", background: T.c.borderLight, position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(26,188,156,0.1)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap');html,body,#root{margin:0;padding:0;width:100%;height:100%;overflow-x:hidden}*{box-sizing:border-box}input:focus,select:focus,textarea:focus{border-color:#1abc9c!important;box-shadow:0 0 0 3px rgba(11,122,100,0.35)!important;outline:none}::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#c8d0d4;border-radius:3px}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}.lot-tooltip{font-family:'DM Sans',sans-serif!important;font-size:11px!important;padding:4px 8px!important;border-radius:4px!important}`}</style>
+      <a href="#main-content" className="skip-link">Skip to main content</a>
+      <ToastHost />
       {ChangePasswordModal}
       <Sidebar activeView={activeView} setActiveView={v => { setActiveView(v); setSelectedApp(null); }} apps={visibleApps} collapsed={isMobile ? false : sidebarCollapsed} setCollapsed={setSidebarCollapsed} currentUser={currentUser} onLogout={handleLogout} ROLE_CONFIG={ROLE_CONFIG} branding={S} mobile={isMobile} open={navOpen} onClose={() => setNavOpen(false)} />
-      <div style={{ flex: "1 1 0%", padding: isMobile ? "10px 10px" : "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
+      <main id="main-content" tabIndex={-1} style={{ outline: "none", flex: "1 1 0%", padding: isMobile ? "10px 10px" : "16px 20px", overflowY: "auto", overflowX: "hidden", minWidth: 0, width: "100%" }}>
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14,
           padding: "8px 14px", background: "#fff", borderRadius: 12,
@@ -413,7 +416,7 @@ export default function CouncilApprovalPortal() {
         <div style={{ marginTop: 24, padding: "10px 0", borderTop: "1px solid #eef1f3", textAlign: "center", fontSize: 12, color: "#6b7b85", letterSpacing: "0.02em" }}>
           {S.copyright} · {S.systemShort} v{S.version}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

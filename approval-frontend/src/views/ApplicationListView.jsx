@@ -5,6 +5,7 @@ import api from '../services/api';
 import { apiAppToFrontend } from '../utils/transforms';
 import { T, S, cx } from '../styles/tokens';
 
+import { onActivate } from "../utils/a11y";
 // ─── Styles ────────────────────────────────────────────
 const overlay = { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(12,31,46,0.55)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" };
 const modalBox = { background: T.c.card, borderRadius: 16, width: "min(720px, 94vw)", maxHeight: "88vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 80px rgba(12,31,46,0.28)", overflow: "hidden" };
@@ -12,7 +13,7 @@ const inputBase = { width: "100%", padding: "9px 12px", borderRadius: T.r.md, bo
 const selectBase = { ...inputBase, appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b8090' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 };
 const labelStyle = { display: "block", fontSize: 12, fontWeight: T.w.bold, color: T.c.grey800, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.04em" };
 const sectionTitle = { fontSize: 13, fontWeight: T.w.black, color: T.c.text, margin: "18px 0 10px", paddingBottom: 6, borderBottom: "1px solid #edf1f4", display: "flex", alignItems: "center", gap: 6 };
-const btnPrimary = { padding: "10px 28px", borderRadius: T.r.lg, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontWeight: T.w.bold, fontSize: 14, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(26,188,156,0.25)", transition: "opacity 0.15s" };
+const btnPrimary = { padding: "10px 28px", borderRadius: T.r.lg, border: "none", background: "linear-gradient(135deg, #1abc9c, #0b7a64)", color: T.c.white, fontWeight: T.w.bold, fontSize: 14, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 2px 12px rgba(26,188,156,0.25)", transition: "opacity 0.15s" };
 const btnSecondary = { padding: "10px 24px", borderRadius: T.r.lg, border: "1.5px solid #d5dde2", background: T.c.card, color: T.c.grey800, fontWeight: T.w.semi, fontSize: 14, cursor: "pointer", fontFamily: "inherit" };
 
 function Field({ label, required, span, children }) {
@@ -207,7 +208,7 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
   const inputRef = useRef(null);
   const hasFile = !!file;
   return (
-    <div style={{ padding: "12px 14px", borderRadius: T.r.lg, border: hasFile ? "1.5px solid #27ae60" : skipped ? "1.5px solid #95a5a6" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : skipped ? "#f8f9fa" : "#fafcfa", transition: "all 0.2s", opacity: skipped ? 0.7 : 1 }}>
+    <div style={{ padding: "12px 14px", borderRadius: T.r.lg, border: hasFile ? "1.5px solid #1b7a43" : skipped ? "1.5px solid #66767f" : "1.5px dashed #c8d5cb", background: hasFile ? "#f0faf3" : skipped ? "#f8f9fa" : "#fafcfa", transition: "all 0.2s", opacity: skipped ? 0.7 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
         <span style={{ fontSize: 18 }}>{cat.icon}</span>
         <div style={{ flex: 1 }}>
@@ -220,7 +221,7 @@ function DocUploadCard({ cat, file, onFileChange, processing, processResult, ski
       {hasFile ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#e8f5e9", borderRadius: T.r.md }}>
           <span style={{ fontSize: 12, color: "#2c6e49", fontWeight: T.w.semi, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
-          <button onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 13, fontWeight: T.w.bold, padding: "2px 6px" }}>✕</button>
+          <button aria-label="Close" onClick={() => onFileChange(null)} style={{ background: "none", border: "none", color: "#c0392b", cursor: "pointer", fontSize: 13, fontWeight: T.w.bold, padding: "2px 6px" }}>✕</button>
         </div>
       ) : skipped ? (
         <button onClick={() => onSkip(false)}
@@ -739,7 +740,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
           ))}
         </select>
-        <label style={{ padding: "8px 18px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontSize: 13, fontWeight: T.w.bold, cursor: anyProcessing ? "default" : "pointer", fontFamily: "inherit", opacity: anyProcessing ? 0.6 : 1, whiteSpace: "nowrap" }}>
+        <label style={{ padding: "8px 18px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #0b7a64)", color: T.c.white, fontSize: 13, fontWeight: T.w.bold, cursor: anyProcessing ? "default" : "pointer", fontFamily: "inherit", opacity: anyProcessing ? 0.6 : 1, whiteSpace: "nowrap" }}>
           {anyProcessing ? "⏳ Processing…" : "📤 Choose File"}
           <input type="file" accept="*" style={{ display: "none" }}
             disabled={anyProcessing}
@@ -780,7 +781,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
                   {!isProcessing && pr?.success && <span style={{ fontSize: 12, color: T.c.success, fontWeight: T.w.bold }}>✅ {pr.title || "Done"}</span>}
                   {!isProcessing && pr && !pr.success && <span style={{ fontSize: 12, color: T.c.amber400, fontWeight: T.w.bold }}>⚠ {pr.title || "Issue"}</span>}
                   {!isProcessing && !pr && <span style={{ fontSize: 12, color: T.c.success, fontWeight: T.w.bold }}>✓</span>}
-                  <button onClick={() => handleDocChange(catId, null)}
+                  <button aria-label="Close" onClick={() => handleDocChange(catId, null)}
                     style={{ padding: "4px 8px", borderRadius: 5, border: `1px solid ${T.c.border}`, background: T.c.card, color: "#c0392b", fontSize: 12, fontWeight: T.w.bold, cursor: "pointer", fontFamily: "inherit" }}>✕</button>
                 </div>
                 {pr && (
@@ -812,7 +813,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
       <div style={{ ...sectionTitle, marginTop: 22 }}><span>📍</span> Property Address</div>
       <Field label="Property Address" required>
         <div style={{ position: "relative" }} ref={suggestionsRef}>
-          <input style={{ ...inputBase, borderColor: lotMatch === "found" ? "#27ae60" : lotMatch === "not_found" ? "#f39c12" : T.c.grey400 }}
+          <input style={{ ...inputBase, borderColor: lotMatch === "found" ? "#1b7a43" : lotMatch === "not_found" ? "#f39c12" : T.c.grey400 }}
             value={form.property_address} onChange={handleAddressInput} onBlur={handleAddressBlur}
             onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
             placeholder="Start typing an address... e.g. 54 Stirling" autoComplete="off" />
@@ -820,7 +821,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999, background: T.c.card, borderRadius: "0 0 8px 8px", border: "1.5px solid #d5dde2", borderTop: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.15)", maxHeight: 220, overflowY: "auto" }}
               onMouseDown={e => e.preventDefault()}>
               {suggestions.map((s, i) => (
-                <div key={i} onClick={(e) => { e.stopPropagation(); selectSuggestion(s); }}
+                <div role="button" tabIndex={0} onKeyDown={onActivate((e) => { e.stopPropagation(); selectSuggestion(s); })} key={i} onClick={(e) => { e.stopPropagation(); selectSuggestion(s); }}
                   style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #f5f7f8", fontSize: 13, color: T.c.text }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f0f8ff"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -905,7 +906,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
             <button key={i} onClick={() => { if (i <= step || canGoNext()) setStep(i); }}
               style={{ flex: 1, padding: "10px 6px", background: "none", border: "none", borderBottom: step === i ? "2.5px solid #1abc9c" : "2.5px solid transparent", cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
               <div style={{ fontSize: 14, marginBottom: 2 }}>{s.icon}</div>
-              <div style={{ fontSize: 12, fontWeight: step === i ? 800 : 500, color: step === i ? "#1abc9c" : i < step ? "#1a3a4a" : "#9aabb5", textTransform: "uppercase", letterSpacing: "0.03em" }}>{s.label}</div>
+              <div style={{ fontSize: 12, fontWeight: step === i ? 800 : 500, color: step === i ? "#0b7a64" : i < step ? "#1a3a4a" : "#66767f", textTransform: "uppercase", letterSpacing: "0.03em" }}>{s.label}</div>
             </button>
           ))}
         </div>
@@ -914,7 +915,7 @@ function NewApplicationModal({ onClose, onCreated, globalLotsData }) {
           {error && <div style={{ marginTop: 14, padding: "10px 14px", background: T.c.dangerLight, borderRadius: T.r.md, fontSize: 13, color: "#c0392b", fontWeight: T.w.semi }}>⚠️ {error}</div>}
         </div>
         <div style={{ padding: "14px 24px", borderTop: "1px solid #edf1f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: T.c.bgAlt }}>
-          <div style={{ fontSize: 12, color: "#9aabb5" }}>
+          <div style={{ fontSize: 12, color: "#66767f" }}>
             Step {step + 1} of {steps.length}
             {docCount > 0 && <span style={{ color: T.c.info, marginLeft: 10 }}>📎 {docCount} doc{docCount > 1 ? "s" : ""}</span>}
             {sitePlanData && <span style={{ color: "#8e44ad", marginLeft: 10 }}>🤖 AI</span>}
@@ -982,14 +983,14 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
       <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
         {[
           { key: "all", label: "All", color: "#1a3a4a" },
-          { key: "pending_review", label: "Pending", color: "#e67e22" },
-          { key: "in_assessment", label: "Assessment", color: "#3498db" },
-          { key: "approved", label: "Approved", color: "#27ae60" },
+          { key: "pending_review", label: "Pending", color: "#a8530a" },
+          { key: "in_assessment", label: "Assessment", color: "#1f6aa5" },
+          { key: "approved", label: "Approved", color: "#1b7a43" },
           { key: "rejected", label: "Rejected", color: "#c0392b" },
           { key: "referred", label: "Referred", color: "#8e44ad" },
         ].filter(f => f.key === "all" || statusCounts[f.key]).map(f => (
           <button key={f.key} onClick={() => setSf(f.key)}
-            style={{ padding: "3px 10px", borderRadius: 12, border: sf === f.key ? `1.5px solid ${f.color}` : "1px solid #e4e9ec", background: sf === f.key ? `${f.color}10` : "#fff", color: sf === f.key ? f.color : "#7a8a94", fontSize: 12, fontWeight: sf === f.key ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "3px 10px", borderRadius: 12, border: sf === f.key ? `1.5px solid ${f.color}` : "1px solid #e4e9ec", background: sf === f.key ? `${f.color}10` : "#fff", color: sf === f.key ? f.color : "#5a6a74", fontSize: 12, fontWeight: sf === f.key ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}>
             {f.label} {statusCounts[f.key] != null && <span style={{ fontWeight: 700 }}>({statusCounts[f.key] || 0})</span>}
           </button>
         ))}
@@ -1016,14 +1017,14 @@ export default function ApplicationListView({ apps, filter, onSelectApp, onAppCr
           <tbody>{filtered.length === 0 ? (<tr><td colSpan={6} style={{ padding: "32px 12px", textAlign: "center", color: T.c.textMuted, fontSize: 13 }}>{search ? "No applications match your search." : "No applications found."}</td></tr>) : filtered.map(app => {
             const sc = STATUS_CONFIG[app.status] || {};
             return (
-            <tr key={app.id} onClick={() => onSelectApp(app)} style={{ cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+            <tr tabIndex={0} onKeyDown={onActivate(() => onSelectApp(app))} key={app.id} onClick={() => onSelectApp(app)} style={{ cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafb"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
               <td style={{ padding: "8px 12px", fontWeight: T.w.bold, color: T.c.info, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12 }}>{app.id}</td>
               <td className="app-list-hide-mobile" style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12 }}>{app.owner?.name || "—"}</td>
               <td style={{ padding: "8px 12px", color: T.c.grey800, borderBottom: `1px solid ${T.c.borderLight}`, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12 }}>{app.property?.address || "—"}</td>
               <td className="app-list-hide-mobile" style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12, color: T.c.textMuted }}>{app.submittedDate ? new Date(app.submittedDate).toLocaleDateString("en-AU") : "—"}</td>
               <td className="app-list-hide-mobile" style={{ padding: "8px 12px", fontWeight: T.w.semi, borderBottom: `1px solid ${T.c.borderLight}`, fontSize: 12 }}>{app.crossover?.width || "—"}m</td>
               <td style={{ padding: "8px 12px", borderBottom: `1px solid ${T.c.borderLight}` }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600, background: `${sc.color || "#7a8a94"}12`, color: sc.color || "#7a8a94" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 10, fontSize: 12, fontWeight: 600, background: `${sc.color || "#7a8a94"}12`, color: sc.color || "#5a6a74" }}>
                   <span style={{ width: 7, height: 7, borderRadius: "50%", background: sc.color || "#7a8a94" }} />
                   {sc.label || app.status}
                 </span>

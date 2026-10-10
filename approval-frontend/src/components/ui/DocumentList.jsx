@@ -4,6 +4,8 @@ import SitePlanMeasure from './SitePlanMeasure';
 import SitePlanGeoref from './SitePlanGeoref';
 import { T, S, cx } from '../../styles/tokens';
 
+import { onActivate } from "../../utils/a11y";
+import { notify } from "./Toast";
 const typeIcons = { pdf: "📄", jpg: "🖼️", png: "🖼️", jpeg: "🖼️", doc: "📝", docx: "📝", dwg: "📐" };
 const STATUS_OPTIONS = [
   { value: "received",  label: "Received",  color: T.c.info, icon: "📥", bg: "#ebf5fb" },
@@ -83,7 +85,7 @@ function DocViewer({ doc, appDbId, app, onClose }) {
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 13, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px" }}>↗</button>
           <button onClick={toggleMaximize} title={maximized ? "Restore" : "Maximize"}
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 13, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px" }}>{maximized ? "❐" : "□"}</button>
-          <button onClick={onClose} title="Close"
+          <button aria-label="Close" onClick={onClose} title="Close"
             style={{ background: "rgba(255,255,255,0.15)", border: "none", color: T.c.white, fontSize: 14, cursor: "pointer", borderRadius: T.r.sm, padding: "2px 6px" }}>✕</button>
         </div>
       </div>
@@ -103,7 +105,7 @@ function DocViewer({ doc, appDbId, app, onClose }) {
               <div style={{ fontSize: 14, color: T.c.grey800, fontWeight: T.w.semi }}>Preview not available for {doc.type.toUpperCase()} files</div>
               <div style={{ display: "flex", gap: 8 }}>
                 <a href={downloadUrl} download={doc.name}
-                  style={{ padding: "8px 18px", borderRadius: T.r.md, background: "#2980b9", color: T.c.white, fontWeight: T.w.bold, fontSize: 13, textDecoration: "none" }}>📥 Download</a>
+                  style={{ padding: "8px 18px", borderRadius: T.r.md, background: "#1f6aa5", color: T.c.white, fontWeight: T.w.bold, fontSize: 13, textDecoration: "none" }}>📥 Download</a>
                 <button onClick={() => window.open(fileUrl, "_blank")}
                   style={{ padding: "8px 18px", borderRadius: T.r.md, background: T.c.primary, color: T.c.white, fontWeight: T.w.bold, fontSize: 13, border: "none", cursor: "pointer", fontFamily: "inherit" }}>↗ Open in Browser</button>
               </div>
@@ -144,7 +146,7 @@ function DocViewer({ doc, appDbId, app, onClose }) {
                     {Object.entries(section.data).map(([key, val]) => (
                       <div key={key} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 12, borderBottom: "1px solid #f5f7f8" }}>
                         <span style={{ color: "#5a6a74", maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{key.replace(/_/g, ' ')}</span>
-                        <span style={{ fontWeight: 600, color: V(val) === '—' ? "#bdc3c7" : typeof val === 'boolean' ? (val ? "#27ae60" : "#c0392b") : "#1a3a4a", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
+                        <span style={{ fontWeight: 600, color: V(val) === '—' ? "#bdc3c7" : typeof val === 'boolean' ? (val ? "#1b7a43" : "#c0392b") : "#1a3a4a", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "right" }}>
                           {typeof val === 'boolean' ? (val ? '✓ Yes' : '✕ No') : typeof val === 'object' ? JSON.stringify(val).slice(0, 30) : V(val)}
                         </span>
                       </div>
@@ -185,13 +187,13 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
   };
 
   return (
-    <div style={{ borderTop: "2px solid #2980b9", background: T.c.bgAlt }}>
+    <div style={{ borderTop: "2px solid #1f6aa5", background: T.c.bgAlt }}>
       <div style={{ padding: "14px 16px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: T.w.bold, color: T.c.text }}>{typeIcons[doc.type] || "📄"} {doc.name}</div>
           <div style={{ fontSize: 12, color: T.c.textSecondary, marginTop: 2 }}>{doc.category} · {doc.type.toUpperCase()} · {doc.size} · Uploaded: {doc.date}</div>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: T.c.textMuted }}>✕</button>
+        <button aria-label="Close" onClick={onClose} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer", color: T.c.textMuted }}>✕</button>
       </div>
 
       {canReview && (
@@ -209,7 +211,7 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
                     style={{ flex: 1, padding: "8px 10px", borderRadius: T.r.md, cursor: "pointer", fontFamily: "inherit",
                       border: status === opt.value ? `2px solid ${opt.color}` : "1.5px solid #d5dde2",
                       background: status === opt.value ? opt.bg : "#fff",
-                      color: status === opt.value ? opt.color : "#7a8a94",
+                      color: status === opt.value ? opt.color : "#5a6a74",
                       fontWeight: status === opt.value ? 800 : 500, fontSize: 13 }}>
                     <div style={{ fontSize: 16, marginBottom: 2 }}>{opt.icon}</div>{opt.label}
                   </button>
@@ -228,7 +230,7 @@ function DocReviewPanel({ doc, appDbId, currentUser, onClose, onDocUpdated }) {
                 <button onClick={handleSave} disabled={saving || !hasChanges}
                   style={{ padding: "7px 18px", borderRadius: T.r.md, border: "none",
                     background: hasChanges ? `linear-gradient(135deg, ${sc.color}, ${sc.color}dd)` : T.c.grey400,
-                    color: hasChanges ? "#fff" : "#95a5a6", fontWeight: T.w.bold, fontSize: 13,
+                    color: hasChanges ? "#fff" : "#66767f", fontWeight: T.w.bold, fontSize: 13,
                     cursor: hasChanges ? "pointer" : "default", fontFamily: "inherit" }}>
                   {saving ? "Saving…" : hasChanges ? `💾 Save as ${getStatusConfig(status).label}` : "No Changes"}
                 </button>
@@ -411,12 +413,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
         <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
           {categories.map(c => (
             <button key={c} onClick={() => setFilter(c)} style={{ padding: "3px 8px", borderRadius: T.r.sm, border: "none", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit",
-              background: filter === c ? "#1a3a4a" : "#f5f8fa", color: filter === c ? "#fff" : "#7a8a94" }}>{c}</button>
+              background: filter === c ? "#1a3a4a" : "#f5f8fa", color: filter === c ? "#fff" : "#5a6a74" }}>{c}</button>
           ))}
           {canUpload && (
             <button onClick={() => setShowUpload(!showUpload)}
               style={{ padding: "3px 10px", borderRadius: T.r.sm, border: showUpload ? "2px solid #1abc9c" : "1px solid #d5dde2", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit",
-                background: showUpload ? "#e8f8f5" : "#fff", color: showUpload ? "#1abc9c" : "#7a8a94", marginLeft: 4 }}>
+                background: showUpload ? "#e8f8f5" : "#fff", color: showUpload ? "#0b7a64" : "#5a6a74", marginLeft: 4 }}>
               {showUpload ? "✕ Close" : "＋ Upload"}
             </button>
           )}
@@ -426,7 +428,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       {/* Upload panel */}
       {showUpload && canUpload && (
         <div style={{ padding: "10px 16px", background: "#f0faf7", borderBottom: "1px solid #d5f5e3" }}>
-          <div style={{ fontSize: 13, fontWeight: T.w.semi, color: "#1abc9c", marginBottom: 6, textTransform: "uppercase" }}>Upload New Document</div>
+          <div style={{ fontSize: 13, fontWeight: T.w.semi, color: "#0b7a64", marginBottom: 6, textTransform: "uppercase" }}>Upload New Document</div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <select value={uploadCat} onChange={e => setUploadCat(e.target.value)}
               style={{ padding: "6px 10px", borderRadius: T.r.md, border: "1.5px solid #d5dde2", fontSize: 12, fontFamily: "inherit", background: T.c.card, color: T.c.text, outline: "none", cursor: "pointer" }}>
@@ -434,14 +436,14 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 <option key={c.id} value={c.id}>{c.icon} {c.id}</option>
               ))}
             </select>
-            <label style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #16a085)", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: uploading ? "default" : "pointer", fontFamily: "inherit", opacity: uploading ? 0.6 : 1 }}>
+            <label style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "linear-gradient(135deg, #1abc9c, #0b7a64)", color: T.c.white, fontSize: 12, fontWeight: T.w.bold, cursor: uploading ? "default" : "pointer", fontFamily: "inherit", opacity: uploading ? 0.6 : 1 }}>
               {uploading ? "⟳ Uploading..." : "📤 Choose File"}
               <input ref={fileInputRef} type="file" accept={UPLOAD_CATEGORIES.find(c => c.id === uploadCat)?.accept || "*"} onChange={handleUpload} disabled={uploading} style={{ display: "none" }} />
             </label>
             {uploadSuccess && <span style={{ fontSize: 12, color: T.c.success, fontWeight: T.w.semi }}>✅ {uploadSuccess} uploaded</span>}
             {formExtracting && <span style={{ fontSize: 12, color: "#8e44ad", fontWeight: T.w.semi }}>🤖 Extracting form fields...</span>}
             {formExtractResult && (
-              <span style={{ fontSize: 12, color: formExtractResult.success ? "#27ae60" : "#e74c3c", fontWeight: T.w.semi }}>
+              <span style={{ fontSize: 12, color: formExtractResult.success ? "#1b7a43" : "#c0392b", fontWeight: T.w.semi }}>
                 {formExtractResult.success ? "✅" : "⚠"} {formExtractResult.message}
               </span>
             )}
@@ -464,7 +466,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
           const isImage = ["jpg", "jpeg", "png", "gif"].includes((doc.type || "").toLowerCase());
           const isPdf = (doc.type || "").toLowerCase() === "pdf";
           const thumbUrl = (isImage || isPdf) ? api.getDocumentFileUrl(appDbId, doc.id) + (isPdf ? "&page=1&thumb=1" : "") : null;
-          const catColors = { "Site Plan": "#8e44ad", "Application Form": "#3498db", "Certificate of Title": "#e67e22", "Building Application": "#c0392b", "Site Photos": "#27ae60", "Other Documents": "#7a8a94" };
+          const catColors = { "Site Plan": "#8e44ad", "Application Form": "#1f6aa5", "Certificate of Title": "#a8530a", "Building Application": "#c0392b", "Site Photos": "#1b7a43", "Other Documents": "#7a8a94" };
           const catColor = catColors[doc.category] || "#7a8a94";
           return (
             <div key={doc.id} style={{ borderBottom: "1px solid #f5f7f8" }}>
@@ -473,15 +475,15 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? "#ebf5fb" : "transparent"; }}>
                 {/* Thumbnail */}
                 {isImage && thumbUrl ? (
-                  <div style={{ width: 36, height: 36, borderRadius: 4, overflow: "hidden", border: "1px solid #e4e9ec", flexShrink: 0, cursor: "pointer" }} onClick={() => setViewerDoc(doc)}>
+                  <div role="button" tabIndex={0} onKeyDown={onActivate(() => setViewerDoc(doc))} style={{ width: 36, height: 36, borderRadius: 4, overflow: "hidden", border: "1px solid #e4e9ec", flexShrink: 0, cursor: "pointer" }} onClick={() => setViewerDoc(doc)}>
                     <img src={thumbUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   </div>
                 ) : (
-                  <div style={{ width: 36, height: 36, borderRadius: 4, background: `${catColor}10`, border: `1px solid ${catColor}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, cursor: "pointer" }} onClick={() => setViewerDoc(doc)}>
+                  <div role="button" tabIndex={0} onKeyDown={onActivate(() => setViewerDoc(doc))} style={{ width: 36, height: 36, borderRadius: 4, background: `${catColor}10`, border: `1px solid ${catColor}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, cursor: "pointer" }} onClick={() => setViewerDoc(doc)}>
                     {typeIcons[doc.type] || "📄"}
                   </div>
                 )}
-                <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setSelectedDocId(isSelected ? null : doc.id)}>
+                <div role="button" tabIndex={0} onKeyDown={onActivate(() => setSelectedDocId(isSelected ? null : doc.id))} style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setSelectedDocId(isSelected ? null : doc.id)}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: T.w.semi, color: T.c.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{doc.name}</span>
                     <span style={{ padding: "0 5px", borderRadius: 3, fontSize: 12, fontWeight: 600, background: `${catColor}12`, color: catColor, whiteSpace: "nowrap", flexShrink: 0 }}>{doc.category}</span>
@@ -505,7 +507,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   <a href={api.getDocumentDownloadUrl(appDbId, doc.id)} download={doc.name}
                     onClick={(e) => e.stopPropagation()}
                     title="Download"
-                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #27ae6040", background: "#f0faf3", color: T.c.success, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #1b7a4340", background: "#f0faf3", color: T.c.success, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
                     📥
                   </a>
                 {/* Measure button — for site plan docs */}
@@ -542,13 +544,13 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     setExtractMethod(doc.category === "Site Plan" ? "ai_live" : "ai_local");
                   }}
                     title={`AI Read ${doc.category}`}
-                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #16a08540", background: "#e8f8f5", color: "#16a085", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
+                    style={{ padding: "3px 7px", borderRadius: 4, border: "1px solid #0b7a6440", background: "#e8f8f5", color: "#0b7a64", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit" }}>
                     🤖
                   </button>
                 )}
                 {/* Delete button */}
                 {canUpload && (
-                  <button onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
+                  <button aria-label="Delete" onClick={(e) => { e.stopPropagation(); setDeleteDoc(doc); }}
                     title="Delete"
                     style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${T.c.border}`, background: "#fff", color: T.c.danger, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
                     🗑
@@ -556,7 +558,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 )}
                 </div>
                 {doc.reviewNote && <span title={doc.reviewNote} style={{ fontSize: 12, color: T.c.amber400, flexShrink: 0 }}>💬</span>}
-                <span onClick={() => setSelectedDocId(isSelected ? null : doc.id)}
+                <span role="button" tabIndex={0} onKeyDown={onActivate(() => setSelectedDocId(isSelected ? null : doc.id))} onClick={() => setSelectedDocId(isSelected ? null : doc.id)}
                   style={{ fontSize: 12, color: T.c.grey400, cursor: "pointer", transition: "transform 0.2s", transform: isSelected ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}>▼</span>
               </div>
             </div>
@@ -620,13 +622,13 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     setDeleteDoc(null);
                   } catch (err) {
                     console.error("Delete failed:", err);
-                    alert("Delete failed: " + (err.message || "Unknown error"));
+                    notify("Delete failed: " + (err.message || "Unknown error"));
                   }
                   setDeleting(false);
                 }} disabled={deleting}
                   style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none",
                     background: deleting ? T.c.grey400 : "linear-gradient(135deg, #e74c3c, #c0392b)",
-                    color: deleting ? "#95a5a6" : "#fff",
+                    color: deleting ? "#66767f" : "#fff",
                     fontWeight: T.w.bold, fontSize: 13, cursor: deleting ? "default" : "pointer", fontFamily: "inherit" }}>
                   {deleting ? "⟳ Deleting..." : "🗑 Delete Permanently"}
                 </button>
@@ -640,12 +642,12 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
       {/* AI extraction result toast */}
       {formExtractResult && !showUpload && (
         <div style={{ position: "fixed", top: 20, right: 20, zIndex: 10001, padding: "12px 20px", borderRadius: T.r.md,
-          background: formExtractResult.success ? "#eafaf1" : "#fdedec", border: `1px solid ${formExtractResult.success ? "#27ae60" : "#e74c3c"}`,
-          color: formExtractResult.success ? "#27ae60" : "#e74c3c", fontSize: 13, fontWeight: T.w.semi, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+          background: formExtractResult.success ? "#eafaf1" : "#fdedec", border: `1px solid ${formExtractResult.success ? "#1b7a43" : "#e74c3c"}`,
+          color: formExtractResult.success ? "#1b7a43" : "#c0392b", fontSize: 13, fontWeight: T.w.semi, boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
           display: "flex", alignItems: "center", gap: 8, maxWidth: 400 }}
           onClick={() => setFormExtractResult(null)}>
           {formExtractResult.success ? "✅" : "⚠"} {formExtractResult.message}
-          <button onClick={() => setFormExtractResult(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 14, marginLeft: 8 }}>✕</button>
+          <button aria-label="Close" onClick={() => setFormExtractResult(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "inherit", fontSize: 14, marginLeft: 8 }}>✕</button>
         </div>
       )}
 
@@ -660,7 +662,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                 </div>
                 <div style={{ fontSize: 12, color: T.c.textSecondary, marginTop: 2 }}>{extractDoc.name} · {extractDoc.category}</div>
               </div>
-              <button onClick={() => { setExtractDoc(null); setExtractResult(null); }} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.c.textMuted }}>✕</button>
+              <button aria-label="Close" onClick={() => { setExtractDoc(null); setExtractResult(null); }} style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: T.c.textMuted }}>✕</button>
             </div>
             <div style={{ padding: "16px 20px" }}>
 
@@ -705,9 +707,9 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                     ].map(m => (
                       <button key={m.id} onClick={() => setExtractMethod(m.id)}
                         style={{ flex: 1, padding: "8px 6px", borderRadius: T.r.md, fontSize: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "center",
-                          border: extractMethod === m.id ? "2px solid #16a085" : "1px solid #d5dde2",
+                          border: extractMethod === m.id ? "2px solid #0b7a64" : "1px solid #d5dde2",
                           background: extractMethod === m.id ? "#e8f8f5" : "#fff",
-                          color: extractMethod === m.id ? "#16a085" : T.c.grey800 }}>
+                          color: extractMethod === m.id ? "#0b7a64" : T.c.grey800 }}>
                         <div style={{ fontSize: 14, marginBottom: 2 }}>{m.icon}</div>
                         <div style={{ fontWeight: extractMethod === m.id ? T.w.bold : 500 }}>{m.label}</div>
                         <div style={{ fontSize: 12, color: T.c.textMuted, marginTop: 2 }}>{m.desc}</div>
@@ -716,10 +718,10 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   </div>
                 </div>
               ) : (
-                <div style={{ marginBottom: 12, padding: "8px 10px", background: "#e8f8f5", borderRadius: T.r.sm, border: "1px solid #16a08530", display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ marginBottom: 12, padding: "8px 10px", background: "#e8f8f5", borderRadius: T.r.sm, border: "1px solid #0b7a6430", display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 16 }}>💻</span>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: T.w.bold, color: "#16a085" }}>Local OCR Extraction</div>
+                    <div style={{ fontSize: 12, fontWeight: T.w.bold, color: "#0b7a64" }}>Local OCR Extraction</div>
                     <div style={{ fontSize: 12, color: T.c.textMuted }}>Standard form — processed locally, no AI API cost</div>
                   </div>
                 </div>
@@ -736,14 +738,14 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
               {extractResult && (
                 <div style={{ padding: "8px 12px", borderRadius: T.r.md, marginBottom: 12,
                   background: extractResult.success ? "#eafaf1" : "#fdedec",
-                  color: extractResult.success ? "#27ae60" : "#e74c3c",
+                  color: extractResult.success ? "#1b7a43" : "#c0392b",
                   fontSize: 12, fontWeight: T.w.semi }}>
                   {extractResult.success ? `✅ ${extractResult.message}` : `⚠ ${extractResult.message}`}
                   {extractResult.analyseError && <div style={{ color: T.c.danger, marginTop: 4 }}>⚠ AI: {extractResult.analyseError}</div>}
                   {extractResult.extractionError && <div style={{ color: T.c.danger, marginTop: 4 }}>⚠ Extract: {extractResult.extractionError}</div>}
                   {extractResult.fields_saved && extractResult.fields_saved.length > 0 && (
                     <div style={{ marginTop: 6 }}>
-                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#27ae60", marginBottom: 3 }}>Fields Saved</div>
+                      <div style={{ fontSize: 12, textTransform: "uppercase", color: "#1b7a43", marginBottom: 3 }}>Fields Saved</div>
                       {extractResult.fields_saved.map(f => {
                         const conf = extractResult.confidence?.[f];
                         const pct = conf ? Math.round(conf * 100) : null;
@@ -754,7 +756,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                             {pct !== null && (
                               <span style={{ fontSize: 12, fontWeight: T.w.bold, padding: "1px 4px", borderRadius: 3,
                                 background: pct >= 80 ? "#e8f8f5" : pct >= 50 ? "#fef9e7" : "#fdedec",
-                                color: pct >= 80 ? "#27ae60" : pct >= 50 ? "#e67e22" : "#e74c3c" }}>
+                                color: pct >= 80 ? "#1b7a43" : pct >= 50 ? "#a8530a" : "#c0392b" }}>
                                 {pct}%
                               </span>
                             )}
@@ -776,7 +778,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
                   <button onClick={handleExtractSiteplan} disabled={extracting || (!isDirectRead && !extractPages.trim())}
                     style={{ padding: "8px 20px", borderRadius: T.r.md, border: "none",
                       background: (!isDirectRead && !extractPages.trim()) || extracting ? T.c.grey400 : "linear-gradient(135deg, #8e44ad, #6c3483)",
-                      color: (!isDirectRead && !extractPages.trim()) || extracting ? "#95a5a6" : "#fff",
+                      color: (!isDirectRead && !extractPages.trim()) || extracting ? "#66767f" : "#fff",
                       fontWeight: T.w.bold, fontSize: 13, cursor: (!isDirectRead && !extractPages.trim()) || extracting ? "default" : "pointer", fontFamily: "inherit" }}>
                     {extracting ? "⟳ Processing..." : isDirectRead ? `🤖 Read ${extractCategory}` : `✂ Extract as ${extractCategory}`}
                   </button>
@@ -823,7 +825,7 @@ export default function DocumentList({ documents, appDbId, app, currentUser, onD
             onSaveField={(fieldKey, value, unit) => {
               if (onMeasureCorrection) {
                 onMeasureCorrection(fieldKey, value, unit);
-                alert(`📏 Measurement ${value} ${unit} added as pending correction for "${fieldKey}".\n\nGo to AI Site Plan Analysis section → Save Corrections → Verify.`);
+                notify(`📏 Measurement ${value} ${unit} added as pending correction for "${fieldKey}".\n\nGo to AI Site Plan Analysis section → Save Corrections → Verify.`);
               }
             }}
           />

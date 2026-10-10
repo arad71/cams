@@ -1,3 +1,4 @@
+import { LayoutDashboard, ClipboardList, Hourglass, Share2, ClipboardCheck, Settings } from "lucide-react";
 import { ROLE_CONFIG as ROLE_CONFIG_DEFAULT } from '../../data/constants';
 import { T } from '../../styles/tokens';
 
@@ -5,7 +6,7 @@ const sidebarBg = "#0b1a26";
 const sidebarBorder = "rgba(255,255,255,0.05)";
 const activeColor = T.c.accent;
 const textDim = "#8ba3b5";
-const textDimmer = "#506878";
+const textDimmer = "#8fa3b2";
 
 export default function Sidebar({ activeView, setActiveView, apps, collapsed, setCollapsed, currentUser, onLogout, ROLE_CONFIG: ROLE_CONFIG_PROP, branding: B = {}, mobile = false, open = false, onClose = () => {} }) {
   const ROLE_CONFIG = ROLE_CONFIG_PROP || ROLE_CONFIG_DEFAULT;
@@ -20,13 +21,13 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
   const rc = ROLE_CONFIG[role];
 
   const baseNav = [
-    { id: "exec_dashboard", icon: "\u{1f4ca}", label: "Dashboard", roles: ["viewer"] },
-    { id: "dashboard", icon: "\u{1f4ca}", label: "Dashboard", roles: ["admin", "manager", "engineer"] },
-    { id: "applications", icon: "\u{1f4cb}", label: role === "engineer" ? "My Cases" : "All Applications", badge: apps.length, roles: ["admin", "manager", "engineer"] },
-    { id: "pending", icon: "\u{23f3}", label: "Pending Review", badge: pend, roles: ["admin", "manager"] },
-    { id: "referrals", icon: "\u{2197}\u{fe0f}", label: "Referrals", badge: refs, roles: ["admin", "manager"] },
-    { id: "inspections", icon: "\u{1f50d}", label: "Inspections", roles: ["admin", "manager", "engineer"] },
-    { id: "admin", icon: "\u{2699}\u{fe0f}", label: "Administration", roles: ["admin"] },
+    { id: "exec_dashboard", Icon: LayoutDashboard, icon: "\u{1f4ca}", label: "Dashboard", roles: ["viewer"] },
+    { id: "dashboard", Icon: LayoutDashboard, icon: "\u{1f4ca}", label: "Dashboard", roles: ["admin", "manager", "engineer"] },
+    { id: "applications", Icon: ClipboardList, icon: "\u{1f4cb}", label: role === "engineer" ? "My Cases" : "All Applications", badge: apps.length, roles: ["admin", "manager", "engineer"] },
+    { id: "pending", Icon: Hourglass, icon: "\u{23f3}", label: "Pending Review", badge: pend, roles: ["admin", "manager"] },
+    { id: "referrals", Icon: Share2, icon: "\u{2197}\u{fe0f}", label: "Referrals", badge: refs, roles: ["admin", "manager"] },
+    { id: "inspections", Icon: ClipboardCheck, icon: "\u{1f50d}", label: "Inspections", roles: ["admin", "manager", "engineer"] },
+    { id: "admin", Icon: Settings, icon: "\u{2699}\u{fe0f}", label: "Administration", roles: ["admin"] },
   ];
   const nav = baseNav.filter(n => n.roles.includes(role));
   const w = collapsed ? 56 : (mobile ? 260 : 224);
@@ -60,11 +61,11 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
       </div>
 
       {/* Navigation */}
-      <nav style={{ padding: collapsed ? `${T.s.sm}px ${T.s.xs}px` : `${T.s.sm}px`, flex: 1 }}>
+      <nav aria-label="Main" style={{ padding: collapsed ? `${T.s.sm}px ${T.s.xs}px` : `${T.s.sm}px`, flex: 1 }}>
         {nav.map(item => {
           const act = activeView === item.id;
           return (
-            <button key={item.id} onClick={() => { setActiveView(item.id); if (mobile) onClose(); }} title={item.label}
+            <button key={item.id} aria-current={act ? "page" : undefined} aria-label={collapsed ? item.label : undefined} onClick={() => { setActiveView(item.id); if (mobile) onClose(); }} title={item.label}
               style={{
                 width: "100%", display: "flex", alignItems: "center",
                 gap: collapsed ? 0 : 10,
@@ -80,7 +81,7 @@ export default function Sidebar({ activeView, setActiveView, apps, collapsed, se
               }}
               onMouseEnter={e => { if (!act) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "#b0c8d8"; } }}
               onMouseLeave={e => { if (!act) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = textDim; } }}>
-              <span style={{ fontSize: 15, width: 22, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
+              <span aria-hidden="true" style={{ width: 22, display: "inline-flex", justifyContent: "center", flexShrink: 0 }}>{item.Icon ? <item.Icon size={18} strokeWidth={2} /> : item.icon}</span>
               {!collapsed && <span style={{ flex: 1, whiteSpace: "nowrap" }}>{item.label}</span>}
               {!collapsed && item.badge > 0 && (
                 <span style={{ background: act ? activeColor : "#2c3e50", color: act ? sidebarBg : textDim, fontSize: T.f.xs, fontWeight: T.w.black, padding: `2px 6px`, borderRadius: T.r.pill, minWidth: 20, textAlign: "center" }}>{item.badge}</span>

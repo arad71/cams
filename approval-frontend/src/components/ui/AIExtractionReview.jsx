@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import api from '../../services/api';
 import { T, S, cx } from '../../styles/tokens';
 
+import { onActivate } from "../../utils/a11y";
+import { notify } from "./Toast";
 /**
  * AI Extraction Review Panel
  * 
@@ -146,12 +148,12 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
     const sitePlanDoc = app?.documents?.find(d =>
       d.category?.toLowerCase().includes("site") || d.doc_type?.toLowerCase().includes("site")
     );
-    if (!sitePlanDoc) { alert("No site plan document found. Upload a site plan first."); return; }
+    if (!sitePlanDoc) { notify("No site plan document found. Upload a site plan first."); return; }
     setRerunning(true);
     try {
       await api.analyseDocument(app._dbId, sitePlanDoc.id);
       if (onReload) await onReload();
-    } catch (e) { console.error("Re-run failed:", e); alert("Analysis failed: " + e.message); }
+    } catch (e) { console.error("Re-run failed:", e); notify("Analysis failed: " + e.message); }
     setRerunning(false);
   };
 
@@ -182,7 +184,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 14, fontWeight: T.w.black, color: T.c.text }}>🤖 AI Site Plan Analysis</div>
-            <div style={{ fontSize: 12, color: T.c.textMuted, marginTop: 2 }}>No AI analysis data available. Upload a site plan document to trigger automatic analysis.</div>
+            <div style={{ fontSize: 12, color: T.c.textMuted, marginTop: 2 }}>{app?.documents?.some(d => d.category?.toLowerCase().includes("site")) ? "A site plan is attached but hasn't been analysed yet. Run the AI analysis to read its dimensions." : "No site plan yet. Upload one under Documents and it will be analysed automatically."}</div>
           </div>
           {app?.documents?.some(d => d.category?.toLowerCase().includes("site")) && (
             <button onClick={async () => {
@@ -207,7 +209,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
   const recommendation = compliance?.recommendation || "N/A";
   const summary = compliance?.summary || {};
   const recColors = {
-    APPROVED: "#27ae60", CONDITIONAL_APPROVAL: "#e67e22",
+    APPROVED: "#1b7a43", CONDITIONAL_APPROVAL: "#a8530a",
     REQUIRES_FURTHER_INFORMATION: "#f39c12", DOES_NOT_COMPLY: "#e74c3c", REFUSED: "#c0392b",
   };
 
@@ -278,7 +280,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
   return (
     <div style={{ background: T.c.card, borderRadius: T.r.lg, border: `1px solid ${T.c.border}`, overflow: "hidden" }}>
       {/* Header — clickable to expand/collapse */}
-      <div onClick={() => setCollapsed(!collapsed)}
+      <div role="button" tabIndex={0} onKeyDown={onActivate(() => setCollapsed(!collapsed))} onClick={() => setCollapsed(!collapsed)}
         style={{ padding: "12px 16px", borderBottom: collapsed ? "none" : "1px solid #eef2f4", display: "flex", justifyContent: "space-between", alignItems: "center", background: T.c.bgAlt, cursor: "pointer", userSelect: "none" }}
         onMouseEnter={e => e.currentTarget.style.background = T.c.borderLight} onMouseLeave={e => e.currentTarget.style.background = "#f8fafb"}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -287,7 +289,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
             <div style={{ fontSize: 14, fontWeight: T.w.black, color: T.c.text }}>🤖 AI Site Plan Analysis</div>
             <div style={{ fontSize: 13, color: T.c.textSecondary, marginTop: 2 }}>
               {"AI"} · {spd.source_pages || 1} page(s) · {spd.analysed_at ? spd.analysed_at.split("T")[0] : ""}
-              {hasCorrected && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 3, background: "#fef5e7", color: "#e67e22", fontWeight: T.w.bold, fontSize: 12 }}>✎ Officer Corrected</span>}
+              {hasCorrected && <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 3, background: "#fef5e7", color: "#a8530a", fontWeight: T.w.bold, fontSize: 12 }}>✎ Officer Corrected</span>}
             </div>
           </div>
         </div>
@@ -303,12 +305,12 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
           {/* Lock/unlock button */}
           <button onClick={toggleLock}
             title={locked ? "Unlock — allow re-running analysis" : "Lock — prevent re-running analysis"}
-            style={{ padding: "4px 8px", borderRadius: 5, border: locked ? "1.5px solid #e74c3c" : "1px solid #dce1e6", background: locked ? "#fdedec" : "#fff", color: locked ? "#e74c3c" : "#95a5a6", fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+            style={{ padding: "4px 8px", borderRadius: 5, border: locked ? "1.5px solid #e74c3c" : "1px solid #dce1e6", background: locked ? "#fdedec" : "#fff", color: locked ? "#c0392b" : "#66767f", fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
             {locked ? "🔒 Locked" : "🔓 Lock"}
           </button>
           <span style={{ padding: "4px 10px", borderRadius: T.r.md, fontSize: 13, fontWeight: T.w.black,
-            background: `${recColors[recommendation] || "#7f8c8d"}15`,
-            color: recColors[recommendation] || "#7f8c8d" }}>
+            background: `${recColors[recommendation] || "#5f6b6c"}15`,
+            color: recColors[recommendation] || "#5f6b6c" }}>
             {recommendation.replace(/_/g, " ")}
           </span>
           <span style={{ fontSize: 13, color: T.c.textMuted }}>
@@ -345,8 +347,8 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
                       <input value={editValue} onChange={e => setEditValue(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") saveEdit(group.key, field.path, val); if (e.key === "Escape") cancelEdit(); }}
                         style={{ padding: "3px 6px", borderRadius: T.r.sm, border: "1.5px solid #f39c12", fontSize: 12, width: 100, fontFamily: "inherit", outline: "none" }} autoFocus />
-                      <button onClick={() => saveEdit(group.key, field.path, val)} style={{ padding: "2px 6px", borderRadius: 3, border: "none", background: "#27ae60", color: T.c.white, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer" }}>✓</button>
-                      <button onClick={cancelEdit} style={{ padding: "2px 6px", borderRadius: 3, border: "1px solid #d5dde2", background: T.c.card, fontSize: 12, cursor: "pointer" }}>✕</button>
+                      <button onClick={() => saveEdit(group.key, field.path, val)} style={{ padding: "2px 6px", borderRadius: 3, border: "none", background: "#1b7a43", color: T.c.white, fontSize: 12, fontWeight: T.w.semi, cursor: "pointer" }}>✓</button>
+                      <button aria-label="Close" onClick={cancelEdit} style={{ padding: "2px 6px", borderRadius: 3, border: "1px solid #d5dde2", background: T.c.card, fontSize: 12, cursor: "pointer" }}>✕</button>
                     </div>
                   ) : (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -356,7 +358,7 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
                         ) : formatValue(val, field.type)}
                         {field.unit && val !== null && val !== undefined && <span style={{ fontSize: 12, color: T.c.textMuted, marginLeft: 2 }}>{field.unit}</span>}
                       </span>
-                      <button onClick={() => startEdit(group.key, field.path, val)} title="Correct this value"
+                      <button aria-label="Correct this value" onClick={() => startEdit(group.key, field.path, val)} title="Correct this value"
                         style={{ padding: "1px 4px", borderRadius: 3, border: `1px solid ${T.c.border}`, background: T.c.card, fontSize: 12, cursor: "pointer", color: T.c.textMuted, opacity: 0.6 }}>✎</button>
                     </div>
                   )}
@@ -370,18 +372,18 @@ export default function AIExtractionReview({ app, currentUser, onReload, measure
       {/* Actions bar */}
       <div style={{ padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: T.c.bgAlt }}>
         <div style={{ fontSize: 13, color: T.c.textSecondary }}>
-          {corrections.length > 0 && <span style={{ color: "#e67e22", fontWeight: T.w.bold }}>⚠ {corrections.length} correction{corrections.length > 1 ? "s" : ""} pending</span>}
+          {corrections.length > 0 && <span style={{ color: "#a8530a", fontWeight: T.w.bold }}>⚠ {corrections.length} correction{corrections.length > 1 ? "s" : ""} pending</span>}
           {saved && <span style={{ color: T.c.success, fontWeight: T.w.bold, marginLeft: 8 }}>✅ Saved to training data</span>}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           {corrections.length > 0 ? (
             <button onClick={submitCorrections} disabled={saving}
-              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#e67e22", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#a8530a", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
               {saving ? "⟳ Saving..." : `💾 Save ${corrections.length} Correction${corrections.length > 1 ? "s" : ""}`}
             </button>
           ) : (
             <button onClick={verifyAll} disabled={saving}
-              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#27ae60", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+              style={{ padding: "6px 14px", borderRadius: T.r.md, border: "none", background: "#1b7a43", color: T.c.white, fontWeight: T.w.bold, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
               {saving ? "⟳ Verifying..." : "✓ Verify AI Correct"}
             </button>
           )}
