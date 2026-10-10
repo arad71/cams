@@ -33,6 +33,7 @@ function statusToStep(status) {
 // ─── Compact card style helpers ─────────────────────────
 import { T, S, cx } from '../../styles/tokens';
 import { onActivate } from "../../utils/a11y";
+import SiteLocationPanel from "../ui/SiteLocationPanel";
 import { FileUp, ScanSearch, Ruler, Gavel, Check } from "lucide-react";
 import { notify } from "../ui/Toast";
 const card = S.cardFlat;
@@ -989,6 +990,7 @@ export default function WorkflowView({
           {/* Step 2: Review — extraction expanded, map and checklist as separate collapsibles */}
           {currentStep === 2 && (
             <>
+              <SiteLocationPanel app={localApp} onChanged={async () => { const fresh = await reloadApp(localApp._dbId); if (fresh) setLocalApp(fresh); }} />
               <StepExtract app={localApp} currentUser={currentUser}
                 onReload={onDocUpdated} measureCorrections={measureCorrections}
                 onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
