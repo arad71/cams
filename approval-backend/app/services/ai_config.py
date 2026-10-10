@@ -19,7 +19,7 @@ from app.models.site_settings import SiteSetting
 @dataclass
 class AIConfig:
     mode: str                     # "claude" | "yolo" | "hybrid"
-    claude_model: str             # e.g. "claude-sonnet-4-20250514"
+    claude_model: str             # e.g. "claude-sonnet-5-5"
     yolo_model_path: str          # e.g. "/opt/cams/models/siteplan_v1.pt"
     yolo_confidence: float        # 0.0 - 1.0
     phase2_threshold: int         # samples needed for hybrid mode
@@ -35,7 +35,7 @@ def get_ai_config(db: Session) -> AIConfig:
 
     return AIConfig(
         mode=s.get("ai_analysis_mode", "claude"),
-        claude_model=s.get("ai_claude_model", "claude-sonnet-4-20250514"),
+        claude_model=s.get("ai_claude_model", "claude-sonnet-5-5"),
         yolo_model_path=s.get("ai_yolo_model_path", ""),
         yolo_confidence=float(s.get("ai_yolo_confidence_threshold", "0.7")),
         phase2_threshold=int(s.get("ai_phase2_sample_threshold", "100")),

@@ -270,6 +270,10 @@ def _seed_lookups():
                 db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
             db.commit()
             print(f"  ✓ Auto-seeded {len(DEFAULTS)} site settings")
+        else:
+            # Add new keys and move off retired AI model ids
+            from app.api.site_settings import _ensure_defaults
+            _ensure_defaults(db)
     except Exception as e:
         print(f"  ⚠ Lookup seed error: {e}")
         db.rollback()

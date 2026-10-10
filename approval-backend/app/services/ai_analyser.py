@@ -304,6 +304,29 @@ def file_to_images_from_upload(file_bytes: bytes, filename: str, max_dim: int | 
 # 4) CLAUDE CALL + JSON PARSE
 # ═════════════════════════════════════════════════════════════════════════════
 
+RETIRED_MODELS = {"claude-sonnet-4-20250514"}
+CURRENT_MODEL = "claude-sonnet-5-5"
+
+
+def model_or_current(model: str | None) -> str:
+    """Swap a retired or empty model id for the current default (retired ids return 404)."""
+    return CURRENT_MODEL if not model or model in RETIRED_MODELS else model
+
+
+def response_text(resp) -> str:
+    """Join the text blocks of a Messages API response.
+
+    Newer models can return other block types (for example a thinking block) before the
+    text, so resp.content[0].text is not safe.
+    """
+    text = "".join(getattr(b, "text", "") or "" for b in resp.content if getattr(b, "type", "") == "text").strip()
+    if getattr(resp, "stop_reason", None) == "max_tokens":
+        print(f"  ⚠ Claude response hit max_tokens ({getattr(resp.usage, 'output_tokens', '?')} tokens) — output may be truncated")
+    if not text:
+        raise ValueError("Claude returned no text content")
+    return text
+
+
 def call_claude(images: List[Dict[str, Any]], api_key: str, model: str) -> str:
     if not ANTHROPIC_AVAILABLE:
         raise RuntimeError("anthropic SDK not available. Install with 'pip install anthropic'.")
@@ -323,12 +346,12 @@ def call_claude(images: List[Dict[str, Any]], api_key: str, model: str) -> str:
     content.append({"type": "text", "text": USER_PROMPT})
 
     resp = client.messages.create(
-        model=model,
+        model=model_or_current(model),
         max_tokens=settings.AI_MAX_TOKENS,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": content}],
     )
-    return resp.content[0].text  # first text block
+    return response_text(resp)
 
 def parse_json_response(raw: str) -> Dict[str, Any]:
     text = raw.strip()
@@ -714,6 +737,12 @@ def save_training_sample(
                 drawing_scale=site.get("all_dimensions_found", [None])[0] if isinstance(site.get("all_dimensions_found"), list) else None,
                 drawing_standard=cons.get("construction_standard"),
             )
+            # Free-text fields from the model (e.g. boundary features) can exceed column limits
+            for col in AITrainingSample.__table__.columns:
+                limit = getattr(col.type, "length", None)
+                val = getattr(sample, col.name, None)
+                if limit and isinstance(val, str) and len(val) > limit:
+                    setattr(sample, col.name, val[: limit - 1] + "…")
             db.add(sample)
 
         db.commit()

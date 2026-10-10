@@ -444,12 +444,13 @@ def _extract_fields_ai_live(file_path, extract_type):
     else:
         prompt = 'Extract from application form. Return ONLY JSON: {"owner_name":"","owner_phone":"","owner_email":"","owner_postal_address":"","property_address":"","lot_number":"","plan_number":"","crossover_width":null,"crossover_surface":"","crossover_count":null,"da_number":"","date_signed":"","declaration_signed":false,"trees_nearby":false,"clearing":false,"drainage_type":"","estimated_construction_date":""}'
 
-    client = anthropic.Anthropic()
+    from app.services.ai_analyser import model_or_current, response_text
+    client = anthropic.Anthropic(api_key=get_settings().ANTHROPIC_API_KEY)
     resp = client.messages.create(
-        model="claude-sonnet-4-20250514", max_tokens=2000,
+        model=model_or_current(get_settings().AI_MODEL_DEFAULT), max_tokens=4000,
         messages=[{"role": "user", "content": image_contents + [{"type": "text", "text": prompt}]}],
     )
-    raw = resp.content[0].text.strip()
+    raw = response_text(resp)
     raw = re.sub(r'^```json\s*', '', raw)
     raw = re.sub(r'\s*```$', '', raw)
     return json.loads(raw)
@@ -1248,18 +1249,20 @@ async def extract_document_fields(
 
         # Call AI
         import anthropic
-        client = anthropic.Anthropic()
+        from app.services.ai_analyser import model_or_current, response_text
+        from app.services.ai_config import get_ai_config
+        client = anthropic.Anthropic(api_key=get_settings().ANTHROPIC_API_KEY)
         message_content = image_contents + [{"type": "text", "text": prompt}]
 
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            model=model_or_current(get_ai_config(db).claude_model),
+            max_tokens=4000,
             messages=[{"role": "user", "content": message_content}],
         )
 
         # Parse response
         import json, re
-        raw = response.content[0].text.strip()
+        raw = response_text(response)
         # Clean markdown fences
         raw = re.sub(r'^```json\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw)

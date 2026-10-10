@@ -44,7 +44,7 @@ DEFAULTS = [
 
     # AI Pipeline (not public)
     ("ai_analysis_mode",            "ai",                        "ai",       "Analysis Mode",       False),
-    ("ai_claude_model",             "claude-sonnet-4-20250514",      "ai",       "AI Model",                             False),
+    ("ai_claude_model",             "claude-sonnet-5-5",                   "ai",       "AI Model",                             False),
     ("ai_yolo_model_path",          "",                              "ai",       "YOLO Model File Path (.pt)",                  False),
     ("ai_yolo_confidence_threshold","0.7",                           "ai",       "YOLO Confidence Threshold (0.0-1.0)",         False),
     ("ai_phase2_sample_threshold",  "100",                           "ai",       "Phase 2 (Hybrid) Min Training Samples",       False),
@@ -62,9 +62,16 @@ def _ensure_defaults(db: Session):
         if key not in existing_keys:
             db.add(SiteSetting(key=key, value=value, category=cat, label=label, is_public=public))
             added += 1
+    # Move installs off retired model ids, which the API now rejects with 404
+    from app.services.ai_analyser import RETIRED_MODELS, CURRENT_MODEL
+    row = db.query(SiteSetting).filter(SiteSetting.key == "ai_claude_model").first()
+    if row and row.value in RETIRED_MODELS:
+        print(f"  ✓ ai_claude_model: {row.value} is retired, switched to {CURRENT_MODEL}")
+        row.value = CURRENT_MODEL
+        added += 1
     if added:
         db.commit()
-        print(f"  ✓ Added {added} new site settings")
+        print(f"  ✓ Added/updated {added} site settings")
 
 
 @router.get("/public")
