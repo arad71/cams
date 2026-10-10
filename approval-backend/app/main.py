@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
-from app.api import auth, users, applications, documents, assessments, sight_distance, lookups, ai_training, audit, site_settings, geodata, extract_local
+from app.api import auth, users, applications, documents, assessments, sight_distance, lookups, ai_training, audit, site_settings, geodata, extract_local, site_location
 
 from app.schemas.ai import FindingsResponse, ErrorResponse
 from app.services.ai_analyser import analyse_document, GUIDELINE
@@ -52,6 +52,7 @@ app.include_router(audit.router, prefix="/api")
 app.include_router(site_settings.router, prefix="/api")
 app.include_router(geodata.router, prefix="/api")
 app.include_router(extract_local.router, prefix="/api")
+app.include_router(site_location.router, prefix="/api")
 
 
 @app.get("/ai/guideline")
@@ -127,6 +128,7 @@ def _migrate_columns():
     migration_stmts = [
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS extraction_locked BOOLEAN DEFAULT FALSE",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE applications ADD COLUMN IF NOT EXISTS lot_match JSON",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS deleted_by_id INTEGER",
         "ALTER TABLE applications ADD COLUMN IF NOT EXISTS delete_reason TEXT",
