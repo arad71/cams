@@ -28,6 +28,10 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (64+ random chars)}
       DEBUG: "false"
+      # Production: no demo accounts. First run creates one superadmin who must change password.
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-superadmin@council.wa.gov.au}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}
