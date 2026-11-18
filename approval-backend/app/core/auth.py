@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -42,6 +43,9 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
+        # Scoped tokens (e.g. "media" tokens used in <img>/<iframe> URLs) are not API tokens
+        if payload.get("scope"):
+            raise credentials_exception
     except JWTError:
         raise credentials_exception
 
@@ -60,3 +64,38 @@ def require_role(*roles: str):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Role '{current_user.role}' not permitted")
         return current_user
     return checker
+
+
+# ─── Media tokens ──────────────────────────────────────────
+# Documents and photos are shown with <iframe>/<img>, which can't send an
+# Authorization header, so their URLs carry ?token=. That token ends up in
+# access logs and browser history, so it must NOT be the full API token:
+# a media token can only read files, nothing else.
+
+MEDIA_SCOPE = "media"
+
+
+def create_media_token(user_id: int, expires_delta: Optional[timedelta] = None) -> str:
+    return create_access_token(
+        data={"sub": str(user_id), "scope": MEDIA_SCOPE},
+        expires_delta=expires_delta,
+    )
+
+
+def get_media_user(
+    token: Optional[str] = Query(None, description="Media token from /auth/media-token"),
+    db: Session = Depends(get_db),
+) -> User:
+    """Authenticate a file/image request by its ?token= media token."""
+    if not token:
+        raise HTTPException(status_code=401, detail="Media token required")
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid media token")
+    if payload.get("scope") != MEDIA_SCOPE or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid media token")
+    user = db.query(User).filter(User.id == int(payload["sub"]), User.is_active == True).first()  # noqa: E712
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid media token")
+    return user

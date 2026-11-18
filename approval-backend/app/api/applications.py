@@ -2,10 +2,11 @@ from datetime import datetime
 from pathlib import Path
 import os
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status, Request
+from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.auth import get_current_user, require_role
+from app.core.auth import get_current_user, require_role, get_media_user
 from app.models.user import User
 from app.models.application import Application, ApplicationNote, Document, Inspection, Report
 from app.schemas import (
@@ -18,6 +19,8 @@ from app.api.documents import _build_doc_out
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
+REF_LOCK_KEY = 0x43414D53  # arbitrary constant ("CAMS") for pg_advisory_xact_lock
+
 # Roles that may change status, assignment and contribution (superadmin always may)
 DECISION_ROLES = {"superadmin", "admin", "manager"}
 RESTRICTED_FIELDS = {"status", "officer_id", "contribution_eligible", "contribution_amount"}
@@ -25,6 +28,10 @@ RESTRICTED_FIELDS = {"status", "officer_id", "contribution_eligible", "contribut
 
 def _gen_ref_number(db: Session) -> str:
     """Generate next sequential ref number CX-YYYY-NNNN."""
+    # Serialise ref generation: two requests reading the same "last ref" would
+    # otherwise produce the same number. The advisory lock is released when the
+    # caller's transaction commits or rolls back.
+    db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": REF_LOCK_KEY})
     year = datetime.now().year
     last = (
         db.query(Application)
@@ -370,13 +377,16 @@ async def upload_inspection_photo(app_id: int, insp_id: int, file: UploadFile = 
 
 
 @router.get("/{app_id}/inspections/{insp_id}/photos/{filename}")
-def get_inspection_photo(app_id: int, insp_id: int, filename: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Serve an inspection photo."""
+def get_inspection_photo(app_id: int, insp_id: int, filename: str, db: Session = Depends(get_db), current_user: User = Depends(get_media_user)):
+    """Serve an inspection photo. Auth: ?token=<media token>, since <img> can't send headers."""
     from fastapi.responses import FileResponse
     from pathlib import Path
     insp = db.query(Inspection).filter(Inspection.id == insp_id, Inspection.application_id == app_id).first()
     if not insp:
         raise HTTPException(status_code=404, detail="Inspection not found")
+    # Only serve files recorded on this inspection (blocks path tricks and other inspections' photos)
+    if filename not in {p.get("filename") for p in (insp.photos or [])}:
+        raise HTTPException(status_code=404, detail="Photo not found")
 
     upload_dir = Path("/app/uploads/inspections") if Path("/app").exists() else Path("uploads/inspections")
     file_path = upload_dir / filename

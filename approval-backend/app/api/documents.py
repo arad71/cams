@@ -10,10 +10,10 @@ import os
 import shutil  # noqa: F401 — used conditionally
 import copy
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
-from app.core.auth import get_current_user, require_role
+from app.core.auth import get_current_user, require_role, get_media_user
 from app.core.config import get_settings
 from app.models.user import User
 from app.models.application import Application, Document, Report
@@ -857,29 +857,12 @@ def _parse_correction_value(val):
 @router.get("/{app_id}/documents/{doc_id}/file")
 def download_document(
     app_id: int, doc_id: int,
-    token: str = Query(None, description="Bearer token (for iframe/new window access)"),
     download: bool = Query(False, description="Force download (attachment) instead of inline view"),
     db: Session = Depends(get_db),
+    user: User = Depends(get_media_user),  # ?token=<media token> (iframe/new window can't send headers)
 ):
     """Serve the uploaded document file. Default: inline (for viewer). ?download=true for saving."""
     from fastapi.responses import FileResponse, Response
-    from jose import jwt as jose_jwt
-
-    # Authenticate via query token (for iframe) or normal auth header
-    if token:
-        try:
-            settings = get_settings()
-            payload = jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            user_id = payload.get("sub")
-            if not user_id:
-                raise HTTPException(401, "Invalid token")
-            user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()
-            if not user:
-                raise HTTPException(401, "Invalid token")
-        except Exception:
-            raise HTTPException(401, "Invalid token")
-    else:
-        raise HTTPException(401, "Token required — pass ?token=... for document viewing")
 
     doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
     if not doc:
@@ -915,24 +898,11 @@ def download_document(
 def render_document_as_image(
     app_id: int, doc_id: int,
     page: int = Query(1, description="Page number (1-based)"),
-    token: str = Query(None, description="Bearer token"),
     db: Session = Depends(get_db),
+    user: User = Depends(get_media_user),  # ?token=<media token> (<img> can't send headers)
 ):
     """Render a document page as PNG image (for PDF → image conversion)."""
     from fastapi.responses import Response
-    from jose import jwt as jose_jwt
-
-    # Auth
-    if not token:
-        raise HTTPException(401, "Token required")
-    try:
-        settings = get_settings()
-        payload = jose_jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user = db.query(User).filter(User.id == int(payload.get("sub", 0)), User.is_active == True).first()
-        if not user:
-            raise HTTPException(401, "Invalid token")
-    except Exception:
-        raise HTTPException(401, "Invalid token")
 
     doc = db.query(Document).filter(Document.id == doc_id, Document.application_id == app_id).first()
     if not doc or not doc.file_path:

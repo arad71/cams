@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     )
 
     @property
+    def entra_configured(self) -> bool:
+        """Entra sign-in is on AND has real (non-placeholder) tenant, client and secret."""
+        vals = (self.ENTRA_TENANT_ID, self.ENTRA_CLIENT_ID, self.ENTRA_CLIENT_SECRET)
+        return self.ENTRA_ENABLED and all(v and not v.upper().startswith("CHANGE_ME") for v in vals)
+
+    @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 

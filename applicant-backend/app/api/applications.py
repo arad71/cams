@@ -12,6 +12,7 @@ Application lifecycle:
 """
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from sqlalchemy import text
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
@@ -30,7 +31,14 @@ from app.schemas import (
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
 
+REF_LOCK_KEY = 0x43414D53  # arbitrary constant ("CAMS") for pg_advisory_xact_lock
+
+
 def _gen_ref(db: Session) -> str:
+    # Serialise ref generation: two requests reading the same "last ref" would
+    # otherwise produce the same number. The advisory lock is released when the
+    # caller's transaction commits or rolls back.
+    db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": REF_LOCK_KEY})
     year = datetime.now().year
     last = (
         db.query(CrossoverApplication)
@@ -40,6 +48,24 @@ def _gen_ref(db: Session) -> str:
     )
     seq = int(last.ref_number.split("-")[-1]) + 1 if last else 1
     return f"CX-{year}-{seq:04d}"
+
+
+EDITABLE_STATUSES = ("draft", "info_requested")
+
+# Allowed applicant uploads (matches ACCEPTED_EXT in applicant-frontend):
+# extension -> accepted file signatures (magic bytes). Empty tuple = text format, no signature.
+ALLOWED_UPLOAD_TYPES = {
+    ".pdf": (b"%PDF",),
+    ".jpg": (b"\xff\xd8\xff",),
+    ".jpeg": (b"\xff\xd8\xff",),
+    ".png": (b"\x89PNG\r\n\x1a\n",),
+    ".gif": (b"GIF87a", b"GIF89a"),
+    ".webp": (b"RIFF",),
+    ".doc": (b"\xd0\xcf\x11\xe0",),
+    ".docx": (b"PK\x03\x04",),
+    ".dwg": (b"AC10",),
+    ".dxf": (),
+}
 
 
 def _check_owner(app, applicant: Applicant):
@@ -226,16 +252,31 @@ def upload_document(
     if not app:
         raise HTTPException(404)
     _check_owner(app, current)
+    if app.status not in EDITABLE_STATUSES:
+        raise HTTPException(400, "Cannot add documents to a submitted application")
 
     import os, uuid
     from app.core.config import get_settings
     settings = get_settings()
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_UPLOAD_TYPES:
+        raise HTTPException(400, f"File type not allowed. Upload one of: {', '.join(sorted(ALLOWED_UPLOAD_TYPES))}")
+
+    # Read at most limit+1 bytes so an oversized upload is never held in memory whole
+    limit = settings.MAX_FILE_SIZE_MB * 1024 * 1024
+    content = file.file.read(limit + 1)
+    if len(content) > limit:
+        raise HTTPException(413, f"File is larger than {settings.MAX_FILE_SIZE_MB} MB")
+    if not content:
+        raise HTTPException(400, "Empty file")
+    signatures = ALLOWED_UPLOAD_TYPES[ext]
+    if signatures and not content.startswith(signatures):
+        raise HTTPException(400, "File contents don't match its extension")
+
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    ext = os.path.splitext(file.filename)[1] if file.filename else ".bin"
     stored = f"{app.ref_number}_{uuid.uuid4().hex[:8]}{ext}"
     path = os.path.join(settings.UPLOAD_DIR, stored)
-
-    content = file.file.read()
     with open(path, "wb") as f:
         f.write(content)
 
@@ -373,6 +414,10 @@ def send_message(app_id: int, data: MessageCreate, db: Session = Depends(get_db)
 @router.patch("/{app_id}/messages/{msg_id}/read")
 def mark_message_read(app_id: int, msg_id: int, db: Session = Depends(get_db),
                       current: Applicant = Depends(get_current_applicant)):
+    app = db.query(CrossoverApplication).filter(CrossoverApplication.id == app_id).first()
+    if not app:
+        raise HTTPException(404)
+    _check_owner(app, current)
     msg = db.query(ApplicationMessage).filter(
         ApplicationMessage.id == msg_id, ApplicationMessage.application_id == app_id
     ).first()

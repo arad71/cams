@@ -89,7 +89,7 @@ API_WORKERS=2
 
 # AI — add your Anthropic key for site plan analysis (optional)
 ANTHROPIC_API_KEY=
-AI_MODEL_DEFAULT=claude-sonnet-4-20250514
+AI_MODEL_DEFAULT=claude-sonnet-5-5
 PDF_RENDER_DPI=200
 MAX_IMAGE_DIM=2048
 AI_MAX_TOKENS=4096

@@ -25,16 +25,11 @@ app = FastAPI(
 )
 
 
-origins = [
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-]
-
-# CORS
+# CORS — from the CORS_ORIGINS setting (comma-separated). The frontend is served
+# by nginx on the same origin as /api, so production normally needs no extra origins.
 app.add_middleware(
     CORSMiddleware,
-    # allow_origins=settings.cors_origins_list,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -239,9 +239,9 @@ function WorkflowSidebar({ app, currentUser, users, categories, onReload, newNot
                     {photos.length > 0 && (
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                         {photos.map((p, j) => (
-                          <a key={j} href={`/api/applications/${app._dbId}/inspections/${insp.id}/photos/${p.filename}`} target="_blank" rel="noreferrer"
+                          <a key={j} href={api.getInspectionPhotoUrl(app._dbId, insp.id, p.filename)} target="_blank" rel="noreferrer"
                             style={{ width: 48, height: 48, borderRadius: T.r.sm, overflow: "hidden", border: "1px solid #d5dde2", display: "block" }}>
-                            <img src={`/api/applications/${app._dbId}/inspections/${insp.id}/photos/${p.filename}`}
+                            <img src={api.getInspectionPhotoUrl(app._dbId, insp.id, p.filename)}
                               style={{ width: "100%", height: "100%", objectFit: "cover" }}
                               alt={p.checklist_item || "inspection"} />
                           </a>
