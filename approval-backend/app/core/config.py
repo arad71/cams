@@ -47,6 +47,17 @@ class Settings(BaseSettings):
     ENTRA_AUTO_CREATE_USER: bool = Field(default=True) # Auto-create user on first SSO login
     ENTRA_DEFAULT_ROLE: str = Field(default="engineer") # Default role for auto-created SSO users
 
+    # === First-run seeding ===
+    # SEED_DEMO_DATA=true creates the demo users (known passwords) and sample
+    # applications. Use it for local and test environments ONLY.
+    # With it false (the default), a fresh database gets a single superadmin:
+    # INITIAL_ADMIN_EMAIL, with INITIAL_ADMIN_PASSWORD if set, otherwise a random
+    # password printed once to the logs. That account must change its password
+    # at first login.
+    SEED_DEMO_DATA: bool = Field(default=False)
+    INITIAL_ADMIN_EMAIL: str = Field(default="superadmin@council.wa.gov.au")
+    INITIAL_ADMIN_PASSWORD: str = Field(default="")
+
     # Email (SMTP)
     SMTP_ENABLED: bool = Field(default=False)
     SMTP_HOST: str = Field(default="smtp.gmail.com")

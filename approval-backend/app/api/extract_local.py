@@ -6,9 +6,12 @@ POST /extract-local-ocr
   Returns: {fields, confidence}
   No application ID needed — used by create-application form.
 """
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 import tempfile
 from pathlib import Path
+
+from app.core.auth import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="", tags=["Local OCR"])
 
@@ -17,8 +20,9 @@ router = APIRouter(prefix="", tags=["Local OCR"])
 async def extract_local_ocr(
     file: UploadFile = File(...),
     type: str = Form("application_form"),
+    current_user: User = Depends(get_current_user),
 ):
-    """Run local OCR extraction on an uploaded file. No auth required — no data saved."""
+    """Run local OCR extraction on an uploaded file. Login required (OCR is CPU-heavy); no data saved."""
     if type not in ("application_form", "certificate_of_title"):
         raise HTTPException(400, "type must be application_form or certificate_of_title")
 
@@ -34,10 +38,10 @@ async def extract_local_ocr(
             tmp_path = tmp.name
 
         from app.services.local_extractor import extract_local
-        result = extract_local(tmp_path, type)
-
-        # Cleanup
-        Path(tmp_path).unlink(missing_ok=True)
+        try:
+            result = extract_local(tmp_path, type)
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
 
         return {
             "fields": result.get("fields", {}),

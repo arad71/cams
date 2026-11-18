@@ -45,6 +45,7 @@ export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:54
 export SECRET_KEY="${SECRET_KEY:-local-dev-secret-key-not-for-production}"
 export CORS_ORIGINS="${CORS_ORIGINS:-*}"
 export DEBUG="${DEBUG:-true}"
+export SEED_DEMO_DATA="${SEED_DEMO_DATA:-true}"   # local dev: demo users + sample apps
 
 case "${1:-help}" in
 

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.core.database import get_db
+from app.core.auth import get_current_user, require_role
 from app.models.sight_distance import SightDistance
 from app.schemas.sight_distance import (
     SightDistanceCreate,
@@ -11,14 +12,21 @@ from app.schemas.sight_distance import (
     SightDistanceOut,
 )
 
-router = APIRouter(prefix="/sight-distances", tags=["sight-distances"])
+# All routes require login. These values decide whether a crossover passes,
+# so only admins may create, change or delete them.
+router = APIRouter(
+    prefix="/sight-distances",
+    tags=["sight-distances"],
+    dependencies=[Depends(get_current_user)],
+)
+_admin = Depends(require_role("admin"))
 
 @router.get("/", response_model=List[SightDistanceOut])
 def list_all(db: Session = Depends(get_db)):
     return db.query(SightDistance).order_by(SightDistance.speed.asc()).all()
 
 @router.post("/", response_model=SightDistanceOut, status_code=status.HTTP_201_CREATED)
-def create_one(payload: SightDistanceCreate, db: Session = Depends(get_db)):
+def create_one(payload: SightDistanceCreate, db: Session = Depends(get_db), _user=_admin):
     exists = db.query(SightDistance).filter_by(speed=payload.speed).first()
     if exists:
         raise HTTPException(status_code=400, detail="Speed bucket already exists")
@@ -29,7 +37,7 @@ def create_one(payload: SightDistanceCreate, db: Session = Depends(get_db)):
     return row
 
 @router.patch("/{row_id}", response_model=SightDistanceOut)
-def update_one(row_id: int, payload: SightDistanceUpdate, db: Session = Depends(get_db)):
+def update_one(row_id: int, payload: SightDistanceUpdate, db: Session = Depends(get_db), _user=_admin):
     row = db.query(SightDistance).get(row_id)
     if not row:
         raise HTTPException(status_code=404, detail="Row not found")
@@ -54,7 +62,7 @@ def update_one(row_id: int, payload: SightDistanceUpdate, db: Session = Depends(
     return row
 
 @router.delete("/{row_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_one(row_id: int, db: Session = Depends(get_db)):
+def delete_one(row_id: int, db: Session = Depends(get_db), _user=_admin):
     row = db.query(SightDistance).get(row_id)
     if not row:
         return  # idempotent

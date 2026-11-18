@@ -1,8 +1,10 @@
-from fastapi import FastAPI, UploadFile, File, Query, Header, HTTPException
+from fastapi import FastAPI, UploadFile, File, Query, Header, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine, Base
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.api import auth, users, applications, documents, assessments, sight_distance, lookups, ai_training, audit, site_settings, geodata, extract_local, site_location
 
 from app.schemas.ai import FindingsResponse, ErrorResponse
@@ -63,12 +65,12 @@ def ai_guideline():
 async def ai_analyse(
     file: UploadFile = File(..., description="PDF or image (.pdf/.jpg/.jpeg/.png)"),
     model: str = Query(default=settings.AI_MODEL_DEFAULT, description="AI vision model"),
-    api_key_query: str | None = Query(default=None, alias="api_key"),
     api_key_header: str | None = Header(default=None, alias="X-Anthropic-Api-Key"),
-    # current_user: dict = Depends(get_current_user),  # ⟵ uncomment to protect route
+    current_user: User = Depends(get_current_user),  # login required: this spends the council's API credit
 ):
     # We accept any content-type; detection happens in service; it returns a clean error for bad bytes.
-    api_key = api_key_query or api_key_header or settings.ANTHROPIC_API_KEY
+    # The ?api_key= query parameter was removed: keys in URLs end up in proxy and access logs.
+    api_key = api_key_header or settings.ANTHROPIC_API_KEY
     if not api_key:
         raise HTTPException(status_code=400, detail="Missing AI API key. Set ANTHROPIC_API_KEY in .env")
 

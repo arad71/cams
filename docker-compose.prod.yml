@@ -40,6 +40,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cams}:${POSTGRES_PASSWORD}@approval-db:5432/${POSTGRES_DB:-cams_approval}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (64+ random chars)}
       DEBUG: "false"
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}   # test VM: demo users + sample apps
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}

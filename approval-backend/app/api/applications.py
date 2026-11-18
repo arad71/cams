@@ -18,6 +18,10 @@ from app.api.documents import _build_doc_out
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
+# Roles that may change status, assignment and contribution (superadmin always may)
+DECISION_ROLES = {"superadmin", "admin", "manager"}
+RESTRICTED_FIELDS = {"status", "officer_id", "contribution_eligible", "contribution_amount"}
+
 
 def _gen_ref_number(db: Session) -> str:
     """Generate next sequential ref number CX-YYYY-NNNN."""
@@ -162,10 +166,24 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
 
     update_data = data.model_dump(exclude_unset=True)
 
-    # Only managers/admins can change status or assignment
-    if current_user.role == "engineer":
-        restricted = {"status", "officer_id", "contribution_eligible", "contribution_amount"}
-        if restricted & set(update_data.keys()):
+    # Allow-list: only these roles may edit applications at all.
+    # viewer, inspector and any unknown role are read-only here
+    # (inspectors use the /inspections endpoints).
+    role = current_user.role
+    if role not in DECISION_ROLES and role != "engineer":
+        raise HTTPException(status_code=403, detail=f"Role '{role}' cannot edit applications")
+
+    if role == "engineer":
+        # Engineers may only edit cases assigned to them
+        if app.officer_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not assigned to this case")
+        # ...and may not change decision/assignment fields. Only reject real changes,
+        # so a full-form save that echoes the current status still works.
+        changed_restricted = {
+            k for k in RESTRICTED_FIELDS & update_data.keys()
+            if getattr(app, k, None) != update_data[k]
+        }
+        if changed_restricted:
             raise HTTPException(status_code=403, detail="Engineers cannot change status or assignment")
 
     # Track changes for audit

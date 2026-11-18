@@ -52,6 +52,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@approval-db:5432/cams_approval
       SECRET_KEY: change-me-approval-secret-key-64chars-random
       DEBUG: "true"
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}   # local dev: demo users + sample apps
       CORS_ORIGINS: "http://localhost:3000,http://localhost:3001"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}

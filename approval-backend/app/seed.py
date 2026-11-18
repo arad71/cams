@@ -4,7 +4,10 @@ Run: python -m app.seed
 """
 from datetime import datetime, timezone
 from app.core.database import SessionLocal, engine, Base
+import secrets
+
 from app.core.auth import hash_password
+from app.core.config import get_settings
 from app.models.user import User
 from app.models.application import Application, ApplicationNote, Document
 from app.models.assessment import AssessmentCategory, AssessmentItem, AssessmentRule
@@ -93,8 +96,25 @@ def run_seed():
             db.commit()
             print(f"  ✓ Seeded {len(depts)} departments")
 
+        settings = get_settings()
+
         # ─── Users ───────────────────────────────────────────
-        if db.query(User).count() == 0:
+        if db.query(User).count() == 0 and not settings.SEED_DEMO_DATA:
+            # Production first run: one superadmin, no demo accounts.
+            email = settings.INITIAL_ADMIN_EMAIL.strip().lower()
+            password = settings.INITIAL_ADMIN_PASSWORD
+            generated = not password
+            if generated:
+                password = secrets.token_urlsafe(18)
+            db.add(User(name="System Administrator", email=email, initials="SA",
+                        hashed_password=hash_password(password), role="superadmin",
+                        department="IT", must_change_password=True))
+            db.commit()
+            print(f"✅ Created initial superadmin {email} (must change password at first login)")
+            if generated:
+                print(f"   Temporary password (shown once): {password}")
+        elif db.query(User).count() == 0:
+            # SEED_DEMO_DATA=true — local/test only: well-known demo passwords
             users = [
                 User(name="System Administrator", email="superadmin@council.wa.gov.au", initials="SA",
                      hashed_password=hash_password("superpassword123"), role="superadmin", department="IT"),
@@ -674,8 +694,8 @@ def run_seed():
         else:
             print(f"⏭️  Assessment rules already exist ({db.query(AssessmentRule).count()} rules)")
 
-        # ─── Applications ────────────────────────────────────
-        if db.query(Application).count() == 0:
+        # ─── Applications (demo data only) ───────────────────
+        if settings.SEED_DEMO_DATA and db.query(Application).count() == 0:
             apps = [
                 Application(
                     ref_number="CX-2026-0041", status="pending_review",
