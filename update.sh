@@ -14,9 +14,13 @@
 #    ./update.sh --frontend   Rebuild frontend only
 #    ./update.sh --backend    Rebuild backend only
 #    ./update.sh --geodata    Also refresh GeoData after update
+#    ./update.sh --no-pull    Don't git pull (deploy whatever is checked out;
+#                             used by the GitHub "Deploy" workflow)
+#
+#  Exits non-zero if the pull, build or health check fails.
 # ═══════════════════════════════════════════════════════════
 
-set -e
+set -eo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -43,15 +47,11 @@ echo -e "  Compose:     ${COMPOSE}"
 echo -e "  This will NOT delete or reseed any data."
 echo ""
 
-# ── Step 1: Pull latest code ──
-echo -e "${BLUE}[1/4] Pulling latest code from master...${NC}"
-git pull origin master 2>&1 | tail -5
-echo ""
-
-# ── Step 2: Parse options ──
+# ── Parse options ──
 NO_CACHE=""
 TARGET=""
 GEODATA=false
+PULL=true
 
 for arg in "$@"; do
   case "$arg" in
@@ -59,8 +59,19 @@ for arg in "$@"; do
     --frontend)   TARGET="approval-frontend" ;;
     --backend)    TARGET="approval-api" ;;
     --geodata)    GEODATA=true ;;
+    --no-pull)    PULL=false ;;
   esac
 done
+
+# ── Step 1: Pull latest code ──
+if [ "$PULL" = true ]; then
+  echo -e "${BLUE}[1/4] Pulling latest code from master...${NC}"
+  # --ff-only: stop rather than create a merge if the server copy has diverged
+  git pull --ff-only origin master 2>&1 | tail -5
+else
+  echo -e "${BLUE}[1/4] Using checked-out code ($(git rev-parse --short HEAD)) — not pulling${NC}"
+fi
+echo ""
 
 # ── Step 2.5: Ensure swap exists (prevents npm build OOM) ──
 if [ ! -f /swapfile ] && [ "$(id -u)" = "0" ]; then
@@ -84,18 +95,27 @@ else
   docker builder prune -f --filter "until=1h" 2>/dev/null || true
   echo -e "  Building frontend (this takes a minute)..."
   dc build $NO_CACHE approval-frontend
+  if dc config --services | grep -qx cams-cron; then
+    echo -e "  Building scheduled-task container..."
+    dc build $NO_CACHE cams-cron
+  fi
   echo -e "${BLUE}[3/4] Restarting services...${NC}"
   dc up -d
 fi
 
 # ── Step 4: Health check ──
+# Call /api/health inside the API container, then through the frontend (nginx).
 echo -e "${BLUE}[4/4] Waiting for services...${NC}"
-sleep 5
-for i in $(seq 1 12); do
-  if dc logs approval-api 2>&1 | tail -20 | grep -q "Application startup complete\|assessment rules\|Uvicorn running"; then
+FRONTEND_PORT=$( (grep -E '^FRONTEND_PORT=[0-9]+' .env 2>/dev/null || true) | tail -1 | sed -E 's/^FRONTEND_PORT=([0-9]+).*/\1/')
+FRONTEND_PORT=${FRONTEND_PORT:-3001}
+HEALTHY=false
+for i in $(seq 1 36); do
+  if dc exec -T approval-api python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=5).status == 200 else 1)" >/dev/null 2>&1 \
+     && curl -fsS --max-time 5 "http://localhost:${FRONTEND_PORT}/api/health" >/dev/null 2>&1; then
+    HEALTHY=true
     break
   fi
-  echo "  Waiting... (${i}0s)"
+  echo "  Waiting... ($((i * 5))s)"
   sleep 5
 done
 
@@ -103,6 +123,13 @@ done
 echo ""
 dc ps
 echo ""
+
+if [ "$HEALTHY" != true ]; then
+  echo -e "${RED}✗ Health check failed after 3 minutes. Recent API logs:${NC}"
+  dc logs --tail=60 approval-api || true
+  exit 1
+fi
+echo -e "${GREEN}✓ API and frontend are healthy${NC}"
 
 # ── Optional: refresh GeoData ──
 if [ "$GEODATA" = true ]; then
