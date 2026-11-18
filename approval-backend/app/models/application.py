@@ -63,6 +63,7 @@ class Application(Base):
 
     # GeoJSON lot polygon
     lot_polygon = Column(JSON, nullable=True)  # [[lat,lng], ...]
+    lot_match = Column(JSON, nullable=True)    # how lot_polygon was found (method, confidence, lot)
 
     # Site plan AI extraction data
     site_plan_data = Column(JSON, nullable=True)          # Active data used by assessment (= corrected if corrections exist, else original)

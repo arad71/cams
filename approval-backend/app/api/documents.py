@@ -587,6 +587,10 @@ def _run_site_plan_ai(app, doc, file_bytes: bytes, db: Session, ai_cfg=None):
         mode_label = ai_cfg.mode.upper()
         print(f"  ✓ AI analysis complete for {app.ref_number} (mode={mode_label})")
 
+        # Find the cadastre lot and align the plan to it automatically
+        from app.api.site_location import after_site_plan_analysis
+        after_site_plan_analysis(app, doc, db)
+
 
 def _run_yolo_inference(file_bytes: bytes, filename: str, ai_cfg) -> dict | None:
     """Run YOLO model inference on a site plan image. Returns findings dict or None."""

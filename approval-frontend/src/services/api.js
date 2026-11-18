@@ -97,6 +97,11 @@ const api = {
     const token = this._getToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/file?download=true&token=${encodeURIComponent(token || "")}`;
   },
+  // Site location: cadastre lot match, plan-vs-cadastre check, automatic alignment
+  getSiteLocation(appId) { return this._fetch(`/applications/${appId}/site-location`); },
+  resolveLot(appId) { return this._fetch(`/applications/${appId}/site-location/resolve-lot`, { method: "POST" }); },
+  autoAlignPlan(appId) { return this._fetch(`/applications/${appId}/site-location/auto-align`, { method: "POST" }); },
+
   getDocumentRenderUrl(appId, docId, page = 1) {
     const token = this._getToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/render?page=${page}&token=${encodeURIComponent(token || "")}`;

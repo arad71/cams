@@ -5,6 +5,7 @@ import { geoDistMetres, geoOffset, geoBearing, nearestPointOnSegment, buildCross
 import LeafletMap from './LeafletMap';
 import { T, S, cx } from '../../styles/tokens';
 
+import { warpWholePlan } from "../../utils/planWarp";
 import { onActivate } from "../../utils/a11y";
 // Simple collapsible section for map panels
 function MapCollapsible({ title, icon, defaultOpen = true, badge, color = "#1a3a4a", children }) {
@@ -807,7 +808,8 @@ Respond with JSON only:
       const p = f.properties || {};
       if (!p) continue;
 
-      if (p.rd && p.n && addrUpper.includes(p.rd) && addr.includes(p.n)) {
+      // house number must match exactly ("10" must not match "107")
+      if (p.rd && p.n && addrUpper.includes(p.rd) && new RegExp(`(^|\\D)${String(p.n).replace(/\D/g, "")}(\\D|$)`).test(addr)) {
         const ringLngLat = getFirstRing(f);
         if (ringLngLat && ringLngLat.length >= 3) {
           // Convert [lng,lat] → [lat,lng]
@@ -1819,32 +1821,10 @@ Respond with JSON only:
       const img = new window.Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const outW = 1024, outH = 1024;
-        canvas.width = outW; canvas.height = outH;
-        const ctx = canvas.getContext("2d");
-        const bounds = saved.bounds;
-        const tris = [];
-        for (let i = 1; i < saved.planPts.length - 1; i++) tris.push([0, i, i + 1]);
-        for (const [i0, i1, i2] of tris) {
-          const sx0 = saved.planPts[i0].x, sy0 = saved.planPts[i0].y;
-          const sx1 = saved.planPts[i1].x, sy1 = saved.planPts[i1].y;
-          const sx2 = saved.planPts[i2].x, sy2 = saved.planPts[i2].y;
-          const dx0 = (saved.mapPts[i0].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
-          const dy0 = (1 - (saved.mapPts[i0].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
-          const dx1 = (saved.mapPts[i1].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
-          const dy1 = (1 - (saved.mapPts[i1].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
-          const dx2 = (saved.mapPts[i2].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
-          const dy2 = (1 - (saved.mapPts[i2].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
-          const det = (sx0 - sx2) * (sy1 - sy2) - (sx1 - sx2) * (sy0 - sy2);
-          if (Math.abs(det) < 1e-10) continue;
-          ctx.save(); ctx.beginPath(); ctx.moveTo(dx0, dy0); ctx.lineTo(dx1, dy1); ctx.lineTo(dx2, dy2); ctx.closePath(); ctx.clip();
-          const a = ((dx0-dx2)*(sy1-sy2)-(dx1-dx2)*(sy0-sy2))/det, b = ((dx1-dx2)*(sx0-sx2)-(dx0-dx2)*(sx1-sx2))/det, c = dx0-a*sx0-b*sy0;
-          const d = ((dy0-dy2)*(sy1-sy2)-(dy1-dy2)*(sy0-sy2))/det, e = ((dy1-dy2)*(sx0-sx2)-(dy0-dy2)*(sx1-sx2))/det, f = dy0-d*sx0-e*sy0;
-          ctx.setTransform(a, d, b, e, c, f); ctx.drawImage(img, 0, 0); ctx.restore();
-        }
-        setGeorefOverlayUrl(canvas.toDataURL("image/png"));
-        setGeorefBounds(bounds);
+        const warped = warpWholePlan(img, saved.planPts, saved.mapPts);
+        if (!warped) return;
+        setGeorefOverlayUrl(warped.url);
+        setGeorefBounds(warped.bounds);
         setGeorefMapPts(saved.mapPts.map(p => ({ lat: p.lat, lng: p.lng })));
       };
       img.onerror = () => console.warn("Failed to load saved georef image from:", src);
@@ -1873,68 +1853,14 @@ Respond with JSON only:
     const imgW = georefData.imgW;
     const imgH = georefData.imgH;
 
-    // Compute bounds from map points
-    const lats = mapPts.map(p => p.lat);
-    const lngs = mapPts.map(p => p.lng);
-    const pad = 0.0001;
-    const bounds = [[Math.min(...lats) - pad, Math.min(...lngs) - pad], [Math.max(...lats) + pad, Math.max(...lngs) + pad]];
-
-    // Create a canvas to warp the image
-    const canvas = document.createElement("canvas");
-    const outW = 1024, outH = 1024;
-    canvas.width = outW;
-    canvas.height = outH;
-    const ctx = canvas.getContext("2d");
-
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      // Map each output pixel to input pixel using triangulated warp
-      // Delaunay triangulation of the control points
-      const tris = triangulate(planPts.length);
-
-      for (const tri of tris) {
-        const [i0, i1, i2] = tri;
-        // Source triangle (plan pixels)
-        const sx0 = planPts[i0].x, sy0 = planPts[i0].y;
-        const sx1 = planPts[i1].x, sy1 = planPts[i1].y;
-        const sx2 = planPts[i2].x, sy2 = planPts[i2].y;
-
-        // Dest triangle (normalised to canvas from lat/lng)
-        const dx0 = (mapPts[i0].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
-        const dy0 = (1 - (mapPts[i0].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
-        const dx1 = (mapPts[i1].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
-        const dy1 = (1 - (mapPts[i1].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
-        const dx2 = (mapPts[i2].lng - bounds[0][1]) / (bounds[1][1] - bounds[0][1]) * outW;
-        const dy2 = (1 - (mapPts[i2].lat - bounds[0][0]) / (bounds[1][0] - bounds[0][0])) * outH;
-
-        // Affine transform for this triangle
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(dx0, dy0);
-        ctx.lineTo(dx1, dy1);
-        ctx.lineTo(dx2, dy2);
-        ctx.closePath();
-        ctx.clip();
-
-        // Compute affine: dest = M * src
-        // [dx0] = [a b c] [sx0]    [dy0] = [d e f] [sy0]
-        const det = (sx0 - sx2) * (sy1 - sy2) - (sx1 - sx2) * (sy0 - sy2);
-        if (Math.abs(det) < 1e-10) { ctx.restore(); continue; }
-        const a = ((dx0 - dx2) * (sy1 - sy2) - (dx1 - dx2) * (sy0 - sy2)) / det;
-        const b = ((dx1 - dx2) * (sx0 - sx2) - (dx0 - dx2) * (sx1 - sx2)) / det;
-        const c = dx0 - a * sx0 - b * sy0;
-        const d = ((dy0 - dy2) * (sy1 - sy2) - (dy1 - dy2) * (sy0 - sy2)) / det;
-        const e = ((dy1 - dy2) * (sx0 - sx2) - (dy0 - dy2) * (sx1 - sx2)) / det;
-        const f = dy0 - d * sx0 - e * sy0;
-
-        ctx.setTransform(a, d, b, e, c, f);
-        ctx.drawImage(img, 0, 0);
-        ctx.restore();
-      }
-
-      const overlayDataUrl = canvas.toDataURL("image/png");
-      setGeorefOverlayUrl(overlayDataUrl);
+      // One transform for the whole plan, so the verge and crossover outside the lot stay visible
+      const warped = warpWholePlan(img, planPts, mapPts);
+      if (!warped) return;
+      const bounds = warped.bounds;
+      setGeorefOverlayUrl(warped.url);
       setGeorefBounds(bounds);
 
       // Save georef data to application so it persists (control points only — overlay recomputed on load)
@@ -1952,6 +1878,7 @@ Respond with JSON only:
               page: 1,
               imgW: georefData.imgW,
               imgH: georefData.imgH,
+              method: "manual",
             }
           }).catch(err => console.warn("Georef save failed:", err));
         });
@@ -2695,6 +2622,11 @@ Respond with JSON only:
             onChange={e => setGeorefOpacity(e.target.value / 100)}
             style={{ width: 100 }} />
           <span style={{ fontSize: 10, color: T.c.textSecondary }}>{Math.round(georefOpacity * 100)}%</span>
+          {app?.georef_overlay?.fit_rms_m != null && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: app.georef_overlay.fit_rms_m > 0.5 ? "#946200" : "#1b7a43" }}>
+              Fit ±{app.georef_overlay.fit_rms_m.toFixed(2)} m{app.georef_overlay.method === "vector" ? " (from PDF drawing)" : app.georef_overlay.method === "ai-corners" ? " (AI corners)" : ""}
+            </span>
+          )}
           <button onClick={() => {
             setGeorefOverlayUrl(null); setGeorefBounds(null); setGeorefMapPts([]); if (onGeorefDone) onGeorefDone(); setMapTool(null);
             if (app?._dbId) { import('../../services/api').then(mod => { mod.default.updateApp(app._dbId, { georef_overlay: null }).catch(() => {}); }); }

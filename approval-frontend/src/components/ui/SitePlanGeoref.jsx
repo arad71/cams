@@ -158,6 +158,7 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
     let matchedMapPts = existingOverlay?.mapPts || [];
     let bounds = existingOverlay?.bounds || null;
     let autoMatched = false;
+    let fitResidual = null;
 
     // Auto-match plan corners to cadastre lot corners
     if (hasLot) {
@@ -174,6 +175,7 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
 
         if (best && best.alignment) {
           matchedMapPts = best.mapPts;
+          fitResidual = best.alignment.residual;
 
           // Compute map bounds: transform image corners to lat/lng
           const t = best.alignment.transform;
@@ -205,6 +207,8 @@ export default function SitePlanGeoref({ imgUrl, appRef, appDbId, docId, existin
           page: existingOverlay?.page || 1,
           imgW, imgH,
           autoMatched,
+          method: "manual",
+          fit_rms_m: autoMatched && fitResidual != null ? Math.round(Math.sqrt(fitResidual / points.length) * 1000) / 1000 : null,
         };
         await api.updateApp(appDbId, { georef_overlay: overlay });
         if (onSaved) onSaved(overlay);
