@@ -37,7 +37,7 @@ services:
       AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}
       PDF_RENDER_DPI: ${PDF_RENDER_DPI:-200}
       MAX_IMAGE_DIM: ${MAX_IMAGE_DIM:-2048}
-      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-4096}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-16000}   # 4096 truncates site-plan JSON
       DOCUMENT_DIR: /app/uploads/documents
     volumes:
       - approval_uploads:/app/uploads
@@ -61,7 +61,8 @@ services:
       '
     networks: [cams-net]
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health || exit 1"]
+      # python:3.12-slim has no curl, so check with the image's own Python
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health', timeout=5).status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3

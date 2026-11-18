@@ -46,7 +46,7 @@ services:
       AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}
       PDF_RENDER_DPI: ${PDF_RENDER_DPI:-200}
       MAX_IMAGE_DIM: ${MAX_IMAGE_DIM:-2048}
-      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-4096}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-16000}   # 4096 truncates site-plan JSON
       DOCUMENT_DIR: /app/uploads/documents
     depends_on:
       approval-db: { condition: service_healthy }
