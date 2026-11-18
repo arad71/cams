@@ -6,3 +6,6 @@ dist/
 build/
 .venv/
 venv/
+
+# created by tests / local runs
+uploads/

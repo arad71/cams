@@ -25,6 +25,8 @@ def list_roles(db: Session = Depends(get_db), current_user: User = Depends(get_c
 @router.post("/roles", response_model=RoleOut, status_code=status.HTTP_201_CREATED)
 def create_role(data: RoleCreate, db: Session = Depends(get_db),
                 current_user: User = Depends(require_role("admin"))):
+    if data.code == "superadmin":
+        raise HTTPException(400, "'superadmin' is a reserved role code")
     if db.query(Role).filter(Role.code == data.code).first():
         raise HTTPException(400, "Role code already exists")
     role = Role(**data.model_dump())

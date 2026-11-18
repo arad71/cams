@@ -11,6 +11,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    media_token: Optional[str] = None   # read-only token for document/photo URLs
     user: "UserOut"
 
 

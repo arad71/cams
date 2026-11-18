@@ -9,13 +9,22 @@ const api = {
   _token: null,
   _setToken(t) { this._token = t; if (t) localStorage.setItem("kala_token", t); else localStorage.removeItem("kala_token"); },
   _getToken() { if (!this._token) this._token = localStorage.getItem("kala_token"); return this._token; },
+  // Read-only "media" token for <img>/<iframe> URLs (?token=). Never put the API token in a URL:
+  // URLs end up in server logs and browser history.
+  _mediaToken: null,
+  _setMediaToken(t) { this._mediaToken = t; if (t) localStorage.setItem("kala_media_token", t); else localStorage.removeItem("kala_media_token"); },
+  _getMediaToken() { if (!this._mediaToken) this._mediaToken = localStorage.getItem("kala_media_token"); return this._mediaToken; },
+  async refreshMediaToken() {
+    try { const d = await this._fetch("/auth/media-token", { method: "POST" }); this._setMediaToken(d.media_token); }
+    catch { /* not signed in; media URLs will 401 until next login */ }
+  },
   async _fetch(path, opts = {}) {
     const token = this._getToken();
     const headers = { ...opts.headers };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     if (opts.body && !(opts.body instanceof FormData)) { headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(opts.body); }
     const res = await fetch(`${API_BASE}${path}`, { ...opts, headers });
-    if (res.status === 401) { this._setToken(null); throw new Error("Session expired"); }
+    if (res.status === 401) { this._setToken(null); this._setMediaToken(null); throw new Error("Session expired"); }
     if (res.status === 204) return null;
     const text = await res.text();
     let data;
@@ -37,6 +46,7 @@ const api = {
     }
     const data = await res.json();
     this._setToken(data.access_token);
+    this._setMediaToken(data.media_token || null);
     return data.user;
   },
   async getAuthConfig() {
@@ -49,10 +59,15 @@ const api = {
     if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Microsoft login failed"); }
     const data = await res.json();
     this._setToken(data.access_token);
+    this._setMediaToken(data.media_token || null);
     return data.user;
   },
-  async me() { return this._fetch("/auth/me"); },
-  logout() { this._setToken(null); },
+  async me() {
+    const user = await this._fetch("/auth/me");
+    await this.refreshMediaToken();  // sessions from before media tokens existed get one here
+    return user;
+  },
+  logout() { this._setToken(null); this._setMediaToken(null); },
 
   // Users
   async listUsers() { return this._fetch("/users/"); },
@@ -90,11 +105,11 @@ const api = {
     return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "PATCH", body });
   },
   getDocumentFileUrl(appId, docId) {
-    const token = this._getToken();
+    const token = this._getMediaToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/file?token=${encodeURIComponent(token || "")}`;
   },
   getDocumentDownloadUrl(appId, docId) {
-    const token = this._getToken();
+    const token = this._getMediaToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/file?download=true&token=${encodeURIComponent(token || "")}`;
   },
   // Site location: cadastre lot match, plan-vs-cadastre check, automatic alignment
@@ -103,8 +118,12 @@ const api = {
   autoAlignPlan(appId) { return this._fetch(`/applications/${appId}/site-location/auto-align`, { method: "POST" }); },
 
   getDocumentRenderUrl(appId, docId, page = 1) {
-    const token = this._getToken();
+    const token = this._getMediaToken();
     return `${API_BASE}/applications/${appId}/documents/${docId}/render?page=${page}&token=${encodeURIComponent(token || "")}`;
+  },
+  getInspectionPhotoUrl(appId, inspId, filename) {
+    const token = this._getMediaToken();
+    return `${API_BASE}/applications/${appId}/inspections/${inspId}/photos/${encodeURIComponent(filename)}?token=${encodeURIComponent(token || "")}`;
   },
   async deleteDocument(appId, docId) { return this._fetch(`/applications/${appId}/documents/${docId}`, { method: "DELETE" }); },
   async ocrRegion(appId, docId, region) { return this._fetch(`/applications/${appId}/documents/${docId}/ocr-region`, { method: "POST", body: region }); },

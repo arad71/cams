@@ -228,9 +228,9 @@ export default function MobileInspection({ app, inspection, onClose, onUpdate })
             <div style={{ fontSize: 12, fontWeight: T.w.black, color: T.c.textSecondary, textTransform: "uppercase", padding: "6px 0", borderBottom: `1px solid ${T.c.border}`, marginBottom: 6 }}>Photos ({photos.length})</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {photos.map((p, i) => (
-                <a key={i} href={`/api/applications/${app._dbId}/inspections/${inspection.id}/photos/${p.filename}`} target="_blank" rel="noreferrer"
+                <a key={i} href={api.getInspectionPhotoUrl(app._dbId, inspection.id, p.filename)} target="_blank" rel="noreferrer"
                   style={{ width: 72, height: 72, borderRadius: T.r.md, overflow: "hidden", border: "1px solid #d5dde2", display: "block", position: "relative" }}>
-                  <img src={`/api/applications/${app._dbId}/inspections/${inspection.id}/photos/${p.filename}`}
+                  <img src={api.getInspectionPhotoUrl(app._dbId, inspection.id, p.filename)}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     alt={p.checklist_item || "inspection"} />
                   {p.checklist_item && (

@@ -18,6 +18,23 @@ def _generate_temp_password(length=10):
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 
+def _check_role_change(db: Session, current_user: User, new_role: str | None, target: User | None = None):
+    """Only a superadmin may grant the superadmin role or manage a superadmin account,
+    and roles must be ones that exist."""
+    is_super = current_user.role == "superadmin"
+    if target is not None and target.role == "superadmin" and not is_super:
+        raise HTTPException(status_code=403, detail="Only a superadmin can manage a superadmin account")
+    if new_role is None:
+        return
+    if new_role == "superadmin":
+        if not is_super:
+            raise HTTPException(status_code=403, detail="Only a superadmin can grant the superadmin role")
+        return
+    from app.models.lookup import Role
+    if not db.query(Role).filter(Role.code == new_role).first():
+        raise HTTPException(status_code=400, detail=f"Unknown role '{new_role}'")
+
+
 @router.get("/", response_model=list[UserOut])
 def list_users(
     db: Session = Depends(get_db),
@@ -44,6 +61,7 @@ def create_user(
     from app.services.audit import log_audit
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+    _check_role_change(db, current_user, data.role)
 
     temp_password = data.password or _generate_temp_password()
     must_change = not data.password
@@ -81,6 +99,7 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    _check_role_change(db, current_user, update_data.get("role"), target=user)
     if "password" in update_data and update_data["password"]:
         update_data["hashed_password"] = hash_password(update_data.pop("password"))
     else:
@@ -113,6 +132,7 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    _check_role_change(db, current_user, None, target=user)
     log_audit(db=db, action="delete", entity_type="user", user=current_user, entity_id=str(user.id), description=f"Deleted user {user.name} ({user.email})", request=request)
     db.delete(user)
     db.commit()

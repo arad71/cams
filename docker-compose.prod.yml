@@ -43,11 +43,30 @@ services:
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}   # test VM: demo users + sample apps
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}
+      AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-5-5}
       PDF_RENDER_DPI: ${PDF_RENDER_DPI:-200}
       MAX_IMAGE_DIM: ${MAX_IMAGE_DIM:-2048}
       AI_MAX_TOKENS: ${AI_MAX_TOKENS:-16000}   # 4096 truncates site-plan JSON
       DOCUMENT_DIR: /app/uploads/documents
+      # Council area (used by geodata lookups)
+      COUNCIL_BBOX: ${COUNCIL_BBOX:-115.95,-32.10,116.15,-31.87}
+      COUNCIL_LGA_NAME: ${COUNCIL_LGA_NAME:-Kalamunda}
+      COUNCIL_LGA_NO: ${COUNCIL_LGA_NO:-102}
+      # Microsoft Entra ID sign-in (only active once tenant, client ID and secret are real values)
+      ENTRA_ENABLED: ${ENTRA_ENABLED:-false}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
+      ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:-}
+      ENTRA_CLIENT_SECRET: ${ENTRA_CLIENT_SECRET:-}
+      ENTRA_REDIRECT_URI: ${ENTRA_REDIRECT_URI:-}
+      ENTRA_AUTO_CREATE_USER: ${ENTRA_AUTO_CREATE_USER:-true}
+      ENTRA_DEFAULT_ROLE: ${ENTRA_DEFAULT_ROLE:-engineer}
+      # Email notifications
+      SMTP_ENABLED: ${SMTP_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@council.wa.gov.au}
     depends_on:
       approval-db: { condition: service_healthy }
     volumes:
@@ -81,10 +100,13 @@ services:
       dockerfile: Dockerfile.cron
     restart: always
     environment:
-      LOT_GEOJSON_PATH: /data/lot.geojson
-      COUNCIL_BBOX: "115.95,-32.10,116.15,-31.87"
+      # Write into the volume nginx serves .geojson files from (approval-frontend: /usr/share/nginx/html/geojson)
+      GEOJSON_OUTPUT_DIR: /geojson
+      COUNCIL_BBOX: ${COUNCIL_BBOX:-115.95,-32.10,116.15,-31.87}
+      COUNCIL_LGA_NAME: ${COUNCIL_LGA_NAME:-Kalamunda}
+      COUNCIL_LGA_NO: ${COUNCIL_LGA_NO:-102}
     volumes:
-      - lot_geojson_data:/data
+      - geojson_data:/geojson
       - cron_logs:/var/log/cams
     networks: [cams-net]
 
@@ -92,7 +114,6 @@ volumes:
   pgdata_approval:
   approval_uploads:
   geojson_data:
-  lot_geojson_data:
   cron_logs:
 
 networks:

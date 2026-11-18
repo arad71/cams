@@ -13,9 +13,12 @@ RUN mkdir -p /var/log/cams /app/backups/geojson
 # Cron jobs:
 #   Sunday 2am    — full refresh (lots + roads + speed limits)
 #   Wednesday 2am — lots only (most frequently updated layer)
-RUN echo "0 2 * * 0 cd /app && python scripts/update_geodata.py >> /var/log/cams/geodata_update.log 2>&1" > /etc/cron.d/geodata-update \
-    && echo "0 2 * * 3 cd /app && python scripts/update_geodata.py --layer lots >> /var/log/cams/geodata_update.log 2>&1" >> /etc/cron.d/geodata-update \
+# cron starts jobs with an empty environment, so the container's settings
+# (COUNCIL_*, GEOJSON_OUTPUT_DIR) are saved to /app/cron.env at start-up
+# and loaded by each job.
+RUN echo "0 2 * * 0 cd /app && . /app/cron.env && python scripts/update_geodata.py >> /var/log/cams/geodata_update.log 2>&1" > /etc/cron.d/geodata-update \
+    && echo "0 2 * * 3 cd /app && . /app/cron.env && python scripts/update_geodata.py --layer lots >> /var/log/cams/geodata_update.log 2>&1" >> /etc/cron.d/geodata-update \
     && chmod 0644 /etc/cron.d/geodata-update \
     && crontab /etc/cron.d/geodata-update
 
-CMD ["cron", "-f"]
+CMD ["sh", "-c", "export -p | grep -E ' (COUNCIL_|GEOJSON_)' > /app/cron.env; cron -f"]

@@ -55,7 +55,7 @@ services:
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}   # local dev: demo users + sample apps
       CORS_ORIGINS: "http://localhost:3000,http://localhost:3001"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-4-20250514}
+      AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-claude-sonnet-5-5}
       PDF_RENDER_DPI: ${PDF_RENDER_DPI:-200}
       MAX_IMAGE_DIM: ${MAX_IMAGE_DIM:-2048}
       AI_MAX_TOKENS: ${AI_MAX_TOKENS:-16000}   # 4096 truncates site-plan JSON
