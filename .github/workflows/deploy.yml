@@ -1,0 +1,110 @@
+# Deploy CAMS to the test or production VM — started by hand only.
+#
+#   GitHub → Actions → Deploy → Run workflow → pick "test" or "production"
+#
+# It deploys the latest master, and only if CI passed on that exact commit.
+# The job runs on a self-hosted runner installed on each VM (labels
+# "cams-test" / "cams-production"), so no inbound SSH port is needed.
+# If the new version fails its health check, the previous version is
+# rebuilt and restarted. Setup: see DEPLOY-AUTOMATION.md.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [test, production]
+        required: true
+      no_cache:
+        description: Rebuild images from scratch (slower; use after dependency changes if a normal deploy misbehaves)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+# One deploy per environment at a time; never cancel one that's running.
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  check-ci:
+    name: Check CI passed on master
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.ci.outputs.sha }}
+    steps:
+      - id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          sha=$(gh api "repos/$REPO/commits/master" --jq .sha)
+          echo "master is at $sha"
+          ok=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&status=success&per_page=1" --jq '.total_count')
+          if [ "$ok" = "0" ]; then
+            echo "::error::CI has not passed on master ($sha). Wait for CI to finish green, then run Deploy again."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    needs: check-ci
+    runs-on: [self-hosted, "cams-${{ inputs.environment }}"]
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 45
+    env:
+      # Where the repo is cloned on the VM (setup-azure.sh uses /opt/cams).
+      # Override per environment with a "DEPLOY_DIR" environment variable in GitHub.
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/cams' }}
+      TARGET_SHA: ${{ needs.check-ci.outputs.sha }}
+      NO_CACHE: ${{ inputs.no_cache && '--no-cache' || '' }}
+    steps:
+      - name: Update code to the CI-verified commit
+        id: code
+        run: |
+          set -euo pipefail
+          cd "$DEPLOY_DIR"
+          test -f .env || { echo "::error::$DEPLOY_DIR/.env is missing"; exit 1; }
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "::error::$DEPLOY_DIR has local changes to tracked files. Commit or discard them on the server first:"
+            git status --short --untracked-files=no
+            exit 1
+          fi
+          echo "previous=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git fetch --quiet origin master
+          git checkout --quiet master
+          git merge --ff-only --quiet "$TARGET_SHA"
+          echo "Deploying $(git log -1 --format='%h %s')"
+
+      - name: Build, restart and health-check
+        id: deploy
+        run: |
+          cd "$DEPLOY_DIR"
+          ./update.sh --no-pull $NO_CACHE
+
+      - name: Roll back to the previous version
+        if: failure() && steps.deploy.conclusion == 'failure' && steps.code.outputs.previous != ''
+        env:
+          PREVIOUS: ${{ steps.code.outputs.previous }}
+        run: |
+          cd "$DEPLOY_DIR"
+          echo "::warning::Deploy failed health check — rolling back to ${PREVIOUS:0:7}"
+          git checkout --quiet --detach "$PREVIOUS"
+          ./update.sh --no-pull
+          # Leave master checked out so the next deploy starts cleanly; the
+          # running containers stay on the rolled-back build.
+          git checkout --quiet master
+          echo "::error::Rolled back to ${PREVIOUS:0:7}. The new version did not pass its health check; see the step above for logs."
+
+      - name: Summary
+        if: success()
+        run: |
+          cd "$DEPLOY_DIR"
+          echo "### Deployed to ${{ inputs.environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$(git log -1 --format='%h %s')\`" >> "$GITHUB_STEP_SUMMARY"
