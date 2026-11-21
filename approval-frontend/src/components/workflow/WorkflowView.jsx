@@ -61,10 +61,13 @@ function getStepStats(app, assessments = []) {
 }
 
 // ─── Collapsible Section ───────────────────────────────
-function CollapsibleSection({ title, icon, defaultOpen = true, badge, color = "#1a3a4a", children }) {
-  const [open, setOpen] = useState(defaultOpen);
+// Pass `open` + `onOpenChange` to control it from outside (e.g. the left-bar map button).
+function CollapsibleSection({ title, icon, defaultOpen = true, badge, color = "#1a3a4a", children, id, open: openProp, onOpenChange }) {
+  const [openState, setOpenState] = useState(defaultOpen);
+  const open = openProp ?? openState;
+  const setOpen = (v) => { if (onOpenChange) onOpenChange(v); else setOpenState(v); };
   return (
-    <div style={{ marginTop: 12 }}>
+    <div id={id} style={{ marginTop: 12, scrollMarginTop: 12 }}>
       <div role="button" tabIndex={0} aria-expanded={open} onKeyDown={onActivate(() => setOpen(!open))} onClick={() => setOpen(!open)}
         style={{
           display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
@@ -780,7 +783,17 @@ export default function WorkflowView({
   const [georefData, setGeorefData] = useState(null); // {planPts, imgUrl, imgW, imgH}
   const [assessments, setAssessments] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
-  const [showMap, setShowMap] = useState(currentStep === 2 || currentStep === 3);
+  // One map per step: Review and Analyse have their own map section; on Submit
+  // and Decision the left-bar button shows a map below the page instead.
+  const [showMap, setShowMap] = useState(false);          // map below the page (Submit, Decision)
+  const [stepMapOpen, setStepMapOpen] = useState(false);  // "Map View" / "Map Analysis" section
+  const stepHasOwnMap = currentStep === 2 || currentStep === 3;
+  const mapShown = stepHasOwnMap ? stepMapOpen : showMap;
+  const toggleMap = () => {
+    const next = !mapShown;
+    if (stepHasOwnMap) setStepMapOpen(next); else setShowMap(next);
+    if (next) setTimeout(() => document.getElementById(stepHasOwnMap ? "step-map" : "case-map")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -916,12 +929,10 @@ export default function WorkflowView({
           <Stepper currentStep={currentStep} completedUpTo={completedUpTo} onStepClick={setCurrentStep} stepStats={stepStats} />
           {/* Quick actions under stepper */}
           <div style={{ borderTop: `1px solid ${T.c.borderLight}`, marginTop: 8, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
-            {currentStep !== 3 && (
-              <button aria-expanded={showMap} onClick={() => { const next = !showMap; setShowMap(next); if (next) setTimeout(() => document.getElementById("case-map")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }}
-                style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${showMap ? "#185FA5" : "#d5dde2"}`, background: showMap ? "#E6F1FB" : "#fff", color: showMap ? "#185FA5" : "#5a6a74", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
-                🗺️ {showMap ? "Hide map" : "Show map below"}
-              </button>
-            )}
+            <button aria-expanded={mapShown} aria-controls={stepHasOwnMap ? "step-map" : "case-map"} onClick={toggleMap}
+              style={{ padding: "4px 8px", borderRadius: T.r.sm, border: `1px solid ${mapShown ? "#185FA5" : "#d5dde2"}`, background: mapShown ? "#E6F1FB" : "#fff", color: mapShown ? "#185FA5" : "#5a6a74", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
+              🗺️ {mapShown ? "Hide map" : stepHasOwnMap ? "Show map" : "Show map below"}
+            </button>
             {currentUser?.role === "admin" && (
               <button onClick={() => setShowDeleteModal(true)}
                 style={{ padding: "4px 8px", borderRadius: T.r.sm, border: "1px solid #e74c3c40", background: "#fdf0ef", color: "#c0392b", fontSize: 12, fontWeight: T.w.semi, cursor: "pointer", fontFamily: "inherit", width: "100%", textAlign: "left" }}>
@@ -994,7 +1005,7 @@ export default function WorkflowView({
               <StepExtract app={localApp} currentUser={currentUser}
                 onReload={onDocUpdated} measureCorrections={measureCorrections}
                 onMeasureCorrectionsApplied={() => setMeasureCorrections([])} />
-              <CollapsibleSection title="Map View" icon="🗺️" defaultOpen={false} badge="View lot on map" color="#185FA5">
+              <CollapsibleSection id="step-map" title="Map View" icon="🗺️" open={stepMapOpen} onOpenChange={setStepMapOpen} badge="View lot on map" color="#185FA5">
                 <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
                   globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
                   globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
@@ -1015,7 +1026,7 @@ export default function WorkflowView({
           {/* Step 3: Analyse — separate collapsible sections for map and checklist */}
           {currentStep === 3 && (
             <>
-              <CollapsibleSection title="Map Analysis" icon="🗺️" defaultOpen={false} badge="Sight · Measure · Utilities" color="#185FA5">
+              <CollapsibleSection id="step-map" title="Map Analysis" icon="🗺️" open={stepMapOpen} onOpenChange={setStepMapOpen} badge="Sight · Measure · Utilities" color="#185FA5">
                 <StepAssess app={localApp} apps={apps} onSelectApp={onSelectApp}
                   globalSpeedRoads={globalSpeedRoads} globalLotsData={globalLotsData}
                   globalRoadNetwork={globalRoadNetwork} globalContoursData={globalContoursData}
@@ -1064,8 +1075,8 @@ export default function WorkflowView({
         </div>
       </div>
 
-      {/* Collapsible map for non-Assess steps */}
-      {currentStep !== 3 && showMap && (
+      {/* Map below the page — only on steps that don't have their own map section */}
+      {!stepHasOwnMap && showMap && (
         <div id="case-map" style={{ marginTop: 12, scrollMarginTop: 12 }}>
           <MapWithOverlay app={localApp} apps={apps} onSelectApp={onSelectApp}
             speedRoadsData={globalSpeedRoads} lotsData={globalLotsData} roadNetworkData={globalRoadNetwork}
